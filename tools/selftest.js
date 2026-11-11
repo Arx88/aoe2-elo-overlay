@@ -780,10 +780,10 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /rivalOpeningsBlock/.test(renderer));
     check('index.html y styles.css tienen la tarjeta y sus estilos de tema',
       /id="rivalInfo"/.test(html) && /#rivalInfo/.test(css) && /--panel-bg/.test(css));
-    check('configuración: 3 toggles cableados y nota de fuentes',
-      ['rivalCivs', 'rivalFavorites', 'rivalOpenings'].every((key) =>
+    check('configuración: 5 toggles cableados y sin referencias a webs externas',
+      ['civHelp', 'hideEloAt20', 'rivalCivs', 'rivalFavorites', 'rivalOpenings'].every((key) =>
         settingsHtml.includes(`id="${key}"`) && settingsJs.includes(key)) &&
-        /AoE2Insights/.test(settingsHtml));
+        !/AoE2Insights|AoE2 Companion|aoe2insights\.com/.test(settingsHtml));
     check('electron-builder incluye src/**/* (insights.js y rival.js van en el asar)',
       /"src\/\*\*\/\*"/.test(builder));
   }
@@ -1011,17 +1011,16 @@ function fakeLobby(leaderboardId, leaderboardName) {
       ['settings:exampleStart', 'settings:exampleClock', 'settings:exampleStop'].every((ch) => main.includes(ch)));
     check('settings-preload expone los 3 invokes y onExample',
       ['exampleStart:', 'exampleClock:', 'exampleStop:', 'onExample:'].every((k) => settingsPreload.includes(k)));
-    check('la tarjeta tiene campo, Ver test, 3 relojes, meta y Terminar ejemplo',
-      /id="exampleUser"/.test(settingsHtml) && /id="exampleBtn"/.test(settingsHtml) &&
-      /data-clock="3"/.test(settingsHtml) && /data-clock="21"/.test(settingsHtml) &&
-      /data-clock="live"/.test(settingsHtml) && /id="exampleMeta"/.test(settingsHtml) &&
-      /id="exampleStopBtn"/.test(settingsHtml) && /Ver test/.test(settingsHtml));
-    check('la UI avisa que no cambia ningún ajuste y que los datos son reales',
-      /no se cambia ningún ajuste ni tu cuenta/.test(settingsHtml) && /Datos reales/.test(settingsHtml));
-    check('settings.js llama a los 3 IPC, muestra (fijo) y escucha onExample',
-      /window\.settings\.exampleStart\(/.test(settingsJs) && /window\.settings\.exampleClock\(/.test(settingsJs) &&
-      /window\.settings\.exampleStop\(/.test(settingsJs) && /\(fijo\)/.test(settingsJs) &&
-      /window\.settings\.onExample\(/.test(settingsJs));
+    check('panel compacto: 5 pestañas, sin Probar ni botones Atrás/Siguiente',
+      ['player', 'overlay', 'skins', 'comandos', 'updater'].every((p) =>
+        settingsHtml.includes(`data-page="${p}"`)) &&
+        !/id="exampleUser"|Ver test|id="backBtn"|id="nextBtn"/.test(settingsHtml));
+    check('la pestaña Comandos muestra los atajos reales',
+      ['>Ctrl<', '>Alt<', '>E<', '>S<', '>Q<', '>R<', '>Esc<'].every((k) => settingsHtml.includes(k)));
+    check('settings.js navega 5 pestañas y no cablea el ejemplo',
+      ['player', 'overlay', 'skins', 'comandos', 'updater'].every((p) => settingsJs.includes(`'${p}'`)) &&
+        !/window\.settings\.exampleStart/.test(settingsJs) &&
+        !/window\.settings\.onExample/.test(settingsJs));
     check('renderer: badge EJEMPLO, pie con partida real y cuenta regresiva congelada',
       /example-badge/.test(renderer) && /partida real #/.test(renderer) &&
       /civFrozenElapsed/.test(renderer) && /classList\.toggle\('example'/.test(renderer));

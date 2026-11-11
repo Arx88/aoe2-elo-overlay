@@ -28,26 +28,22 @@ const positionInfo = el('positionInfo');
 const civHelpInput = el('civHelp');
 const hideEloInput = el('hideEloAt20');
 const matchClock = el('matchClock');
-const exampleUser = el('exampleUser');
-const exampleBtn = el('exampleBtn');
-const exampleControls = el('exampleControls');
-const exampleClockEl = el('exampleClock');
-const exampleMeta = el('exampleMeta');
-const exampleStopBtn = el('exampleStopBtn');
-const exampleStatusEl = el('exampleStatus');
-const clockButtons = [...exampleClockEl.querySelectorAll('button[data-clock]')];
 const rivalInputs = {
   rivalCivs: el('rivalCivs'),
   rivalFavorites: el('rivalFavorites'),
   rivalOpenings: el('rivalOpenings'),
 };
 const RIVAL_LABELS = {
-  rivalCivs: 'Últimas 5 civis del rival',
+  rivalCivs: 'Últimas 5 civs del rival',
   rivalFavorites: 'Civ y mapa más usados',
   rivalOpenings: 'Aperturas reales',
 };
-
 const themeButtons = [...document.querySelectorAll('.theme')];
+const navButtons = [...document.querySelectorAll('.nav-item')];
+const pageSections = [...document.querySelectorAll('.page')];
+const pagesEl = document.querySelector('.pages');
+const pageTitle = el('pageTitle');
+const pageSub = el('pageSub');
 
 let results = [];
 let activeIndex = -1;
@@ -58,9 +54,6 @@ let opacityTimer = null;
 let lastDiag = null;
 let moving = false;
 let matchStartedAt = null;
-let frozenElapsedMs = null; // reloj congelado del Modo ejemplo
-let exampleInfo = null;
-let exampleBusy = false;
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -71,11 +64,6 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[char]));
-}
-
-function setExampleStatus(message, isError = false) {
-  exampleStatusEl.textContent = message;
-  exampleStatusEl.classList.toggle('error', Boolean(isError));
 }
 
 function paintThemes() {
@@ -99,7 +87,6 @@ function paintOpacity(value) {
 /* ---------- diseño ---------- */
 for (const button of themeButtons) {
   button.addEventListener('click', async () => {
-    // Se pinta esta ventana al toque y después se guarda.
     applyTheme(button.dataset.theme);
     const response = await window.settings.theme(button.dataset.theme);
     if (!response.ok) {
@@ -114,8 +101,6 @@ for (const button of themeButtons) {
 opacityInput.addEventListener('input', () => {
   const value = Number(opacityInput.value) / 100;
   paintOpacity(value);
-
-  // Debounce: mientras arrastrás no se manda una IPC por píxel.
   clearTimeout(opacityTimer);
   opacityTimer = setTimeout(async () => {
     const response = await window.settings.opacity(value);
@@ -153,11 +138,6 @@ function renderDiag(diagnostics) {
 }
 
 function clockText(startedAt) {
-  // En el ejemplo congelado el reloj NO avanza: muestra 0:03 / 0:21 fijos.
-  if (frozenElapsedMs != null) {
-    const fixed = Math.max(0, Math.floor(frozenElapsedMs / 1000));
-    return `${Math.floor(fixed / 60)}:${String(fixed % 60).padStart(2, '0')} (fijo)`;
-  }
   if (!Number.isFinite(startedAt) || startedAt <= 0) return '—';
   const secs = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
@@ -167,17 +147,13 @@ function paintClock() {
   matchClock.textContent = clockText(matchStartedAt);
 }
 
-// El reloj se actualiza solo: main manda el timestamp real una sola vez.
-// En el ejemplo llega además `elapsedMs` fijo para que no siga contando.
 window.settings.onClock((payload) => {
   if (payload && typeof payload === 'object') {
     matchStartedAt = Number.isFinite(payload.startedAt) && payload.startedAt > 0
       ? payload.startedAt
       : null;
-    frozenElapsedMs = Number.isFinite(payload.elapsedMs) ? payload.elapsedMs : null;
   } else {
     matchStartedAt = Number.isFinite(payload) && payload > 0 ? payload : null;
-    frozenElapsedMs = null;
   }
   paintClock();
 });
@@ -189,7 +165,7 @@ setInterval(() => {
 
 logBtn.addEventListener('click', () => window.settings.openLog());
 
-/* ---------- opciones durante la partida ---------- */
+/* ---------- opciones ---------- */
 async function applyToggle(input, invoke, label) {
   const wanted = input.checked;
   const response = await invoke(wanted);
@@ -208,135 +184,11 @@ hideEloInput.addEventListener('change', () =>
   applyToggle(hideEloInput, (on) => window.settings.hideEloAt20(on), 'Ocultar ELO a 0:20'),
 );
 
-/* ---------- informe opcional del rival ---------- */
 for (const [key, input] of Object.entries(rivalInputs)) {
   input.addEventListener('change', () =>
     applyToggle(input, (on) => window.settings.rivalOption(key, on), RIVAL_LABELS[key]),
   );
 }
-
-/* ---------- Modo ejemplo ---------- */
-function exampleDate(timestamp) {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
-  try {
-    return new Date(timestamp).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return '';
-  }
-}
-
-function paintExample() {
-  const active = Boolean(exampleInfo && exampleInfo.active);
-  exampleControls.hidden = !active;
-  exampleStopBtn.disabled = !active || exampleBusy;
-  for (const button of clockButtons) {
-    button.classList.toggle('active', active && button.dataset.clock === String(exampleInfo.clock));
-    button.disabled = !active || exampleBusy;
-  }
-  if (!active) {
-    exampleMeta.replaceChildren();
-    return;
-  }
-
-  const info = exampleInfo;
-  if (!exampleUser.value) exampleUser.value = String(info.profileId || '');
-  const fecha = exampleDate(info.realStartedAt);
-  const estado = info.alreadyFinished ? 'ya terminó · se usa como ejemplo' : 'partida en curso';
-  exampleMeta.innerHTML =
-    `<div><b>${escapeHtml(info.name || 'Perfil')}</b> · #${escapeHtml(info.profileId)}</div>` +
-    `<div>Partida real <b>#${escapeHtml(info.matchId)}</b> · <b>${escapeHtml(info.mapName)}</b> · ` +
-    `${escapeHtml(info.leaderboardName)} · ${escapeHtml(info.players)} jugadores</div>` +
-    `<div>${fecha ? `Jugada el ${escapeHtml(fecha)}` : 'Sin fecha'} · ${escapeHtml(estado)}</div>` +
-    `<div>Reloj de prueba: <b>${escapeHtml(info.clockText)}</b> · ` +
-    `${escapeHtml(info.source || 'datos reales')}</div>`;
-}
-
-async function runExample() {
-  const query = exampleUser.value.trim();
-  if (!query) {
-    setExampleStatus('Escribí un nombre de jugador o un profile ID.', true);
-    exampleUser.focus();
-    return;
-  }
-
-  exampleBusy = true;
-  exampleBtn.disabled = true;
-  exampleBtn.textContent = 'Cargando…';
-  setExampleStatus('Buscando el perfil y su última partida real…');
-  paintExample();
-
-  try {
-    const response = await window.settings.exampleStart(
-      query,
-      exampleInfo ? exampleInfo.clock : '3',
-    );
-    if (!response.ok) {
-      setExampleStatus(response.error || 'No se pudo armar el ejemplo.', true);
-      return;
-    }
-    exampleInfo = response.example;
-    setExampleStatus(
-      `Listo: ${exampleInfo.name} · partida real #${exampleInfo.matchId}. Mirá el panel del juego.`,
-    );
-  } catch (err) {
-    setExampleStatus(`No se pudo armar el ejemplo: ${err.message}`, true);
-  } finally {
-    exampleBusy = false;
-    exampleBtn.disabled = false;
-    exampleBtn.textContent = 'Ver test';
-    paintExample();
-  }
-}
-
-exampleBtn.addEventListener('click', runExample);
-exampleUser.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    runExample();
-  }
-});
-
-for (const button of clockButtons) {
-  button.addEventListener('click', async () => {
-    if (!exampleInfo || exampleBusy) return;
-    exampleBusy = true;
-    paintExample();
-    try {
-      const response = await window.settings.exampleClock(button.dataset.clock);
-      if (!response.ok) {
-        setExampleStatus(response.error || 'No se pudo cambiar el reloj.', true);
-        return;
-      }
-      exampleInfo = response.example;
-      setExampleStatus(`Reloj de ejemplo: ${exampleInfo.clockText}.`);
-    } catch (err) {
-      setExampleStatus(`No se pudo cambiar el reloj: ${err.message}`, true);
-    } finally {
-      exampleBusy = false;
-      paintExample();
-    }
-  });
-}
-
-exampleStopBtn.addEventListener('click', async () => {
-  const response = await window.settings.exampleStop();
-  if (!response.ok) {
-    setExampleStatus(response.error || 'No se pudo terminar el ejemplo.', true);
-    return;
-  }
-  exampleInfo = null;
-  frozenElapsedMs = null;
-  paintExample();
-  setExampleStatus('Ejemplo terminado: el panel volvió a tu partida real.');
-});
-
-// El main avisa también cuando el ejemplo arranca desde la línea de comandos.
-window.settings.onExample((info) => {
-  exampleInfo = info;
-  paintExample();
-  if (info) setExampleStatus(`Ejemplo activo: ${info.name} · partida real #${info.matchId}.`);
-  else setExampleStatus('Ejemplo terminado.');
-});
 
 /* ---------- posición ---------- */
 function paintPosition(info) {
@@ -357,12 +209,10 @@ async function setMoving(on) {
   const response = await window.settings.move(on);
   moving = Boolean(response.moving);
   paintMoveButton();
-
   if (moving) {
     setStatus('Arrastrá el panel a donde quieras y tocá "Listo" (o Esc).');
     return;
   }
-
   setStatus('Posición guardada: el panel queda ahí y no vuelve a moverse.');
   await loadCurrent();
 }
@@ -373,8 +223,6 @@ moveBtn.addEventListener('click', () => setMoving(!moving));
 async function loadCurrent() {
   const info = await window.settings.get();
   configPathEl.textContent = info.configPath || '';
-  // La ruta se trunca con "…" para no romper el pie en dos líneas; el tooltip
-  // conserva el path completo por si hay que abrir la carpeta a mano.
   configPathEl.title = info.configPath || '';
   if (info.version) versionEl.textContent = `v${info.version}`;
 
@@ -385,12 +233,9 @@ async function loadCurrent() {
   civHelpInput.checked = Boolean(info.civHelp);
   hideEloInput.checked = Boolean(info.hideEloAt20);
   for (const [key, input] of Object.entries(rivalInputs)) input.checked = Boolean(info[key]);
-  exampleInfo = info.example || null;
-  paintExample();
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt
     : null;
-  frozenElapsedMs = Number.isFinite(info.exampleClockElapsedMs) ? info.exampleClockElapsedMs : null;
   paintClock();
 
   if (info.profileId) {
@@ -434,12 +279,10 @@ async function choose(profileId) {
   setStatus('Guardando…');
   const response = await window.settings.pick(profileId);
   manualBtn.disabled = false;
-
   if (!response.ok) {
     setStatus(response.error || 'No se pudo guardar el perfil', true);
     return;
   }
-
   setStatus(`Listo: ${response.alias || 'perfil'} (#${response.profileId})`);
   await loadCurrent();
 }
@@ -448,26 +291,22 @@ searchInput.addEventListener('input', () => {
   const query = searchInput.value.trim();
   clearTimeout(searchTimer);
   activeIndex = -1;
-
   if (query.length < 2) {
     results = [];
     renderResults();
     setStatus('');
     return;
   }
-
   const token = ++searchToken;
   searchTimer = setTimeout(async () => {
     const response = await window.settings.search(query);
     if (token !== searchToken) return;
-
     if (!response.ok) {
       results = [];
       renderResults();
       setStatus(response.error || 'No se pudo buscar', true);
       return;
     }
-
     results = response.results;
     activeIndex = results.length ? 0 : -1;
     renderResults();
@@ -509,20 +348,16 @@ autoBtn.addEventListener('click', async () => {
   setStatus('Buscando la cuenta del juego en esta PC…');
   const response = await window.settings.auto();
   autoBtn.disabled = false;
-
   if (!response.ok) {
     setStatus(response.error || 'No se encontró ninguna cuenta', true);
     return;
   }
-
   setStatus(`Detectada: ${response.alias || 'sin alias'} (#${response.profileId})`);
   await loadCurrent();
 });
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
-
-  // Con el modo mover activo, Esc confirma la posición en vez de cerrar.
   if (moving) {
     setMoving(false);
     return;
@@ -530,31 +365,17 @@ document.addEventListener('keydown', (event) => {
   window.settings.close();
 });
 
-paintThemes();
-paintOpacity(0.95);
-loadCurrent();
-
 /* ============================================================
-   Navegación del wizard: solo muestra/oculta secciones existentes.
-   No agrega ni cambia ningún ajuste.
+   Navegación del wizard: solo el rail, sin botones de pie.
    ============================================================ */
-const PAGE_ORDER = ['player', 'overlay', 'skins', 'updater'];
+const PAGE_ORDER = ['player', 'overlay', 'skins', 'comandos', 'updater'];
 const PAGE_META = {
   player: { title: 'Player Detection', sub: 'Detectá y elegí la cuenta que usa el overlay.' },
   overlay: { title: 'Overlay', sub: 'Qué se ve en COLA y al entrar a la partida.' },
   skins: { title: 'Skins', sub: 'Diseño, opacidad y posición del panel.' },
-  updater: { title: 'Updater', sub: 'Mantené la app al día, sin interrumpir una partida.' },
+  comandos: { title: 'Comandos', sub: 'Atajos de teclado para abrir y cerrar.' },
+  updater: { title: 'Updater', sub: 'Mantené la app al día.' },
 };
-
-const navButtons = [...document.querySelectorAll('.nav-item')];
-const pageSections = [...document.querySelectorAll('.page')];
-const pagesEl = document.querySelector('.pages');
-const pageTitle = el('pageTitle');
-const pageSub = el('pageSub');
-const backBtn = el('backBtn');
-const nextBtn = el('nextBtn');
-const skipBtn = el('skipBtn');
-const updateBtn = el('updateBtn');
 
 let activePage = 'player';
 
@@ -565,22 +386,10 @@ function goTo(page) {
   for (const section of pageSections) section.classList.toggle('active', section.dataset.page === page);
   pageTitle.textContent = PAGE_META[page].title;
   pageSub.textContent = PAGE_META[page].sub;
-
-  const index = PAGE_ORDER.indexOf(page);
-  const isUpdater = page === 'updater';
-  backBtn.disabled = index === 0;
-  nextBtn.hidden = isUpdater || index === PAGE_ORDER.length - 1;
-  skipBtn.hidden = !isUpdater;
-  updateBtn.hidden = !isUpdater;
   if (pagesEl) pagesEl.scrollTop = 0;
 }
 
 for (const button of navButtons) button.addEventListener('click', () => goTo(button.dataset.page));
-backBtn.addEventListener('click', () => goTo(PAGE_ORDER[Math.max(0, PAGE_ORDER.indexOf(activePage) - 1)]));
-nextBtn.addEventListener('click', () =>
-  goTo(PAGE_ORDER[Math.min(PAGE_ORDER.length - 1, PAGE_ORDER.indexOf(activePage) + 1)]),
-);
-goTo('player');
 
 /* ============================================================
    Updater: estado real de electron-updater. Nada inventado.
@@ -592,13 +401,14 @@ const updPhase = el('updPhase');
 const updPercent = el('updPercent');
 const updFill = el('updFill');
 const updNotes = el('updNotes');
+const skipBtn = el('skipBtn');
+const updateBtn = el('updateBtn');
 
 let updaterState = null;
 
 function renderUpdater(snapshot) {
   if (!snapshot) return;
   updaterState = snapshot;
-
   updCurrent.textContent = snapshot.current || '—';
   updLatest.textContent = snapshot.latest || '—';
 
@@ -675,5 +485,9 @@ updateBtn.addEventListener('click', async () => {
 skipBtn.addEventListener('click', async () => {
   renderUpdater(await window.settings.updaterSkip());
   setStatus('Omitida por ahora: no se instala al salir en esta sesión.');
-  goTo('skins');
 });
+
+paintThemes();
+paintOpacity(0.95);
+goTo('player');
+loadCurrent();
