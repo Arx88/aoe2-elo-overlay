@@ -571,6 +571,7 @@ const updPercent = el('updPercent');
 const updFill = el('updFill');
 const updNotes = el('updNotes');
 const skipBtn = el('skipBtn');
+const checkBtn = el('checkBtn');
 const updateBtn = el('updateBtn');
 
 let updaterState = null;
@@ -584,9 +585,15 @@ function renderUpdater(snapshot) {
   updLatest.textContent = snapshot.latest || '—';
 
   updPill.classList.remove('muted', 'error');
-  if (snapshot.error) {
+  if (snapshot.publishing) {
+    updPill.textContent = 'Publicándose…';
+    updPill.classList.add('muted');
+  } else if (snapshot.error) {
     updPill.textContent = 'Error de consulta';
     updPill.classList.add('error');
+  } else if (snapshot.skipped) {
+    updPill.textContent = 'Omitida en esta sesión';
+    updPill.classList.add('muted');
   } else if (snapshot.ready) {
     updPill.textContent = 'Lista para instalar';
   } else if (snapshot.available) {
@@ -605,9 +612,11 @@ function renderUpdater(snapshot) {
   updFill.style.setProperty('width', `${percent}%`);
   updPercent.textContent = snapshot.downloading || snapshot.ready ? `${percent}%` : '';
 
-  if (snapshot.error) updPhase.textContent = snapshot.error;
+  if (snapshot.publishing) updPhase.textContent = 'El release se está publicando. Reintento automático en unos minutos.';
+  else if (snapshot.error) updPhase.textContent = snapshot.error;
   else if (!snapshot.active) updPhase.textContent = 'Las actualizaciones se consultan al abrir la app instalada.';
-  else if (snapshot.ready) updPhase.textContent = 'Actualización descargada. Se instala al salir.';
+  else if (snapshot.skipped) updPhase.textContent = 'Omitida: no se instala al salir. Podés buscar una versión más nueva.';
+  else if (snapshot.ready) updPhase.textContent = `v${snapshot.readyVersion || snapshot.latest || ''} descargada. Se instala al salir.`;
   else if (snapshot.downloading) updPhase.textContent = 'Descargando paquete de actualización…';
   else if (snapshot.deferred) updPhase.textContent = 'Consulta pospuesta: hay partida en curso. Se reintenta solo.';
   else if (snapshot.checking) updPhase.textContent = 'Buscando una versión nueva…';
@@ -630,7 +639,9 @@ function renderUpdater(snapshot) {
   }
 
   updateBtn.disabled = !snapshot.active;
-  skipBtn.disabled = !snapshot.active;
+  checkBtn.disabled = !snapshot.active || Boolean(snapshot.checking);
+  skipBtn.disabled = !snapshot.active || Boolean(snapshot.skipped) || !(snapshot.available || snapshot.ready);
+  skipBtn.textContent = snapshot.skipped ? 'Omitida' : 'Omitir';
   updateBtn.textContent = snapshot.ready
     ? 'Actualizar ahora'
     : snapshot.available
@@ -641,10 +652,21 @@ function renderUpdater(snapshot) {
 }
 
 window.settings.onUpdater(renderUpdater);
+window.settings.onGoto((page) => {
+  if (PAGE_ORDER.includes(page)) goTo(page);
+});
 window.settings.updaterGet().then(renderUpdater).catch(() => {});
 
 updateBtn.addEventListener('click', async () => {
   if (!updaterState || !updaterState.active) return;
+  // Nunca instalar una versión vieja si ya se detectó una más nueva.
+  if (updaterState.ready && updaterState.latest && updaterState.readyVersion &&
+      updaterState.latest !== updaterState.readyVersion) {
+    updateBtn.disabled = true;
+    updPhase.textContent = 'Apareció una versión más nueva: actualizo el estado…';
+    renderUpdater(await window.settings.updaterCheck());
+    return;
+  }
   updateBtn.disabled = true;
   if (updaterState.ready) {
     updPhase.textContent = 'Instalando la actualización…';
@@ -661,6 +683,15 @@ updateBtn.addEventListener('click', async () => {
     updPhase.textContent = 'Buscando una versión nueva…';
     renderUpdater(await window.settings.updaterCheck());
   }
+});
+
+// Siempre se puede volver a consultar, incluso con una versión ya descargada:
+// así, si salió otra más nueva, el panel la detecta sin instalar la anterior.
+checkBtn.addEventListener('click', async () => {
+  if (!updaterState || !updaterState.active) return;
+  checkBtn.disabled = true;
+  updPhase.textContent = 'Buscando una versión nueva…';
+  renderUpdater(await window.settings.updaterCheck());
 });
 
 skipBtn.addEventListener('click', async () => {

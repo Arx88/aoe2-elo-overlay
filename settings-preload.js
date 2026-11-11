@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('settings', {
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
   updaterSkip: () => ipcRenderer.invoke('updater:skip'),
   onUpdater: (callback) => ipcRenderer.on('updater:status', (_event, status) => callback(status)),
+  // Click en la notificación de Windows → salta directo a la pestaña Updater.
+  onGoto: (callback) => ipcRenderer.on('settings:goto', (_event, page) => callback(page)),
   minimize: () => ipcRenderer.send('settings:minimize'),
   toggleMaximize: () => ipcRenderer.send('settings:toggle-maximize'),
   onMaximized: (callback) => ipcRenderer.on('settings:maximized', (_event, on) => callback(Boolean(on))),

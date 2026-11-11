@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('overlay', {
   onMovable: (callback) => ipcRenderer.on('overlay:movable', (_event, on) => callback(on)),
   onView: (callback) => ipcRenderer.on('overlay:view', (_event, view) => callback(view)),
   onRival: (callback) => ipcRenderer.on('overlay:rival', (_event, report) => callback(report)),
+  // Aviso de actualización: el overlay es click-through, así que es solo visual.
+  onUpdate: (callback) => ipcRenderer.on('overlay:update', (_event, payload) => callback(payload)),
   moveDone: () => ipcRenderer.send('overlay:move-done'),
   reportHeight: (height) => ipcRenderer.send('overlay:height', height),
   // El renderer avisa cuando ya tiene los listeners puestos: main reenvía el

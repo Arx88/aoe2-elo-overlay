@@ -19,6 +19,15 @@
       </div>
 
       <!--
+        Aviso de actualización: chip temporal, sin botones (el panel es
+        click-through). Se oculta solo y nunca aparece en media partida.
+      -->
+      <section id="updateToast" hidden aria-live="polite">
+        <span class="upd-dot" aria-hidden="true"></span>
+        <span id="updateToastText"></span>
+      </section>
+
+      <!--
         Ayuda de civ: la llena renderer.js con el dataset offline en español.
         El main la muestra a 0:01 y la oculta a 0:20 usando el reloj REAL de
         la partida (raw.started del REST), no un timer desde que se detecta.

@@ -12,14 +12,24 @@
  * ocurre al salir de la app, momento en el que el jugador ya terminó. Si no
  * hay red, simplemente se reintenta solo.
  *
- * Expone un `status` para la sección "Updater" del panel de configuración.
+ * Regla de versiones: tener una versión descargada NO impide volver a buscar.
+ * Si aparece una más nueva, la descarga anterior se descarta y se baja solo la
+ * última. Nunca se instala una versión vieja. Consultas: al arranque, cada 6 h,
+ * y cada 30 min mientras haya una actualización pendiente.
+ *
+ * Expone un `status` para la sección "Updater" del panel de configuración y un
+ * callback `onNotice` para la notificación de Windows y el aviso del overlay.
  * No se requiere `electron` a nivel de módulo: `electron-updater` se carga de
  * forma diferida para que `npm run selftest` (Node plano) siga funcionando.
  */
 
 const DEFAULT_CHECK_MS = 6 * 60 * 60 * 1000;
+const PENDING_RECHECK_MS = 30 * 60 * 1000;
 const TICK_MS = 60 * 1000;
 const START_DELAY_MS = 20 * 1000;
+const MANUAL_CHECK_GAP_MS = 5 * 1000;
+const PUBLISHING_RETRY_MS = 3 * 60 * 1000;
+const DOWNLOAD_RETRY_MS = 400;
 
 function text(value) {
   if (value == null) return '';
@@ -27,6 +37,23 @@ function text(value) {
   if (value instanceof Error) return value.message;
   if (typeof value === 'object' && value.message) return String(value.message);
   return String(value);
+}
+
+/** Compara "0.1.10" > "0.1.9" (comparación numérica por componente). */
+function versionParts(value) {
+  return String(value || '')
+    .split(/[^0-9]+/)
+    .filter(Boolean)
+    .map(Number);
+}
+function compareVersions(a, b) {
+  const left = versionParts(a);
+  const right = versionParts(b);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    const delta = (left[i] || 0) - (right[i] || 0);
+    if (delta) return delta > 0 ? 1 : -1;
+  }
+  return 0;
 }
 
 /** releaseNotes puede venir como string, como array de {version, note} o null. */
@@ -59,11 +86,15 @@ function disabled(app) {
     downloading: false,
     percent: 0,
     ready: false,
+    readyVersion: null,
     skipped: false,
+    skippedVersion: null,
     error: null,
+    publishing: false,
     notes: [],
     checkedAt: null,
     deferred: false,
+    targetVersion: null,
   };
   return {
     active: false,
@@ -85,6 +116,7 @@ function initAutoUpdate(options = {}) {
     isBusy = () => false,
     enabled = true,
     broadcast = () => {},
+    onNotice = () => {},
     checkIntervalMs = DEFAULT_CHECK_MS,
   } = options;
 
@@ -109,6 +141,8 @@ function initAutoUpdate(options = {}) {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Un instalador web no aplica acá: siempre publicamos el NSIS completo.
+  autoUpdater.disableWebInstaller = true;
 
   const status = {
     active: true,
@@ -119,19 +153,35 @@ function initAutoUpdate(options = {}) {
     downloading: false,
     percent: 0,
     ready: false,
+    readyVersion: null,
     skipped: false,
+    skippedVersion: null,
     error: null,
+    publishing: false,
     notes: [],
     checkedAt: null,
     deferred: false,
+    targetVersion: null,
   };
 
   let lastCheck = 0;
+  let lastManualCheck = 0;
   let pendingInfo = null;
   let downloading = false;
   let readyToInstall = false;
   let closed = false;
   let lastBucket = -1;
+  // `generation` invalida los eventos de una descarga vieja cuando aparece
+  // una versión más nueva mientras esa descarga todavía está en vuelo.
+  let generation = 0;
+  let activeGeneration = -1;
+  let activeVersion = null;
+  let skippedVersion = null;
+  let publishingUntil = 0;
+  let wantsNewDownload = false;
+  let checkTimeout = null;
+  let retryTimer = null;
+  let checkingPromise = null;
 
   function emitStatus() {
     const snapshot = { ...status };
@@ -145,6 +195,53 @@ function initAutoUpdate(options = {}) {
     Object.assign(status, changes);
     emitStatus();
   }
+  function notice(kind, version) {
+    try {
+      onNotice({ kind, version, current: app.getVersion(), notes: status.notes.slice() });
+    } catch (err) {
+      say(`no pude avisar: ${text(err)}`);
+    }
+  }
+  function hasPendingVersion() {
+    return Boolean(status.latest && compareVersions(status.latest, app.getVersion()) > 0);
+  }
+  function intervalMs() {
+    if (Date.now() < publishingUntil) return PUBLISHING_RETRY_MS;
+    if (hasPendingVersion()) return Math.min(checkIntervalMs, PENDING_RECHECK_MS);
+    return checkIntervalMs;
+  }
+
+  /** Apareció una versión más nueva: todo lo anterior deja de valer. */
+  function resetForNewVersion(version) {
+    generation += 1;
+    readyToInstall = false;
+    activeVersion = null;
+    skippedVersion = null;
+    wantsNewDownload = true;
+    publishingUntil = 0;
+    autoUpdater.autoInstallOnAppQuit = true;
+    patch({
+      ready: false,
+      readyVersion: null,
+      percent: 0,
+      skipped: false,
+      skippedVersion: null,
+      available: true,
+      latest: version,
+      targetVersion: version,
+      error: null,
+      publishing: false,
+    });
+  }
+
+  function queueDownload() {
+    if (closed || retryTimer) return;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      if (!downloading && !isBusy()) download();
+    }, DOWNLOAD_RETRY_MS);
+    if (typeof retryTimer.unref === 'function') retryTimer.unref();
+  }
 
   autoUpdater.on('checking-for-update', () => {
     say('consultando última versión');
@@ -152,28 +249,45 @@ function initAutoUpdate(options = {}) {
   });
 
   autoUpdater.on('update-available', (info) => {
+    const version = info && info.version;
+    if (!version) return;
     pendingInfo = info || {};
-    say(`disponible v${pendingInfo.version || '?'} (instalada v${app.getVersion()})`);
-    patch({
-      latest: pendingInfo.version || null,
-      available: true,
-      checking: false,
-      checkedAt: Date.now(),
-      notes: notesOf(pendingInfo),
-    });
+    publishingUntil = 0;
+    const known = status.latest;
+    if (!known || compareVersions(version, known) > 0) {
+      say(`disponible v${version} (instalada v${app.getVersion()})`);
+      resetForNewVersion(version);
+      patch({ notes: notesOf(pendingInfo), checking: false, checkedAt: Date.now() });
+      notice('available', version);
+      if (!downloading) queueDownload();
+      else say(`descarga de la versión anterior en curso: se reemplaza al terminar`);
+    } else {
+      // Misma versión (o GitHub reportó una más vieja por carrera de releases):
+      // no reiniciamos nada y conservamos la más nueva ya conocida.
+      say(`sin cambio de versión (v${version})`);
+      patch({ checking: false, checkedAt: Date.now(), error: null, publishing: false });
+    }
   });
 
   autoUpdater.on('update-not-available', (info) => {
+    const reported = (info && info.version) || app.getVersion();
+    const keepNewer = Boolean(status.latest && compareVersions(status.latest, reported) > 0);
+    publishingUntil = 0;
     say('ya estás en la última versión');
     patch({
-      latest: (info && info.version) || app.getVersion(),
-      available: false,
+      latest: keepNewer ? status.latest : reported,
+      available: keepNewer || readyToInstall,
       checking: false,
       checkedAt: Date.now(),
+      error: null,
+      publishing: false,
+      deferred: false,
     });
+    if (!keepNewer && !readyToInstall) notice('up-to-date', reported);
   });
 
   autoUpdater.on('download-progress', (progress) => {
+    if (activeGeneration !== generation) return;
     const percent = Math.max(0, Math.min(100, Number(progress && progress.percent) || 0));
     patch({ percent, downloading: true });
     const bucket = Math.floor(percent / 25);
@@ -184,26 +298,67 @@ function initAutoUpdate(options = {}) {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    readyToInstall = true;
+    const version = (info && info.version) || activeVersion || status.latest;
     downloading = false;
+    const stale =
+      activeGeneration !== generation ||
+      Boolean(status.latest && version && compareVersions(status.latest, version) > 0);
+    if (stale) {
+      say(`descarga de v${version || '?'} descartada: ya está v${status.latest || '?'}`);
+      patch({ downloading: false, percent: 0 });
+      wantsNewDownload = true;
+      queueDownload();
+      return;
+    }
+    readyToInstall = true;
     pendingInfo = null;
-    say(`v${(info && info.version) || '?'} descargada · se instala al salir, sin cortar la partida`);
+    wantsNewDownload = false;
+    skippedVersion = null;
+    say(`v${version || '?'} descargada · se instala al salir, sin cortar la partida`);
     patch({
       ready: true,
+      readyVersion: version || null,
       downloading: false,
       percent: 100,
-      latest: (info && info.version) || status.latest,
+      latest: version || status.latest,
+      available: true,
+      skipped: false,
+      skippedVersion: null,
+      targetVersion: version || null,
+      publishing: false,
     });
+    notice('ready', version || status.latest);
   });
 
   autoUpdater.on('error', (err) => {
-    downloading = false;
     const message = text(err);
+    const staleDownload = downloading && activeGeneration !== generation;
+    downloading = false;
+    if (staleDownload) {
+      say(`descarga anterior falló, se ignora: ${message}`);
+      patch({ downloading: false, percent: 0 });
+      wantsNewDownload = true;
+      queueDownload();
+      return;
+    }
+    // GitHub marca el tag como "latest" antes de que CI suba latest.yml.
+    // No es un error del usuario: reintentamos en unos minutos y sin cartel rojo.
+    const publishing = /latest\.yml|ERR_UPDATER_CHANNEL_FILE_NOT_FOUND|404/i.test(message);
+    if (publishing) {
+      publishingUntil = Date.now() + 10 * 60 * 1000;
+      say(`el release se está publicando todavía: reintento en ${PUBLISHING_RETRY_MS / 60000} min`);
+      patch({
+        checking: false,
+        downloading: false,
+        error: null,
+        publishing: true,
+      });
+      return;
+    }
     say(`falló: ${message} · se reintenta solo`);
-    patch({ checking: false, downloading: false, error: message });
+    patch({ checking: false, downloading: false, error: message, publishing: false });
   });
 
-  let checkTimeout = null;
   function clearCheckTimeout() {
     if (checkTimeout) {
       clearTimeout(checkTimeout);
@@ -215,14 +370,25 @@ function initAutoUpdate(options = {}) {
    * Devuelve una promesa que se resuelve con el resultado FINAL de la consulta.
    * Es clave: el IPC `updater:check` la espera, así el panel nunca recibe un
    * estado intermedio con `checking: true` que quede colgado en pantalla.
+   *
+   * A diferencia de la versión anterior, NO se bloquea por tener una descarga
+   * lista: ese era el bug que impedía ver una versión nueva sin instalar la
+   * anterior. electron-updater deduplica las consultas concurrentes por su
+   * cuenta, así que reconsultar durante una descarga es seguro.
    */
   function check(reason = 'automática') {
-    if (closed || readyToInstall || downloading) return Promise.resolve(null);
+    if (closed || checkingPromise) return Promise.resolve(checkingPromise);
     if (isBusy()) {
       say(`consulta pospuesta: hay partida en curso (${reason})`);
       patch({ checking: false, deferred: true });
       return Promise.resolve(null);
     }
+    const manual = reason.includes('manual');
+    if (manual && Date.now() - lastManualCheck < MANUAL_CHECK_GAP_MS) {
+      say('consulta manual ignorada: demasiado seguida');
+      return Promise.resolve(null);
+    }
+    if (manual) lastManualCheck = Date.now();
 
     lastCheck = Date.now();
     patch({ checking: true, error: null, deferred: false });
@@ -237,7 +403,7 @@ function initAutoUpdate(options = {}) {
     }, 30000);
     if (typeof checkTimeout.unref === 'function') checkTimeout.unref();
 
-    return Promise.resolve(autoUpdater.checkForUpdates())
+    checkingPromise = Promise.resolve(autoUpdater.checkForUpdates())
       .then((result) => {
         clearCheckTimeout();
         // update-available / update-not-available ya dejaron el estado
@@ -251,39 +417,72 @@ function initAutoUpdate(options = {}) {
         say(`consulta falló: ${text(err)} · se reintenta solo`);
         patch({ checking: false, error: text(err) });
         return null;
+      })
+      .finally(() => {
+        checkingPromise = null;
       });
+    return checkingPromise;
   }
 
   function download() {
-    if (closed || readyToInstall || downloading || !pendingInfo || isBusy()) return;
+    if (closed || downloading || readyToInstall || isBusy()) return;
+    const version = status.latest;
+    if (!version || !pendingInfo || !hasPendingVersion()) return;
+    if (skippedVersion === version) return;
+
+    const myGeneration = generation;
+    activeGeneration = myGeneration;
+    activeVersion = version;
     downloading = true;
-    patch({ downloading: true, percent: 0, error: null });
-    say(`descargando v${pendingInfo.version || '?'}`);
-    Promise.resolve(autoUpdater.downloadUpdate()).catch((err) => {
-      downloading = false;
-      say(`descarga falló: ${text(err)} · se reintenta solo`);
-      patch({ downloading: false, error: text(err) });
-    });
+    wantsNewDownload = false;
+    lastBucket = -1;
+    patch({ downloading: true, percent: 0, error: null, targetVersion: version });
+    say(`descargando v${version}`);
+
+    Promise.resolve(autoUpdater.downloadUpdate())
+      .catch((err) => {
+        if (activeGeneration !== myGeneration) return;
+        downloading = false;
+        say(`descarga falló: ${text(err)} · se reintenta solo`);
+        patch({ downloading: false, error: text(err) });
+      })
+      .finally(() => {
+        if (activeGeneration === myGeneration) downloading = false;
+        // Si mientras descargábamos apareció una versión más nueva, el evento
+        // viejo se descartó y acá arranca la descarga correcta.
+        if (wantsNewDownload || (hasPendingVersion() && !readyToInstall && !downloading)) {
+          queueDownload();
+        }
+      });
   }
 
   function install() {
     if (!readyToInstall) return;
+    if (status.latest && status.readyVersion && compareVersions(status.latest, status.readyVersion) > 0) {
+      say('hay una versión más nueva: no instalo la vieja');
+      queueDownload();
+      return;
+    }
     say('instalando a pedido del usuario');
+    autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.quitAndInstall(false, true);
   }
 
   function skip() {
-    status.skipped = true;
+    const version = status.readyVersion || status.latest;
+    if (!version) return;
+    skippedVersion = version;
     autoUpdater.autoInstallOnAppQuit = false;
-    say('omitida por el usuario: no se instala al salir en esta sesión');
-    emitStatus();
+    say(`v${version} omitida: no se instala al salir en esta sesión`);
+    patch({ skipped: true, skippedVersion: version });
   }
 
   const startTimer = setTimeout(() => check('arranque'), START_DELAY_MS);
   const tickTimer = setInterval(() => {
-    if (closed || readyToInstall || isBusy()) return;
-    if (pendingInfo && !downloading) download();
-    if (!pendingInfo && Date.now() - lastCheck >= checkIntervalMs) check('periódica');
+    if (closed || isBusy()) return;
+    if (wantsNewDownload && !downloading) queueDownload();
+    else if (pendingInfo && !downloading && !readyToInstall && skippedVersion !== status.latest) download();
+    if (Date.now() - lastCheck >= intervalMs()) check('periódica');
   }, TICK_MS);
 
   if (typeof startTimer.unref === 'function') startTimer.unref();
@@ -305,8 +504,10 @@ function initAutoUpdate(options = {}) {
       closed = true;
       clearTimeout(startTimer);
       clearInterval(tickTimer);
+      clearCheckTimeout();
+      clearTimeout(retryTimer);
     },
   };
 }
 
-module.exports = { initAutoUpdate };
+module.exports = { initAutoUpdate, compareVersions };

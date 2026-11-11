@@ -470,7 +470,15 @@ En ambos casos `.github/workflows/release.yml` compila en `windows-latest` y pub
 
 **Cambios que no tocan el binario** (README, `tools/`, capturas): `git commit && git push` **sin tag**. Así no se genera un Release ni los usuarios bajan 117 MB por un cambio de documentación.
 
-**Regla de producto:** `src/updater.js` nunca consulta ni descarga mientras `lastGood.status === 'ongoing'`. Un overlay de AoE2 no debe comerse el ancho de banda ni reiniciarse en media partida. Consulta al arranque (20 s) y cada 6 h; si hay partida, pospone y reintenta solo. Desde la bandeja, **Buscar actualizaciones…** fuerza una consulta manual.
+**Regla de producto:** `src/updater.js` nunca consulta ni descarga mientras `lastGood.status === 'ongoing'`. Un overlay de AoE2 no debe comerse el ancho de banda ni reiniciarse en media partida. Consulta al arranque (20 s), cada 6 h y **cada 30 min mientras haya una versión pendiente**; si hay partida, pospone y reintenta solo. Desde la bandeja (**Buscar actualizaciones…**) o el botón **Buscar de nuevo** del panel se fuerza una consulta manual, incluso con una versión ya descargada.
+
+### Avisos y versiones múltiples
+
+Al entrar, si hay una versión nueva aparece una **notificación nativa de Windows** (y otra cuando termina la descarga). Tocarla abre la configuración ya en la pestaña **Updater**. Al mismo tiempo se muestra un **chip chico en el overlay** durante 12 s: es solo informativo, porque el panel es *click-through* y no puede tener botones. Si hay una partida en curso, ambos avisos se posponen y se muestran al terminar.
+
+**Ya no hace falta instalar una versión intermedia.** Antes, tener la v1.6 descargada bloqueaba cualquier consulta y la v1.7 quedaba invisible hasta reiniciar. Ahora `check()` siempre está permitido, las versiones se comparan entre sí y, si aparece una más nueva, la descarga anterior se descarta y se baja solo la última; jamás se instala una versión vieja. El botón **Omitir** aplica solo a esa versión y se limpia automáticamente cuando sale otra.
+
+**Ventana de publicación:** GitHub marca el tag como `latest` antes de que CI termine de subir `latest.yml` (~4 min). En ese intervalo el updater muestra *«Publicándose…»* y reintenta cada 3 min, sin cartel de error. El workflow verifica al final que `latest.yml` quedó publicado.
 
 **Puesta en marcha (una sola vez):**
 

@@ -1418,11 +1418,68 @@ body.elo-hidden #rivalInfo {
   padding: 0.18rem 0;
 }
 
+/* =====================================================================
+   Aviso de actualización: chip chico, sin botones, con las variables del
+   tema activo (funciona en los 11 diseños, incluidos los claros).
+   Va dentro de #stage para que reportHeight() agrande la ventana sola.
+   ===================================================================== */
+#updateToast {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0.32rem 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  color: var(--text);
+  text-shadow: var(--text-halo);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  animation: toast-in 0.24s ease-out both;
+}
+
+#updateToast .upd-dot {
+  flex: 0 0 auto;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(217, 178, 106, 0.22);
+}
+
+#updateToast #updateToastText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Con el ELO oculto (o en partida) el aviso no estorba. */
+body.elo-hidden #updateToast {
+  display: none !important;
+}
+
 /* Accesibilidad: quien pide menos movimiento ve el panel quieto. */
 @media (prefers-reduced-motion: reduce) {
   #panel,
   #civHelp,
   #rivalInfo,
+  #updateToast,
   .row,
   .civhelp-civ,
   .rival-card,

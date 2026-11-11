@@ -1327,6 +1327,46 @@ function fakeLobby(leaderboardId, leaderboardName) {
       !/setStatus\('Buscando actualizaciones/.test(settingsJsSrc) &&
         /startsWith\('Buscando actualizaciones'\)/.test(settingsJsSrc) &&
         /snapshot\.deferred/.test(settingsJsSrc));
+
+    // --- Regresión del canal de actualizaciones (v0.1.11) ---
+    const preloadSrc = read('preload.js');
+    const settingsPreloadSrc2 = read('settings-preload.js');
+    const overlayHtmlSrc = read('index.html');
+    const stylesSrc = read('styles.css');
+    const workflowSrc = read('.github/workflows/release.yml');
+    check('updater: check() ya no se bloquea por una descarga lista',
+      !/if \(closed \|\| readyToInstall \|\| downloading\) return/.test(updaterSrc) &&
+        /if \(closed \|\| checkingPromise\) return/.test(updaterSrc));
+    check('updater: compara versiones y descarta descargas obsoletas',
+      /compareVersions\(/.test(updaterSrc) &&
+        /activeGeneration !== generation/.test(updaterSrc) &&
+        /resetForNewVersion/.test(updaterSrc) &&
+        /descarga de v/.test(updaterSrc));
+    check('updater: reconsulta más seguido con una versión pendiente',
+      /PENDING_RECHECK_MS/.test(updaterSrc) && /hasPendingVersion\(\)/.test(updaterSrc));
+    check('updater: el 404 de latest.yml no se muestra como error',
+      /publishing: true/.test(updaterSrc) && /PUBLISHING_RETRY_MS/.test(updaterSrc));
+    check('notificación nativa y salto directo a Updater',
+      /Notification\.isSupported\(\)/.test(mainSrc) &&
+        /app\.setAppUserModelId\('com\.local\.aoe2elooverlay'\)/.test(mainSrc) &&
+        /settings:goto/.test(mainSrc) &&
+        /onGoto:/.test(settingsPreloadSrc2) &&
+        /onGoto\(/.test(settingsJsSrc));
+    check('el aviso se pospone si hay partida en curso',
+      /deferredUpdateNotice/.test(mainSrc) && /matchOngoing\(\)/.test(mainSrc));
+    check('overlay: canal, chip, auto-ocultado y silencio en partida',
+      /onUpdate:/.test(preloadSrc) &&
+        /window\.overlay\.onUpdate\(showUpdateToast\)/.test(rendererSrc) &&
+        /id="updateToast"/.test(overlayHtmlSrc) &&
+        /#updateToast \{/.test(stylesSrc) &&
+        /UPDATE_TOAST_MS/.test(rendererSrc) &&
+        /status === 'ongoing'\) hideUpdateToast\(\)/.test(rendererSrc));
+    check('panel Updater: siempre se puede volver a buscar',
+      /id="checkBtn"/.test(settingsHtmlSrc) &&
+        /checkBtn\.addEventListener\('click'/.test(settingsJsSrc) &&
+        /updaterCheck\(\)/.test(settingsJsSrc));
+    check('CI: sin versión hardcodeada y con verificación del canal',
+      !/gh release edit v0\.1\.9/.test(workflowSrc) && /latest\.yml/.test(workflowSrc));
   }
 
   console.log(`\n${failures === 0 ? 'TODO OK' : `${failures} chequeo(s) fallaron`}`);

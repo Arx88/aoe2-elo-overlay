@@ -9,6 +9,7 @@ const {
   shell,
   Menu,
   Tray,
+  Notification,
   nativeImage,
 } = require('electron');
 const fs = require('node:fs');
@@ -46,6 +47,14 @@ const LOG_PATH = path.join(DATA_DIR, 'overlay.log');
 // Emblema dorado (recortado y normalizado por tools/make-icon.py) es el icono oficial:
 // ventanas, bandeja, configuración, exe y accesos directos usan el mismo arte.
 const ICON_PNG = path.join(__dirname, 'assets', 'app-icon.png');
+
+// Sin esto las notificaciones nativas de Windows pueden no aparecer (o salir
+// con un nombre genérico). Tiene que coincidir con appId de electron-builder.
+try {
+  app.setAppUserModelId('com.local.aoe2elooverlay');
+} catch (err) {
+  console.error(`no pude fijar el AppUserModelID: ${err.message}`);
+}
 
 const DEFAULT_CONFIG = {
   profileId: null,
@@ -268,6 +277,10 @@ let lastPollStatus = 'iniciando';
 let lastSent = '';
 let lastGood = null;
 let updater = null; // actualizaciones automáticas (null en desarrollo / demos)
+// Aviso de actualización: se muestra al entrar, nunca en mitad de una partida.
+const UPDATE_TOAST_MS = 12 * 1000;
+let updateToast = null; // { payload, until }
+let deferredUpdateNotice = null;
 let heightLogged = false;
 let moving = false;
 let moveSaveTimer = null;
@@ -725,6 +738,69 @@ function createTray() {
     log('icono de la bandeja listo: la app sigue viva aunque cierres las ventanas');
   } catch (err) {
     log(`no pude crear el icono de la bandeja: ${err.message}`);
+  }
+}
+
+function matchOngoing() {
+  return Boolean(lastGood && lastGood.status === 'ongoing');
+}
+
+/**
+ * Una actualización nueva se anuncia de dos formas, sin estorbar al juego:
+ *  - notificación nativa de Windows (clickeable → panel Updater);
+ *  - chip temporal en el overlay (solo visual: el panel es click-through).
+ * Si hay partida en curso se pospone y el latido lo muestra al terminar.
+ */
+function showUpdateNotice(notice) {
+  if (!notice || !notice.version) return;
+  if (notice.kind === 'up-to-date') {
+    updateToast = null;
+    send('overlay:update', { visible: false });
+    return;
+  }
+  if (matchOngoing()) {
+    deferredUpdateNotice = notice;
+    log(`update · aviso pospuesto: hay partida en curso (v${notice.version})`);
+    return;
+  }
+
+  const payload = {
+    visible: true,
+    kind: notice.kind,
+    version: notice.version,
+    current: notice.current,
+  };
+  updateToast = { payload, until: Date.now() + UPDATE_TOAST_MS };
+  send('overlay:update', payload);
+
+  try {
+    if (!Notification.isSupported()) {
+      log('update · las notificaciones nativas no están disponibles en este Windows');
+      return;
+    }
+    const title = notice.kind === 'ready'
+      ? `Actualización v${notice.version} lista`
+      : `Actualización v${notice.version} disponible`;
+    const body = notice.kind === 'ready'
+      ? 'Se instala al salir, sin cortar la partida. Tocá para abrir Updater.'
+      : 'Hay una versión nueva. Tocá para abrir Updater.';
+    const toast = new Notification({ title, body, icon: ICON_PNG });
+    toast.on('click', () => {
+      openSettings();
+      const jump = () => {
+        if (settingsWin && !settingsWin.isDestroyed()) {
+          settingsWin.webContents.send('settings:goto', 'updater');
+        }
+      };
+      jump();
+      // Si la ventana recién se está creando, el renderer todavía no registró
+      // el listener: reenviamos cuando ya cargó. goTo() es idempotente.
+      setTimeout(jump, 700);
+    });
+    toast.show();
+    log(`update · notificación: ${title}`);
+  } catch (err) {
+    log(`update · no pude mostrar la notificación: ${err.message}`);
   }
 }
 
@@ -1680,6 +1756,15 @@ function registerIpc() {
     // Y también el informe del rival que ya estaba calculado.
     if (rivalReports) send('overlay:rival', rivalReports);
 
+    // Si el renderer se recargó mientras el chip de actualización estaba
+    // vigente, lo repintamos (se apaga solo por su propio timer).
+    if (updateToast && updateToast.until > Date.now() && !matchOngoing()) {
+      send('overlay:update', updateToast.payload);
+    } else {
+      updateToast = null;
+      send('overlay:update', { visible: false });
+    }
+
     // CLI --example: recién acá el renderer puede recibir el estado.
     if (pendingExample) {
       const pending = pendingExample;
@@ -2095,7 +2180,8 @@ if (!gotLock) {
       app,
       log,
       enabled: !DEV_SESSION,
-      isBusy: () => Boolean(lastGood && lastGood.status === 'ongoing'),
+      isBusy: matchOngoing,
+      onNotice: showUpdateNotice,
       broadcast: (snapshot) => {
         if (settingsWin && !settingsWin.isDestroyed()) {
           settingsWin.webContents.send('updater:status', snapshot);
@@ -2107,6 +2193,13 @@ if (!gotLock) {
     // aparece "proceso terminado", el proceso fue matado desde afuera (launcher,
     // reinstalación, kill) y no fue un error del overlay.
     heartbeatTimer = setInterval(() => {
+      // Aviso de actualización que llegó durante una partida: se muestra
+      // apenas el jugador termina, sin interrumpirlo.
+      if (deferredUpdateNotice && !matchOngoing()) {
+        const pending = deferredUpdateNotice;
+        deferredUpdateNotice = null;
+        showUpdateNotice(pending);
+      }
       log(
         `latido · uptime=${Math.round((Date.now() - bootedAt) / 1000)}s · ` +
           `panel=${win && !win.isDestroyed() ? (win.isVisible() ? 'visible' : 'oculto') : 'sin ventana'} · ` +

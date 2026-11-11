@@ -12,6 +12,47 @@ const civHelpBar = document.getElementById('civhelpBar');
 const rivalInfoEl = document.getElementById('rivalInfo');
 const rivalGrid = document.getElementById('rivalGrid');
 const rivalSource = document.getElementById('rivalSource');
+const updateToastEl = document.getElementById('updateToast');
+const updateToastText = document.getElementById('updateToastText');
+
+/* ============================================================
+   Aviso de actualización
+   El overlay es click-through y no recibe foco: el chip es SOLO
+   informativo. Se auto-oculta y desaparece en cuanto empieza una
+   partida, para no tapar el juego ni el ELO.
+   ============================================================ */
+const UPDATE_TOAST_MS = 12000;
+let updateToastTimer = null;
+
+function hideUpdateToast() {
+  if (updateToastTimer) {
+    clearTimeout(updateToastTimer);
+    updateToastTimer = null;
+  }
+  if (!updateToastEl || updateToastEl.hidden) return;
+  updateToastEl.hidden = true;
+  requestAnimationFrame(reportHeight);
+}
+
+function showUpdateToast(payload) {
+  if (!updateToastEl || !updateToastText) return;
+  if (!payload || payload.visible === false) {
+    hideUpdateToast();
+    return;
+  }
+  if (lastState && lastState.status === 'ongoing') {
+    hideUpdateToast();
+    return;
+  }
+  const version = payload.version || '';
+  updateToastText.textContent = payload.kind === 'ready'
+    ? `Actualización v${version} lista · se instala al salir`
+    : `Actualización v${version} disponible · abrí Updater en la configuración`;
+  updateToastEl.hidden = false;
+  requestAnimationFrame(reportHeight);
+  if (updateToastTimer) clearTimeout(updateToastTimer);
+  updateToastTimer = setTimeout(hideUpdateToast, UPDATE_TOAST_MS);
+}
 
 const TEAM_COLORS = {
   1: '#3d7bff',
@@ -501,6 +542,7 @@ function applyView(payload) {
   };
   panel.classList.toggle('elo-hidden', civView.eloHidden);
   document.body.classList.toggle('elo-hidden', civView.eloHidden);
+  if (civView.eloHidden) hideUpdateToast();
 
   const now = Date.now();
   civFrozenElapsed = Number.isFinite(next.frozenElapsedMs)
@@ -649,6 +691,8 @@ function renderRows(state) {
 
 function render(state) {
   lastState = state;
+  // En media partida no mostramos ningún aviso de actualización.
+  if (state && state.status === 'ongoing') hideUpdateToast();
   try {
     renderRows(state);
   } catch (err) {
@@ -712,6 +756,7 @@ window.overlay.onConfig((config) => {
 });
 
 window.overlay.onState(render);
+window.overlay.onUpdate(showUpdateToast);
 window.overlay.onMovable(setMoving);
 if (window.overlay.onView) window.overlay.onView(applyView);
 if (window.overlay.onRival) {
