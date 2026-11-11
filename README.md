@@ -456,7 +456,14 @@ El icono se regenera con `python tools/make-icon.py` desde `assets/app-icon-sour
 
 La app instalada consulta **GitHub Releases** y se actualiza sola. No hay backend, ni servidor propio, ni suscripción: los runners estándar de GitHub Actions son gratis en repositorios públicos.
 
-**Cómo funciona el día a día:** guardás un archivo → `tools/auto-publish.js` agrupa los cambios, sube la versión `patch`, hace commit, crea el tag `vX.Y.Z` y pushea → `.github/workflows/release.yml` compila en `windows-latest` y publica `latest.yml` + `AoE2 ELO Overlay Setup X.Y.Z.exe` + `.blockmap` → las apps de los jugadores descargan el delta y lo instalan en silencio al salir. Vos no ejecutás ningún comando.
+**Dos formas de publicar un cambio** (el resultado es idéntico):
+
+- **El cambio lo hace el asistente:** al terminar la tarea ejecuta `npm run publish:once`, que agrupa los cambios, sube la versión `patch`, hace commit, crea el tag `vX.Y.Z` y pushea. **No hace falta watcher ni autostart.** Es el camino habitual.
+- **Alguien edita archivos sin pasar por el asistente:** `tools/auto-publish.js` vigila la carpeta y hace lo mismo solo. Para que siga vivo tras reiniciar la PC se registra con `npm run autostart` (**opcional**).
+
+En ambos casos `.github/workflows/release.yml` compila en `windows-latest` y publica `latest.yml` + `AoE2 ELO Overlay Setup X.Y.Z.exe` + `.blockmap`. Las apps de los jugadores descargan el delta y lo instalan en silencio al salir; los usuarios nunca hacen nada.
+
+**Cambios que no tocan el binario** (README, `tools/`, capturas): `git commit && git push` **sin tag**. Así no se genera un Release ni los usuarios bajan 117 MB por un cambio de documentación.
 
 **Regla de producto:** `src/updater.js` nunca consulta ni descarga mientras `lastGood.status === 'ongoing'`. Un overlay de AoE2 no debe comerse el ancho de banda ni reiniciarse en media partida. Consulta al arranque (20 s) y cada 6 h; si hay partida, pospone y reintenta solo. Desde la bandeja, **Buscar actualizaciones…** fuerza una consulta manual.
 
@@ -468,20 +475,21 @@ La app instalada consulta **GitHub Releases** y se actualiza sola. No hay backen
 "/c/Program Files/nodejs/npm" run setup:updates -- <usuario>/<repo> --ssh
 # 3. Primer push; el tag dispara el primer Release automático:
 git push -u origin main --tags
-# 4. Para que el watcher arranque solo al iniciar sesión:
-"/c/Program Files/nodejs/npm" run autostart
 ```
+
+No hay paso 4 obligatorio. `npm run autostart` queda como **opción**: solo sirve si vas a editar archivos por tu cuenta y querés que se publiquen sin intervención. Si los cambios los pide el asistente, no hace falta instalarlo.
 
 `--ssh` deja el remote como `git@github.com:<usuario>/<repo>.git` y la autenticación en una **clave de despliegue con permisos de escritura** de `~/.ssh`, con permisos mínimos y fuera del repo. Nunca se escribe un token en `package.json`, en `electron-builder.json` ni en `.git/config`. Si el repo es privado, los Releases no se pueden descargar sin autenticación: usá `provider: generic` sobre un hosting estático.
 
-**La única vez que los usuarios hacen algo:** quien tenga instalada la **v0.1.0** debe instalar la v0.1.1 a mano, porque esa versión no trae el updater. Desde ahí, cero intervención. El `.exe` **portable no se auto-actualiza**: distribuí siempre el instalador NSIS.
+**La única vez que los usuarios hacen algo:** quien tenga instalada la **v0.1.0** debe instalar la v0.1.2 a mano, porque esa versión no trae el updater. Desde ahí, cero intervención. El `.exe` **portable no se auto-actualiza**: distribuí siempre el instalador NSIS.
 
 **Comandos útiles:**
 
 | Comando | Qué hace |
 |---|---|
-| `npm run watch:publish` | Vigila la carpeta y publica al guardar (lo que instala `autostart`) |
-| `npm run publish:once` | Un ciclo y sale |
+| `npm run publish:once` | Un ciclo y sale: lo que ejecuta el asistente al cerrar un cambio |
+| `git commit && git push` | Solo documentación: sin tag, sin Release |
+| `npm run watch:publish` | Vigila la carpeta y publica al guardar (opcional, para ediciones manuales) |
 | `node tools/auto-publish.js --once --dry-run` | Simula sin tocar nada |
 | `npm run autostart -- --remove` | Desactiva el arranque automático |
 | `npm run release` | Build + publicación manual (usa `GH_TOKEN`) |
