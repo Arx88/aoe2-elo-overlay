@@ -8,6 +8,26 @@
     <link rel="stylesheet" href="settings.css" />
   </head>
   <body>
+    <header class="winbar">
+      <div class="winbar-brand">
+        <img class="winbar-mark" src="assets/app-icon.png" alt="" draggable="false" />
+        <span class="winbar-title">Aoe2 Helper</span>
+        <span class="winbar-sub">by Acido</span>
+      </div>
+      <div class="winbar-controls">
+        <button id="winMin" class="winbtn" type="button" aria-label="Minimizar" title="Minimizar">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6h7" /></svg>
+        </button>
+        <button id="winMax" class="winbtn" type="button" aria-label="Maximizar" title="Maximizar">
+          <svg class="max-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7" rx="0.7" /></svg>
+          <svg class="restore-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="3.5" width="6.5" height="6.5" rx="0.7" /><path d="M4 3.5V2.5h5.5V8" /></svg>
+        </button>
+        <button id="winClose" class="winbtn close" type="button" aria-label="Cerrar" title="Cerrar">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>
+        </button>
+      </div>
+    </header>
+
     <div class="shell">
       <aside class="rail">
         <div class="rail-brand">
@@ -98,27 +118,33 @@
 
           <!-- ============ OVERLAY ============ -->
           <section class="page" data-page="overlay">
-            <div class="group-head"><span>Al entrar · 0:01 – 0:20</span><i></i><em>2</em></div>
+            <div class="group-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><i></i><em>2</em></div>
             <div class="block">
-              <label class="row tog" for="civHelp" title="Tarjeta clara con los escudos de ambas civilizaciones y un resumen corto de bonos, unidades y debilidades. Aparece a 0:01 y se oculta a 0:20.">
+              <label class="row tog" for="civHelp" title="Tarjeta clara con los escudos de ambas civilizaciones y un resumen corto de bonos, unidades y debilidades. Aparece a 0:01 y se oculta al tiempo elegido.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.2 7.6 8 9 4.8-1.4 8-4.5 8-9V6l-8-3Z"/><path d="M12 3v18"/></svg></span>
                 <span class="tcopy">
                   <span class="rname">Ayuda de civ</span>
-                  <span class="rdesc">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
+                  <span class="rdesc" id="civHelpDesc">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
                 </span>
                 <input id="civHelp" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="hideEloAt20" title="El ELO sigue visible al empezar y se oculta a 0:20 para no molestar en el juego. Vuelve a aparecer cuando termina la partida.">
+              <label class="row tog" for="hideEloAt20" title="El ELO sigue visible al empezar y se oculta al tiempo elegido para no molestar en el juego. Vuelve a aparecer cuando termina la partida.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg></span>
                 <span class="tcopy">
-                  <span class="rname">Ocultar ELO a 0:20</span>
-                  <span class="rdesc">Se oculta a 0:20 para no molestar · vuelve al terminar</span>
+                  <span class="rname" id="hideEloName">Ocultar ELO a 0:20</span>
+                  <span class="rdesc" id="hideEloDesc">Se oculta a 0:20 para no molestar · vuelve al terminar</span>
                 </span>
                 <input id="hideEloAt20" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
+
+              <div class="slider-row">
+                <label for="hideAtSeconds">Ocultar a los</label>
+                <input id="hideAtSeconds" type="range" min="10" max="60" step="5" value="20" />
+                <output id="hideAtSecondsValue" for="hideAtSeconds">0:20</output>
+              </div>
 
               <div class="clock-row">
                 <span>Reloj de partida</span>
@@ -138,21 +164,21 @@
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="rivalFavorites" title="En el mapa y modo de la partida en curso: cuántas partidas jugó ahí, su winrate en ese mapa y la civilización que más usó en él. No muestra el mapa favorito global, porque no sirve si no es el que se está jugando.">
+              <label class="row tog" for="rivalFavorites" title="En el mapa y modo de la partida en curso: cuántas partidas jugó ahí, su winrate en ese mapa y la civilización que más usó en todo el historial de ese mapa. No muestra el mapa favorito global, porque no sirve si no es el que se está jugando.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg></span>
                 <span class="tcopy">
                   <span class="rname">Civ más usada en el mapa</span>
-                  <span class="rdesc">Winrate y civ en el mapa de esta partida</span>
+                  <span class="rdesc">Winrate y civ de todo el historial de ese mapa</span>
                 </span>
                 <input id="rivalFavorites" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="rivalOpenings" title="Aperturas detectadas en replays analizados, siempre del mismo modo de juego: EW no se juega como RM, así que no se mezclan. Si el rival no tiene replays en ese modo, se indica y no se inventa nada.">
+              <label class="row tog" for="rivalOpenings" title="Aperturas detectadas en replays analizados, siempre del mismo modo de juego, del mapa de la partida y de la civ que más usa en ese mapa: EW no se juega como RM, y un Scout rush de Arabia no sirve para Arena. Si el rival no tiene replays de esa civ en ese mapa, se indica y no se muestra ninguna otra apertura.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span>
                 <span class="tcopy">
                   <span class="rname">Aperturas reales del rival</span>
-                  <span class="rdesc">Replays analizados del mismo modo de juego · EW ≠ RM</span>
+                  <span class="rdesc">Replays del mapa y de la civ más usada · EW ≠ RM</span>
                 </span>
                 <input id="rivalOpenings" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
@@ -244,6 +270,20 @@
       <span id="configPath" class="path"></span>
       <span class="hint">El panel no se puede clickear: esta ventana es solo para configurar. <b>Esc</b> la cierra.</span>
     </footer>
+
+    <div id="civHelpTip" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="civHelpTipTitle">
+      <div class="modal-card">
+        <h3 id="civHelpTipTitle">Ayuda de civ activada</h3>
+        <p>
+          La tarjeta se oculta a los <strong id="civHelpTipTime">0:20</strong>.
+          Si querés leerla con calma durante la partida, podés dejarla visible hasta los 0:40.
+        </p>
+        <div class="modal-actions">
+          <button id="civHelpTipNo" class="btn" type="button">No, gracias</button>
+          <button id="civHelpTipYes" class="btn gold" type="button">Aumentar visibilidad a 40 segundos</button>
+        </div>
+      </div>
+    </div>
 
     <script src="settings.js"></script>
   </body>

@@ -53,11 +53,12 @@ const NUMERIC_LADDERS = {
 const FALLBACK_LADDER = 'rm_1v1';
 const HISTORY_SIZE = 5;
 const HISTORY_PAGE = 25;
-// Para el mapa actual se buscan las ÚLTIMAS 5 partidas de ese mapa, sin
-// importar su antigüedad: se pagina el historial hacia atrás hasta juntarlas.
-const MAP_MATCH_LIMIT = 5;
+// Para el mapa actual se recorre TODO el historial de ese mapa en el modo
+// exacto. Una muestra de 20 puede caer en una racha reciente y no representar
+// la civ habitual; el tope de páginas es solo una red de seguridad.
 const MAP_PAGE_SIZE = 100;
-const MAP_MAX_PAGES = 10;
+const MAP_MAX_PAGES = 100;
+const PAGE_DELAY_MS = 120; // evita ráfagas que terminan en HTTP 429
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
 const SOURCES = {
@@ -152,16 +153,15 @@ function mapKey(name) {
 }
 
 /**
- * Estadísticas del rival EN UN MAPA concreto, a partir del historial reciente.
- * Filtra por mapa y por modo (EW ≠ RM) y descarta la partida en curso. La civ
- * más usada se elige por partidas y, en empate, por victorias.
+ * Estadísticas del rival EN UN MAPA concreto, a partir de TODO el historial
+ * de ese mapa. Filtra por mapa y por modo (EW ≠ RM) y descarta la partida en
+ * curso. La civ más usada se elige por partidas y, en empate, por victorias.
  */
 function parseMapStats(matches, profileId, currentMatchId, options = {}) {
   const mapName = String((options && options.mapName) || '').trim();
   if (!mapName) return null;
   const wanted = mapKey(mapName);
   const mode = options.mode ? resolveMode(options.mode) : null;
-  const limit = Math.max(1, Number(options.limit) || MAP_MATCH_LIMIT);
   const id = Number(profileId);
   const rows = [];
 
@@ -183,12 +183,12 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     });
   }
 
-  // Las ÚLTIMAS `limit` de ese mapa, sin importar cuán viejas sean.
+  // TODO el historial de ese mapa en este modo. No se recorta a 20: una
+  // racha reciente puede esconder la civ que el rival usa habitualmente.
   rows.sort((a, b) => b.startedAt - a.startedAt);
-  const sample = rows.slice(0, limit);
   const civs = new Map();
   let wins = 0;
-  for (const row of sample) {
+  for (const row of rows) {
     if (row.won) wins += 1;
     const key = row.slug || row.civ;
     const entry = civs.get(key) || { name: row.civ, slug: row.slug, games: 0, wins: 0 };
@@ -196,7 +196,7 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     if (row.won) entry.wins += 1;
     civs.set(key, entry);
   }
-  const games = sample.length;
+  const games = rows.length;
   const ranked = [...civs.values()]
     .map((entry) => ({
       ...entry,
@@ -213,7 +213,7 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     civ: ranked[0] || null,
     civs: ranked.slice(0, 3),
     sampleGames: games,
-    totalMapGames: rows.length,
+    totalMapGames: games,
   };
 }
 
@@ -238,8 +238,10 @@ function topOpening(rows) {
 }
 
 /**
- * Estrategia del rival EN ESTE MAPA y, si se conoce, con la civ que más usó
- * ahí. Sale de los replays analizados por AoE2Insights (mismo modo).
+ * Estrategia del rival EN ESTE MAPA y CON LA CIV que más usó ahí. Sale de los
+ * replays analizados por AoE2Insights (mismo modo). Nunca se devuelve la
+ * apertura general ni la de otra civ: `recent` queda filtrado al mapa y a esa
+ * civ para que el panel no muestre un Scout rush de Arabia al jugar Arena.
  */
 function summarizeOpeningsByMap(rows, mapName, civName) {
   const wantMap = mapKey(mapName);
@@ -247,11 +249,23 @@ function summarizeOpeningsByMap(rows, mapName, civName) {
   const analyzed = (Array.isArray(rows) ? rows : []).filter((row) => row && row.strategy);
   const mapRows = analyzed.filter((row) => mapKey(row.map) === wantMap);
   const civRows = wantCiv ? mapRows.filter((row) => civSlug(row.civ) === wantCiv) : [];
+  // Las últimas también se acotan a la civ del mapa cuando se conoce: si la
+  // civ más usada no tiene replays, no se muestran los de otra civ.
+  const recentRows = wantCiv ? civRows : mapRows;
+  const recent = recentRows.slice(0, 5).map((row) => ({
+    name: row.strategy,
+    short: row.short || row.strategy,
+    civ: row.civ,
+    map: row.map,
+    ladder: row.ladder,
+    startedAt: row.startedAt,
+  }));
   return {
     mapAnalyzed: mapRows.length,
     mapFavorite: topOpening(mapRows),
     mapCivAnalyzed: civRows.length,
     mapCivFavorite: topOpening(civRows),
+    recent,
   };
 }
 
@@ -340,6 +354,9 @@ async function buildRivalInsights(options = {}) {
   // partidas del historial cuentan. `null` = partida sin ladder rankeada.
   const mode = resolveMode(leaderboardId);
   const modeId = mode ? mode.id : 'sin-modo';
+  // El historial se pide filtrado por el ladder EXACTO cuando la partida es
+  // rankeada: RM no se mezcla con EW/DM. Sin modo (unranked) no se fuerza RM.
+  const historyLadder = mode ? ladder : null;
   // El mapa entra en la clave: el informe de Arabia no sirve para Arena.
   const key = `rival:insights:${id}:${ladder}:${modeId}:${mapKey(mapName)}:${includeOpenings ? 1 : 0}`;
   const cached = cache && cache.get(key);
@@ -364,6 +381,41 @@ async function buildRivalInsights(options = {}) {
     openingError: null,
   };
   const errors = [];
+  const wait = typeof sleep === 'function' ? sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Las aperturas no dependen del mapa ni de la civ: se piden YA, en paralelo
+  // con el historial. Así el total no es historial + ~15s, sino el máximo de
+  // ambos, y la estrategia puede estar lista antes de que arranque la partida.
+  const openingsPromise = includeOpenings
+    ? openingsImpl({
+        profileId: id,
+        mode,
+        cache,
+        cacheTtlMs: openingsTtlMs,
+        now,
+        fetchImpl,
+        sleep,
+        log,
+      }).catch((err) => ({ ok: false, error: `aperturas: ${err.message}` }))
+    : null;
+
+  // Primero /stats: la consulta va filtrada por el MISMO ladder/modo de la
+  // partida y dice cuántas partidas hay en ESTE mapa en todo el historial.
+  // Con eso se corta al encontrar todas las del mapa.
+  let targetMapGames = Number.POSITIVE_INFINITY;
+  let maxPages = MAP_MAX_PAGES;
+  try {
+    const url =
+      `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
+      `?leaderboard_id=${encodeURIComponent(ladder)}`;
+    const raw = await getJsonImpl(url);
+    Object.assign(result, normalizeProfileStats(raw, mapName));
+    targetMapGames = result.currentMap ? Number(result.currentMap.games) : 0;
+    const total = Number(result.totalGames) || 0;
+    if (total > 0) maxPages = Math.min(MAP_MAX_PAGES, Math.ceil(total / MAP_PAGE_SIZE) + 1);
+  } catch (err) {
+    errors.push(`stats: ${err.message}`);
+  }
 
   try {
     const matches = [];
@@ -379,47 +431,43 @@ async function buildRivalInsights(options = {}) {
       return matches.length - before;
     };
 
-    const first = (await fetchMatchesImpl(id, MAP_PAGE_SIZE, 1)) || [];
-    add(first);
-    result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
-    result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
+    const fetchPage = async (page) => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          return (await fetchMatchesImpl(id, MAP_PAGE_SIZE, page, historyLadder)) || [];
+        } catch (err) {
+          const retryable = /HTTP 429/.test(String(err && err.message));
+          if (!retryable || attempt === 2) throw err;
+          await wait(700 * (attempt + 1));
+        }
+      }
+      return [];
+    };
 
-    // Si todavía no hay 5 partidas de ESE mapa, se sigue paginando hacia
-    // atrás. No importa la antigüedad: solo corta al terminar el historial o
-    // al llegar al tope de páginas.
-    let page = 1;
-    let lastPage = first;
-    while (
-      mapName &&
-      result.mapStats &&
-      result.mapStats.sampleGames < MAP_MATCH_LIMIT &&
-      page < MAP_MAX_PAGES &&
-      lastPage.length >= MAP_PAGE_SIZE
-    ) {
+    let page = 0;
+    let lastPage = [];
+    while (true) {
       page += 1;
-      lastPage = (await fetchMatchesImpl(id, MAP_PAGE_SIZE, page)) || [];
+      if (page > 1) await wait(PAGE_DELAY_MS);
+      lastPage = await fetchPage(page);
       if (!add(lastPage)) break;
       result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
       result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
+
+      // Se corta al juntar TODAS las partidas del mapa que declara /stats, al
+      // terminar el historial o al llegar al tope de seguridad. El filtro de
+      // modo ya está en parseMapStats.
+      if (lastPage.length < MAP_PAGE_SIZE) break;
+      if (!mapName) break;
+      if (result.mapStats && result.mapStats.sampleGames >= targetMapGames) break;
+      if (page >= maxPages) break;
     }
   } catch (err) {
     errors.push(`historial: ${err.message}`);
   }
 
-  try {
-    const url =
-      `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
-      `?leaderboard_id=${encodeURIComponent(ladder)}`;
-    const raw = await getJsonImpl(url);
-    Object.assign(result, normalizeProfileStats(raw, mapName));
-
-    // El /stats tiene el histórico completo del mapa (partidas y winrate). La
-    // civ más usada viene de la muestra del historial, porque la API no cruza
-    // civ × mapa. Se combinan sin inventar: si el mapa no aparece, queda la
-    // muestra o el aviso de "sin partidas".
-  } catch (err) {
-    errors.push(`stats: ${err.message}`);
-  }
+  // El /stats ya se consultó arriba con el ladder EXACTO de la partida: sus
+  // partidas/winrate del mapa son del mismo modo (RM ≠ EW ≠ DM).
 
   if (result.mapStats && result.currentMap) {
     result.mapStats = {
@@ -444,34 +492,21 @@ async function buildRivalInsights(options = {}) {
   // Aperturas REALES del MISMO modo de juego (la ladder va como segundo
   // `filter` a AoE2Insights). Tienen su propia cache (30 min) porque
   // reanalizar replays es lento y el histórico se refresca más seguido.
-  if (includeOpenings) {
-    try {
-      const openings = await openingsImpl({
-        profileId: id,
-        mode,
-        cache,
-        cacheTtlMs: openingsTtlMs,
-        now,
-        fetchImpl,
-        sleep,
-        log,
-      });
-      result.openings = openings;
-      result.openingError =
-        openings && openings.ok === false ? openings.error : null;
-      if (result.openings) {
-        // Se resume para el mapa de la partida y con la civ más usada ahí.
-        // El detalle de replays se usa solo acá y no viaja al renderer.
-        const summary = summarizeOpeningsByMap(
-          result.openings.analyzedMatches,
-          mapName,
-          result.mapStats && result.mapStats.civ ? result.mapStats.civ.name : null,
-        );
-        result.openings = { ...result.openings, ...summary };
-        delete result.openings.analyzedMatches;
-      }
-    } catch (err) {
-      result.openingError = `aperturas: ${err.message}`;
+  if (includeOpenings && openingsPromise) {
+    const openings = await openingsPromise;
+    result.openings = openings;
+    result.openingError =
+      openings && openings.ok === false ? openings.error : null;
+    if (result.openings) {
+      // Se resume para el mapa de la partida y con la civ más usada ahí.
+      // El detalle de replays se usa solo acá y no viaja al renderer.
+      const summary = summarizeOpeningsByMap(
+        result.openings.analyzedMatches,
+        mapName,
+        result.mapStats && result.mapStats.civ ? result.mapStats.civ.name : null,
+      );
+      result.openings = { ...result.openings, ...summary };
+      delete result.openings.analyzedMatches;
     }
   }
 
@@ -501,7 +536,6 @@ module.exports = {
   FALLBACK_LADDER,
   HISTORY_SIZE,
   HISTORY_PAGE,
-  MAP_MATCH_LIMIT,
   MAP_PAGE_SIZE,
   MAP_MAX_PAGES,
   DEFAULT_TTL_MS,

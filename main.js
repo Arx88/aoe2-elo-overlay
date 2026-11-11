@@ -29,6 +29,7 @@ const {
   SHOW_AT_MS,
   HIDE_AT_MS,
   ENGAGE_LIMIT_MS,
+  hideAtMs,
   trackIntro,
   introView,
   nextIntroTick,
@@ -63,6 +64,9 @@ const DEFAULT_CONFIG = {
   // Las opciones nuevas arrancan APAGADAS: el usuario elige qué quiere ver.
   civHelp: false,
   hideEloAt20: false,
+  // Segundos tras el inicio en que se oculta la ayuda de civ y el ELO
+  // (10 a 60). Antes estaba fijo en 0:20.
+  hideAtSeconds: 20,
   // Informe opcional del rival (todo dato REAL, nada inferido).
   rivalCivs: false, // últimas 5 civilizaciones elegidas
   rivalFavorites: false, // civ más usada y winrate en el mapa de la partida
@@ -398,6 +402,7 @@ function overlayConfig() {
     civGuide: CIV_GUIDE,
     civHelp: Boolean(view.civHelp),
     hideEloAt20: Boolean(view.hideEloAt20),
+    hideAtSeconds: hideAtMs(view) / 1000,
     rivalCivs: Boolean(view.rivalCivs),
     rivalFavorites: Boolean(view.rivalFavorites),
     rivalOpenings: Boolean(view.rivalOpenings),
@@ -425,6 +430,7 @@ function diagnostics() {
     matchStartedAt: intro && intro.engaged ? intro.startedAt : null,
     civHelp: Boolean(config.civHelp),
     hideEloAt20: Boolean(config.hideEloAt20),
+    hideAtSeconds: hideAtMs(config) / 1000,
   };
 }
 
@@ -893,6 +899,10 @@ function openSettings() {
     backgroundColor: '#121211',
     autoHideMenuBar: true,
     show: false,
+    // Sin barra nativa de Windows: la ventana dibuja su propia barra oscura
+    // con minimizar / maximizar / cerrar, a juego con el overlay.
+    frame: false,
+    hasShadow: true,
     // Puede tener que aparecer por encima del juego: es la única ventana clickeable.
     alwaysOnTop: true,
     webPreferences: {
@@ -904,6 +914,19 @@ function openSettings() {
 
   settingsWin.setMenuBarVisibility(false);
   settingsWin.setAlwaysOnTop(true, 'screen-saver');
+
+  // La barra propia necesita saber si la ventana está maximizada para cambiar
+  // el ícono (maximizar ↔ restaurar).
+  settingsWin.on('maximize', () => {
+    if (settingsWin && !settingsWin.isDestroyed()) {
+      settingsWin.webContents.send('settings:maximized', true);
+    }
+  });
+  settingsWin.on('unmaximize', () => {
+    if (settingsWin && !settingsWin.isDestroyed()) {
+      settingsWin.webContents.send('settings:maximized', false);
+    }
+  });
   settingsWin.loadFile(path.join(__dirname, 'settings.html'), { query: { theme: config.theme } });
   settingsWin.webContents.on('did-fail-load', (_event, code, description) =>
     log(`la configuración no cargó: ${description} (${code})`),
@@ -916,6 +939,7 @@ function openSettings() {
     if (!settingsWin) return;
     settingsWin.show();
     settingsWin.focus();
+    settingsWin.webContents.send('settings:maximized', settingsWin.isMaximized());
     log('ventana de configuración abierta');
 
     if (SETTINGS_SHOT) {
@@ -1473,6 +1497,7 @@ function registerIpc() {
     moving,
     civHelp: Boolean(config.civHelp),
     hideEloAt20: Boolean(config.hideEloAt20),
+    hideAtSeconds: hideAtMs(config) / 1000,
     rivalCivs: Boolean(config.rivalCivs),
     rivalFavorites: Boolean(config.rivalFavorites),
     rivalOpenings: Boolean(config.rivalOpenings),
@@ -1585,8 +1610,20 @@ function registerIpc() {
     persistConfig({ hideEloAt20: enabled });
     send('overlay:config', overlayConfig());
     syncIntro(lastGood, { force: true });
-    log(`ocultar ELO al segundo 20: ${enabled ? 'activado' : 'desactivado'}`);
+    log(`ocultar ELO al segundo ${hideAtMs(config) / 1000}: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, hideEloAt20: enabled };
+  });
+
+  // Tiempo de ocultado elegido por el usuario (10 a 60 s, default 20).
+  ipcMain.handle('settings:hideAtSeconds', (_event, raw) => {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return { ok: false, error: 'Ese tiempo no es válido.' };
+    const seconds = Math.round(clamp(parsed, 10, 60));
+    persistConfig({ hideAtSeconds: seconds });
+    send('overlay:config', overlayConfig());
+    syncIntro(lastGood, { force: true });
+    log(`ocultar ELO y ayuda a los ${seconds}s`);
+    return { ok: true, hideAtSeconds: seconds };
   });
 
   // Las tres opciones del informe del rival comparten un solo handler con
@@ -1616,6 +1653,16 @@ function registerIpc() {
   );
   ipcMain.handle('settings:exampleClock', (_event, rawMode) => setExampleClock(rawMode));
   ipcMain.handle('settings:exampleStop', () => stopExample());
+
+  ipcMain.on('settings:minimize', () => {
+    if (settingsWin && !settingsWin.isDestroyed()) settingsWin.minimize();
+  });
+
+  ipcMain.on('settings:toggle-maximize', () => {
+    if (!settingsWin || settingsWin.isDestroyed()) return;
+    if (settingsWin.isMaximized()) settingsWin.unmaximize();
+    else settingsWin.maximize();
+  });
 
   ipcMain.on('settings:close', () => {
     if (moving) setMovable(false);
@@ -1744,17 +1791,18 @@ function sendView(force = false) {
   const signature = `${view.eloHidden ? 1 : 0}${view.civHelpVisible ? 1 : 0}${exampleClockMode}`;
   if (!force && signature === lastViewSig) return;
   lastViewSig = signature;
+  const hideAt = hideAtMs(viewConfig());
   send('overlay:view', {
     eloHidden: view.eloHidden,
     civHelpVisible: view.civHelpVisible,
     // Congelado: el renderer muestra 0:03 / 0:21 fijos en vez de contar.
     frozenElapsedMs: exampleFrozenAt != null ? view.elapsed : null,
-    // Tiempo REAL de partida que falta hasta 0:20. El renderer usa esto para
-    // la cuenta regresiva y la barra, aunque la opción se active a mitad de
-    // camino o el panel se recargue en medio de la intro.
+    // Tiempo REAL de partida que falta hasta el ocultado elegido. El renderer
+    // usa esto para la cuenta regresiva y la barra, aunque la opción se active
+    // a mitad de camino o el panel se recargue en medio de la intro.
     elapsedMs: view.elapsed,
-    hideInMs: view.elapsed == null ? null : Math.max(0, HIDE_AT_MS - view.elapsed),
-    hideAtSecs: HIDE_AT_MS / 1000,
+    hideInMs: view.elapsed == null ? null : Math.max(0, hideAt - view.elapsed),
+    hideAtSecs: hideAt / 1000,
     showAtSecs: SHOW_AT_MS / 1000,
   });
   log(
@@ -1772,7 +1820,7 @@ function armIntroTimer() {
   // Con el reloj congelado no hay "próximo cambio": reprogramar solo haría
   // timers que recalculan exactamente la misma vista.
   if (!intro || !intro.engaged || exampleFrozenAt != null) return;
-  const delay = nextIntroTick(intro, clockNow());
+  const delay = nextIntroTick(intro, clockNow(), viewConfig());
   if (delay == null) return;
   introTimer = setTimeout(() => {
     sendView();
@@ -1792,7 +1840,7 @@ function syncIntro(state, options = {}) {
     log(
       `reloj de partida: ${intro.key} · empezó hace ${Math.round(intro.seenElapsed)}ms · ` +
         `ayuda 0:${String(Math.round(SHOW_AT_MS / 1000)).padStart(2, '0')}` +
-        `→0:${HIDE_AT_MS / 1000} · ayuda de civ ${view.civHelp ? 'ON' : 'OFF'}` +
+        `→0:${hideAtMs(view) / 1000} · ayuda de civ ${view.civHelp ? 'ON' : 'OFF'}` +
         ` · ocultar ELO ${view.hideEloAt20 ? 'ON' : 'OFF'}` +
         (exampleActive ? ' · MODO EJEMPLO' : ''),
     );

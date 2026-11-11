@@ -813,6 +813,105 @@ button {
   font-weight: 600;
 }
 
+/* ---------- barra de ventana propia (sin la barra de Windows) ---------- */
+.winbar {
+  flex: none;
+  height: 40px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: linear-gradient(180deg, #1a1917 0%, #0f0f0e 100%);
+  border-top: 2px solid rgba(227, 185, 95, 0.55);
+  border-bottom: 1px solid var(--wiz-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.winbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 0 14px;
+}
+
+.winbar-mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  object-fit: contain;
+}
+
+.winbar-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.winbar-sub {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.winbar-controls {
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag;
+}
+
+button.winbtn {
+  width: 46px;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+button.winbtn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  filter: none;
+}
+
+button.winbtn:active {
+  transform: none;
+}
+
+button.winbtn.close:hover {
+  background: #b3342b;
+  color: #ffffff;
+}
+
+button.winbtn svg {
+  width: 13px;
+  height: 13px;
+}
+
+button.winbtn .restore-icon {
+  display: none;
+}
+
+body.maximized button.winbtn .max-icon {
+  display: none;
+}
+
+body.maximized button.winbtn .restore-icon {
+  display: block;
+}
+
 .shell {
   flex: 1;
   min-height: 0;
@@ -2032,6 +2131,57 @@ body .position-row {
   align-items: center;
   gap: 14px;
   padding: 11px 2px;
+}
+
+/* ---------- Aviso al activar la Ayuda de civ ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 8, 7, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: min(430px, 100%);
+  padding: 22px 22px 18px;
+  border: 1px solid var(--ui-card-border);
+  border-radius: 12px;
+  background: var(--ui-page);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-card h3 {
+  margin: 0 0 9px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modal-card p {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.modal-card strong {
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
 }
 
 /* Skins es la página más alta: 20 px entre grupos la hacen entrar sin scroll. */

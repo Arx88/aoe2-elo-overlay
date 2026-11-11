@@ -91,11 +91,16 @@ function numOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Partidas recientes de un jugador, ya normalizadas. */
-async function fetchMatches(profileId, perPage = 20, page = 1) {
+/**
+ * Partidas recientes de un jugador, ya normalizadas. `ladder` (enum de
+ * Companion, ej. `rm_1v1`) filtra el historial al MISMO modo; sin ladder se
+ * mantiene el comportamiento anterior (todas las ladders).
+ */
+async function fetchMatches(profileId, perPage = 20, page = 1, ladder = null) {
   const url =
     `${COMPANION_BASE}/api/matches?profile_ids=${encodeURIComponent(profileId)}` +
-    `&use_enums=true&page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}`;
+    `&use_enums=true&page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}` +
+    (ladder ? `&leaderboard_ids=${encodeURIComponent(ladder)}` : '');
   const data = await getJson(url);
   const list = Array.isArray(data) ? data : (data && data.matches) || [];
   return list.map(normalizeMatch);

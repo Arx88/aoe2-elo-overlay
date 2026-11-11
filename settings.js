@@ -30,6 +30,16 @@ const positionInfo = el('positionInfo');
 const positionLabel = el('positionLabel');
 const civHelpInput = el('civHelp');
 const hideEloInput = el('hideEloAt20');
+const hideAtInput = el('hideAtSeconds');
+const hideAtValue = el('hideAtSecondsValue');
+const enterWindowLabel = el('enterWindowLabel');
+const civHelpDesc = el('civHelpDesc');
+const hideEloName = el('hideEloName');
+const hideEloDesc = el('hideEloDesc');
+const civHelpTip = el('civHelpTip');
+const civHelpTipTime = el('civHelpTipTime');
+const civHelpTipNo = el('civHelpTipNo');
+const civHelpTipYes = el('civHelpTipYes');
 const matchClock = el('matchClock');
 const rivalInputs = {
   rivalCivs: el('rivalCivs'),
@@ -47,6 +57,9 @@ const pageSections = [...document.querySelectorAll('.page')];
 const pagesEl = document.querySelector('.pages');
 const pageTitle = el('pageTitle');
 const pageSub = el('pageSub');
+const winMin = el('winMin');
+const winMax = el('winMax');
+const winClose = el('winClose');
 
 let results = [];
 let activeIndex = -1;
@@ -54,6 +67,7 @@ let searchTimer = null;
 let searchToken = 0;
 let currentTheme = initialTheme;
 let opacityTimer = null;
+let hideAtTimer = null;
 let lastDiag = null;
 let moving = false;
 let positionCustom = false;
@@ -81,6 +95,23 @@ function applyTheme(theme) {
   currentTheme = theme || 'clasico';
   document.body.dataset.theme = currentTheme;
   paintThemes();
+}
+
+function clockShort(seconds) {
+  const value = Math.max(0, Math.round(Number(seconds) || 0));
+  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
+}
+
+function paintHideAt(seconds) {
+  const value = Math.min(60, Math.max(10, Math.round(Number(seconds) || 20)));
+  hideAtInput.value = String(value);
+  hideAtValue.textContent = clockShort(value);
+  hideAtInput.style.setProperty('--fill', `${((value - 10) / 50) * 100}%`);
+  enterWindowLabel.textContent = `Al entrar · 0:01 – ${clockShort(value)}`;
+  civHelpDesc.textContent =
+    `Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – ${clockShort(value)}`;
+  hideEloName.textContent = `Ocultar ELO a ${clockShort(value)}`;
+  hideEloDesc.textContent = `Se oculta a ${clockShort(value)} para no molestar · vuelve al terminar`;
 }
 
 function paintOpacity(value) {
@@ -170,6 +201,12 @@ setInterval(() => {
 
 logBtn.addEventListener('click', () => window.settings.openLog());
 
+/* ---------- barra de ventana propia ---------- */
+winMin.addEventListener('click', () => window.settings.minimize());
+winMax.addEventListener('click', () => window.settings.toggleMaximize());
+winClose.addEventListener('click', () => window.settings.close());
+window.settings.onMaximized((on) => document.body.classList.toggle('maximized', Boolean(on)));
+
 /* ---------- opciones ---------- */
 async function applyToggle(input, invoke, label) {
   const wanted = input.checked;
@@ -182,12 +219,62 @@ async function applyToggle(input, invoke, label) {
   setStatus(`${label}: ${wanted ? 'activado' : 'desactivado'}`);
 }
 
-civHelpInput.addEventListener('change', () =>
-  applyToggle(civHelpInput, (on) => window.settings.civHelp(on), 'Ayuda de civ'),
-);
+/* Aviso al activar la Ayuda de civ: si el tiempo actual es corto, ofrecer
+   dejarla visible hasta 0:40 para poder leerla antes de que se vaya. */
+function openCivHelpTip() {
+  const current = Math.min(60, Math.max(10, Math.round(Number(hideAtInput.value) || 20)));
+  if (current >= 40) {
+    setStatus(`Ayuda de civ: activada · visible hasta ${clockShort(current)}`);
+    return;
+  }
+  civHelpTipTime.textContent = clockShort(current);
+  civHelpTip.hidden = false;
+  civHelpTipYes.focus();
+}
+
+function closeCivHelpTip() {
+  civHelpTip.hidden = true;
+}
+
+civHelpInput.addEventListener('change', async () => {
+  const wanted = civHelpInput.checked;
+  await applyToggle(civHelpInput, (on) => window.settings.civHelp(on), 'Ayuda de civ');
+  if (wanted && civHelpInput.checked) openCivHelpTip();
+});
+
+civHelpTipNo.addEventListener('click', () => {
+  closeCivHelpTip();
+  setStatus(`Ayuda de civ: se oculta a los ${clockShort(hideAtInput.value)}`);
+});
+
+civHelpTipYes.addEventListener('click', async () => {
+  closeCivHelpTip();
+  const response = await window.settings.hideAtSeconds(40);
+  if (!response || !response.ok) {
+    setStatus((response && response.error) || 'No se pudo cambiar el tiempo', true);
+    return;
+  }
+  paintHideAt(response.hideAtSeconds);
+  setStatus('Ayuda de civ: visible hasta 0:40');
+});
 hideEloInput.addEventListener('change', () =>
-  applyToggle(hideEloInput, (on) => window.settings.hideEloAt20(on), 'Ocultar ELO a 0:20'),
+  applyToggle(hideEloInput, (on) => window.settings.hideEloAt20(on), 'Ocultar ELO'),
 );
+
+hideAtInput.addEventListener('input', () => {
+  const value = Number(hideAtInput.value);
+  paintHideAt(value);
+  clearTimeout(hideAtTimer);
+  hideAtTimer = setTimeout(async () => {
+    const response = await window.settings.hideAtSeconds(value);
+    if (!response || !response.ok) {
+      setStatus((response && response.error) || 'No se pudo guardar el tiempo', true);
+      return;
+    }
+    paintHideAt(response.hideAtSeconds);
+    setStatus(`Ocultar ELO y ayuda a los ${clockShort(response.hideAtSeconds)}`);
+  }, 120);
+});
 
 for (const [key, input] of Object.entries(rivalInputs)) {
   input.addEventListener('change', () =>
@@ -239,6 +326,7 @@ async function loadCurrent() {
   paintPosition(info);
   civHelpInput.checked = Boolean(info.civHelp);
   hideEloInput.checked = Boolean(info.hideEloAt20);
+  paintHideAt(Number(info.hideAtSeconds) || 20);
   for (const [key, input] of Object.entries(rivalInputs)) input.checked = Boolean(info[key]);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt
@@ -436,6 +524,10 @@ autoBtn.addEventListener('click', async () => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  if (!civHelpTip.hidden) {
+    closeCivHelpTip();
+    return;
+  }
   if (moving) {
     setMoving(false);
     return;

@@ -13,7 +13,7 @@ By acido                RM team · pico RM 1v1
 
 La cabecera dice el **modo** de la partida; la etiqueta `ELO RM 1v1` aclara de dónde salen los números.
 
-Opcionalmente (todo **apagado de fábrica**) podés sumar la **Ayuda de civ** a 0:01 y un **informe del rival**: sus últimas 5 civs, su civ y mapa más usados y sus **aperturas reales** (`Scout rush`, `Archer rush`, `Drush`…) detectadas en replays analizados. Y podés hacer que todo eso se aparte solo a 0:20 para que no estorbe durante el juego.
+Opcionalmente (todo **apagado de fábrica**) podés sumar la **Ayuda de civ** a 0:01 y un **informe del rival**: sus últimas 5 civs, la civ que más usa en el mapa de la partida y sus **aperturas reales** (`Scout rush`, `Archer rush`, `Drush`…) detectadas en replays analizados. Y podés hacer que todo eso se aparte solo al tiempo que elijas (entre 0:10 y 1:00; 0:20 por defecto) para que no estorbe durante el juego.
 
 Para revisar **todas esas funciones de una sola vez sin esperar a que el juego encuentre partida**, está el **Modo ejemplo** (`Ctrl+Alt+S → "Ver test"`): escribís cualquier nombre de jugador o su profile ID y el overlay se arma con la **última partida real** de ese perfil.
 
@@ -148,14 +148,15 @@ roster ubicado por matchId 519973982 (2 jugadores)      ← solo si el roster ve
 PRE-PARTIDA · Arabia · RM 1v1 · ELO RM 1v1 · completo en 120ms ···
 ```
 
-## Ayuda de civ y ocultar el ELO a 0:20
+## Ayuda de civ y ocultar el ELO al tiempo elegido
 
 En **Configuración → Durante la partida** hay dos opciones. **Las dos arrancan apagadas** y se aplican al instante, sin reiniciar:
 
 | Opción | Default | Qué hace |
 | --- | --- | --- |
-| **Ayuda de civ** | `false` | A **0:01** muestra una tarjeta con el escudo grande de **ambas** civilizaciones y un resumen corto en español: **BONOS**, **UNIDADES** y **DEBILIDADES**. Se oculta sola a **0:20**. |
-| **Ocultar panel de ELO al segundo 20** | `false` | El ELO se ve **desde el arranque** (aunque Ayuda de civ esté apagada) y se oculta a **0:20**. Vuelve a aparecer **solo** cuando termina la partida. |
+| **Ayuda de civ** | `false` | A **0:01** muestra una tarjeta con el escudo grande de **ambas** civilizaciones y un resumen corto en español: **BONOS**, **UNIDADES** y **DEBILIDADES**. Se oculta sola al **tiempo elegido**. |
+| **Ocultar panel de ELO** | `false` | El ELO se ve **desde el arranque** (aunque Ayuda de civ esté apagada) y se oculta al **tiempo elegido**. Vuelve a aparecer **solo** cuando termina la partida. |
+| **Tiempo de ocultado** | `0:20` | Cuánto queda visible desde el inicio: de **0:10 a 1:00**, en pasos de 5 s. Aplica a la Ayuda de civ, al ELO y al informe del rival. |
 
 Detalles que importan:
 
@@ -163,7 +164,8 @@ Detalles que importan:
 * Las opciones son **independientes**: podés ocultar el ELO sin activar la ayuda, o ver la ayuda y dejar el ELO fijo. En la pre-partida (`phase: 'lobby'`) no hay civs reales ni reloj, así que no se aplica nada.
 * Si abrís la app en medio de una partida (más de 60 s desde el inicio), la intro **no se engancha**: así el ELO nunca queda oculto para siempre en un partido que no viste empezar.
 * La tarjeta es **100 % offline** (`src/civ-guide.js`, 62 civs en español, generado de los textos del juego) y usa los escudos de `assets/civs/`. No hace ni una request en plena partida.
-* En TG muestra hasta 4 civs distintas, la tuya primero. La barra y el contador `0:04 / 0:20` indican cuánto queda.
+* En TG muestra hasta 4 civs distintas, la tuya primero. La barra y el contador `0:04 / 0:20` indican cuánto queda hasta el tiempo elegido.
+* Al **activar la Ayuda de civ** con un tiempo menor a 0:40, la configuración muestra un aviso que ofrece dejarla visible hasta **0:40** para poder leerla con calma, con las opciones **No, gracias** y **Aumentar visibilidad a 40 segundos**.
 * El bloque **Estado** de la configuración muestra el reloj de partida en vivo.
 
 Para capturarlo sin jugar: `electron . --demo --civ-help --shot --out=demo-civhelp.png` (0:03) y `--demo --civ-help=late` (0:21, ya oculto).
@@ -175,8 +177,10 @@ En **Configuración → Informe del rival** hay **tres** opciones independientes
 | Opción | Clave | Default | Qué muestra |
 | --- | --- | --- | --- |
 | **Últimas 5 civis del rival** | `rivalCivs` | `false` | Las últimas 5 civilizaciones que el rival **jugó de verdad** en el **mismo modo de juego** de la partida en curso: escudo, victoria/derrota y mapa. Saltea la partida en curso. |
-| **Civ y mapa que más usa** | `rivalFavorites` | `false` | Civ y mapa favoritos del histórico completo del perfil **en ese ladder**, con partidas, cuota y winrate. |
-| **Aperturas reales del rival** | `rivalOpenings` | `false` | `Scout rush`, `Archer rush`, `Drush`, `Drush fast castle`, `Man at arms rush`, `Fast castle`: apertura **más usada** y las últimas partidas, detectadas en **replays analizados** por AoE2Insights, **del mismo modo de juego** (EW no se mezcla con RM). |
+| **Civ y mapa que más usa** | `rivalFavorites` | `false` | En el **mapa y modo de la partida en curso**: partidas y winrate del mapa según el histórico completo, y la civil más usada en **todas las partidas de ese mapa en ese modo**, con cuota y winrate. |
+El historial de `/api/matches` se consulta con `leaderboard_ids=<ladder>`: el mapa y la civ se calculan solo con el **modo exacto** de la partida (RM 1v1, RM Team, EW…), nunca mezclando ladders. Sin ladder (unranked) no se fuerza RM.
+
+| **Aperturas reales del rival** | `rivalOpenings` | `false` | `Scout rush`, `Archer rush`, `Drush`, `Drush fast castle`, `Man at arms rush`, `Fast castle`: apertura **más usada** y las últimas partidas, detectadas en **replays analizados** por AoE2Insights, **del mismo modo de juego** (EW no se mezcla con RM), **del mapa de la partida y de la civ que más usa en ese mapa**. Si no hay replays de esa civ en ese mapa, no se muestra la apertura general ni la de otra civ. |
 
 ### Por qué las aperturas son datos reales y no una "guía por civ"
 
@@ -340,7 +344,8 @@ En la app instalada/portable está en `%APPDATA%\AoE2 ELO Overlay\config.json`. 
 | `offsetX` / `offsetY` | `0` / `16` | Ajuste fino de posición |
 | `statsCacheMinutes` | `15` | Cuánto se cachea el ELO por jugador |
 | `civHelp` | `false` | Ayuda de civ a 0:01, oculta a 0:20 (se cambia desde la configuración, en caliente) |
-| `hideEloAt20` | `false` | Oculta el panel de ELO a 0:20 y lo devuelve al terminar la partida |
+| `hideEloAt20` | `false` | Oculta el panel de ELO al tiempo elegido y lo devuelve al terminar la partida |
+| `hideAtSeconds` | `20` | Segundos tras el inicio en que se ocultan la ayuda de civ y el ELO (10 a 60) |
 | `rivalCivs` | `false` | Últimas 5 civs jugadas por el rival (informe opcional) |
 | `rivalFavorites` | `false` | Civ y mapa más usados del rival |
 | `rivalOpenings` | `false` | Aperturas reales de AoE2Insights (replays analizados) |

@@ -263,13 +263,14 @@ function rivalHistoryBlock(report) {
  */
 function rivalMapBlock(report) {
   const map = report.mapStats;
+  const modeLabel = report.mode && report.mode.label ? ` · ${report.mode.label}` : '';
   const mapName =
     (map && map.name) ||
     (lastState && lastState.match && lastState.match.mapName) ||
     '—';
   if (!mapName || mapName === '—') {
     return rivalBlock(
-      'EN ESTE MAPA',
+      `EN ESTE MAPA${modeLabel}`,
       '<div class="rival-empty">Esperando el mapa de la partida…</div>',
       'favs',
     );
@@ -277,7 +278,7 @@ function rivalMapBlock(report) {
   const games = map && Number(map.games) > 0 ? Number(map.games) : 0;
   if (!games) {
     return rivalBlock(
-      'EN ESTE MAPA',
+      `EN ESTE MAPA${modeLabel}`,
       `<div class="rival-empty">Sin partidas públicas en ${escapeHtml(mapName)}.</div>`,
       'favs',
     );
@@ -293,7 +294,7 @@ function rivalMapBlock(report) {
 
   const civ = map.civ;
   const civRow = civ
-    ? '<div class="rival-map-row" title="Civilización que más usó en las últimas 5 partidas de este mapa">' +
+    ? '<div class="rival-map-row" title="Civilización que más usó en todo el historial de este mapa y modo">' +
       '<span class="rival-map-key">CIV</span>' +
       rivalShield(civ.name, 'rival-shield sm') +
       `<span class="rival-fav-name">${escapeHtml(civ.name)}</span>` +
@@ -326,53 +327,73 @@ function rivalMapBlock(report) {
     }
   }
 
-  return rivalBlock('EN ESTE MAPA', mapRow + civRow + strategyRow, 'favs');
+  return rivalBlock(`EN ESTE MAPA${modeLabel}`, mapRow + civRow + strategyRow, 'favs');
 }
 
 function rivalOpeningsBlock(report, pending) {
   const openings = report.openings;
   const mode = (openings && openings.mode) || report.mode || null;
   const modeLabel = mode && mode.label ? ` · ${mode.label}` : '';
+  const mapName =
+    (report.mapStats && report.mapStats.name) ||
+    (lastState && lastState.match && lastState.match.mapName) ||
+    null;
+  const title = `APERTURA EN ESTE MAPA${modeLabel}`;
   if (report.loading || (pending && !openings)) {
     return rivalBlock(
-      `APERTURAS REALES${modeLabel}`,
-      `<div class="rival-empty">Analizando replays del rival${mode ? ` en ${mode.label}` : ''}…</div>`,
+      title,
+      `<div class="rival-empty">Analizando replays del rival${mapName ? ` en ${mapName}` : ''}${mode ? ` (${mode.label})` : ''}…</div>`,
       'openings',
       'AoE2Insights',
     );
   }
   if (openings && openings.modeUnavailable) {
     return rivalBlock(
-      'APERTURAS REALES',
+      title,
       '<div class="rival-empty">Partida sin ladder rankeado: para no mezclar modos (EW no es RM), no se muestran aperturas.</div>',
       'openings',
       'AoE2Insights',
     );
   }
-  if (!openings || openings.ok === false || !openings.analyzed) {
-    let msg = mode && mode.label
-      ? `Sin replays analizados en ${mode.label} para este rival`
-      : 'Sin replays analizados para este rival';
-    if (openings && openings.discardedOtherModes > 0) {
+  if (!openings || openings.ok === false) {
+    let msg = 'Sin replays analizados para este rival';
+    if (openings && openings.error) msg += ` · ${openings.error}`;
+    return rivalBlock(title, `<div class="rival-empty">${escapeHtml(msg)}</div>`, 'openings', 'AoE2Insights');
+  }
+
+  // SOLO replays de ESTE mapa. La apertura general del rival (la de todos
+  // los mapas) no sirve para preparar la partida actual: un Scout rush en
+  // Arabia no dice nada de lo que el rival hace en Arena.
+  const civName = report.mapStats && report.mapStats.civ ? report.mapStats.civ.name : null;
+  // Solo la apertura de ESA civ en ESE mapa. Si no hay replays de esa
+  // combinación, no se cae ni a la apertura del mapa con otra civ ni a la
+  // apertura general del rival.
+  const best = openings.mapCivFavorite || null;
+  const baseCount = Number(openings.mapCivAnalyzed) || 0;
+  if (!best || !baseCount) {
+    const where = mapName ? ` en ${mapName}` : '';
+    const who = civName ? ` de ${civName}` : '';
+    let msg = `Sin replays analizados${who}${where} para este rival.`;
+    if (openings.discardedOtherModes > 0) {
       msg += ` · se descartaron ${fmtNumber(openings.discardedOtherModes)} de otros modos`;
     }
-    if (openings && openings.error) msg += ` · ${openings.error}`;
     return rivalBlock(
-      `APERTURAS REALES${modeLabel}`,
+      title,
       `<div class="rival-empty">${escapeHtml(msg)}</div>`,
       'openings',
       'AoE2Insights',
     );
   }
 
-  const fav = openings.favorite;
-  const top = fav
-    ? '<div class="rival-opening-top">' +
-      `<b>${escapeHtml(fav.short || fav.name)}</b>` +
-      `<span>${escapeHtml(fmtNumber(fav.count))} de ${escapeHtml(fmtNumber(openings.analyzed))}` +
-      ` · ${escapeHtml(fmtNumber(fav.share))}%</span>` +
-      '</div>'
-    : '';
+  const scope = civName
+    ? `con ${civName} en ${mapName || 'este mapa'}`
+    : `en ${mapName || 'este mapa'}`;
+  const top =
+    `<div class="rival-opening-top" title="${escapeHtml(`Apertura ${scope}`)}">` +
+    `<b>${escapeHtml(best.short || best.name)}</b>` +
+    `<span>${escapeHtml(fmtNumber(best.count))} de ${escapeHtml(fmtNumber(baseCount))}` +
+    `${best.share != null ? ` · ${escapeHtml(fmtNumber(best.share))}%` : ''}</span>` +
+    '</div>';
   const chips = (Array.isArray(openings.recent) ? openings.recent : [])
     .slice(0, 5)
     .map((item) => {
@@ -380,12 +401,12 @@ function rivalOpeningsBlock(report, pending) {
       return `<span class="rival-chip" title="${escapeHtml(tip)}">${escapeHtml(item.short || item.name)}</span>`;
     })
     .join('');
-  const recent = chips ? `<div class="rival-chip-list"><span class="rival-sub">ÚLTIMAS</span>${chips}</div>` : '';
+  const recent = chips ? `<div class="rival-chip-list"><span class="rival-sub">ÚLTIMAS DE ESA CIV</span>${chips}</div>` : '';
   return rivalBlock(
-    `APERTURA MÁS USADA${modeLabel}`,
+    title,
     top + recent,
     'openings',
-    `${openings.analyzed} replays`,
+    `${fmtNumber(openings.mapCivAnalyzed)} replays de ${civName || 'esa civ'}`,
   );
 }
 
@@ -450,7 +471,8 @@ function paintCountdown() {
     ? Math.max(0, civHideSecs * 1000 - elapsed)
     : Math.max(0, civHideEpoch - now);
   const secs = Math.min(99, Math.floor(elapsed / 1000));
-  civHelpClock.textContent = `0:${String(secs).padStart(2, '0')} / 0:${String(civHideSecs).padStart(2, '0')}`;
+  const fmt = (value) => `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
+  civHelpClock.textContent = `${fmt(secs)} / ${fmt(civHideSecs)}`;
   const ratio = Math.max(0, Math.min(100, (remaining / civTotalMs) * 100));
   civHelpBar.style.width = `${ratio}%`;
 }

@@ -298,8 +298,10 @@ function fakeLobby(leaderboardId, leaderboardName) {
 
   console.log('\n--- 11) reloj real de partida: ayuda 0:01→0:20 y ELO oculto en 0:20 ---');
   {
-    const { SHOW_AT_MS, HIDE_AT_MS, ENGAGE_LIMIT_MS, introKey, trackIntro, introView, nextIntroTick } =
-      require('../src/intro');
+    const {
+      SHOW_AT_MS, HIDE_AT_MS, MIN_HIDE_MS, MAX_HIDE_MS, ENGAGE_LIMIT_MS,
+      hideAtMs, introKey, trackIntro, introView, nextIntroTick,
+    } = require('../src/intro');
     const { CIV_GUIDE } = require('../src/civ-guide');
 
     const startedAt = 1700000000000;
@@ -335,6 +337,20 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('próximos ticks: 0:01 y 0:20',
       nextIntroTick(intro, t0) === 1000 && nextIntroTick(intro, t0 + 1000) === 19000 &&
       nextIntroTick(intro, t0 + 20000) === null);
+
+    // Tiempo de ocultado configurable por el usuario (10 a 60 s).
+    const custom = { civHelp: true, hideEloAt20: true, hideAtSeconds: 45 };
+    check('tiempo elegido 0:45 → la ayuda sigue visible a 0:44',
+      introView(intro, custom, t0 + 44000).civHelpVisible);
+    check('tiempo elegido 0:45 → se oculta todo a 0:45',
+      !introView(intro, custom, t0 + 45000).civHelpVisible &&
+        introView(intro, custom, t0 + 45000).eloHidden);
+    check('nextIntroTick respeta el tiempo elegido',
+      nextIntroTick(intro, t0 + 1000, custom) === 44000);
+    check('hideAtSeconds se limita al rango 0:10 – 1:00',
+      hideAtMs({ hideAtSeconds: 1 }) === MIN_HIDE_MS &&
+        hideAtMs({ hideAtSeconds: 120 }) === MAX_HIDE_MS &&
+        hideAtMs({}) === 20000);
     check('abrir la app en medio de la partida NO oculta el ELO para siempre',
       !introView(trackIntro(null, state, t0 + ENGAGE_LIMIT_MS + 1000), bothOn, t0 + ENGAGE_LIMIT_MS + 1000).eloHidden);
 
@@ -588,7 +604,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
   {
     const {
       SOURCES, opponentsOf, statsLadder, resolveMode, parseRivalHistory, parseMapStats,
-      normalizeProfileStats, buildRivalInsights, hasCachedInsights,
+      summarizeOpeningsByMap, normalizeProfileStats, buildRivalInsights, hasCachedInsights,
     } = require('../src/rival');
 
     // Regresión del bug encontrado en la captura de TG: el informe mostraba a
@@ -677,20 +693,22 @@ function fakeLobby(leaderboardId, leaderboardName) {
         parseMapStats(historyMatches, 4242, 555, { mapName: 'Arena', mode: resolveMode(4) }).civ.name === 'Hindustanis' &&
         parseMapStats(historyMatches, 4242, 555, { mapName: null }) === null);
 
-    // La muestra del mapa son las ÚLTIMAS 5, sin importar la antigüedad.
-    const manyArabia = Array.from({ length: 6 }, (_, i) => ({
+    // La muestra del mapa es TODO el historial, sin recortar a 20.
+    const manyArabia = Array.from({ length: 25 }, (_, i) => ({
       matchId: 3000 + i,
-      startedAt: (i + 1) * 1000,
+      startedAt: (25 - i) * 1000,
       leaderboardId: 3,
       mapName: 'Arabia',
-      players: [{ profileId: 7, civ: i === 0 ? 'Goths' : 'Franks', won: true }],
+      // Franks 12, Magyars 8 y Goths 5: las tres cuentan.
+      players: [{ profileId: 7, civ: i < 12 ? 'Franks' : i < 20 ? 'Magyars' : 'Goths', won: true }],
     }));
-    const lastFiveMap = parseMapStats(manyArabia, 7, null, { mapName: 'Arabia', mode: resolveMode(3) });
-    check('mapa actual: últimas 5 por fecha, aunque sean viejas; mismo modo',
-      lastFiveMap.games === 5 && lastFiveMap.totalMapGames === 6 &&
-        lastFiveMap.civ.name === 'Franks' && lastFiveMap.civ.games === 5 &&
-        lastFiveMap.civs.every((c) => c.name !== 'Goths'),
-      JSON.stringify(lastFiveMap));
+    const allMap = parseMapStats(manyArabia, 7, null, { mapName: 'Arabia', mode: resolveMode(3) });
+    check('mapa actual: cuenta todo el historial del mapa',
+      allMap.games === 25 && allMap.totalMapGames === 25 &&
+        allMap.civ.name === 'Franks' && allMap.civ.games === 12 &&
+        allMap.civs.find((c) => c.name === 'Goths') &&
+        allMap.civs.find((c) => c.name === 'Goths').games === 5,
+      JSON.stringify(allMap));
 
     const statsRaw = {
       leaderboardName: '1v1 Random Map',
@@ -732,6 +750,12 @@ function fakeLobby(leaderboardId, leaderboardName) {
       ],
       ranking: [], recent: [{ name: 'Scout rush', short: 'Scouts' }],
     };
+    const civNoReplays = summarizeOpeningsByMap(
+      fakeOpenings.analyzedMatches, 'Arabia', 'Ethiopians');
+    check('sin replays de la civ más usada no se cae a otra civ del mapa',
+      civNoReplays.mapCivFavorite === null && civNoReplays.recent.length === 0 &&
+        civNoReplays.mapFavorite && civNoReplays.mapFavorite.name === 'Scout rush');
+
     const calls = { matches: 0, stats: 0, openings: 0 };
     const partials = [];
     const cache = new Map();
@@ -770,6 +794,10 @@ function fakeLobby(leaderboardId, leaderboardName) {
         report.openings.mapCivAnalyzed === 2 &&
         report.openings.mapFavorite.name === 'Scout rush',
       JSON.stringify({ civ: report.openings.mapCivFavorite, analyzed: report.openings.mapCivAnalyzed }));
+    check('informe: las aperturas recientes son del mapa Y de la civ más usada',
+      report.openings.recent.length === 2 &&
+        report.openings.recent.every((row) => row.map === 'Arabia' && row.civ === 'Magyars'),
+      JSON.stringify(report.openings.recent));
     check('informe: NO existe el campo inventado "opening" por civ',
       report.opening === undefined && !('typicalOpening' in report));
     check('primer pintado parcial: civs listas antes de las aperturas lentas',
@@ -1253,26 +1281,35 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /leaderboardId,\s*\n\s*mapName,/.test(mainSrc));
     check('main.js: al ocultarse el ELO se adelanta el poll (vuelve rápido al terminar)',
       /eloHidden\) scheduleNext\('ongoing'\)/.test(mainSrc));
-    check('rival.js: pagina el historial hasta juntar 5 partidas del mapa',
-      /MAP_MATCH_LIMIT/.test(rivalSrc) && /MAP_MAX_PAGES/.test(rivalSrc) &&
-        /fetchMatchesImpl\(id, MAP_PAGE_SIZE, page\)/.test(rivalSrc));
+    check('rival.js: recorre todo el historial del mapa en el modo exacto',
+      /MAP_MAX_PAGES/.test(rivalSrc) && /targetMapGames/.test(rivalSrc) &&
+        /fetchMatchesImpl\(id, MAP_PAGE_SIZE, page, historyLadder\)/.test(rivalSrc) &&
+        !/MAP_MATCH_LIMIT/.test(rivalSrc));
+    check('aoe.js: el historial se filtra por el ladder EXACTO (modo)',
+      /leaderboard_ids=\$\{encodeURIComponent\(ladder\)\}/.test(
+        fs.readFileSync(path.join(__dirname, '..', 'src', 'aoe.js'), 'utf8')));
     check('rival.js: openingsImpl recibe el modo y la clave de cache lo incluye',
       /const mode = resolveMode\(leaderboardId\);/.test(rivalSrc) &&
         /openingsImpl\(\{[\s\S]{0,120}mode,/.test(rivalSrc) &&
         /rival:insights:\$\{id\}:\$\{ladder\}:\$\{modeId\}/.test(rivalSrc));
     check('renderer: etiqueta el modo y nunca mezcla (modo no disponible / descartados)',
-      /APERTURA MÁS USADA\$\{modeLabel\}/.test(rendererSrc) && /modeUnavailable/.test(rendererSrc) &&
+      /APERTURA EN ESTE MAPA\$\{modeLabel\}/.test(rendererSrc) && /modeUnavailable/.test(rendererSrc) &&
         /discardedOtherModes/.test(rendererSrc) && /ÚLTIMAS 5 CIVS\$\{modeLabel\}/.test(rendererSrc));
+    check('renderer: el bloque EN ESTE MAPA también etiqueta el modo',
+      /EN ESTE MAPA\$\{modeLabel\}/.test(rendererSrc));
     check('renderer: la tarjeta usa el mapa de la partida, no el favorito',
       /EN ESTE MAPA/.test(rendererSrc) && /report\.mapStats/.test(rendererSrc) &&
         !/rivalBlock\('MÁS USA'/.test(rendererSrc) && !/favoriteMap/.test(rendererSrc));
+    check('renderer: la estrategia SOLO usa replays del mapa y de su civ más usada',
+      /APERTURA EN ESTE MAPA/.test(rendererSrc) && /openings\.mapCivFavorite/.test(rendererSrc) &&
+        !/openings\.mapFavorite/.test(rendererSrc) && !/openings\.favorite/.test(rendererSrc));
     check('renderer: la estrategia se muestra con la civ del mapa',
       /ESTRATEGIA/.test(rendererSrc) && /mapCivFavorite/.test(rendererSrc));
     check('ajustes: la opción explica que solo cuenta el mismo modo de juego',
       /mismo modo de juego/.test(settingsHtmlSrc) && /EW no/.test(settingsHtmlSrc));
     check('ajustes: la opción habla del mapa de la partida, no del favorito',
       /Civ más usada en el mapa/.test(settingsHtmlSrc) &&
-        /mapa de esta partida/.test(settingsHtmlSrc) && !/mapa más jugado/.test(settingsHtmlSrc));
+        /mapa y modo de la partida/.test(settingsHtmlSrc) && !/mapa más jugado/.test(settingsHtmlSrc));
     check('emptyOpenings también declara el modo y el motivo',
       emptyOpenings(1, 1, 'x', { mode: resolveMode(13), modeUnavailable: true }).mode.id === 13 &&
         emptyOpenings(1, 1, 'x').modeUnavailable === false);

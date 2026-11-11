@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('settings', {
   opacity: (value) => ipcRenderer.invoke('settings:opacity', value),
   civHelp: (on) => ipcRenderer.invoke('settings:civHelp', on),
   hideEloAt20: (on) => ipcRenderer.invoke('settings:hideEloAt20', on),
+  hideAtSeconds: (seconds) => ipcRenderer.invoke('settings:hideAtSeconds', seconds),
   rivalOption: (key, on) => ipcRenderer.invoke('settings:rivalOption', key, on),
   exampleStart: (query, clock) => ipcRenderer.invoke('settings:exampleStart', query, clock),
   exampleClock: (mode) => ipcRenderer.invoke('settings:exampleClock', mode),
@@ -25,5 +26,8 @@ contextBridge.exposeInMainWorld('settings', {
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
   updaterSkip: () => ipcRenderer.invoke('updater:skip'),
   onUpdater: (callback) => ipcRenderer.on('updater:status', (_event, status) => callback(status)),
+  minimize: () => ipcRenderer.send('settings:minimize'),
+  toggleMaximize: () => ipcRenderer.send('settings:toggle-maximize'),
+  onMaximized: (callback) => ipcRenderer.on('settings:maximized', (_event, on) => callback(Boolean(on))),
   close: () => ipcRenderer.send('settings:close'),
 });

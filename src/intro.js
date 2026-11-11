@@ -6,9 +6,13 @@
  * El usuario quiere dos cosas atadas al TIEMPO REAL DE PARTIDA, no a un
  * temporizador desde que la app detecta algo:
  *
- *   - "Ayuda de civ": aparece a 0:01 y se oculta a 0:20.
- *   - "Ocultar panel de ELO al segundo 20": el ELO se ve al empezar y se
- *     oculta a 0:20; vuelve a aparecer cuando termina la partida.
+ *   - "Ayuda de civ": aparece a 0:01 y se oculta al tiempo elegido.
+ *   - "Ocultar panel de ELO": el ELO se ve al empezar y se oculta al tiempo
+ *     elegido; vuelve a aparecer cuando termina la partida.
+ *
+ * El tiempo de ocultado es configurable (`hideAtSeconds`, de 10 a 60 s,
+ * 20 s por defecto), tanto para la ayuda de civ como para el ELO y el informe
+ * del rival.
  *
  * `match.startedAt` viene del REST de AoE2 Companion (`raw.started`), que es
  * el timestamp real de inicio. En la pre-partida (`phase:'lobby'`, evento
@@ -19,11 +23,21 @@
  */
 
 const SHOW_AT_MS = 1000; // 0:01
-const HIDE_AT_MS = 20 * 1000; // 0:20
+const HIDE_AT_MS = 20 * 1000; // 0:20 (valor por defecto)
+const MIN_HIDE_MS = 10 * 1000; // 0:10
+const MAX_HIDE_MS = 60 * 1000; // 1:00
 // Si la primera vez que vemos la partida ya pasó más de esto, no enganchamos
 // la intro (p. ej. abrir la app en medio de una partida): así el ELO no queda
 // oculto para siempre en una partida que no vimos empezar.
 const ENGAGE_LIMIT_MS = 60 * 1000;
+
+/** Tiempo de ocultado (ms) a partir de la config, siempre entre 10 y 60 s. */
+function hideAtMs(config) {
+  const raw = Number(config && config.hideAtSeconds);
+  const seconds = Number.isFinite(raw) && raw > 0 ? raw : HIDE_AT_MS / 1000;
+  const ms = Math.round(seconds) * 1000;
+  return Math.min(MAX_HIDE_MS, Math.max(MIN_HIDE_MS, ms));
+}
 
 function introKey(state) {
   if (!state || state.status !== 'ongoing') return null;
@@ -56,28 +70,33 @@ function trackIntro(previous, state, now) {
 function introView(intro, config, now) {
   const active = Boolean(intro && intro.engaged);
   const elapsed = active ? Math.max(0, now - intro.startedAt) : null;
+  const hideAt = hideAtMs(config);
   const civHelpVisible = Boolean(
-    active && config && config.civHelp && elapsed >= SHOW_AT_MS && elapsed < HIDE_AT_MS,
+    active && config && config.civHelp && elapsed >= SHOW_AT_MS && elapsed < hideAt,
   );
   const eloHidden = Boolean(
-    active && config && config.hideEloAt20 && elapsed >= HIDE_AT_MS,
+    active && config && config.hideEloAt20 && elapsed >= hideAt,
   );
   return { eloHidden, civHelpVisible, elapsed };
 }
 
 /** Milisegundos hasta el próximo cambio de vista, o null si ya no hay. */
-function nextIntroTick(intro, now) {
+function nextIntroTick(intro, now, config) {
   if (!intro || !intro.engaged) return null;
   const elapsed = Math.max(0, now - intro.startedAt);
   if (elapsed < SHOW_AT_MS) return SHOW_AT_MS - elapsed;
-  if (elapsed < HIDE_AT_MS) return HIDE_AT_MS - elapsed;
+  const hideAt = hideAtMs(config);
+  if (elapsed < hideAt) return hideAt - elapsed;
   return null;
 }
 
 module.exports = {
   SHOW_AT_MS,
   HIDE_AT_MS,
+  MIN_HIDE_MS,
+  MAX_HIDE_MS,
   ENGAGE_LIMIT_MS,
+  hideAtMs,
   introKey,
   trackIntro,
   introView,
