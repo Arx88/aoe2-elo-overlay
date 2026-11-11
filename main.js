@@ -65,7 +65,7 @@ const DEFAULT_CONFIG = {
   hideEloAt20: false,
   // Informe opcional del rival (todo dato REAL, nada inferido).
   rivalCivs: false, // últimas 5 civilizaciones elegidas
-  rivalFavorites: false, // civ y mapa más usados
+  rivalFavorites: false, // civ más usada y winrate en el mapa de la partida
   rivalOpenings: false, // aperturas reales de AoE2Insights (replays analizados)
   debug: false,
 };
@@ -459,8 +459,9 @@ function rivalSignature(state, rivals) {
   const view = viewConfig();
   const flags = RIVAL_OPTION_KEYS.map((key) => (view[key] ? '1' : '0')).join('');
   const matchId = (state && state.match && state.match.matchId) || 'sin-id';
+  const mapName = (state && state.match && state.match.mapName) || 'sin-mapa';
   const mode = resolveMode(leaderboardOf(state));
-  return `${matchId}:${mode ? mode.id : 'sin-modo'}:${rivals.map((rival) => rival.profileId).join(',')}:${flags}`;
+  return `${matchId}:${mode ? mode.id : 'sin-modo'}:${mapName}:${rivals.map((rival) => rival.profileId).join(',')}:${flags}`;
 }
 
 /** Ladder de la partida: del payload del match; si falta, del etiquetado. */
@@ -512,7 +513,14 @@ function demoRivalReports(state) {
       mode,
       history,
       favoriteCiv: { name: 'Ethiopians', slug: 'ethiopians', games: 145, share: 53, winRate: 54 },
-      favoriteMap: { name: 'Thames', games: 168, share: 61 },
+      mapStats: {
+        name: state.match.mapName,
+        games: 12,
+        wins: 7,
+        winRate: 58,
+        sampleGames: 2,
+        civ: { name: 'Magyars', slug: 'magyars', games: 2, wins: 1, share: 100, winRate: 50 },
+      },
       totalGames: 276,
       statsLadderLabel: '1v1 Empire Wars',
       error: null,
@@ -599,6 +607,7 @@ async function refreshRivalReports(state, options = {}) {
     });
 
     const leaderboardId = leaderboardOf(state);
+    const mapName = state.match && state.match.mapName;
     const currentMatchId = state.match && state.match.matchId;
 
     for (const [rivalIndex, rival] of rivals.entries()) {
@@ -608,6 +617,7 @@ async function refreshRivalReports(state, options = {}) {
         name: rival.name,
         civ: rival.civ,
         leaderboardId,
+        mapName,
         currentMatchId,
         cache: statsCache,
         cacheTtlMs: Number(config.statsCacheMinutes || 15) * 60 * 1000,
@@ -621,6 +631,7 @@ async function refreshRivalReports(state, options = {}) {
         `informe del rival ${rival.name} (#${rival.profileId}) listo en ` +
           `${Date.now() - startedAt}ms · ${report.history.length} civs` +
           `${report.mode ? ` en ${report.mode.label}` : ''} · ` +
+          `${report.mapStats ? `${report.mapStats.name}: ${report.mapStats.civ ? report.mapStats.civ.name : 'sin civ'}` : 'sin mapa'} · ` +
           `${report.openings ? report.openings.analyzed : 0} aperturas reales`,
       );
     }
@@ -1762,6 +1773,9 @@ function armIntroTimer() {
   introTimer = setTimeout(() => {
     sendView();
     armIntroTimer();
+    // Justo al ocultarse el ELO (0:20) se adelanta el próximo poll: si la
+    // partida termina, el panel vuelve en ~5s y no espera el intervalo lento.
+    if (introView(intro, viewConfig(), clockNow()).eloHidden) scheduleNext('ongoing');
   }, Math.max(16, delay));
 }
 
@@ -1900,7 +1914,12 @@ function scheduleNext(status) {
   clearTimeout(timer);
   // En cola consultamos el REST cada 1.5s: si el socket no publica el roster
   // (ciertas ladders), la partida en curso se detecta igual de inmediato.
-  const delay = status === 'ongoing' ? slowMs() : searching ? Math.min(fastMs(), 1500) : fastMs();
+  // Con el ELO oculto (a partir de 0:20) se consulta más seguido: el REST tarda
+  // en dejar de listar la partida al terminarla y el panel tiene que volver
+  // rápido, no esperar el poll lento completo.
+  const hidden = introView(intro, viewConfig(), clockNow()).eloHidden;
+  const ongoingMs = hidden ? Math.min(slowMs(), 5000) : slowMs();
+  const delay = status === 'ongoing' ? ongoingMs : searching ? Math.min(fastMs(), 1500) : fastMs();
   timer = setTimeout(async () => {
     const next = await poll();
     scheduleNext(next);

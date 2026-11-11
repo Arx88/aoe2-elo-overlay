@@ -577,8 +577,8 @@ function fakeLobby(leaderboardId, leaderboardName) {
   console.log('\n--- 14) informe opcional del rival (sin red) ---');
   {
     const {
-      SOURCES, opponentsOf, statsLadder, parseRivalHistory, normalizeProfileStats,
-      buildRivalInsights, hasCachedInsights,
+      SOURCES, opponentsOf, statsLadder, resolveMode, parseRivalHistory, parseMapStats,
+      normalizeProfileStats, buildRivalInsights, hasCachedInsights,
     } = require('../src/rival');
 
     // Regresión del bug encontrado en la captura de TG: el informe mostraba a
@@ -653,6 +653,20 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('historia: conserva resultado y mapa reales',
       hist[0].won === true && hist[1].won === false && hist[0].mapName === 'Arabia');
 
+    const arabia = parseMapStats(historyMatches, 4242, 555, {
+      mapName: 'arabia', mode: resolveMode(4),
+    });
+    check('mapa actual: filtra SOLO ese mapa (y ese modo), sin favoritos',
+      arabia.name === 'arabia' && arabia.games === 2 && arabia.wins === 1 &&
+        arabia.winRate === 50 && arabia.civ.name === 'Magyars' &&
+        arabia.civ.winRate === 100 && arabia.civ.share === 50 &&
+        arabia.civs.length === 2,
+      JSON.stringify(arabia));
+    check('mapa actual: mapa sin partidas se informa en cero, no se inventa',
+      parseMapStats(historyMatches, 4242, 555, { mapName: 'Nomad', mode: resolveMode(4) }).games === 0 &&
+        parseMapStats(historyMatches, 4242, 555, { mapName: 'Arena', mode: resolveMode(4) }).civ.name === 'Hindustanis' &&
+        parseMapStats(historyMatches, 4242, 555, { mapName: null }) === null);
+
     const statsRaw = {
       leaderboardName: '1v1 Random Map',
       civ: [
@@ -668,7 +682,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
         { mapName: 'Thames', games: 168, wins: 90 },
       ],
     };
-    const stats = normalizeProfileStats(statsRaw);
+    const stats = normalizeProfileStats(statsRaw, 'Arabia');
     check('stats: civ y mapa más usados por partidas reales',
       stats.favoriteCiv.name === 'Ethiopians' && stats.favoriteCiv.games === 145 &&
         stats.favoriteMap.name === 'Thames' && stats.favoriteMap.games === 168);
@@ -676,6 +690,11 @@ function fakeLobby(leaderboardId, leaderboardName) {
       stats.favoriteCiv.share === 58 && stats.favoriteCiv.winRate === 55 &&
         stats.topCivs.length === 3 && stats.topMaps.length === 2 && stats.totalGames === 250,
       `total ${stats.totalGames}`);
+    check('stats: el mapa de la partida sale del histórico, no el favorito',
+      stats.currentMap.name === 'Arabia' && stats.currentMap.games === 100 &&
+        stats.currentMap.wins === 55 && stats.currentMap.winRate === 55 &&
+        stats.favoriteMap.name === 'Thames',
+      JSON.stringify(stats.currentMap));
 
     const fakeOpenings = {
       ok: true, fromReplays: true, analyzed: 36, uniqueMatches: 43,
@@ -688,7 +707,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
     const now = 1700000000000;
     const opts = {
       profileId: 4242, name: 'Rival', civ: 'Magyars', leaderboardId: 4,
-      currentMatchId: 555, cache, now,
+      mapName: 'Arabia', currentMatchId: 555, cache, now,
       fetchMatchesImpl: async () => { calls.matches += 1; return historyMatches; },
       getJsonImpl: async (u) => { calls.stats += 1; calls.statsUrl = u; return statsRaw; },
       openingsImpl: async (o) => { calls.openings += 1; calls.openingsArg = o; return fakeOpenings; },
@@ -703,9 +722,14 @@ function fakeLobby(leaderboardId, leaderboardName) {
       Boolean(calls.openingsArg && calls.openingsArg.mode) && calls.openingsArg.mode.id === 4 &&
         report.mode && report.mode.id === 4 && report.mode.label === 'RM Team',
       JSON.stringify(report.mode));
-    check('informe: últimas 5 civs + civ/mapa favoritos',
+    check('informe: últimas 5 civs + civ/mapa favoritos (compatibilidad)',
       report.history.length === 5 && report.favoriteCiv.name === 'Ethiopians' &&
         report.favoriteMap.name === 'Thames');
+    check('informe: civ más usada en el MAPA de la partida, no el mapa favorito',
+      report.mapStats.name === 'Arabia' && report.mapStats.games === 100 &&
+        report.mapStats.winRate === 55 && report.mapStats.civ.name === 'Magyars' &&
+        report.mapStats.civ.winRate === 100 && report.mapStats.sampleGames === 2,
+      JSON.stringify(report.mapStats));
     check('informe: usa las aperturas REALES que devuelve AoE2Insights',
       calls.openings === 1 && report.openings === fakeOpenings &&
         report.openings.favorite.name === 'Scout rush' && report.openingError === null);
@@ -720,9 +744,10 @@ function fakeLobby(leaderboardId, leaderboardName) {
     const cached = await buildRivalInsights(opts);
     check('segunda lectura sale de cache, sin repetir requests',
       cached.fromCache === true && calls.matches === 1 && calls.stats === 1 && calls.openings === 1);
-    check('hasCachedInsights distingue includeOpenings en la clave',
-      hasCachedInsights(cache, 4242, 4, { now, includeOpenings: true }) === true &&
-        hasCachedInsights(cache, 4242, 4, { now, includeOpenings: false }) === false);
+    check('hasCachedInsights distingue includeOpenings y el mapa en la clave',
+      hasCachedInsights(cache, 4242, 4, { now, includeOpenings: true, mapName: 'Arabia' }) === true &&
+        hasCachedInsights(cache, 4242, 4, { now, includeOpenings: false, mapName: 'Arabia' }) === false &&
+        hasCachedInsights(cache, 4242, 4, { now, includeOpenings: true, mapName: 'Arena' }) === false);
 
     const noOpenings = await buildRivalInsights({
       ...opts, profileId: 4243, includeOpenings: false, onPartial: (p) => partials.push(p),
@@ -1185,6 +1210,12 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /sin-modo/.test(mainSrc));
     check('main.js: la firma del informe incluye el modo (no reutiliza de otro modo)',
       /rivalSignature\(state, rivals\)[\s\S]{0,400}sin-modo/.test(mainSrc));
+    check('main.js: la firma y el pedido incluyen el MAPA de la partida',
+      /rivalSignature\(state, rivals\)[\s\S]{0,500}sin-mapa/.test(mainSrc) &&
+        /const mapName = state\.match && state\.match\.mapName/.test(mainSrc) &&
+        /leaderboardId,\s*\n\s*mapName,/.test(mainSrc));
+    check('main.js: al ocultarse el ELO se adelanta el poll (vuelve rápido al terminar)',
+      /eloHidden\) scheduleNext\('ongoing'\)/.test(mainSrc));
     check('rival.js: openingsImpl recibe el modo y la clave de cache lo incluye',
       /const mode = resolveMode\(leaderboardId\);/.test(rivalSrc) &&
         /openingsImpl\(\{[\s\S]{0,120}mode,/.test(rivalSrc) &&
@@ -1192,8 +1223,14 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('renderer: etiqueta el modo y nunca mezcla (modo no disponible / descartados)',
       /APERTURA MÁS USADA\$\{modeLabel\}/.test(rendererSrc) && /modeUnavailable/.test(rendererSrc) &&
         /discardedOtherModes/.test(rendererSrc) && /ÚLTIMAS 5 CIVS\$\{modeLabel\}/.test(rendererSrc));
+    check('renderer: la tarjeta usa el mapa de la partida, no el favorito',
+      /EN ESTE MAPA/.test(rendererSrc) && /report\.mapStats/.test(rendererSrc) &&
+        !/rivalBlock\('MÁS USA'/.test(rendererSrc) && !/favoriteMap/.test(rendererSrc));
     check('ajustes: la opción explica que solo cuenta el mismo modo de juego',
       /mismo modo de juego/.test(settingsHtmlSrc) && /EW no/.test(settingsHtmlSrc));
+    check('ajustes: la opción habla del mapa de la partida, no del favorito',
+      /Civ más usada en el mapa/.test(settingsHtmlSrc) &&
+        /mapa de esta partida/.test(settingsHtmlSrc) && !/mapa más jugado/.test(settingsHtmlSrc));
     check('emptyOpenings también declara el modo y el motivo',
       emptyOpenings(1, 1, 'x', { mode: resolveMode(13), modeUnavailable: true }).mode.id === 13 &&
         emptyOpenings(1, 1, 'x').modeUnavailable === false);

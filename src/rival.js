@@ -6,9 +6,13 @@
  *
  *  1. Últimas 5 civs  -> AoE2 Companion GET /api/matches?profile_ids=<rival>
  *     Cada partida trae teams[].players[].civName, won y el mapa.
- *  2. Civ / mapa más usados -> AoE2 Companion
+ *  2. En el MAPA de la partida -> AoE2 Companion
  *     GET /api/profiles/<rival>/stats?leaderboard_id=<enum>
  *     Devuelve civ[] y map[] con games / wins / losses del histórico completo.
+ *     De ahí sale el winrate real en el mapa que se está jugando; la civ más
+ *     usada en ESE mapa se cuenta sobre las partidas recientes del historial
+ *     (la API no tiene el cruce civ × mapa). El mapa favorito global ya no se
+ *     muestra: no sirve si no es el mapa de la partida.
  *  3. Aperturas -> AoE2Insights GET /stats/api/match-ups/ (src/insights.js)
  *     Etiquetas detectadas en REPLAYS ANALIZADOS: Scout rush, Archer rush,
  *     Drush, Fast castle, MAA rush… No es una "apertura típica por civ": es
@@ -49,6 +53,9 @@ const NUMERIC_LADDERS = {
 const FALLBACK_LADDER = 'rm_1v1';
 const HISTORY_SIZE = 5;
 const HISTORY_PAGE = 25;
+// Muestra más amplia para la civ más usada en el mapa actual (el historial de
+// 5 no alcanza). Es la MISMA request: solo se pide una página más grande.
+const MAP_SAMPLE_PAGE = 100;
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
 const SOURCES = {
@@ -132,8 +139,74 @@ function parseRivalHistory(matches, profileId, currentMatchId, options = {}) {
   return rows.slice(0, limit);
 }
 
+/** Clave tolerante para comparar nombres de mapa entre payloads. */
+function mapKey(name) {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Estadísticas del rival EN UN MAPA concreto, a partir del historial reciente.
+ * Filtra por mapa y por modo (EW ≠ RM) y descarta la partida en curso. La civ
+ * más usada se elige por partidas y, en empate, por victorias.
+ */
+function parseMapStats(matches, profileId, currentMatchId, options = {}) {
+  const mapName = String((options && options.mapName) || '').trim();
+  if (!mapName) return null;
+  const wanted = mapKey(mapName);
+  const mode = options.mode ? resolveMode(options.mode) : null;
+  const id = Number(profileId);
+  const civs = new Map();
+  let games = 0;
+  let wins = 0;
+
+  for (const match of Array.isArray(matches) ? matches : []) {
+    if (!match || match.ongoing) continue;
+    if (currentMatchId != null && Number(match.matchId) === Number(currentMatchId)) continue;
+    if (mode) {
+      const matchMode = resolveMode(match.leaderboardId);
+      if (!matchMode || matchMode.id !== mode.id) continue;
+    }
+    if (mapKey(match.mapName) !== wanted) continue;
+    const player = (match.players || []).find((p) => Number(p.profileId) === id);
+    if (!player || !player.civ) continue;
+
+    const won = player.won === true;
+    games += 1;
+    if (won) wins += 1;
+    const slug = civSlug(player.civ);
+    const key = slug || String(player.civ);
+    const entry = civs.get(key) || { name: String(player.civ), slug, games: 0, wins: 0 };
+    entry.games += 1;
+    if (won) entry.wins += 1;
+    civs.set(key, entry);
+  }
+
+  const ranked = [...civs.values()]
+    .map((entry) => ({
+      ...entry,
+      share: pct(entry.games, games),
+      winRate: pct(entry.wins, entry.games),
+    }))
+    .sort((a, b) => b.games - a.games || b.wins - a.wins);
+
+  return {
+    name: mapName,
+    games,
+    wins,
+    winRate: pct(wins, games),
+    civ: ranked[0] || null,
+    civs: ranked.slice(0, 3),
+    sampleGames: games,
+  };
+}
+
 /** Normaliza el /stats: ordena por partidas y calcula cuota y winrate. */
-function normalizeProfileStats(raw) {
+function normalizeProfileStats(raw, mapName = null) {
   const civs = (Array.isArray(raw && raw.civ) ? raw.civ : [])
     .map((entry) => ({
       slug: civSlug(entry.civ) || String(entry.civ || ''),
@@ -162,6 +235,8 @@ function normalizeProfileStats(raw) {
     winRate: pct(entry.wins, entry.games),
   });
   const decorateMap = (entry) => ({ ...entry, share: pct(entry.games, totalMapGames) });
+  const wantedMap = mapKey(mapName);
+  const currentEntry = wantedMap ? maps.find((entry) => mapKey(entry.name) === wantedMap) : null;
 
   return {
     statsLadderLabel: String((raw && raw.leaderboardName) || 'Ranked'),
@@ -170,6 +245,10 @@ function normalizeProfileStats(raw) {
     favoriteCiv: civs.length ? decorateCiv(civs[0]) : null,
     topMaps: maps.slice(0, 2).map(decorateMap),
     favoriteMap: maps.length ? decorateMap(maps[0]) : null,
+    // El mapa de la partida (no el favorito): partidas y winrate del histórico.
+    currentMap: currentEntry
+      ? { ...decorateMap(currentEntry), winRate: pct(currentEntry.wins, currentEntry.games) }
+      : null,
   };
 }
 
@@ -186,6 +265,7 @@ async function buildRivalInsights(options = {}) {
     name = null,
     civ = null,
     leaderboardId = null,
+    mapName = null,
     currentMatchId = null,
     cache = null,
     cacheTtlMs = DEFAULT_TTL_MS,
@@ -202,7 +282,7 @@ async function buildRivalInsights(options = {}) {
   } = options;
 
   const id = Number(profileId);
-  const base = { profileId: id, name, civ, sources: SOURCES, fetchedAt: now, error: null };
+  const base = { profileId: id, name, civ, mapName: mapName ? String(mapName) : null, sources: SOURCES, fetchedAt: now, error: null };
   if (!Number.isFinite(id) || id <= 0) return { ...base, error: 'perfil inválido' };
 
   const ladder = statsLadder(leaderboardId);
@@ -210,7 +290,8 @@ async function buildRivalInsights(options = {}) {
   // partidas del historial cuentan. `null` = partida sin ladder rankeada.
   const mode = resolveMode(leaderboardId);
   const modeId = mode ? mode.id : 'sin-modo';
-  const key = `rival:insights:${id}:${ladder}:${modeId}:${includeOpenings ? 1 : 0}`;
+  // El mapa entra en la clave: el informe de Arabia no sirve para Arena.
+  const key = `rival:insights:${id}:${ladder}:${modeId}:${mapKey(mapName)}:${includeOpenings ? 1 : 0}`;
   const cached = cache && cache.get(key);
   if (cached && now - cached.ts <= cacheTtlMs) {
     return { ...base, ...cached.data, ladder, fromCache: true };
@@ -219,7 +300,10 @@ async function buildRivalInsights(options = {}) {
   const result = {
     ladder,
     mode: mode ? { ...mode } : null,
+    mapName: base.mapName,
     history: [],
+    mapStats: null,
+    currentMap: null,
     topCivs: [],
     topMaps: [],
     favoriteCiv: null,
@@ -232,8 +316,9 @@ async function buildRivalInsights(options = {}) {
   const errors = [];
 
   try {
-    const matches = await fetchMatchesImpl(id, HISTORY_PAGE);
+    const matches = await fetchMatchesImpl(id, Math.max(HISTORY_PAGE, MAP_SAMPLE_PAGE));
     result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
+    result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
   } catch (err) {
     errors.push(`historial: ${err.message}`);
   }
@@ -243,12 +328,30 @@ async function buildRivalInsights(options = {}) {
       `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
       `?leaderboard_id=${encodeURIComponent(ladder)}`;
     const raw = await getJsonImpl(url);
-    Object.assign(result, normalizeProfileStats(raw));
+    Object.assign(result, normalizeProfileStats(raw, mapName));
+
+    // El /stats tiene el histórico completo del mapa (partidas y winrate). La
+    // civ más usada viene de la muestra del historial, porque la API no cruza
+    // civ × mapa. Se combinan sin inventar: si el mapa no aparece, queda la
+    // muestra o el aviso de "sin partidas".
   } catch (err) {
     errors.push(`stats: ${err.message}`);
   }
 
-  // Primer aviso: histórico de civs / favoritos ya están listos (~0.3s).
+  if (result.mapStats && result.currentMap) {
+    result.mapStats = {
+      ...result.mapStats,
+      games: result.currentMap.games,
+      wins: result.currentMap.wins,
+      winRate: result.currentMap.winRate,
+      share: result.currentMap.share,
+      sampleGames: result.mapStats.games,
+    };
+  } else if (!result.mapStats && result.currentMap) {
+    result.mapStats = { ...result.currentMap, civ: null, sampleGames: 0 };
+  }
+
+  // Primer aviso: histórico de civs / mapa actual ya están listos (~0.3s).
   // AoE2Insights puede tardar ~9s en calcular la consulta, así que el panel
   // pinta las civs AHORA y agrega las aperturas cuando llegan.
   if (typeof onPartial === 'function' && includeOpenings) {
@@ -288,11 +391,11 @@ async function buildRivalInsights(options = {}) {
 /** ¿Hay que consultar la red o alcanza con lo que ya hay en memoria? */
 function hasCachedInsights(cache, profileId, leaderboardId, options = {}) {
   if (!cache) return false;
-  const { now = Date.now(), cacheTtlMs = DEFAULT_TTL_MS, includeOpenings = true } = options;
+  const { now = Date.now(), cacheTtlMs = DEFAULT_TTL_MS, includeOpenings = true, mapName = null } = options;
   const mode = resolveMode(leaderboardId);
   const key =
     `rival:insights:${Number(profileId)}:${statsLadder(leaderboardId)}:` +
-    `${mode ? mode.id : 'sin-modo'}:${includeOpenings ? 1 : 0}`;
+    `${mode ? mode.id : 'sin-modo'}:${mapKey(mapName)}:${includeOpenings ? 1 : 0}`;
   const entry = cache.get(key);
   return Boolean(entry && now - entry.ts <= cacheTtlMs);
 }
@@ -303,13 +406,17 @@ module.exports = {
   NUMERIC_LADDERS,
   FALLBACK_LADDER,
   HISTORY_SIZE,
+  HISTORY_PAGE,
+  MAP_SAMPLE_PAGE,
   DEFAULT_TTL_MS,
   OPENINGS_TTL_MS,
   opponentsOf,
   statsLadder,
   resolveMode,
   pct,
+  mapKey,
   parseRivalHistory,
+  parseMapStats,
   normalizeProfileStats,
   buildRivalInsights,
   hasCachedInsights,

@@ -200,7 +200,7 @@ function renderCivHelp() {
  * Informe OPCIONAL del rival.
  *
  * Todo lo que se pinta acá viene de datos REALES:
- *  - history / favoriteCiv / favoriteMap  -> AoE2 Companion
+ *  - history / mapStats (civ del mapa)    -> AoE2 Companion
  *  - openings.recent / favorite           -> AoE2Insights (replays analizados)
  *
  * No hay inferencias: si no hay replays analizados se dice explícitamente.
@@ -256,30 +256,53 @@ function rivalHistoryBlock(report) {
   return rivalBlock(`ÚLTIMAS 5 CIVS${modeLabel}`, `<div class="rival-civ-list">${items}</div>`, 'civs');
 }
 
-function rivalFavoritesBlock(report) {
-  const civ = report.favoriteCiv;
-  const map = report.favoriteMap;
-  if (!civ && !map) {
-    return rivalBlock('MÁS USA', '<div class="rival-empty">Sin estadísticas públicas del perfil.</div>');
+/**
+ * SOLO el mapa de la partida: cuántas jugó y winrate ahí, más la civ que más
+ * usó en ESE mapa. El mapa favorito global no se muestra: si no es el que se
+ * está jugando, no sirve para preparar la partida.
+ */
+function rivalMapBlock(report) {
+  const map = report.mapStats;
+  const mapName =
+    (map && map.name) ||
+    (lastState && lastState.match && lastState.match.mapName) ||
+    '—';
+  if (!mapName || mapName === '—') {
+    return rivalBlock(
+      'EN ESTE MAPA',
+      '<div class="rival-empty">Esperando el mapa de la partida…</div>',
+      'favs',
+    );
   }
-  const civPart = civ
-    ? '<div class="rival-fav-row">' +
+  const games = map && Number(map.games) > 0 ? Number(map.games) : 0;
+  if (!games) {
+    return rivalBlock(
+      'EN ESTE MAPA',
+      `<div class="rival-empty">Sin partidas públicas en ${escapeHtml(mapName)}.</div>`,
+      'favs',
+    );
+  }
+
+  const mapRow =
+    '<div class="rival-map-row">' +
+    '<span class="rival-map-key">MAPA</span>' +
+    `<span class="rival-map-name">${escapeHtml(mapName)}</span>` +
+    `<span class="rival-fav-meta">${escapeHtml(fmtNumber(games))} pj` +
+    `${map.winRate != null ? ` · ${escapeHtml(fmtNumber(map.winRate))}% wr` : ''}</span>` +
+    '</div>';
+
+  const civ = map.civ;
+  const civRow = civ
+    ? '<div class="rival-map-row" title="Civilización que más usó en las últimas partidas de este mapa">' +
+      '<span class="rival-map-key">CIV</span>' +
       rivalShield(civ.name, 'rival-shield sm') +
       `<span class="rival-fav-name">${escapeHtml(civ.name)}</span>` +
       `<span class="rival-fav-meta">${escapeHtml(fmtNumber(civ.games))} pj` +
-      `${civ.share != null ? ` · ${escapeHtml(fmtNumber(civ.share))}%` : ''}` +
       `${civ.winRate != null ? ` · ${escapeHtml(fmtNumber(civ.winRate))}% wr` : ''}</span>` +
       '</div>'
-    : '';
-  const mapPart = map
-    ? '<div class="rival-map-row">' +
-      `<span class="rival-map-key">MAPA</span>` +
-      `<span class="rival-map-name">${escapeHtml(map.name)}</span>` +
-      `<span class="rival-fav-meta">${escapeHtml(fmtNumber(map.games))} pj` +
-      `${map.share != null ? ` · ${escapeHtml(fmtNumber(map.share))}%` : ''}</span>` +
-      '</div>'
-    : '';
-  return rivalBlock('MÁS USA', civPart + mapPart, 'favs');
+    : '<div class="rival-empty">Sin civ registrada en las últimas partidas de este mapa.</div>';
+
+  return rivalBlock('EN ESTE MAPA', mapRow + civRow, 'favs');
 }
 
 function rivalOpeningsBlock(report, pending) {
@@ -346,7 +369,7 @@ function rivalCard(report) {
   const name = report.name || `Perfil ${report.profileId || '?'}`;
   const blocks = [];
   if (rivalOptions.rivalCivs) blocks.push(rivalHistoryBlock(report));
-  if (rivalOptions.rivalFavorites) blocks.push(rivalFavoritesBlock(report));
+  if (rivalOptions.rivalFavorites) blocks.push(rivalMapBlock(report));
   if (rivalOptions.rivalOpenings) {
     blocks.push(rivalOpeningsBlock(report, Boolean(rivalPayload && rivalPayload.pendingOpenings)));
   }
