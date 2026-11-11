@@ -838,8 +838,8 @@ button {
 }
 
 .rail-mark {
-  width: 26px;
-  height: 26px;
+  width: 49px;
+  height: 49px;
   flex: none;
   display: block;
   object-fit: contain;
@@ -1263,7 +1263,7 @@ footer.app-footer .hint {
 .shell { grid-template-columns: 200px minmax(0, 1fr); }
 .rail { padding: 18px 12px 14px; border-right-color: var(--wiz-line); }
 .rail-brand { gap: 10px; padding: 0 6px 18px; }
-.rail-mark { width: 24px; height: 24px; }
+.rail-mark { width: 49px; height: 49px; }
 .rail-name { font-size: 13.5px; }
 .rail-by { font-size: 10px; margin-top: 1px; }
 .rail-nav { gap: 3px; }
@@ -1451,8 +1451,8 @@ body .rail-brand {
 }
 
 body .rail-mark {
-  width: 25px;
-  height: 25px;
+  width: 49px;
+  height: 49px;
 }
 
 body .rail-name {

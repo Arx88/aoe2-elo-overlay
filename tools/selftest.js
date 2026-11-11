@@ -391,6 +391,16 @@ function fakeLobby(leaderboardId, leaderboardName) {
 
     q.handleEvents([{ type: 'queueingRemoved', data: { id: 'm_888', reason: 'started', matchId: 888 } }], false);
     check('al arrancar la partida se entrega el panel al REST', goneIds.length === 1 && goneIds[0] === 'm_888');
+
+    const liveSource = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'src', 'live.js'),
+      'utf8',
+    );
+    check(
+      'los sockets piden el mapa en inglés (Hideout, no Guaridas)',
+      (liveSource.match(/language: 'en'/g) || []).length >= 3 &&
+        !/language: 'es'/.test(liveSource),
+    );
   }
 
   console.log('\n--- 13) aperturas REALES de AoE2Insights (sin red, backend simulado) ---');

@@ -27,6 +27,10 @@
  * permite reconectar a mitad del countdown sin perder la partida. Los demás
  * son arrays de deltas { type, data }, u objetos { type: 'pong' }.
  *
+ * Los sockets piden `language: 'en'` a propósito: el `mapName` tiene que ser
+ * el canónico (Hideout) para cruzarlo con AoE2 Companion y AoE2Insights; con
+ * `es` el evento traía "Guaridas" y el informe no encontraba el mapa.
+ *
  * Uso:
  *   const q = new QueueWatcher({ profileId, onMatched, onGone, log }); q.start();
  *   const l = new LobbyWatcher({ profileId, onLobby, onLobbyGone, log }); l.start();
@@ -218,7 +222,7 @@ class LobbyWatcher {
   start() {
     this.profileSocket = new Socket(
       'lobbies(perfil)',
-      { handler: 'lobbies', language: 'es', profile_ids: this.profileId },
+      { handler: 'lobbies', language: 'en', profile_ids: this.profileId },
       (events, isSnapshot) => this.handleOwnEvents(events, isSnapshot),
       this.log,
     );
@@ -272,7 +276,7 @@ class LobbyWatcher {
 
     this.matchSocket = new Socket(
       'lobbies(sala)',
-      { handler: 'lobbies', language: 'es', match_ids: matchId },
+      { handler: 'lobbies', language: 'en', match_ids: matchId },
       (events, isSnapshot) => this.handleFullEvents(events, isSnapshot),
       this.log,
     );
@@ -343,7 +347,9 @@ class QueueWatcher {
   }
 
   start() {
-    const query = { handler: 'queueing', language: 'es' };
+    // Nombres canónicos en inglés: con `es` el mapa llegaba como "Guaridas"
+    // y no coincidía con el historial ("Hideout") ni con los replays.
+    const query = { handler: 'queueing', language: 'en' };
     if (this.useFilter) query.profile_ids = this.profileId;
     this.log(
       `queueing: escuchando matchmaking (${
