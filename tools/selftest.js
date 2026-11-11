@@ -1196,6 +1196,20 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('emptyOpenings también declara el modo y el motivo',
       emptyOpenings(1, 1, 'x', { mode: resolveMode(13), modeUnavailable: true }).mode.id === 13 &&
         emptyOpenings(1, 1, 'x').modeUnavailable === false);
+
+    // Regresión: el cartel "Buscando…" no puede quedar colgado cuando ya se
+    // informó "estás en la última versión".
+    const updaterSrc = read('src/updater.js');
+    const settingsJsSrc = read('settings.js');
+    check('updater: el IPC espera la consulta y checking siempre se baja',
+      /ipcMain\.handle\('updater:check', async \(\) =>/.test(mainSrc) &&
+        /await updater\.check\(/.test(mainSrc) &&
+        /patch\(\{ checking: false, checkedAt: Date\.now\(\) \}\)/.test(updaterSrc) &&
+        /patch\(\{ checking: false, error: 'La consulta tardó demasiado\.' \}\)/.test(updaterSrc));
+    check('panel: sin texto transitorio colgado y con estado pospuesto',
+      !/setStatus\('Buscando actualizaciones/.test(settingsJsSrc) &&
+        /startsWith\('Buscando actualizaciones'\)/.test(settingsJsSrc) &&
+        /snapshot\.deferred/.test(settingsJsSrc));
   }
 
   console.log(`\n${failures === 0 ? 'TODO OK' : `${failures} chequeo(s) fallaron`}`);

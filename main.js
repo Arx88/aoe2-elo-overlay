@@ -1475,8 +1475,10 @@ function registerIpc() {
   // devuelve active:false y la UI lo muestra sin inventar datos.
   const updaterState = () => (updater ? updater.getStatus() : { active: false, current: app.getVersion() });
   ipcMain.handle('updater:get', () => updaterState());
-  ipcMain.handle('updater:check', () => {
-    if (updater) updater.check('manual desde el panel');
+  ipcMain.handle('updater:check', async () => {
+    // Esperar el resultado real evita devolver un estado intermedio con
+    // `checking: true` que deje colgado el cartel "Buscando…" en el panel.
+    if (updater) await updater.check('manual desde el panel');
     return updaterState();
   });
   ipcMain.handle('updater:download', () => {

@@ -409,6 +409,8 @@ let updaterState = null;
 function renderUpdater(snapshot) {
   if (!snapshot) return;
   updaterState = snapshot;
+  // Mensaje transitorio de versiones anteriores: nunca debe quedar colgado.
+  if (statusEl.textContent.startsWith('Buscando actualizaciones')) setStatus('');
   updCurrent.textContent = snapshot.current || '—';
   updLatest.textContent = snapshot.latest || '—';
 
@@ -420,6 +422,9 @@ function renderUpdater(snapshot) {
     updPill.textContent = 'Lista para instalar';
   } else if (snapshot.available) {
     updPill.textContent = 'Actualización disponible';
+  } else if (snapshot.deferred) {
+    updPill.textContent = 'Consulta pospuesta';
+    updPill.classList.add('muted');
   } else if (!snapshot.active) {
     updPill.textContent = 'Solo en la app instalada';
     updPill.classList.add('muted');
@@ -435,6 +440,7 @@ function renderUpdater(snapshot) {
   else if (!snapshot.active) updPhase.textContent = 'Las actualizaciones se consultan al abrir la app instalada.';
   else if (snapshot.ready) updPhase.textContent = 'Actualización descargada. Se instala al salir.';
   else if (snapshot.downloading) updPhase.textContent = 'Descargando paquete de actualización…';
+  else if (snapshot.deferred) updPhase.textContent = 'Consulta pospuesta: hay partida en curso. Se reintenta solo.';
   else if (snapshot.checking) updPhase.textContent = 'Buscando una versión nueva…';
   else if (snapshot.available) updPhase.textContent = 'Hay una versión nueva disponible.';
   else updPhase.textContent = 'Estás usando la última versión.';
@@ -470,14 +476,20 @@ window.settings.updaterGet().then(renderUpdater).catch(() => {});
 
 updateBtn.addEventListener('click', async () => {
   if (!updaterState || !updaterState.active) return;
+  updateBtn.disabled = true;
   if (updaterState.ready) {
-    setStatus('Instalando la actualización…');
+    updPhase.textContent = 'Instalando la actualización…';
     await window.settings.updaterInstall();
-  } else if (updaterState.available) {
-    setStatus('Descargando la actualización…');
+    return;
+  }
+  if (updaterState.available) {
+    updPhase.textContent = 'Descargando paquete de actualización…';
     renderUpdater(await window.settings.updaterDownload());
   } else {
-    setStatus('Buscando actualizaciones…');
+    // Feedback inmediato en el propio panel (no en la barra de estado, que
+    // quedaba con el texto colgado). El IPC espera la consulta real y el
+    // renderUpdater que llega después pisa este texto con el estado final.
+    updPhase.textContent = 'Buscando una versión nueva…';
     renderUpdater(await window.settings.updaterCheck());
   }
 });

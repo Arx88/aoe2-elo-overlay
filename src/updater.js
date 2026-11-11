@@ -63,6 +63,7 @@ function disabled(app) {
     error: null,
     notes: [],
     checkedAt: null,
+    deferred: false,
   };
   return {
     active: false,
@@ -122,6 +123,7 @@ function initAutoUpdate(options = {}) {
     error: null,
     notes: [],
     checkedAt: null,
+    deferred: false,
   };
 
   let lastCheck = 0;
@@ -201,18 +203,55 @@ function initAutoUpdate(options = {}) {
     patch({ checking: false, downloading: false, error: message });
   });
 
+  let checkTimeout = null;
+  function clearCheckTimeout() {
+    if (checkTimeout) {
+      clearTimeout(checkTimeout);
+      checkTimeout = null;
+    }
+  }
+
+  /**
+   * Devuelve una promesa que se resuelve con el resultado FINAL de la consulta.
+   * Es clave: el IPC `updater:check` la espera, así el panel nunca recibe un
+   * estado intermedio con `checking: true` que quede colgado en pantalla.
+   */
   function check(reason = 'automática') {
-    if (closed || readyToInstall || downloading) return;
+    if (closed || readyToInstall || downloading) return Promise.resolve(null);
     if (isBusy()) {
       say(`consulta pospuesta: hay partida en curso (${reason})`);
-      return;
+      patch({ checking: false, deferred: true });
+      return Promise.resolve(null);
     }
+
     lastCheck = Date.now();
-    patch({ checking: true, error: null });
-    Promise.resolve(autoUpdater.checkForUpdates()).catch((err) => {
-      say(`consulta falló: ${text(err)} · se reintenta solo`);
-      patch({ checking: false, error: text(err) });
-    });
+    patch({ checking: true, error: null, deferred: false });
+    clearCheckTimeout();
+
+    // Red de seguridad: si el proveedor no emite NINGÚN evento (red cortada,
+    // timeout raro), igual sacamos el cartel de "buscando" a los 30 s.
+    checkTimeout = setTimeout(() => {
+      checkTimeout = null;
+      say('la consulta tardó demasiado: corto el estado "buscando"');
+      patch({ checking: false, error: 'La consulta tardó demasiado.' });
+    }, 30000);
+    if (typeof checkTimeout.unref === 'function') checkTimeout.unref();
+
+    return Promise.resolve(autoUpdater.checkForUpdates())
+      .then((result) => {
+        clearCheckTimeout();
+        // update-available / update-not-available ya dejaron el estado
+        // definitivo. Esto garantiza que `checking` NO quede en true aunque
+        // el proveedor no haya emitido ninguno de los dos eventos.
+        patch({ checking: false, checkedAt: Date.now() });
+        return result;
+      })
+      .catch((err) => {
+        clearCheckTimeout();
+        say(`consulta falló: ${text(err)} · se reintenta solo`);
+        patch({ checking: false, error: text(err) });
+        return null;
+      });
   }
 
   function download() {
