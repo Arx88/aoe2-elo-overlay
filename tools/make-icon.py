@@ -1,4 +1,4 @@
-"""Genera los iconos de la app a partir de assets/app-icon-source.png (Rojos.png).
+"""Genera los iconos de la app a partir de assets/app-icon-source.png.
 
 Uso:  python tools/make-icon.py
 
@@ -6,7 +6,7 @@ Salida:
   assets/app-icon.png  -> 256x256 PNG con fondo transparente (ventanas / bandeja)
   assets/icon.ico      -> 16/24/32/48/64/128/256 (electron-builder, exe, accesos)
 
-El PNG original es 1536x1024 con fondo transparente: se recorta al contenido
+El PNG original tiene fondo transparente: se recorta al contenido
 real y se encuadra en un lienzo cuadrado con un margen, para que el escudo no
 quede pegado a los bordes en el icono de 16px.
 """

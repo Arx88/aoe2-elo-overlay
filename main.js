@@ -42,8 +42,8 @@ const { initAutoUpdate } = require('./src/updater');
 const DATA_DIR = app.isPackaged ? path.join(app.getPath('appData'), 'AoE2 ELO Overlay') : __dirname;
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const LOG_PATH = path.join(DATA_DIR, 'overlay.log');
-// Rojos.png (recortado y normalizado por tools/make-icon.py) es el icono oficial:
-// ventanas, bandeja, exe y accesos directos usan el mismo arte.
+// Emblema dorado (recortado y normalizado por tools/make-icon.py) es el icono oficial:
+// ventanas, bandeja, configuración, exe y accesos directos usan el mismo arte.
 const ICON_PNG = path.join(__dirname, 'assets', 'app-icon.png');
 
 const DEFAULT_CONFIG = {

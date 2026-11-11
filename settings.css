@@ -841,7 +841,8 @@ button {
   width: 26px;
   height: 26px;
   flex: none;
-  color: var(--wiz-gold);
+  display: block;
+  object-fit: contain;
 }
 
 .rail-name {

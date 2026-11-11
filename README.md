@@ -299,7 +299,7 @@ Flags: `--example=<nombre|id>`, `--example-clock=3|21|live`, `--example-settings
 
 ## Icono, bandeja y "se cierra sola"
 
-El icono oficial es **`Rojos.png`**: `tools/make-icon.py` lo recorta, lo centra en un lienzo cuadrado y genera `assets/app-icon.png` (ventanas y bandeja) y `assets/icon.ico` de 7 tamaños (exe, instalador y accesos directos).
+El icono oficial es el **emblema dorado** de `assets/app-icon-source.png`: `tools/make-icon.py` lo recorta, lo centra en un lienzo cuadrado y genera `assets/app-icon.png` (ventanas, bandeja y cabecera de la configuración) y `assets/icon.ico` de 7 tamaños (exe, instalador y accesos directos).
 
 La app ahora **vive en la bandeja del sistema**. Cerrar la configuración ya **no** cierra el proceso: antes `window-all-closed` llamaba a `app.quit()` y el overlay desaparecía "solo". El menú de la bandeja (o doble click) ofrece *Configuración*, *Mostrar / ocultar panel*, *Refrescar ahora*, *Abrir carpeta del log* y **Salir** (única forma explícita de terminar). Si el renderer se cierra (`render-process-gone`, incluso `clean-exit`) se recarga o se recrea la ventana.
 
@@ -450,7 +450,7 @@ La salida queda en `elo-overlay/dist/`. El `npm` de esta máquina que está en e
 
 `electron-builder` borra `dist/win-unpacked` antes de reempaquetar. Si el entorno bloquea borrados masivos (`SAFE_DELETE_BULK_CONFIRM_REQUIRED`), **no hace falta borrar**: mové la carpeta vieja fuera (`mv dist/win-unpacked "$TEMP/aoe2-overlay-win-unpacked-stale"`) y volvé a correr `npm run dist`.
 
-El icono se regenera con `python tools/make-icon.py` desde `assets/app-icon-source.png` (copia de `Rojos.png`): produce `assets/app-icon.png` (ventanas/bandeja) y `assets/icon.ico` (exe/instalador). El PNG fuente se excluye del paquete; solo los dos iconos derivados van dentro del `app.asar`.
+El icono se regenera con `python tools/make-icon.py` desde `assets/app-icon-source.png`: produce `assets/app-icon.png` (ventanas/bandeja/configuración) y `assets/icon.ico` (exe/instalador). El PNG fuente se excluye del paquete; solo los dos iconos derivados van dentro del `app.asar`.
 
 ## Actualizaciones automáticas (sin pagar ningún servicio)
 
