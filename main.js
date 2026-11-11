@@ -869,13 +869,13 @@ function openSettings() {
   }
 
   settingsWin = new BrowserWindow({
-    width: 620,
-    height: 800,
-    minWidth: 520,
-    minHeight: 620,
-    title: 'Configuración · AoE2 ELO Overlay',
+    width: 960,
+    height: 680,
+    minWidth: 860,
+    minHeight: 560,
+    title: 'Aoe2 Helper by Acido',
     icon: ICON_PNG,
-    backgroundColor: config.theme === 'claro' ? '#f2f5fa' : '#12100d',
+    backgroundColor: '#121211',
     autoHideMenuBar: true,
     show: false,
     // Puede tener que aparecer por encima del juego: es la única ventana clickeable.
@@ -1471,6 +1471,27 @@ function registerIpc() {
     diagnostics: diagnostics(),
   }));
 
+  // Panel "Updater": estado real de electron-updater. En desarrollo el módulo
+  // devuelve active:false y la UI lo muestra sin inventar datos.
+  const updaterState = () => (updater ? updater.getStatus() : { active: false, current: app.getVersion() });
+  ipcMain.handle('updater:get', () => updaterState());
+  ipcMain.handle('updater:check', () => {
+    if (updater) updater.check('manual desde el panel');
+    return updaterState();
+  });
+  ipcMain.handle('updater:download', () => {
+    if (updater) updater.download();
+    return updaterState();
+  });
+  ipcMain.handle('updater:install', () => {
+    if (updater) updater.install();
+    return { ok: true };
+  });
+  ipcMain.handle('updater:skip', () => {
+    if (updater) updater.skip();
+    return updaterState();
+  });
+
   ipcMain.handle('settings:open-log', () => {
     try {
       shell.showItemInFolder(LOG_PATH);
@@ -2002,6 +2023,11 @@ if (!gotLock) {
       log,
       enabled: !DEV_SESSION,
       isBusy: () => Boolean(lastGood && lastGood.status === 'ongoing'),
+      broadcast: (snapshot) => {
+        if (settingsWin && !settingsWin.isDestroyed()) {
+          settingsWin.webContents.send('updater:status', snapshot);
+        }
+      },
     });
 
     // Latido cada 2 minutos. Si en el log la última línea es un latido y NO

@@ -533,3 +533,147 @@ document.addEventListener('keydown', (event) => {
 paintThemes();
 paintOpacity(0.95);
 loadCurrent();
+
+/* ============================================================
+   Navegación del wizard: solo muestra/oculta secciones existentes.
+   No agrega ni cambia ningún ajuste.
+   ============================================================ */
+const PAGE_ORDER = ['player', 'overlay', 'skins', 'updater'];
+const PAGE_META = {
+  player: { title: 'Player Detection', sub: 'Detectá y elegí la cuenta que usa el overlay.' },
+  overlay: { title: 'Overlay', sub: 'Qué se ve en COLA y al entrar a la partida.' },
+  skins: { title: 'Skins', sub: 'Diseño, opacidad y posición del panel.' },
+  updater: { title: 'Updater', sub: 'Mantené la app al día, sin interrumpir una partida.' },
+};
+
+const navButtons = [...document.querySelectorAll('.nav-item')];
+const pageSections = [...document.querySelectorAll('.page')];
+const pagesEl = document.querySelector('.pages');
+const pageTitle = el('pageTitle');
+const pageSub = el('pageSub');
+const backBtn = el('backBtn');
+const nextBtn = el('nextBtn');
+const skipBtn = el('skipBtn');
+const updateBtn = el('updateBtn');
+
+let activePage = 'player';
+
+function goTo(page) {
+  if (!PAGE_META[page]) return;
+  activePage = page;
+  for (const button of navButtons) button.classList.toggle('active', button.dataset.page === page);
+  for (const section of pageSections) section.classList.toggle('active', section.dataset.page === page);
+  pageTitle.textContent = PAGE_META[page].title;
+  pageSub.textContent = PAGE_META[page].sub;
+
+  const index = PAGE_ORDER.indexOf(page);
+  const isUpdater = page === 'updater';
+  backBtn.disabled = index === 0;
+  nextBtn.hidden = isUpdater || index === PAGE_ORDER.length - 1;
+  skipBtn.hidden = !isUpdater;
+  updateBtn.hidden = !isUpdater;
+  if (pagesEl) pagesEl.scrollTop = 0;
+}
+
+for (const button of navButtons) button.addEventListener('click', () => goTo(button.dataset.page));
+backBtn.addEventListener('click', () => goTo(PAGE_ORDER[Math.max(0, PAGE_ORDER.indexOf(activePage) - 1)]));
+nextBtn.addEventListener('click', () =>
+  goTo(PAGE_ORDER[Math.min(PAGE_ORDER.length - 1, PAGE_ORDER.indexOf(activePage) + 1)]),
+);
+goTo('player');
+
+/* ============================================================
+   Updater: estado real de electron-updater. Nada inventado.
+   ============================================================ */
+const updCurrent = el('updCurrent');
+const updLatest = el('updLatest');
+const updPill = el('updPill');
+const updPhase = el('updPhase');
+const updPercent = el('updPercent');
+const updFill = el('updFill');
+const updNotes = el('updNotes');
+
+let updaterState = null;
+
+function renderUpdater(snapshot) {
+  if (!snapshot) return;
+  updaterState = snapshot;
+
+  updCurrent.textContent = snapshot.current || '—';
+  updLatest.textContent = snapshot.latest || '—';
+
+  updPill.classList.remove('muted', 'error');
+  if (snapshot.error) {
+    updPill.textContent = 'Error de consulta';
+    updPill.classList.add('error');
+  } else if (snapshot.ready) {
+    updPill.textContent = 'Lista para instalar';
+  } else if (snapshot.available) {
+    updPill.textContent = 'Actualización disponible';
+  } else if (!snapshot.active) {
+    updPill.textContent = 'Solo en la app instalada';
+    updPill.classList.add('muted');
+  } else {
+    updPill.textContent = 'Al día';
+  }
+
+  const percent = Math.max(0, Math.min(100, Math.round(Number(snapshot.percent) || 0)));
+  updFill.style.setProperty('width', `${percent}%`);
+  updPercent.textContent = snapshot.downloading || snapshot.ready ? `${percent}%` : '';
+
+  if (snapshot.error) updPhase.textContent = snapshot.error;
+  else if (!snapshot.active) updPhase.textContent = 'Las actualizaciones se consultan al abrir la app instalada.';
+  else if (snapshot.ready) updPhase.textContent = 'Actualización descargada. Se instala al salir.';
+  else if (snapshot.downloading) updPhase.textContent = 'Descargando paquete de actualización…';
+  else if (snapshot.checking) updPhase.textContent = 'Buscando una versión nueva…';
+  else if (snapshot.available) updPhase.textContent = 'Hay una versión nueva disponible.';
+  else updPhase.textContent = 'Estás usando la última versión.';
+
+  const notes = Array.isArray(snapshot.notes) ? snapshot.notes.filter(Boolean) : [];
+  updNotes.replaceChildren();
+  if (!notes.length) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = snapshot.active ? 'Sin notas publicadas para esta versión.' : 'Sin notas para mostrar.';
+    updNotes.append(li);
+  } else {
+    for (const note of notes) {
+      const li = document.createElement('li');
+      li.textContent = note;
+      updNotes.append(li);
+    }
+  }
+
+  updateBtn.disabled = !snapshot.active;
+  skipBtn.disabled = !snapshot.active;
+  updateBtn.textContent = snapshot.ready
+    ? 'Actualizar ahora'
+    : snapshot.available
+      ? 'Descargar'
+      : snapshot.active
+        ? 'Buscar actualizaciones'
+        : 'No disponible';
+}
+
+window.settings.onUpdater(renderUpdater);
+window.settings.updaterGet().then(renderUpdater).catch(() => {});
+
+updateBtn.addEventListener('click', async () => {
+  if (!updaterState || !updaterState.active) return;
+  if (updaterState.ready) {
+    setStatus('Instalando la actualización…');
+    await window.settings.updaterInstall();
+  } else if (updaterState.available) {
+    setStatus('Descargando la actualización…');
+    renderUpdater(await window.settings.updaterDownload());
+  } else {
+    setStatus('Buscando actualizaciones…');
+    renderUpdater(await window.settings.updaterCheck());
+  }
+});
+
+skipBtn.addEventListener('click', async () => {
+  renderUpdater(await window.settings.updaterSkip());
+  setStatus('Omitida por ahora: no se instala al salir en esta sesión.');
+  goTo('skins');
+});

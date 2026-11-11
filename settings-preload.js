@@ -19,5 +19,11 @@ contextBridge.exposeInMainWorld('settings', {
   openLog: () => ipcRenderer.invoke('settings:open-log'),
   onExample: (callback) => ipcRenderer.on('settings:example', (_event, info) => callback(info)),
   onClock: (callback) => ipcRenderer.on('settings:clock', (_event, startedAt) => callback(startedAt)),
+  updaterGet: () => ipcRenderer.invoke('updater:get'),
+  updaterCheck: () => ipcRenderer.invoke('updater:check'),
+  updaterDownload: () => ipcRenderer.invoke('updater:download'),
+  updaterInstall: () => ipcRenderer.invoke('updater:install'),
+  updaterSkip: () => ipcRenderer.invoke('updater:skip'),
+  onUpdater: (callback) => ipcRenderer.on('updater:status', (_event, status) => callback(status)),
   close: () => ipcRenderer.send('settings:close'),
 });

@@ -9,9 +9,10 @@
  *
  * Regla de producto: esto es un overlay de AoE2, así que NUNCA consulta ni
  * descarga mientras hay una partida en curso. La instalación es silenciosa y
- * ocurre al salir de la app (`autoInstallOnAppQuit`), momento en el que el
- * jugador ya terminó. Si no hay red, simplemente se reintenta solo.
+ * ocurre al salir de la app, momento en el que el jugador ya terminó. Si no
+ * hay red, simplemente se reintenta solo.
  *
+ * Expone un `status` para la sección "Updater" del panel de configuración.
  * No se requiere `electron` a nivel de módulo: `electron-updater` se carga de
  * forma diferida para que `npm run selftest` (Node plano) siga funcionando.
  */
@@ -28,8 +29,52 @@ function text(value) {
   return String(value);
 }
 
-function disabled() {
-  return { active: false, check: () => {}, hasPending: () => false, stop: () => {} };
+/** releaseNotes puede venir como string, como array de {version, note} o null. */
+function notesOf(info) {
+  const raw = info && info.releaseNotes;
+  const chunks = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === 'string') chunks.push(item);
+      else if (item && item.note) chunks.push(String(item.note));
+    }
+  } else if (typeof raw === 'string') {
+    chunks.push(raw);
+  }
+  return chunks
+    .join('\n')
+    .split('\n')
+    .map((line) => line.replace(/^\s*[-*#]+\s*/, '').replace(/<[^>]+>/g, '').trim())
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function disabled(app) {
+  const status = {
+    active: false,
+    current: app && app.getVersion ? app.getVersion() : '—',
+    latest: null,
+    available: false,
+    checking: false,
+    downloading: false,
+    percent: 0,
+    ready: false,
+    skipped: false,
+    error: null,
+    notes: [],
+    checkedAt: null,
+  };
+  return {
+    active: false,
+    status,
+    getStatus: () => ({ ...status }),
+    check: () => {},
+    download: () => {},
+    install: () => {},
+    skip: () => {},
+    hasPending: () => false,
+    stop: () => {},
+  };
 }
 
 function initAutoUpdate(options = {}) {
@@ -38,17 +83,18 @@ function initAutoUpdate(options = {}) {
     log = () => {},
     isBusy = () => false,
     enabled = true,
+    broadcast = () => {},
     checkIntervalMs = DEFAULT_CHECK_MS,
   } = options;
 
-  if (!enabled || !app || !app.isPackaged) return disabled();
+  if (!enabled || !app || !app.isPackaged) return disabled(app);
 
   let autoUpdater;
   try {
     ({ autoUpdater } = require('electron-updater'));
   } catch (err) {
     log(`update · desactivado: no pude cargar electron-updater (${text(err)})`);
-    return disabled();
+    return disabled(app);
   }
 
   const say = (message) => log(`update · ${message}`);
@@ -63,6 +109,21 @@ function initAutoUpdate(options = {}) {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  const status = {
+    active: true,
+    current: app.getVersion(),
+    latest: null,
+    available: false,
+    checking: false,
+    downloading: false,
+    percent: 0,
+    ready: false,
+    skipped: false,
+    error: null,
+    notes: [],
+    checkedAt: null,
+  };
+
   let lastCheck = 0;
   let pendingInfo = null;
   let downloading = false;
@@ -70,21 +131,54 @@ function initAutoUpdate(options = {}) {
   let closed = false;
   let lastBucket = -1;
 
-  autoUpdater.on('checking-for-update', () => say('consultando última versión'));
+  function emitStatus() {
+    const snapshot = { ...status };
+    try {
+      broadcast(snapshot);
+    } catch (err) {
+      say(`no pude avisar al panel: ${text(err)}`);
+    }
+  }
+  function patch(changes) {
+    Object.assign(status, changes);
+    emitStatus();
+  }
+
+  autoUpdater.on('checking-for-update', () => {
+    say('consultando última versión');
+    patch({ checking: true, error: null });
+  });
 
   autoUpdater.on('update-available', (info) => {
     pendingInfo = info || {};
     say(`disponible v${pendingInfo.version || '?'} (instalada v${app.getVersion()})`);
+    patch({
+      latest: pendingInfo.version || null,
+      available: true,
+      checking: false,
+      checkedAt: Date.now(),
+      notes: notesOf(pendingInfo),
+    });
   });
 
-  autoUpdater.on('update-not-available', () => say('ya estás en la última versión'));
+  autoUpdater.on('update-not-available', (info) => {
+    say('ya estás en la última versión');
+    patch({
+      latest: (info && info.version) || app.getVersion(),
+      available: false,
+      checking: false,
+      checkedAt: Date.now(),
+    });
+  });
 
   autoUpdater.on('download-progress', (progress) => {
-    const percent = Number(progress && progress.percent) || 0;
+    const percent = Math.max(0, Math.min(100, Number(progress && progress.percent) || 0));
+    patch({ percent, downloading: true });
     const bucket = Math.floor(percent / 25);
-    if (bucket === lastBucket) return;
-    lastBucket = bucket;
-    say(`descarga ${Math.round(percent)}%`);
+    if (bucket !== lastBucket) {
+      lastBucket = bucket;
+      say(`descarga ${Math.round(percent)}%`);
+    }
   });
 
   autoUpdater.on('update-downloaded', (info) => {
@@ -92,11 +186,19 @@ function initAutoUpdate(options = {}) {
     downloading = false;
     pendingInfo = null;
     say(`v${(info && info.version) || '?'} descargada · se instala al salir, sin cortar la partida`);
+    patch({
+      ready: true,
+      downloading: false,
+      percent: 100,
+      latest: (info && info.version) || status.latest,
+    });
   });
 
   autoUpdater.on('error', (err) => {
     downloading = false;
-    say(`falló: ${text(err)} · se reintenta solo`);
+    const message = text(err);
+    say(`falló: ${message} · se reintenta solo`);
+    patch({ checking: false, downloading: false, error: message });
   });
 
   function check(reason = 'automática') {
@@ -106,37 +208,59 @@ function initAutoUpdate(options = {}) {
       return;
     }
     lastCheck = Date.now();
+    patch({ checking: true, error: null });
     Promise.resolve(autoUpdater.checkForUpdates()).catch((err) => {
       say(`consulta falló: ${text(err)} · se reintenta solo`);
+      patch({ checking: false, error: text(err) });
     });
   }
 
-  function downloadIfPossible() {
+  function download() {
     if (closed || readyToInstall || downloading || !pendingInfo || isBusy()) return;
     downloading = true;
+    patch({ downloading: true, percent: 0, error: null });
     say(`descargando v${pendingInfo.version || '?'}`);
     Promise.resolve(autoUpdater.downloadUpdate()).catch((err) => {
       downloading = false;
       say(`descarga falló: ${text(err)} · se reintenta solo`);
+      patch({ downloading: false, error: text(err) });
     });
+  }
+
+  function install() {
+    if (!readyToInstall) return;
+    say('instalando a pedido del usuario');
+    autoUpdater.quitAndInstall(false, true);
+  }
+
+  function skip() {
+    status.skipped = true;
+    autoUpdater.autoInstallOnAppQuit = false;
+    say('omitida por el usuario: no se instala al salir en esta sesión');
+    emitStatus();
   }
 
   const startTimer = setTimeout(() => check('arranque'), START_DELAY_MS);
   const tickTimer = setInterval(() => {
     if (closed || readyToInstall || isBusy()) return;
-    downloadIfPossible();
+    if (pendingInfo && !downloading) download();
     if (!pendingInfo && Date.now() - lastCheck >= checkIntervalMs) check('periódica');
   }, TICK_MS);
 
-  // No mantener vivo el proceso solo por los timers (la bandeja ya lo hace).
   if (typeof startTimer.unref === 'function') startTimer.unref();
   if (typeof tickTimer.unref === 'function') tickTimer.unref();
 
   say(`activo · v${app.getVersion()} · consulta cada ${Math.round(checkIntervalMs / 3600000)} h`);
+  emitStatus();
 
   return {
     active: true,
+    status,
+    getStatus: () => ({ ...status }),
     check,
+    download,
+    install,
+    skip,
     hasPending: () => readyToInstall,
     stop: () => {
       closed = true;
