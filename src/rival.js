@@ -53,9 +53,11 @@ const NUMERIC_LADDERS = {
 const FALLBACK_LADDER = 'rm_1v1';
 const HISTORY_SIZE = 5;
 const HISTORY_PAGE = 25;
-// Muestra más amplia para la civ más usada en el mapa actual (el historial de
-// 5 no alcanza). Es la MISMA request: solo se pide una página más grande.
-const MAP_SAMPLE_PAGE = 100;
+// Para el mapa actual se buscan las ÚLTIMAS 5 partidas de ese mapa, sin
+// importar su antigüedad: se pagina el historial hacia atrás hasta juntarlas.
+const MAP_MATCH_LIMIT = 5;
+const MAP_PAGE_SIZE = 100;
+const MAP_MAX_PAGES = 10;
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
 const SOURCES = {
@@ -159,10 +161,9 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
   if (!mapName) return null;
   const wanted = mapKey(mapName);
   const mode = options.mode ? resolveMode(options.mode) : null;
+  const limit = Math.max(1, Number(options.limit) || MAP_MATCH_LIMIT);
   const id = Number(profileId);
-  const civs = new Map();
-  let games = 0;
-  let wins = 0;
+  const rows = [];
 
   for (const match of Array.isArray(matches) ? matches : []) {
     if (!match || match.ongoing) continue;
@@ -174,18 +175,28 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     if (mapKey(match.mapName) !== wanted) continue;
     const player = (match.players || []).find((p) => Number(p.profileId) === id);
     if (!player || !player.civ) continue;
-
-    const won = player.won === true;
-    games += 1;
-    if (won) wins += 1;
-    const slug = civSlug(player.civ);
-    const key = slug || String(player.civ);
-    const entry = civs.get(key) || { name: String(player.civ), slug, games: 0, wins: 0 };
-    entry.games += 1;
-    if (won) entry.wins += 1;
-    civs.set(key, entry);
+    rows.push({
+      civ: String(player.civ),
+      slug: civSlug(player.civ),
+      won: player.won === true,
+      startedAt: Number(match.startedAt) || 0,
+    });
   }
 
+  // Las ÚLTIMAS `limit` de ese mapa, sin importar cuán viejas sean.
+  rows.sort((a, b) => b.startedAt - a.startedAt);
+  const sample = rows.slice(0, limit);
+  const civs = new Map();
+  let wins = 0;
+  for (const row of sample) {
+    if (row.won) wins += 1;
+    const key = row.slug || row.civ;
+    const entry = civs.get(key) || { name: row.civ, slug: row.slug, games: 0, wins: 0 };
+    entry.games += 1;
+    if (row.won) entry.wins += 1;
+    civs.set(key, entry);
+  }
+  const games = sample.length;
   const ranked = [...civs.values()]
     .map((entry) => ({
       ...entry,
@@ -202,6 +213,45 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     civ: ranked[0] || null,
     civs: ranked.slice(0, 3),
     sampleGames: games,
+    totalMapGames: rows.length,
+  };
+}
+
+/** Apertura más usada dentro de un conjunto de replays analizados. */
+function topOpening(rows) {
+  const counts = new Map();
+  for (const row of rows) {
+    if (!row || !row.strategy) continue;
+    counts.set(row.strategy, (counts.get(row.strategy) || 0) + 1);
+  }
+  const ranked = [...counts.entries()].sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+  );
+  if (!ranked.length) return null;
+  const [name, count] = ranked[0];
+  return {
+    name,
+    short: (rows.find((row) => row && row.strategy === name) || {}).short || name,
+    count,
+    share: Math.round((count / rows.length) * 100),
+  };
+}
+
+/**
+ * Estrategia del rival EN ESTE MAPA y, si se conoce, con la civ que más usó
+ * ahí. Sale de los replays analizados por AoE2Insights (mismo modo).
+ */
+function summarizeOpeningsByMap(rows, mapName, civName) {
+  const wantMap = mapKey(mapName);
+  const wantCiv = civSlug(civName);
+  const analyzed = (Array.isArray(rows) ? rows : []).filter((row) => row && row.strategy);
+  const mapRows = analyzed.filter((row) => mapKey(row.map) === wantMap);
+  const civRows = wantCiv ? mapRows.filter((row) => civSlug(row.civ) === wantCiv) : [];
+  return {
+    mapAnalyzed: mapRows.length,
+    mapFavorite: topOpening(mapRows),
+    mapCivAnalyzed: civRows.length,
+    mapCivFavorite: topOpening(civRows),
   };
 }
 
@@ -316,9 +366,42 @@ async function buildRivalInsights(options = {}) {
   const errors = [];
 
   try {
-    const matches = await fetchMatchesImpl(id, Math.max(HISTORY_PAGE, MAP_SAMPLE_PAGE));
+    const matches = [];
+    const seen = new Set();
+    const add = (list) => {
+      const before = matches.length;
+      for (const match of Array.isArray(list) ? list : []) {
+        const key = match && match.matchId != null ? String(match.matchId) : null;
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        matches.push(match);
+      }
+      return matches.length - before;
+    };
+
+    const first = (await fetchMatchesImpl(id, MAP_PAGE_SIZE, 1)) || [];
+    add(first);
     result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
     result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
+
+    // Si todavía no hay 5 partidas de ESE mapa, se sigue paginando hacia
+    // atrás. No importa la antigüedad: solo corta al terminar el historial o
+    // al llegar al tope de páginas.
+    let page = 1;
+    let lastPage = first;
+    while (
+      mapName &&
+      result.mapStats &&
+      result.mapStats.sampleGames < MAP_MATCH_LIMIT &&
+      page < MAP_MAX_PAGES &&
+      lastPage.length >= MAP_PAGE_SIZE
+    ) {
+      page += 1;
+      lastPage = (await fetchMatchesImpl(id, MAP_PAGE_SIZE, page)) || [];
+      if (!add(lastPage)) break;
+      result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
+      result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
+    }
   } catch (err) {
     errors.push(`historial: ${err.message}`);
   }
@@ -376,6 +459,17 @@ async function buildRivalInsights(options = {}) {
       result.openings = openings;
       result.openingError =
         openings && openings.ok === false ? openings.error : null;
+      if (result.openings) {
+        // Se resume para el mapa de la partida y con la civ más usada ahí.
+        // El detalle de replays se usa solo acá y no viaja al renderer.
+        const summary = summarizeOpeningsByMap(
+          result.openings.analyzedMatches,
+          mapName,
+          result.mapStats && result.mapStats.civ ? result.mapStats.civ.name : null,
+        );
+        result.openings = { ...result.openings, ...summary };
+        delete result.openings.analyzedMatches;
+      }
     } catch (err) {
       result.openingError = `aperturas: ${err.message}`;
     }
@@ -407,7 +501,9 @@ module.exports = {
   FALLBACK_LADDER,
   HISTORY_SIZE,
   HISTORY_PAGE,
-  MAP_SAMPLE_PAGE,
+  MAP_MATCH_LIMIT,
+  MAP_PAGE_SIZE,
+  MAP_MAX_PAGES,
   DEFAULT_TTL_MS,
   OPENINGS_TTL_MS,
   opponentsOf,
@@ -417,6 +513,7 @@ module.exports = {
   mapKey,
   parseRivalHistory,
   parseMapStats,
+  summarizeOpeningsByMap,
   normalizeProfileStats,
   buildRivalInsights,
   hasCachedInsights,

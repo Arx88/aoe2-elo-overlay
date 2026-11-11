@@ -92,10 +92,10 @@ function numOrNull(value) {
 }
 
 /** Partidas recientes de un jugador, ya normalizadas. */
-async function fetchMatches(profileId, perPage = 20) {
+async function fetchMatches(profileId, perPage = 20, page = 1) {
   const url =
     `${COMPANION_BASE}/api/matches?profile_ids=${encodeURIComponent(profileId)}` +
-    `&use_enums=true&page=1&per_page=${encodeURIComponent(perPage)}`;
+    `&use_enums=true&page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}`;
   const data = await getJson(url);
   const list = Array.isArray(data) ? data : (data && data.matches) || [];
   return list.map(normalizeMatch);

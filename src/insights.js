@@ -314,6 +314,17 @@ function parseOpeningRows(payload, options = {}) {
     discardedOtherModes: unique.length - modeMatches.length,
     analyzed: analyzed.length,
     totalRows: Number(payload && payload.count) || 0,
+    // Detalle usado por src/rival.js para resumir la estrategia por mapa/civ.
+    // Se conserva en la cache de aperturas y no viaja al renderer.
+    analyzedMatches: analyzed.map((match) => ({
+      matchId: match.matchId,
+      strategy: match.strategy,
+      short: match.short,
+      civ: match.civ,
+      map: match.map,
+      ladder: match.ladder,
+      startedAt: match.startedAt,
+    })),
     recent: analyzed.slice(0, recentLimit),
     ranking: ranking.slice(0, 3),
     favorite: ranking.length ? ranking[0] : null,

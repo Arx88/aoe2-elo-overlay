@@ -535,6 +535,10 @@ function demoRivalReports(state) {
         analyzed: 36,
         uniqueMatches: 43,
         favorite: { name: 'Scout rush', short: 'Scouts', count: 20, share: 56 },
+        mapAnalyzed: 3,
+        mapFavorite: { name: 'Scout rush', short: 'Scouts', count: 2, share: 67 },
+        mapCivAnalyzed: 2,
+        mapCivFavorite: { name: 'Scout rush', short: 'Scouts', count: 2, share: 100 },
         ranking: [
           { name: 'Scout rush', short: 'Scouts', count: 20, share: 56 },
           { name: 'Drush', short: 'Drush', count: 9, share: 25 },

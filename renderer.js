@@ -293,16 +293,40 @@ function rivalMapBlock(report) {
 
   const civ = map.civ;
   const civRow = civ
-    ? '<div class="rival-map-row" title="Civilización que más usó en las últimas partidas de este mapa">' +
+    ? '<div class="rival-map-row" title="Civilización que más usó en las últimas 5 partidas de este mapa">' +
       '<span class="rival-map-key">CIV</span>' +
       rivalShield(civ.name, 'rival-shield sm') +
       `<span class="rival-fav-name">${escapeHtml(civ.name)}</span>` +
-      `<span class="rival-fav-meta">${escapeHtml(fmtNumber(civ.games))} pj` +
+      `<span class="rival-fav-meta">${escapeHtml(fmtNumber(civ.games))} de ${escapeHtml(fmtNumber(map.sampleGames))}` +
       `${civ.winRate != null ? ` · ${escapeHtml(fmtNumber(civ.winRate))}% wr` : ''}</span>` +
       '</div>'
     : '<div class="rival-empty">Sin civ registrada en las últimas partidas de este mapa.</div>';
 
-  return rivalBlock('EN ESTE MAPA', mapRow + civRow, 'favs');
+  // Estrategia con la civ que más usó en este mapa (replays analizados).
+  let strategyRow = '';
+  if (rivalOptions.rivalOpenings) {
+    const openings = report.openings;
+    const pending = Boolean(rivalPayload && rivalPayload.pendingOpenings);
+    if (openings && openings.mapCivFavorite) {
+      const best = openings.mapCivFavorite;
+      strategyRow =
+        '<div class="rival-map-row" title="Apertura detectada en replays de ' +
+        escapeHtml(civ ? civ.name : '') + ' en ' + escapeHtml(mapName) + '">' +
+        '<span class="rival-map-key">ESTRATEGIA</span>' +
+        `<span class="rival-fav-name">${escapeHtml(best.short || best.name)}</span>` +
+        `<span class="rival-fav-meta">${escapeHtml(fmtNumber(best.count))} de ${escapeHtml(fmtNumber(openings.mapCivAnalyzed))}` +
+        `${best.share != null ? ` · ${escapeHtml(fmtNumber(best.share))}%` : ''}</span>` +
+        '</div>';
+    } else if (pending) {
+      strategyRow = '<div class="rival-empty">Buscando replays en este mapa…</div>';
+    } else if (openings && openings.ok === false) {
+      strategyRow = '<div class="rival-empty">Aperturas no disponibles.</div>';
+    } else if (civ) {
+      strategyRow = `<div class="rival-empty">Sin replays analizados de ${escapeHtml(civ.name)} en este mapa.</div>`;
+    }
+  }
+
+  return rivalBlock('EN ESTE MAPA', mapRow + civRow + strategyRow, 'favs');
 }
 
 function rivalOpeningsBlock(report, pending) {
