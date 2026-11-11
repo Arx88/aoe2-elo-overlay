@@ -11,7 +11,9 @@ const currentId = el('currentId');
 const currentOrigin = el('currentOrigin');
 const searchInput = el('search');
 const resultsEl = el('results');
-const manualInput = el('manualId');
+const accountAvatar = el('accountAvatar');
+const searchStateEl = el('searchState');
+const searchHelpEl = el('searchHelp');
 const manualBtn = el('manualBtn');
 const autoBtn = el('autoBtn');
 const statusEl = el('status');
@@ -25,6 +27,7 @@ const diagMatch = el('diagMatch');
 const logBtn = el('logBtn');
 const moveBtn = el('moveBtn');
 const positionInfo = el('positionInfo');
+const positionLabel = el('positionLabel');
 const civHelpInput = el('civHelp');
 const hideEloInput = el('hideEloAt20');
 const matchClock = el('matchClock');
@@ -53,7 +56,9 @@ let currentTheme = initialTheme;
 let opacityTimer = null;
 let lastDiag = null;
 let moving = false;
+let positionCustom = false;
 let matchStartedAt = null;
+let currentProfileId = null;
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -192,16 +197,17 @@ for (const [key, input] of Object.entries(rivalInputs)) {
 
 /* ---------- posición ---------- */
 function paintPosition(info) {
-  const custom = info.position === 'custom' && Number.isFinite(Number(info.x));
-  positionInfo.textContent = custom
+  positionCustom = info.position === 'custom' && Number.isFinite(Number(info.x));
+  positionLabel.textContent = positionCustom ? 'Posición personalizada' : 'Arriba al centro';
+  positionInfo.textContent = positionCustom
     ? `Fija en ${Math.round(info.x)}, ${Math.round(info.y)} de la pantalla.`
-    : 'Ahora está arriba al centro. Movelo y queda ahí para siempre.';
+    : 'El panel aparece arriba al centro.';
   moving = Boolean(info.moving);
   paintMoveButton();
 }
 
 function paintMoveButton() {
-  moveBtn.textContent = moving ? 'Listo, quedar acá' : 'Mover el panel';
+  moveBtn.textContent = moving ? 'Listo' : 'Mover';
   moveBtn.classList.toggle('active', moving);
 }
 
@@ -210,6 +216,7 @@ async function setMoving(on) {
   moving = Boolean(response.moving);
   paintMoveButton();
   if (moving) {
+    positionLabel.textContent = 'Mové el panel';
     setStatus('Arrastrá el panel a donde quieras y tocá "Listo" (o Esc).');
     return;
   }
@@ -238,17 +245,31 @@ async function loadCurrent() {
     : null;
   paintClock();
 
+  currentProfileId = info.profileId || null;
   if (info.profileId) {
     currentName.textContent = info.alias || `Perfil ${info.profileId}`;
     currentId.textContent = `#${info.profileId}`;
     currentOrigin.hidden = false;
     currentOrigin.textContent =
       info.origin === 'manual' ? 'elegida por vos' : 'detectada automáticamente';
+    accountAvatar.textContent = initialsOf(info.alias || `Perfil ${info.profileId}`);
   } else {
     currentName.textContent = 'Todavía no hay cuenta elegida';
     currentId.textContent = '';
     currentOrigin.hidden = true;
+    accountAvatar.textContent = '?';
   }
+}
+
+function initialsOf(name) {
+  const words = String(name || '')
+    .replace(/[|·]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return '?';
+  const first = words[0][0] || '';
+  const last = words.length > 1 ? words[words.length - 1][0] || '' : '';
+  return `${first}${last}`.toUpperCase();
 }
 
 function renderResults() {
@@ -256,6 +277,15 @@ function renderResults() {
   results.forEach((profile, index) => {
     const row = document.createElement('div');
     row.className = `result${index === activeIndex ? ' active' : ''}`;
+    row.setAttribute('role', 'option');
+    row.setAttribute('aria-selected', String(index === activeIndex));
+
+    const avatar = document.createElement('span');
+    avatar.className = 'result-avatar';
+    avatar.textContent = initialsOf(profile.name);
+
+    const copy = document.createElement('span');
+    copy.className = 'result-copy';
 
     const name = document.createElement('span');
     name.className = 'name';
@@ -267,8 +297,13 @@ function renderResults() {
     if (profile.country) bits.push(profile.country.toUpperCase());
     if (profile.games) bits.push(`${profile.games} pj`);
     tag.textContent = bits.join(' · ');
+    copy.append(name, tag);
 
-    row.append(name, tag);
+    const check = document.createElement('span');
+    check.className = 'result-check';
+    check.textContent = String(profile.profileId) === String(currentProfileId) ? '✓' : '';
+
+    row.append(avatar, copy, check);
     row.addEventListener('click', () => choose(profile.profileId));
     resultsEl.append(row);
   });
@@ -287,30 +322,72 @@ async function choose(profileId) {
   await loadCurrent();
 }
 
+function parseNumeric(value) {
+  const raw = String(value || '').trim();
+  return /^\d{5,}$/.test(raw) ? raw : null;
+}
+
+function paintSearchState(text) {
+  searchStateEl.textContent = text || '';
+}
+
+function paintSearchHelp(hasResults) {
+  searchHelpEl.innerHTML = hasResults
+    ? '<b>↑</b> <b>↓</b> para elegir · <b>Enter</b> para confirmar'
+    : 'Buscá por nombre o pegá tu profile ID.';
+}
+
+function paintManualButton(value) {
+  const numeric = parseNumeric(value);
+  manualBtn.hidden = !numeric;
+  if (numeric) manualBtn.textContent = `Usar ID #${numeric}`;
+}
+
 searchInput.addEventListener('input', () => {
   const query = searchInput.value.trim();
   clearTimeout(searchTimer);
+  paintManualButton(query);
   activeIndex = -1;
+
   if (query.length < 2) {
     results = [];
     renderResults();
+    paintSearchState('');
+    paintSearchHelp(false);
     setStatus('');
     return;
   }
+
+  // Un ID numérico se usa directo: no se busca por nombre.
+  if (parseNumeric(query)) {
+    results = [];
+    renderResults();
+    paintSearchState('ID listo');
+    paintSearchHelp(false);
+    setStatus('');
+    return;
+  }
+
   const token = ++searchToken;
+  paintSearchState('Buscando…');
   searchTimer = setTimeout(async () => {
     const response = await window.settings.search(query);
     if (token !== searchToken) return;
     if (!response.ok) {
       results = [];
       renderResults();
+      paintSearchState('Sin resultados');
       setStatus(response.error || 'No se pudo buscar', true);
       return;
     }
     results = response.results;
     activeIndex = results.length ? 0 : -1;
     renderResults();
-    setStatus(results.length ? `${results.length} resultados` : 'Sin resultados para esa búsqueda');
+    paintSearchState(
+      results.length ? `${results.length} resultado${results.length === 1 ? '' : 's'}` : 'Sin resultados',
+    );
+    paintSearchHelp(Boolean(results.length));
+    setStatus('');
   }, 320);
 });
 
@@ -326,21 +403,22 @@ searchInput.addEventListener('keydown', (event) => {
     activeIndex = (activeIndex - 1 + results.length) % results.length;
     renderResults();
   } else if (event.key === 'Enter') {
-    if (activeIndex >= 0 && results[activeIndex]) choose(results[activeIndex].profileId);
+    if (activeIndex >= 0 && results[activeIndex]) {
+      choose(results[activeIndex].profileId);
+      return;
+    }
+    const numeric = parseNumeric(searchInput.value);
+    if (numeric) choose(numeric);
   }
 });
 
 manualBtn.addEventListener('click', () => {
-  const raw = manualInput.value.trim();
-  if (!raw) {
-    setStatus('Escribí un ID numérico', true);
+  const numeric = parseNumeric(searchInput.value);
+  if (!numeric) {
+    setStatus('Pegá un profile ID numérico', true);
     return;
   }
-  choose(raw);
-});
-
-manualInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') manualBtn.click();
+  choose(numeric);
 });
 
 autoBtn.addEventListener('click', async () => {
@@ -368,12 +446,11 @@ document.addEventListener('keydown', (event) => {
 /* ============================================================
    Navegación del wizard: solo el rail, sin botones de pie.
    ============================================================ */
-const PAGE_ORDER = ['player', 'overlay', 'skins', 'comandos', 'updater'];
+const PAGE_ORDER = ['player', 'overlay', 'skins', 'updater'];
 const PAGE_META = {
-  player: { title: 'Player Detection', sub: 'Detectá y elegí la cuenta que usa el overlay.' },
+  player: { title: 'Player Detection', sub: 'Tu cuenta en el juego y cómo cambiarla.' },
   overlay: { title: 'Overlay', sub: 'Qué se ve en COLA y al entrar a la partida.' },
-  skins: { title: 'Skins', sub: 'Diseño, opacidad y posición del panel.' },
-  comandos: { title: 'Comandos', sub: 'Atajos de teclado para abrir y cerrar.' },
+  skins: { title: 'Skins', sub: 'Cómo se ve el panel sobre el juego.' },
   updater: { title: 'Updater', sub: 'Mantené la app al día.' },
 };
 
@@ -501,5 +578,6 @@ skipBtn.addEventListener('click', async () => {
 
 paintThemes();
 paintOpacity(0.95);
+paintSearchHelp(false);
 goTo('player');
 loadCurrent();

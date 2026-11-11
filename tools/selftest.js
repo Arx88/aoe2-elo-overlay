@@ -1011,14 +1011,15 @@ function fakeLobby(leaderboardId, leaderboardName) {
       ['settings:exampleStart', 'settings:exampleClock', 'settings:exampleStop'].every((ch) => main.includes(ch)));
     check('settings-preload expone los 3 invokes y onExample',
       ['exampleStart:', 'exampleClock:', 'exampleStop:', 'onExample:'].every((k) => settingsPreload.includes(k)));
-    check('panel compacto: 5 pestañas, sin Probar ni botones Atrás/Siguiente',
-      ['player', 'overlay', 'skins', 'comandos', 'updater'].every((p) =>
+    check('panel compacto: 4 pestañas (sin Comandos), sin Probar ni botones Atrás/Siguiente',
+      ['player', 'overlay', 'skins', 'updater'].every((p) =>
         settingsHtml.includes(`data-page="${p}"`)) &&
+        !settingsHtml.includes('data-page="comandos"') &&
         !/id="exampleUser"|Ver test|id="backBtn"|id="nextBtn"/.test(settingsHtml));
-    check('la pestaña Comandos muestra los atajos reales',
-      ['>Ctrl<', '>Alt<', '>E<', '>S<', '>Q<', '>R<', '>Esc<'].every((k) => settingsHtml.includes(k)));
-    check('settings.js navega 5 pestañas y no cablea el ejemplo',
-      ['player', 'overlay', 'skins', 'comandos', 'updater'].every((p) => settingsJs.includes(`'${p}'`)) &&
+    check('los atajos quedan en el pie y ya no hay pestaña Comandos',
+      settingsHtml.includes('Esc</b> la cierra') && !settingsJs.includes("'comandos'"));
+    check('settings.js navega 4 pestañas y no cablea el ejemplo',
+      ['player', 'overlay', 'skins', 'updater'].every((p) => settingsJs.includes(`'${p}'`)) &&
         !/window\.settings\.exampleStart/.test(settingsJs) &&
         !/window\.settings\.onExample/.test(settingsJs));
     check('renderer: badge EJEMPLO, pie con partida real y cuenta regresiva congelada',

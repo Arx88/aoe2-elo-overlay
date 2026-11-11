@@ -33,10 +33,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M14 4l6 6-9 9-6-6 9-9Z" /><path d="m5 19-2 2M12 7l5 5" /></svg>
             <span>Skins</span>
           </button>
-          <button class="nav-item" data-page="comandos" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 8h12M3 8h.01M9 16h12M3 16h.01M4 12h7" /></svg>
-            <span>Comandos</span>
-          </button>
           <button class="nav-item" data-page="updater" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.1M20 5v6h-6" /></svg>
             <span>Updater</span>
@@ -52,45 +48,54 @@
       <main class="content">
         <header class="content-head">
           <h2 id="pageTitle">Player Detection</h2>
-          <p id="pageSub">Detectá y elegí la cuenta que usa el overlay.</p>
+          <p id="pageSub">Tu cuenta en el juego y cómo cambiarla.</p>
           <div class="rule"></div>
         </header>
 
         <div class="pages">
           <!-- ============ PLAYER DETECTION ============ -->
           <section class="page active" data-page="player">
-            <div class="group-head"><span>Cuenta</span><i></i></div>
-            <div class="account">
-              <div class="account-copy">
-                <div class="account-name" id="currentName">—</div>
-                <div class="account-meta">
-                  <span id="currentId" class="mono"></span>
-                  <span id="currentOrigin" class="chip"></span>
+            <div class="group-head"><span>Cuenta activa</span><i></i></div>
+            <div class="block">
+              <div class="account-hero">
+                <div class="avatar" id="accountAvatar" aria-hidden="true">PA</div>
+                <div class="account-copy">
+                  <div class="account-name" id="currentName">—</div>
+                  <div class="account-meta">
+                    <span id="currentId" class="mono"></span>
+                    <span id="currentOrigin" class="chip"></span>
+                  </div>
                 </div>
+                <button id="autoBtn" class="btn" type="button">Detectar</button>
               </div>
-              <button id="autoBtn" class="btn" type="button">Detectar automáticamente</button>
+              <p class="mini account-hint">
+                El overlay usa esta cuenta para reconocerte en el roster y mostrar tu ELO de RM 1v1.
+              </p>
             </div>
 
             <div class="group-head"><span>Cambiar de cuenta</span><i></i></div>
             <div class="block">
-              <input id="search" class="field" type="text" placeholder="Escribí tu nombre en el juego…" autocomplete="off" spellcheck="false" />
-              <div id="results" class="results"></div>
-              <div class="inline">
-                <input id="manualId" class="field" type="text" inputmode="numeric" placeholder="profile ID" autocomplete="off" />
-                <button id="manualBtn" class="btn" type="button">Usar ID</button>
+              <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
+                <input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" autocomplete="off" spellcheck="false" />
+                <span id="searchState" class="search-state"></span>
               </div>
-              <p class="mini">Buscá por nombre, o pegá tu ID de jugador.</p>
+              <div id="results" class="results" role="listbox" aria-label="Resultados"></div>
+              <div class="search-hint">
+                <span id="searchHelp">Buscá por nombre o pegá tu profile ID.</span>
+                <button id="manualBtn" class="link-btn" type="button" hidden>Usar ese ID</button>
+              </div>
             </div>
 
-            <div class="group-head"><span>Estado</span><i></i></div>
-            <div class="block">
+            <details class="diag-details">
+              <summary>Estado y diagnóstico</summary>
               <dl class="diag">
                 <div><dt>Cuenta</dt><dd id="diagProfile">—</dd></div>
                 <div><dt>Última consulta</dt><dd id="diagPoll">—</dd></div>
                 <div><dt>Partida</dt><dd id="diagMatch">—</dd></div>
               </dl>
               <button id="logBtn" class="btn" type="button">Abrir carpeta del log</button>
-            </div>
+            </details>
           </section>
 
           <!-- ============ OVERLAY ============ -->
@@ -159,7 +164,7 @@
 
           <!-- ============ SKINS ============ -->
           <section class="page" data-page="skins">
-            <div class="group-head"><span>Diseño</span><i></i><em>11</em></div>
+            <div class="group-head"><span>Diseño del panel</span><i></i><em>11</em></div>
             <div class="block">
               <div class="themes">
                 <button class="theme" type="button" data-theme="clasico" title="Pergamino oscuro y dorado, el de siempre"><span class="swatch" data-theme="clasico"></span><span class="tname">Clásico</span></button>
@@ -174,46 +179,29 @@
                 <button class="theme" type="button" data-theme="pergamino" title="Papel estilo AoE2, claro y temático"><span class="swatch" data-theme="pergamino"></span><span class="tname">Pergamino</span></button>
                 <button class="theme" type="button" data-theme="sakura" title="Ciruela oscuro con rosa"><span class="swatch" data-theme="sakura"></span><span class="tname">Sakura</span></button>
               </div>
+              <p class="mini">Se aplica al instante en el panel del juego. El panel no se puede clickear.</p>
+            </div>
 
+            <div class="group-head"><span>Opacidad</span><i></i></div>
+            <div class="block">
               <div class="slider-row">
-                <label for="opacity">Opacidad</label>
+                <label for="opacity">Panel</label>
                 <input id="opacity" type="range" min="15" max="100" step="5" value="95" />
                 <output id="opacityValue" for="opacity">95%</output>
               </div>
+              <p class="mini">Qué tanto se transparenta el panel sobre el juego. 95% es un buen punto.</p>
             </div>
 
             <div class="group-head"><span>Posición</span><i></i></div>
             <div class="block">
-              <label class="row">
+              <div class="position-row">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg></span>
-                <span class="tcopy">
-                  <span class="rname">Mover el panel</span>
-                  <span class="rdesc" id="positionInfo">Ahora está arriba al centro.</span>
-                </span>
-              </label>
-              <button id="moveBtn" class="btn" type="button">Mover el panel</button>
-            </div>
-          </section>
-
-          <!-- ============ COMANDOS ============ -->
-          <section class="page" data-page="comandos">
-            <div class="group-head"><span>Abrir y cerrar</span><i></i></div>
-            <div class="block">
-              <div class="row k"><div class="keys"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">E</span></div><div class="tcopy"><div class="rname">Mostrar / ocultar el panel</div><div class="rdesc">El overlay aparece y desaparece sin cerrar la app</div></div></div>
-              <div class="row k"><div class="keys"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">S</span></div><div class="tcopy"><div class="rname">Abrir esta ventana</div><div class="rdesc">Trae la configuración al frente</div></div></div>
-              <div class="row k"><div class="keys"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">Q</span></div><div class="tcopy"><div class="rname">Cerrar la app</div><div class="rdesc">Sale del todo desde cualquier momento</div></div></div>
-              <div class="row k"><div class="keys"><span class="kbd">Esc</span></div><div class="tcopy"><div class="rname">Cerrar esta ventana</div><div class="rdesc">También confirma la posición si estás en "Mover"</div></div></div>
-            </div>
-
-            <div class="group-head"><span>Datos</span><i></i></div>
-            <div class="block">
-              <div class="row k"><div class="keys"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">R</span></div><div class="tcopy"><div class="rname">Refrescar datos</div><div class="rdesc">Vuelve a consultar la partida y el ELO</div></div></div>
-            </div>
-
-            <div class="group-head"><span>Desde la bandeja</span><i></i></div>
-            <div class="block">
-              <div class="row"><span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span><div class="tcopy"><div class="rname">Doble clic o clic derecho</div><div class="rdesc">Abrir configuración · refrescar · actualizaciones · salir</div></div></div>
-              <div class="row"><span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></span><div class="tcopy"><div class="rname">Abrir la app</div><div class="rdesc">Acceso directo del escritorio o menú inicio</div></div></div>
+                <div class="tcopy">
+                  <div class="rname" id="positionLabel">Arriba al centro</div>
+                  <div class="rdesc" id="positionInfo">El panel aparece arriba al centro.</div>
+                </div>
+                <button id="moveBtn" class="btn" type="button">Mover</button>
+              </div>
             </div>
           </section>
 

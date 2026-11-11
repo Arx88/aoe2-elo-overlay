@@ -1390,3 +1390,650 @@ footer.app-foot {
 }
 footer.app-foot .path { max-width: 45%; font-size: 9.5px; }
 footer.app-foot .hint { text-align: right; }
+
+
+/* ============================================================
+   Rediseño del wizard (aplicado): tipografía, ritmo vertical,
+   Player Detection y Skins.
+   ============================================================ */
+/* =====================================================================
+   PROPUESTA · refinamiento tipográfico y de espaciado del wizard.
+
+   TODO va scopeado a `body`: sin esa clase la ventana se ve
+   exactamente igual que hoy. Este archivo lo carga SOLO la vista previa
+   (preview-wizard.html); settings.html no lo referencia.
+
+   Reglas: se mantiene el diseño (negro + oro, riel, cabeceras de grupo,
+   filas con switch). Se ordena la escala tipográfica, se lleva el ritmo
+   vertical a una grilla de 4 px y se corrigen detalles de alineación.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Tipografía base
+   La fuente de la UI deja de depender del skin del overlay: el wizard
+   tiene identidad propia, así que el texto de interfaz es siempre el
+   mismo y Georgia queda reservada para los títulos.
+   --------------------------------------------------------------------- */
+body {
+  font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+body #pageTitle {
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: -0.004em;
+}
+
+body #pageSub {
+  max-width: 68ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------
+   2. Riel lateral: 210 px, ítems 2 px más altos y marca separada
+   --------------------------------------------------------------------- */
+body .shell {
+  grid-template-columns: 208px minmax(0, 1fr);
+}
+
+body .rail {
+  padding: 20px 14px 16px;
+}
+
+body .rail-brand {
+  gap: 11px;
+  padding: 0 8px 20px;
+  border-bottom: 1px solid var(--wiz-line);
+}
+
+body .rail-mark {
+  width: 25px;
+  height: 25px;
+}
+
+body .rail-name {
+  font-size: 14px;
+  letter-spacing: 0.005em;
+}
+
+body .rail-by {
+  margin-top: 2px;
+  font-size: 10.5px;
+}
+
+body .rail-nav {
+  gap: 2px;
+  padding-top: 14px;
+}
+
+body button.nav-item {
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+body button.nav-item svg {
+  width: 17px;
+  height: 17px;
+}
+
+body button.nav-item.active::before {
+  left: -14px;
+  top: 8px;
+  bottom: 8px;
+}
+
+body .rail-foot {
+  padding: 12px 8px 0;
+  font-size: 10px;
+}
+
+/* ---------------------------------------------------------------------
+   3. Cabecera y ritmo vertical de la página
+   --------------------------------------------------------------------- */
+body header.content-head {
+  padding: 24px 32px 0;
+}
+
+body .rule {
+  margin: 16px 0 0;
+}
+
+body .pages {
+  padding: 20px 32px 24px;
+}
+
+body .group-head {
+  gap: 12px;
+  margin: 24px 0 6px;
+}
+
+body .page > .group-head:first-child {
+  margin-top: 0;
+}
+
+body .group-head span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+/* El contador de opciones pasa a ser una píldora, no un número suelto. */
+body .group-head em {
+  padding: 2px 7px;
+  border: 1px solid var(--wiz-line-strong);
+  border-radius: 999px;
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------
+   4. Filas de opción
+   --------------------------------------------------------------------- */
+body .row {
+  grid-template-columns: 32px minmax(0, 1fr) 40px;
+  gap: 14px;
+  padding: 13px 2px;
+}
+
+body .ric {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+
+body .rname {
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+body .rdesc {
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+body .row.k {
+  padding: 13px 2px;
+}
+
+body .kbd {
+  padding: 4px 9px;
+  font-size: 11.5px;
+  border-radius: 6px;
+}
+
+/* ---------------------------------------------------------------------
+   5. Cuenta activa y diagnóstico
+   --------------------------------------------------------------------- */
+body .account {
+  gap: 14px;
+  padding: 13px 2px;
+}
+
+body .account-name {
+  font-size: 16px;
+  line-height: 1.25;
+  letter-spacing: -0.004em;
+}
+
+body .account-meta {
+  font-size: 11.5px;
+}
+
+body .chip {
+  padding: 2px 9px;
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.005em;
+}
+
+body .diag {
+  margin-bottom: 12px;
+}
+
+body .diag > div {
+  padding: 9px 0;
+}
+
+body .diag dt,
+body .diag dd {
+  font-size: 11.5px;
+}
+
+/* ---------------------------------------------------------------------
+   6. Botones, campos y resultados
+   --------------------------------------------------------------------- */
+body button.btn {
+  min-height: 34px;
+  padding: 9px 15px;
+  border-radius: 8px;
+  font-size: 11.5px;
+}
+
+body input[type='text'] {
+  padding: 11px 13px;
+  border-radius: 8px;
+}
+
+body input[type='text']::placeholder {
+  opacity: 0.72;
+}
+
+/* 3 filas exactas de 55,4 px + 2 gaps: nunca corta una fila al medio. */
+body .results {
+  gap: 2px;
+  margin-top: 12px;
+  max-height: 171px;
+}
+
+body .result {
+  padding: 8px 10px;
+  border-radius: 7px;
+}
+
+body .result .tag {
+  font-size: 10.5px;
+}
+
+body .inline {
+  margin-top: 12px;
+}
+
+body .mini,
+body .note {
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+/* ---------------------------------------------------------------------
+   7. Switch
+   --------------------------------------------------------------------- */
+body .sw {
+  width: 38px;
+  height: 21px;
+  border-color: #423e36;
+}
+
+body .sw::after {
+  width: 15px;
+  height: 15px;
+}
+
+body .tog input:checked + .sw::after {
+  transform: translateX(17px);
+}
+
+/* ---------------------------------------------------------------------
+   8. Diseños, opacidad y reloj
+   4 columnas en vez de 6: cada muestra respira y se lee el nombre.
+   --------------------------------------------------------------------- */
+body .themes {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body .theme {
+  gap: 7px;
+  padding: 8px 8px 7px;
+  font-size: 10.5px;
+  border-radius: 10px;
+}
+
+body .theme .swatch {
+  height: 32px;
+  border-radius: 6px;
+}
+
+body .theme.active {
+  box-shadow: inset 0 0 0 1px var(--wiz-gold), 0 0 0 3px rgba(227, 185, 95, 0.08);
+}
+
+body .slider-row {
+  gap: 15px;
+  padding: 11px 2px;
+}
+
+body .slider-row label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+body .block > .slider-row:first-child {
+  border-top: none;
+}
+
+body .clock-row {
+  padding-top: 12px;
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------------------
+   9. Updater
+   El progreso y los puntos del changelog dejan de ser azules: era el
+   único acento fuera de la paleta del wizard.
+   --------------------------------------------------------------------- */
+body .upd-card {
+  gap: 24px;
+  padding: 18px 20px;
+  border-radius: 11px;
+}
+
+body .upd-label {
+  font-size: 11.5px;
+}
+
+body .upd-cell strong {
+  font-size: 15px;
+}
+
+body .upd-pill {
+  padding: 6px 13px;
+  font-size: 11px;
+}
+
+body .upd-row {
+  font-size: 13px;
+}
+
+body .upd-track {
+  height: 6px;
+}
+
+body .upd-fill {
+  background: var(--wiz-gold);
+}
+
+body .changelog {
+  gap: 12px;
+}
+
+body .changelog li {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+body .changelog li::before {
+  background: var(--wiz-gold);
+}
+
+body .changelog li:nth-child(2)::before {
+  background: var(--accent-dim);
+}
+
+body .changelog li:nth-child(3)::before {
+  background: var(--wiz-line-strong);
+}
+
+body .changelog li.empty::before {
+  background: var(--wiz-line-strong);
+}
+
+body .upd-actions {
+  margin-top: 18px;
+}
+
+/* ---------------------------------------------------------------------
+   10. Barra de estado y pie
+   --------------------------------------------------------------------- */
+body .status-bar {
+  padding: 0 32px 12px;
+}
+
+body .status {
+  font-size: 11.5px;
+}
+
+body footer.app-foot {
+  padding: 9px 20px 10px;
+  font-size: 10px;
+}
+
+body footer.app-foot .path {
+  font-size: 10px;
+}
+
+/* ---------------------------------------------------------------------
+   11. Detalles transversales
+   --------------------------------------------------------------------- */
+body .mono,
+body .diag dd,
+body .result .tag,
+body .kbd,
+body .upd-cell strong,
+body .clock-row .mono {
+  font-variant-numeric: tabular-nums;
+}
+
+body ::selection {
+  background: rgba(227, 185, 95, 0.26);
+}
+
+body button.nav-item:focus-visible,
+body .theme:focus-visible,
+body .result:focus-visible,
+body .diag-details > summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ui-focus);
+}
+
+/* ---------------------------------------------------------------------
+   12. Player Detection v2
+   Una sola búsqueda (nombre o ID), cuenta destacada con avatar y el
+   diagnóstico plegado: la página deja de ser un formulario suelto.
+   --------------------------------------------------------------------- */
+body .account-hero {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 2px 8px;
+}
+
+body .avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #2c2417, #1a150d);
+  border: 1px solid var(--ui-chip-border);
+  color: var(--wiz-gold);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+}
+
+body .account-hero .account-copy {
+  gap: 4px;
+}
+
+body .account-hero .account-name {
+  font-size: 17px;
+}
+
+body .account-hint {
+  margin: 0 2px 6px;
+  line-height: 1.5;
+}
+
+body .search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+body .search-box > svg {
+  position: absolute;
+  left: 13px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+body .search-box input[type='text'] {
+  padding: 12px 104px 12px 39px;
+}
+
+body .search-state {
+  position: absolute;
+  right: 13px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+body .result {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: 8px;
+}
+
+body .result-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #232019;
+  border: 1px solid #3a352b;
+  color: #cbb98d;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+body .result-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+body .result .name {
+  flex: none;
+  font-size: 13px;
+}
+
+body .result-copy .tag {
+  font-size: 10.5px;
+}
+
+body .result-check {
+  color: var(--wiz-gold);
+  font-size: 12px;
+  text-align: center;
+}
+
+body .result:hover .result-avatar,
+body .result.active .result-avatar {
+  border-color: var(--ui-chip-border);
+}
+
+body .search-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+body .search-hint b {
+  font: 600 10px 'Consolas', 'Courier New', monospace;
+  color: #cfc7b4;
+  border: 1px solid var(--wiz-line-strong);
+  border-radius: 5px;
+  padding: 2px 5px;
+}
+
+body button.link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+body button.link-btn:hover {
+  filter: none;
+  text-decoration: underline;
+}
+
+body .diag-details {
+  margin-top: 26px;
+}
+
+body .diag-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--wiz-gold);
+  cursor: pointer;
+  list-style: none;
+}
+
+body .diag-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+body .diag-details > summary::before {
+  content: '\25B8';
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 0.12s ease;
+}
+
+body .diag-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+body .diag-details > summary::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--wiz-line);
+}
+
+body .diag-details .diag {
+  margin-top: 6px;
+}
+
+/* ---------------------------------------------------------------------
+   13. Skins: posición como una sola fila
+   --------------------------------------------------------------------- */
+body .position-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 2px;
+}
+
+/* Skins es la página más alta: 20 px entre grupos la hacen entrar sin scroll. */
+body .page[data-page='skins'] .group-head {
+  margin-top: 18px;
+}
