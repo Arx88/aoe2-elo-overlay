@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>AoE2 ELO Overlay · Helper PRE-partida · Propuesta de wizard</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --line: #e2e8f0;
+    --line-strong: #cbd5e1;
+    --ink: #16202c;
+    --ink-2: #566579;
+    --ink-3: #8796a8;
+    --accent: #2f6df6;
+    --accent-soft: #eaf1ff;
+    --teal: #0f7a5f;
+    --teal-soft: #e4f5ef;
+    --amber: #9a6510;
+    --amber-soft: #fdf2df;
+    --red: #a83a36;
+    --red-soft: #fdecea;
+    --radius: 14px;
+    --font: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+    --mono: "Cascadia Code", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+  .app { display: grid; grid-template-columns: 224px minmax(0, 1fr) 390px; min-height: 100vh; }
+  .rail { background: #111b28; color: #e9eef6; padding: 26px 18px; display: flex; flex-direction: column; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 10px; background: #c9443e; display: grid; place-items: center; color: white; font-weight: 650; font-size: 14px; letter-spacing: -1px; }
+  .brand-name { font-size: 13px; font-weight: 650; letter-spacing: .01em; }
+  .brand-sub { font-size: 11px; color: #8fa0b6; }
+  .scope-tag { display: inline-flex; align-items: center; gap: 6px; background: #173b31; color: #8de0bd; border: 1px solid #23614f; border-radius: 20px; padding: 4px 9px; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; }
+  .scope-tag i { width: 7px; height: 7px; border-radius: 50%; background: #4fc39a; display: block; }
+  .steps { display: flex; flex-direction: column; gap: 4px; }
+  .step { display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 11px; border: 0; border-radius: 10px; background: transparent; color: #9dacc0; text-align: left; transition: background .15s, color .15s; }
+  .step:hover { background: #1b2838; color: #e9eef6; }
+  .step.active { background: #22344c; color: white; }
+  .step-num { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 1px solid #40536b; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+  .step.active .step-num { background: var(--accent); border-color: var(--accent); color: white; }
+  .step.done .step-num { background: #1c7f61; border-color: #1c7f61; color: white; }
+  .step-label { font-size: 13px; font-weight: 500; }
+  .step-sub { font-size: 11px; color: #7f90a5; display: block; font-weight: 400; }
+  .rail-foot { margin-top: auto; border-top: 1px solid #26364a; padding-top: 16px; font-size: 11.5px; color: #8395ac; line-height: 1.6; }
+  .rail-foot b { color: #dbe5f2; font-weight: 600; }
+  .rail-foot .rule { color: #8de0bd; margin-top: 8px; display: block; }
+  .progress { height: 4px; background: #26364a; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+  .progress i { display: block; height: 100%; background: var(--accent); width: 25%; transition: width .25s; }
+
+  .main { padding: 28px 34px 60px; min-width: 0; }
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+  .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); font-weight: 650; }
+  h1 { font-size: 25px; letter-spacing: -.02em; font-weight: 650; margin-top: 5px; }
+  .lede { color: var(--ink-2); font-size: 13.5px; margin-top: 7px; max-width: 640px; }
+  .ghost-btn { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); padding: 8px 13px; border-radius: 9px; font-size: 12.5px; white-space: nowrap; }
+  .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .scope-banner { display: flex; align-items: center; gap: 12px; background: var(--teal-soft); border: 1px solid #bfe6d6; color: #175c47; border-radius: 12px; padding: 11px 14px; font-size: 12.5px; margin-bottom: 16px; }
+  .scope-banner b { font-weight: 650; }
+  .scope-banner .x { margin-left: auto; color: #4d816f; font-size: 11.5px; white-space: nowrap; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; font-weight: 650; margin-bottom: 4px; }
+  .card .hint { color: var(--ink-2); font-size: 12.5px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tile { border: 1px solid var(--line); border-radius: 12px; padding: 15px; background: var(--surface-2); text-align: left; transition: border-color .15s, background .15s; }
+  .tile:hover { border-color: var(--line-strong); }
+  .tile.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .tile .t-title { font-weight: 650; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+  .tile .t-desc { color: var(--ink-2); font-size: 12px; margin-top: 7px; line-height: 1.45; }
+  .tile .t-meta { color: var(--ink-3); font-size: 11px; margin-top: 10px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+  .dot.teal { background: var(--teal); } .dot.blue { background: var(--accent); } .dot.amber { background: #d0952f; }
+  .account { display: flex; align-items: center; gap: 13px; border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--surface-2); }
+  .avatar { width: 40px; height: 40px; border-radius: 11px; background: #22344c; color: #fff; display: grid; place-items: center; font-weight: 650; font-size: 13px; }
+  .account-name { font-weight: 650; }
+  .account-meta { color: var(--ink-2); font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; }
+  .pill.teal { background: var(--teal-soft); color: var(--teal); }
+  .pill.blue { background: var(--accent-soft); color: var(--accent); }
+  .pill.amber { background: var(--amber-soft); color: var(--amber); }
+  .pill.red { background: var(--red-soft); color: var(--red); }
+  .pill.gray { background: #eef1f5; color: var(--ink-2); }
+  .pill.lock { background: #edf0f4; color: #6b7888; }
+
+  .field-row { display: flex; align-items: flex-start; gap: 13px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .field-row:last-child { border-bottom: 0; }
+  .f-icon { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; flex: none; font-size: 11px; font-weight: 700; background: var(--accent-soft); color: var(--accent); }
+  .f-icon.pin { background: #edf0f4; color: #6b7888; }
+  .f-copy { flex: 1; min-width: 0; }
+  .f-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .f-head b { font-size: 13.5px; font-weight: 650; }
+  .f-desc { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
+  .f-sample { font-family: var(--mono); font-size: 11px; color: var(--teal); background: var(--teal-soft); display: inline-block; padding: 4px 8px; border-radius: 6px; margin-top: 8px; }
+  .f-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .switch { position: relative; width: 40px; height: 23px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch i { position: absolute; inset: 0; background: #cfd7e2; border-radius: 20px; transition: background .18s; }
+  .switch i::after { content: ""; position: absolute; width: 17px; height: 17px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform .18s; }
+  .switch input:checked + i { background: var(--accent); }
+  .switch input:checked + i::after { transform: translateX(17px); }
+  .switch input:disabled + i { opacity: .55; }
+
+  .note-box { border-left: 3px solid var(--accent); background: var(--surface-2); padding: 12px 14px; border-radius: 0 10px 10px 0; color: var(--ink-2); font-size: 12.5px; line-height: 1.6; }
+  .note-box.warn { border-left-color: #d0952f; background: var(--amber-soft); color: #6f4a0c; }
+  .note-box b { color: var(--ink); font-weight: 650; }
+  .note-box.warn b { color: #6f4a0c; }
+
+  .swatches { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
+  .swatch { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--surface-2); text-align: center; }
+  .swatch.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .swatch .sw { height: 30px; border-radius: 6px; margin-bottom: 7px; border: 1px solid rgba(0,0,0,.08); }
+  .swatch span { font-size: 11px; color: var(--ink-2); }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .field:last-child { border-bottom: 0; }
+  .field label { font-size: 13px; font-weight: 500; }
+  .field small { display: block; color: var(--ink-3); font-size: 11.5px; font-weight: 400; }
+  .field input[type=range] { width: 160px; accent-color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: var(--surface); padding: 6px 12px; font-size: 12px; color: var(--ink-2); border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.active { background: var(--ink); color: white; }
+  .order-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .order-row:last-child { border-bottom: 0; }
+  .order-row .pos { width: 22px; height: 22px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); display: grid; place-items: center; color: var(--ink-2); font-size: 11px; flex: none; }
+  .order-row .name { flex: 1; }
+  .mini-btn { width: 24px; height: 22px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink-2); font-size: 11px; line-height: 1; }
+  .mini-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .summary-list { display: flex; flex-direction: column; gap: 8px; }
+  .summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .summary-row:last-child { border-bottom: 0; }
+  .summary-row span:last-child { color: var(--ink-2); text-align: right; }
+  pre.code { background: #101a27; color: #cfe0f5; font-family: var(--mono); font-size: 11.5px; line-height: 1.6; padding: 16px; border-radius: 11px; overflow: auto; max-height: 280px; }
+
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; }
+  .btn { border: 0; border-radius: 10px; padding: 11px 20px; font-size: 13px; font-weight: 600; }
+  .btn.primary { background: var(--accent); color: white; }
+  .btn.primary:hover { background: #225ad6; }
+  .btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); }
+  .btn.secondary:hover { border-color: var(--accent); }
+  .btn:disabled { opacity: .4; cursor: default; }
+
+  .preview { background: #0f1720; padding: 20px 18px; display: flex; flex-direction: column; gap: 14px; border-left: 1px solid #25313f; }
+  .preview-head { color: #e8eef7; }
+  .preview-head b { font-size: 13px; font-weight: 600; }
+  .preview-head p { color: #8494a8; font-size: 11.5px; margin-top: 3px; }
+  .moment-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; background: #1a2532; padding: 4px; border-radius: 9px; }
+  .moment-tabs button { border: 0; background: transparent; color: #8fa0b5; padding: 8px 4px; border-radius: 6px; font-size: 11px; }
+  .moment-tabs button.active { background: #31465f; color: white; }
+  .game { flex: 1; min-height: 430px; border-radius: 12px; background: #1d2a35; background-image: linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px); background-size: 26px 26px; position: relative; overflow: hidden; padding: 16px 12px; }
+  .game-label { position: absolute; bottom: 12px; left: 14px; color: #66788c; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .ov { background: rgba(18, 26, 36, .94); border: 1px solid #3a4a5c; border-radius: 10px; color: #eef3fa; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
+  .ov-head { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: #93a5ba; margin-bottom: 8px; }
+  .ov-head .badge { background: #1c7f61; color: white; padding: 2px 7px; border-radius: 5px; font-size: 9px; letter-spacing: .04em; }
+  .ov-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid #2b3948; }
+  .ov-row:first-of-type { border-top: 0; }
+  .ov-row .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ov-row .you { color: #f0c86a; font-size: 9px; border: 1px solid #6e5a2c; padding: 1px 4px; border-radius: 4px; margin-left: 5px; }
+  .ov-row .elo { font-variant-numeric: tabular-nums; font-weight: 650; }
+  .ov-row .muted { color: #8b9cb0; font-size: 10.5px; }
+  .ov-block { border-top: 1px solid #2b3948; padding: 8px 0 0; margin-top: 8px; }
+  .ov-block:first-child { border-top: 0; margin-top: 0; }
+  .ov-key { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: #7f92a8; }
+  .ov-val { font-size: 12px; margin-top: 3px; color: #eaf1fa; }
+  .ov-val .good { color: #6fd3a8; } .ov-val .warn { color: #f0c86a; } .ov-val .muted { color: #8b9cb0; }
+  .ov-shields { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+  .ov-shields i { width: 25px; height: 25px; border-radius: 5px; border: 1px solid #4a5b6d; display: grid; place-items: center; font-size: 9px; font-style: normal; color: #cfd9e6; background: #263645; }
+  .ov-hidden { border: 1px dashed #46586b; color: #8597ab; text-align: center; padding: 18px 10px; border-radius: 10px; font-size: 11.5px; }
+  .height-meter { display: flex; align-items: center; gap: 10px; color: #93a5ba; font-size: 11px; }
+  .height-meter .bar { flex: 1; height: 5px; background: #25313f; border-radius: 3px; overflow: hidden; }
+  .height-meter .bar i { display: block; height: 100%; background: #4fb98d; }
+  .height-meter .bar i.warn { background: #e0a94a; }
+  .height-meter .bar i.danger { background: #d9534f; }
+  .preview-note { color: #7c8da2; font-size: 11px; line-height: 1.55; }
+
+  .drawer { position: absolute; inset: 0 0 0 auto; width: min(700px, 94vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: -18px 0 40px rgba(15,25,40,.14); z-index: 20; overflow-y: auto; padding: 30px 34px 60px; display: none; }
+  .drawer.open { display: block; }
+  .drawer h2 { font-size: 20px; margin: 18px 0 8px; }
+  .drawer h3 { font-size: 14px; margin: 20px 0 8px; }
+  .drawer p, .drawer li { font-size: 13px; color: var(--ink-2); line-height: 1.65; }
+  .drawer ul, .drawer ol { padding-left: 20px; margin: 8px 0; }
+  .drawer li { margin-bottom: 5px; }
+  .drawer code { font-family: var(--mono); font-size: 11.5px; background: #eef2f7; padding: 1px 5px; border-radius: 4px; color: #30425a; }
+  .drawer table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
+  .drawer th, .drawer td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .drawer th { color: var(--ink-3); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .drawer-close { float: right; }
+  .drawer .removed { background: var(--red-soft); border: 1px solid #f3c9c6; color: #7f2f2c; padding: 12px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.6; }
+  .toast { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #101a27; color: white; padding: 11px 18px; border-radius: 10px; font-size: 12.5px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 30; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (max-width: 1180px) { .app { grid-template-columns: 210px minmax(0,1fr); } .preview { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #25313f; } .game { min-height: 340px; } }
+  @media (max-width: 760px) { .app { grid-template-columns: 1fr; } .rail { flex-direction: row; flex-wrap: wrap; } .steps { flex-direction: row; flex-wrap: wrap; } .rail-foot { display: none; } .main { padding: 20px; } .grid-3, .grid-2, .swatches { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">A2</div>
+      <div><div class="brand-name">AoE2 ELO Overlay</div><div class="brand-sub">Helper PRE-partida · propuesta</div></div>
+    </div>
+    <div class="scope-tag"><i></i> Solo antes de jugar</div>
+    <div>
+      <div class="progress"><i id="progressBar"></i></div>
+      <div class="steps" id="stepNav"></div>
+    </div>
+    <div class="rail-foot">
+      <b>Regla de oro</b><br />
+      COLA → AL ENTRAR → 0:20 se oculta. Nada después.<br />
+      <span class="rule">La civ del rival no existe en COLA: no se inventa.</span>
+      <br /><br />
+      <b>Vista previa</b><br />
+      Usa tu configuración real, no el modo demo de todo encendido.
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow" id="eyebrow">Paso 1 de 4</div>
+        <h1 id="title">Cuenta</h1>
+        <p class="lede" id="lede">Elegí un punto de partida. Después ajustás solo lo que se ve antes de jugar.</p>
+      </div>
+      <button class="ghost-btn" id="notesBtn">Ver análisis técnico</button>
+    </div>
+    <div class="scope-banner">
+      <span><b>Alcance corregido:</b> esto es un helper para conocer al rival PRE-partida. No hay datos posteriores al partido.</span>
+      <span class="x">2 momentos · 0 fases extra</span>
+    </div>
+    <div id="content"></div>
+    <div class="actions">
+      <button class="btn secondary" id="backBtn">Atrás</button>
+      <button class="btn primary" id="nextBtn">Siguiente</button>
+    </div>
+  </main>
+
+  <aside class="preview">
+    <div class="preview-head">
+      <b>Así se va a ver</b>
+      <p>Misma partida de ejemplo · datos reales de PSX | Acido vs Митхун</p>
+    </div>
+    <div class="moment-tabs" id="momentTabs"></div>
+    <div class="game" id="game"></div>
+    <div class="height-meter">
+      <span>Alto estimado</span>
+      <div class="bar"><i id="heightBar"></i></div>
+      <span id="heightText">—</span>
+    </div>
+    <div class="preview-note" id="previewNote"></div>
+  </aside>
+
+  <section class="drawer" id="drawer">
+    <button class="ghost-btn drawer-close" id="drawerClose">Cerrar</button>
+    <div class="eyebrow">Propuesta corregida · solo PRE-partida</div>
+    <h2>Qué cambié y qué cambiaría en el código</h2>
+    <p>La propuesta anterior se fue de producto: metió post-partida, H2H, forma reciente, winrate por mapa, hotkeys en juego y un esquema <code>version: 2</code>. Eso es otra app. Acá el overlay vuelve a ser exactamente lo que es: <b>un helper para darle información al jugador antes de que arranque la partida</b>.</p>
+
+    <div class="removed"><b>Queda fuera, por decisión de producto:</b> resumen al terminar, resultado y Δ ELO final, H2H, forma V/D, racha, winrate por mapa, curva de ELO, tarjeta de scouting con hotkey dentro del juego, presets de analista, fases <code>game</code>/<code>post</code> y cualquier migración a un esquema nuevo.</div>
+
+    <h3>Dos momentos, no cuatro</h3>
+    <table>
+      <tr><th>Momento</th><th>Qué llega</th><th>Qué se muestra</th></tr>
+      <tr><td><b>COLA</b><br />partida encontrada</td><td><code>queueing</code> da roster; <code>getPersonalStat</code> da ELO RM 1v1. <code>adaptMatchedToLobby</code> deja la civ en <code>null</code>.</td><td>Nombre, ELO actual, ELO pico y últimas 5 civs jugadas en <b>1vs1 RM</b>. Nada que dependa de la civ actual.</td></tr>
+      <tr><td><b>AL ENTRAR</b><br />0:01 – 0:20</td><td>El snapshot / <code>/api/matches</code> ya trae <code>civName</code>. El informe del rival se completa en background.</td><td>Civ real, winrate con esa civ, estrategia más usada con esa civ y, si se quiere, si repite una civ de las últimas 5.</td></tr>
+      <tr><td><b>0:20</b></td><td>Solo un timer de ocultado.</td><td>El panel se va. No es una fase de datos nueva.</td></tr>
+    </table>
+
+    <h3>Por qué estos datos sirven en 60 segundos</h3>
+    <ul>
+      <li><b>ELO actual + pico:</b> te dice el nivel presente y si el rival supo estar más arriba. Es la regla histórica del overlay: siempre RM 1v1, juegues lo que juegues.</li>
+      <li><b>Últimas 5 civs en 1vs1 RM:</b> es la señal concreta de qué viene pickeando últimamente. Se pide explícitamente ladder #3, no el modo de la partida en curso.</li>
+      <li><b>Winrate con la civ real:</b> cuando aparece la civ, sabés si es confort o pick ocasional. Sale de <code>civ[]</code> de <code>/stats?leaderboard_id=rm_1v1</code>.</li>
+      <li><b>Estrategia más usada con esa civ:</b> AoE2Insights ya devuelve <code>strategy</code> y <code>civilization</code> por replay. Solo hay que filtrar por la civ del rival y recontar.</li>
+      <li><b>Repite pick:</b> derivado de las últimas 5 civs, sin ningún request nuevo. Ejemplo: «3 de sus últimas 5 fueron Cumans».</li>
+      <li><b>Muestra a la vista:</b> «FC 7/11 (64%)» es muy distinto de «FC 2/2 (100%)». Con menos de 5 replays se etiqueta o se oculta; nunca se inventa.</li>
+    </ul>
+
+    <h3>Cambios mínimos sobre el código actual</h3>
+    <ol>
+      <li><b>Forzar RM 1v1 en el historial de civs.</b> Hoy <code>main.js refreshRivalReports()</code> pasa <code>leaderboardOf(state)</code> y <code>src/rival.js:236</code> llama <code>parseRivalHistory(..., { mode })</code>. Para el bloque de COLA usar <code>resolveMode('rm_1v1')</code> / ladder <code>3</code> como constante de producto. Es un cambio de regla explícito: el historial ya no sigue al modo actual, sigue a RM 1v1.</li>
+      <li><b>Conservar todas las civs de <code>/stats</code>.</b> <code>normalizeProfileStats()</code> en <code>src/rival.js:169</code> hoy recorta a <code>topCivs.slice(0,3)</code>. Agregar un mapa <code>byCiv</code> con <code>games</code>, <code>wins</code> y <code>winRate</code> para poder consultar la civ real del rival.</li>
+      <li><b>Cruzar aperturas por civ.</b> <code>src/insights.js:286</code> ya guarda <code>civ</code> por replay. En <code>parseOpeningRows()</code> agregar un desglose <code>byCiv</code> y una función tipo <code>strategyForCiv(civ, minSample)</code>: misma ladder exacta, mismas etiquetas reales, sin requests nuevas.</li>
+      <li><b>Pintar por partes.</b> Mantener <code>emit() → refreshRivalReports() → onPartial</code>. En COLA se publican ELO y últimas 5 civs enseguida; los bloques que dependen de <code>rival.civ</code> aparecen recién cuando la civ deja de ser <code>null</code>.</li>
+      <li><b>Nuevos bloques en el renderer.</b> En <code>rivalCard()</code> agregar «Winrate con X» y «Estrategia con X». En <code>renderRivalInfo()</code> quitar <code>!civView.eloHidden</code> (<code>renderer.js:373</code>): hoy <code>hideEloAt20</code> se lleva puesto también el informe. Separar <code>hideEloAt20</code> de un nuevo <code>hideRivalAt20</code>.</li>
+      <li><b>Que «Ver test» pruebe lo tuyo.</b> Borrar <code>EXAMPLE_ALL_ON</code> (<code>main.js:303</code>) y hacer que <code>viewConfig()</code> use <code>config</code> siempre. El ejemplo debe respetar los toggles reales del usuario.</li>
+      <li><b>Wizard con preview interna.</b> <code>settingsWin</code> hoy es <code>alwaysOnTop</code> de 620×800 (<code>main.js:847</code>) y tapa el overlay. En vez de depender de ver el overlay detrás, la vista previa vive dentro del wizard y tiene solo dos pestañas: COLA y AL ENTRAR.</li>
+    </ol>
+
+    <h3>Config: claves planas, sin migración</h3>
+    <p><code>loadConfig()</code> ya hace <code>{ ...DEFAULT_CONFIG, ...raw }</code>, así que alcanza con agregar booleanos y un número al <code>DEFAULT_CONFIG</code>. No hace falta <code>version: 2</code>, ni array de módulos, ni fases, ni hotkeys.</p>
+    <pre class="code">{
+  "rivalCivs": true,
+  "showPeak": true,
+  "rivalCivWinRate": true,
+  "rivalCivStrategy": true,
+  "rivalPickRepeat": true,
+  "civHelp": false,
+  "hideEloAt20": false,
+  "hideRivalAt20": false,
+  "minCivReplays": 5,
+  "rivalFavorites": false,
+  "rivalOpenings": false,
+  "density": "compact",
+  "theme": "fantasma",
+  "opacity": 0.95
+}</pre>
+    <p><code>rivalCivs</code> cambia de significado: pasa de «últimas 5 civs del mismo modo» a «últimas 5 civs de 1vs1 RM». <code>rivalFavorites</code> y <code>rivalOpenings</code> pueden seguir existiendo como opciones legacy, pero no forman parte del recorrido principal de este wizard.</p>
+
+    <h3>Orden de implementación sugerido</h3>
+    <ol>
+      <li>Agregar las claves planas y sus handlers en <code>settings:get</code> / <code>settings-preload.js</code> / <code>settings.js</code>.</li>
+      <li>Corregir la ladder del historial y el <code>byCiv</code> de stats.</li>
+      <li>Agregar <code>strategyForCiv()</code> y la guarda de muestra mínima.</li>
+      <li>Pintar los dos bloques nuevos y desacoplar el informe de <code>hideEloAt20</code>.</li>
+      <li>Arreglar <code>viewConfig()</code> para que el ejemplo use la config real.</li>
+      <li>Reemplazar el scroll de <code>settings.html</code> por este wizard de 4 pasos con preview.</li>
+    </ol>
+    <p><b>Estado:</b> este archivo es una propuesta interactiva. Todavía no se modificó el código de la app ni <code>config.json</code>.</p>
+  </section>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+"use strict";
+
+const STEPS = [
+  { id: "account", name: "Cuenta", sub: "Perfil y punto de partida" },
+  { id: "queue", name: "En COLA", sub: "Los 60 s antes de jugar" },
+  { id: "entry", name: "Al entrar", sub: "Cuando llega la civ real" },
+  { id: "look", name: "Diseño y prueba", sub: "Vista previa y guardar" },
+];
+
+const MOMENTS = [
+  { id: "queue", label: "COLA · 60 s" },
+  { id: "entry", label: "AL ENTRAR · civ real" },
+];
+
+const THEMES = [
+  { id: "clasico", label: "Clásico", bg: "#181410", line: "#d9b26a" },
+  { id: "noche", label: "Noche", bg: "#141a22", line: "#7aa2d8" },
+  { id: "fantasma", label: "Fantasma", bg: "#263038", line: "#9fb3c4" },
+  { id: "claro", label: "Claro", bg: "#f4f6fa", line: "#2f6df6" },
+  { id: "carbono", label: "Carbono", bg: "#1b1b1d", line: "#d6453f" },
+];
+
+const ENTRY_BLOCKS = [
+  { id: "civWinRate", key: "rivalCivWinRate", name: "Winrate con esa civ" },
+  { id: "civStrategy", key: "rivalCivStrategy", name: "Estrategia con esa civ" },
+  { id: "pickRepeat", key: "rivalPickRepeat", name: "Repite pick" },
+  { id: "civHelp", key: "civHelp", name: "Ayuda de civ" },
+];
+
+const PRESETS = {
+  esencial: {
+    label: "Esencial",
+    desc: "Solo lo que pediste para COLA. Al entrar, únicamente la civ real.",
+    meta: "4 datos · mínimo ruido",
+    dot: "teal",
+    values: { showPeak: true, rivalCivs: true, rivalCivWinRate: false, rivalCivStrategy: false, rivalPickRepeat: false, civHelp: false },
+  },
+  recomendado: {
+    label: "Recomendado",
+    desc: "COLA completa y, al entrar, winrate + estrategia con la civ que pickeó.",
+    meta: "6 datos · decide la apertura",
+    dot: "blue",
+    values: { showPeak: true, rivalCivs: true, rivalCivWinRate: true, rivalCivStrategy: true, rivalPickRepeat: true, civHelp: false },
+  },
+  completo: {
+    label: "Con ayuda de civ",
+    desc: "Suma la tarjeta de bonos/debilidades que ya existe, solo en 0:01–0:20.",
+    meta: "7 datos · más alto",
+    dot: "amber",
+    values: { showPeak: true, rivalCivs: true, rivalCivWinRate: true, rivalCivStrategy: true, rivalPickRepeat: true, civHelp: true },
+  },
+};
+
+const state = {
+  step: 0,
+  visited: [0],
+  preset: "recomendado",
+  moment: "queue",
+  showPeak: true,
+  rivalCivs: true,
+  rivalCivWinRate: true,
+  rivalCivStrategy: true,
+  rivalPickRepeat: true,
+  civHelp: false,
+  hideEloAt20: false,
+  hideRivalAt20: false,
+  minCivReplays: 5,
+  density: "compact",
+  theme: "fantasma",
+  opacity: 95,
+  order: ENTRY_BLOCKS.map((block) => block.id),
+  notes: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+function applyPreset(id) {
+  const preset = PRESETS[id];
+  if (!preset) return;
+  state.preset = id;
+  Object.assign(state, preset.values);
+}
+
+function renderNav() {
+  $("stepNav").innerHTML = STEPS.map((s, i) => {
+    const cls = i === state.step ? "active" : (state.visited.includes(i) ? "done" : "");
+    const num = state.visited.includes(i) && i !== state.step ? "✓" : i + 1;
+    return `<button class="step ${cls}" data-step="${i}"><span class="step-num">${num}</span><span class="step-label">${esc(s.name)}<span class="step-sub">${esc(s.sub)}</span></span></button>`;
+  }).join("");
+  $("stepNav").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => go(+b.dataset.step)));
+  $("progressBar").style.width = `${((state.step + 1) / STEPS.length) * 100}%`;
+  $("eyebrow").textContent = `Paso ${state.step + 1} de ${STEPS.length}`;
+  $("title").textContent = STEPS[state.step].name;
+  $("lede").textContent = [
+    "Elegí un punto de partida. Después ajustás solo lo que se ve antes de jugar.",
+    "Acá se decide la información de los 60 s de cola. La civ del rival todavía no existe.",
+    "Cuando la API trae la civ real, recién ahí aparecen los datos que dependen de ella.",
+    "Que el panel se lea de un vistazo y que «Ver test» muestre tu configuración real.",
+  ][state.step];
+  $("backBtn").disabled = state.step === 0;
+  $("nextBtn").textContent = state.step === STEPS.length - 1 ? "Guardar y cerrar" : "Siguiente";
+}
+
+function go(step) {
+  state.step = Math.max(0, Math.min(STEPS.length - 1, step));
+  if (!state.visited.includes(state.step)) state.visited.push(state.step);
+  renderNav();
+  renderContent();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function presetTile(id) {
+  const p = PRESETS[id];
+  return `<button class="tile ${state.preset === id ? "selected" : ""}" data-preset="${id}">
+    <div class="t-title"><span class="dot ${p.dot}"></span>${esc(p.label)}</div>
+    <div class="t-desc">${esc(p.desc)}</div>
+    <div class="t-meta">${esc(p.meta)}</div>
+  </button>`;
+}
+
+function pinnedRow(icon, title, desc, sample, tags) {
+  return `<div class="field-row">
+    <div class="f-icon pin">${esc(icon)}</div>
+    <div class="f-copy">
+      <div class="f-head"><b>${esc(title)}</b><span class="pill lock">fijo</span></div>
+      <div class="f-desc">${esc(desc)}</div>
+      <div class="f-sample">${esc(sample)}</div>
+      <div class="f-tags">${tags.map((t) => `<span class="pill gray">${esc(t)}</span>`).join("")}</div>
+    </div>
+    <label class="switch"><input type="checkbox" checked disabled /><i></i></label>
+  </div>`;
+}
+
+function toggleRow(key, icon, title, desc, sample, tags) {
+  const checked = Boolean(state[key]);
+  return `<div class="field-row">
+    <div class="f-icon">${esc(icon)}</div>
+    <div class="f-copy">
+      <div class="f-head"><b>${esc(title)}</b><span class="pill blue">opcional</span></div>
+      <div class="f-desc">${esc(desc)}</div>
+      <div class="f-sample">${esc(sample)}</div>
+      <div class="f-tags">${tags.map((t) => `<span class="pill gray">${esc(t)}</span>`).join("")}</div>
+    </div>
+    <label class="switch"><input type="checkbox" data-toggle="${key}" ${checked ? "checked" : ""} /><i></i></label>
+  </div>`;
+}
+
+function bindToggles(root) {
+  root.querySelectorAll("[data-toggle]").forEach((input) => {
+    input.addEventListener("change", () => {
+      state[input.dataset.toggle] = input.checked;
+      state.preset = "personalizado";
+      renderContent();
+      renderPreview();
+    });
+  });
+}
+
+function renderContent() {
+  const c = $("content");
+
+  if (state.step === 0) {
+    c.innerHTML = `
+      <div class="card">
+        <h2>Tu cuenta</h2><p class="hint">Detectada desde el juego. El perfil solo se usa para saber quién sos vos en el roster.</p>
+        <div class="account"><div class="avatar">PA</div><div style="flex:1"><div class="account-name">PSX | Acido <span class="pill teal">detectada</span></div><div class="account-meta">#25399083 · ELO mostrado siempre de RM 1v1</div></div><button class="ghost-btn" id="changeAccount">Cambiar</button></div>
+      </div>
+      <div class="card">
+        <h2>¿Cuánto querés ver antes de jugar?</h2><p class="hint">Un punto de partida. Ningún preset agrega datos de después de la partida.</p>
+        <div class="grid-3">${Object.keys(PRESETS).map(presetTile).join("")}</div>
+      </div>
+      <div class="card">
+        <h2>Qué corrige este wizard</h2>
+        <div class="grid-2">
+          <div class="tile"><div class="t-title">Dos momentos</div><div class="t-desc">COLA y AL ENTRAR. No hay fase «en juego» ni «post».</div></div>
+          <div class="tile"><div class="t-title">1vs1 RM explícito</div><div class="t-desc">Las últimas 5 civs salen de ladder #3, aunque la partida sea EW o TG.</div></div>
+          <div class="tile"><div class="t-title">Civ real como disparador</div><div class="t-desc">Winrate y estrategia con esa civ no se muestran hasta que la API la trae.</div></div>
+          <div class="tile"><div class="t-title">Test honesto</div><div class="t-desc">«Ver test» usa tus toggles, no todos los módulos forzados.</div></div>
+        </div>
+      </div>`;
+    c.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => {
+      applyPreset(b.dataset.preset);
+      renderContent();
+      renderPreview();
+      toast(`Perfil ${PRESETS[b.dataset.preset].label} aplicado`);
+    }));
+    $("changeAccount").addEventListener("click", () => toast("Acá va el buscador de perfil ya existente"));
+    return;
+  }
+
+  if (state.step === 1) {
+    c.innerHTML = `
+      <div class="card">
+        <h2>En COLA · partida encontrada</h2>
+        <p class="hint">Tenés ~60 s. Esto es todo lo que debe aparecer en ese momento: rápido, corto y sin depender de una civ que todavía no existe.</p>
+        ${pinnedRow("N", "Nombre del rival", "Del roster del websocket <code>queueing</code>. Es la base del helper.", "Митхун", ["queueing", "0 ms"])}
+        ${pinnedRow("E", "ELO actual", "World's Edge <code>getPersonalStat</code>. Regla de producto: siempre RM 1v1, ladder #3.", "901 · RM 1v1", ["ladder #3", "~0,5 s"])}
+        ${toggleRow("showPeak", "P", "ELO pico", "También de <code>getPersonalStat</code>. Lo pediste explícitamente para COLA.", "pico 987", ["highestrating", "ya está en el renderer"])}
+        ${toggleRow("rivalCivs", "5", "Últimas 5 civs jugadas en 1vs1 RM", "Historial de AoE2 Companion, filtrado por ladder #3. No se mezcla con el modo de la partida en curso.", "Britons · Britons · Cumans · Gurjaras · Mongols", ["/api/matches", "solo RM 1v1", "5 fijas"])}
+      </div>
+      <div class="card">
+        <h2>Regla de este momento</h2>
+        <div class="note-box warn"><b>En COLA la civ del rival es <code>null</code>.</b> <code>adaptMatchedToLobby()</code> todavía no la trae. Por eso acá no se pinta winrate con civ, ni estrategia con civ, ni ninguna «predicción»: eso aparece recién en el paso siguiente, cuando el dato es real.</div>
+      </div>`;
+    bindToggles(c);
+    return;
+  }
+
+  if (state.step === 2) {
+    c.innerHTML = `
+      <div class="card">
+        <h2>Al entrar · cuando ya existe la civ real</h2>
+        <p class="hint">El snapshot / <code>/api/matches</code> completa <code>civName</code>. El informe se calcula en segundo plano y se va publicando por partes.</p>
+        ${pinnedRow("C", "Civ real del rival", "Disparador de los bloques siguientes. Si no llegó, esos bloques no se dibujan.", "Cumans", ["civName", "dato real"])}
+        ${toggleRow("rivalCivWinRate", "%", "Winrate con esa civ", "Cruzar la civ real contra <code>civ[]</code> de <code>/stats?leaderboard_id=rm_1v1</code>. Mostrar siempre partidas y porcentaje.", "Cumans · 18 pj · 61% WR", ["/stats", "byCiv", "RM 1v1"])}
+        ${toggleRow("rivalCivStrategy", "S", "Estrategia más usada con esa civ", "AoE2Insights ya trae <code>strategy</code> y <code>civilization</code> por replay: filtrar por la civ del rival y recontar.", "Fast castle · 7/11 (64%) · 11 replays", ["match-ups", "sin request nueva", "misma ladder"])}
+        ${toggleRow("rivalPickRepeat", "R", "¿Repite pick?", "Derivado de las últimas 5 civs: cuántas veces apareció la civ actual. Cero requests nuevas.", "3 de sus últimas 5 civs fueron Cumans", ["derivado", "sin red"])}
+        ${toggleRow("civHelp", "H", "Ayuda de civ", "La tarjeta actual de bonos / unidades / debilidades, solo 0:01–0:20. Es la que más alto ocupa.", "Cumans: 2 TC en Feudal · sin arbalestero", ["offline", "0:01 → 0:20"])}
+      </div>
+      <div class="card">
+        <h2>Confianza y ocultado</h2>
+        <div class="field">
+          <div><label for="minReplays">Muestra mínima de replays: <b id="minReplaysOut">${state.minCivReplays}</b></label><small>Si hay menos, la estrategia se etiqueta «muestra baja» o no se muestra. Nunca se inventa.</small></div>
+          <input id="minReplays" type="range" min="3" max="10" step="1" value="${state.minCivReplays}" data-range="minCivReplays" />
+        </div>
+        <div class="field">
+          <div><label for="hideElo">Ocultar ELO a 0:20</label><small>Comportamiento actual, pero separado del informe del rival.</small></div>
+          <label class="switch"><input id="hideElo" type="checkbox" data-toggle="hideEloAt20" ${state.hideEloAt20 ? "checked" : ""} /><i></i></label>
+        </div>
+        <div class="field">
+          <div><label for="hideRival">Ocultar informe del rival a 0:20</label><small>Hoy <code>renderer.js:373</code> lo oculta junto con el ELO. Acá pasa a ser independiente.</small></div>
+          <label class="switch"><input id="hideRival" type="checkbox" data-toggle="hideRivalAt20" ${state.hideRivalAt20 ? "checked" : ""} /><i></i></label>
+        </div>
+        <div class="note-box" style="margin-top:12px"><b>0:20 no es una fase de datos.</b> Es solo el momento en que el panel se va para no estorbar. No aparece nada nuevo después.</div>
+      </div>`;
+    bindToggles(c);
+    const range = $("minReplays");
+    range.addEventListener("input", (e) => {
+      state.minCivReplays = +e.target.value;
+      $("minReplaysOut").textContent = String(state.minCivReplays);
+      renderPreview();
+    });
+    return;
+  }
+
+  c.innerHTML = `
+    <div class="card">
+      <h2>Diseño</h2><p class="hint">Se aplica igual que hoy, en caliente. Solo se muestran 5 temas como ejemplo.</p>
+      <div class="swatches">${THEMES.map((t) => `<button class="swatch ${state.theme === t.id ? "selected" : ""}" data-theme="${t.id}"><div class="sw" style="background:${t.bg};border-top:3px solid ${t.line}"></div><span>${esc(t.label)}</span></button>`).join("")}</div>
+    </div>
+    <div class="card">
+      <h2>Lectura rápida</h2>
+      <div class="field"><div><label>Densidad</label><small>Compacta = una línea por dato. Cómoda = más aire.</small></div>
+        <div class="seg"><button data-density="compact" class="${state.density === "compact" ? "active" : ""}">Compacta</button><button data-density="comoda" class="${state.density === "comoda" ? "active" : ""}">Cómoda</button></div></div>
+      <div class="field"><div><label>Opacidad: <b id="opacityOut">${state.opacity}%</b></label><small>Se aplica al instante sobre el juego.</small></div><input type="range" min="30" max="100" value="${state.opacity}" id="opacity" /></div>
+    </div>
+    <div class="card">
+      <h2>Orden de los bloques al entrar</h2><p class="hint">La civ real va primera y fija. El resto se puede subir o bajar.</p>
+      ${state.order.map((id, i) => {
+        const block = ENTRY_BLOCKS.find((b) => b.id === id);
+        return `<div class="order-row"><span class="pos">${i + 2}</span><span class="name">${esc(block.name)}${state[block.key] ? "" : ' <span class="pill gray">apagado</span>'}</span><button class="mini-btn" data-move="${id}" data-dir="-1" title="Subir">▲</button><button class="mini-btn" data-move="${id}" data-dir="1" title="Bajar">▼</button></div>`;
+      }).join("")}
+    </div>
+    <div class="card">
+      <h2>Probar y guardar</h2><p class="hint">Este prototipo no escribe archivos. El cambio real debe hacer que «Ver test» respete estas claves.</p>
+      <div class="summary-list">
+        <div class="summary-row"><span>Perfil</span><span>${state.preset === "personalizado" ? "Personalizado" : PRESETS[state.preset].label}</span></div>
+        <div class="summary-row"><span>COLA</span><span>Nombre · ELO actual${state.showPeak ? " · ELO pico" : ""}${state.rivalCivs ? " · 5 civs RM 1v1" : ""}</span></div>
+        <div class="summary-row"><span>AL ENTRAR</span><span>Civ real${entrySummary()}</span></div>
+        <div class="summary-row"><span>Diseño</span><span>${THEMES.find((t) => t.id === state.theme).label} · ${state.density} · ${state.opacity}%</span></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn primary" id="testBtn">Ver test con MI configuración</button>
+        <button class="btn secondary" id="copyBtn">Copiar config</button>
+      </div>
+    </div>
+    <div class="card"><h2>Claves planas propuestas</h2><p class="hint">Se agregan a <code>DEFAULT_CONFIG</code>; <code>loadConfig()</code> ya las fusiona sin migración.</p><pre class="code" id="jsonOut">${esc(configJson())}</pre></div>`;
+
+  c.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => { state.theme = b.dataset.theme; renderContent(); renderPreview(); }));
+  c.querySelectorAll("[data-density]").forEach((b) => b.addEventListener("click", () => { state.density = b.dataset.density; renderContent(); renderPreview(); }));
+  $("opacity").addEventListener("input", (e) => { state.opacity = +e.target.value; $("opacityOut").textContent = `${state.opacity}%`; renderPreview(); });
+  c.querySelectorAll("[data-move]").forEach((b) => b.addEventListener("click", () => {
+    const id = b.dataset.move;
+    const dir = +b.dataset.dir;
+    const i = state.order.indexOf(id);
+    const j = i + dir;
+    if (j < 0 || j >= state.order.length) return;
+    [state.order[i], state.order[j]] = [state.order[j], state.order[i]];
+    renderContent();
+    renderPreview();
+  }));
+  $("testBtn").addEventListener("click", () => toast("Ver test usaría estas claves · hoy EXAMPLE_ALL_ON las fuerza todas"));
+  $("copyBtn").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(configJson()); toast("Config copiada"); }
+    catch { toast("No se pudo copiar (permiso del navegador)"); }
+  });
+}
+
+function entrySummary() {
+  const labels = {
+    civWinRate: "winrate con civ",
+    civStrategy: "estrategia con civ",
+    pickRepeat: "repite pick",
+    civHelp: "ayuda de civ",
+  };
+  const active = state.order.filter((id) => {
+    const block = ENTRY_BLOCKS.find((b) => b.id === id);
+    return block && state[block.key];
+  }).map((id) => labels[id]);
+  return active.length ? ` · ${active.join(" · ")}` : "";
+}
+
+function estimateHeight() {
+  let h = state.moment === "queue" ? 74 : 92;
+  if (state.showPeak) h += 16;
+  if (state.moment === "queue") {
+    if (state.rivalCivs) h += 62;
+    h += 20;
+  } else {
+    h += 34;
+    for (const id of state.order) {
+      const block = ENTRY_BLOCKS.find((b) => b.id === id);
+      if (block && state[block.key]) h += id === "civHelp" ? 58 : 38;
+    }
+  }
+  if (state.density === "comoda") h = Math.round(h * 1.18);
+  return h;
+}
+
+function renderPreview() {
+  $("momentTabs").innerHTML = MOMENTS.map((m) => `<button data-moment="${m.id}" class="${state.moment === m.id ? "active" : ""}">${esc(m.label)}</button>`).join("");
+  $("momentTabs").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { state.moment = b.dataset.moment; renderPreview(); }));
+
+  const g = $("game");
+  const head = state.moment === "queue" ? "Partida encontrada · ELO RM 1v1" : "0:03 · civ del rival disponible";
+  let html = `<div class="ov">
+    <div class="ov-head"><span>${esc(head)}</span><span class="badge">PRE</span></div>
+    <div class="ov-row"><span class="dot" style="background:#ffd60a"></span><span class="pname">PSX | Acido<span class="you">VOS</span></span><span class="elo">1180</span>${state.showPeak ? '<span class="muted">pico 1180</span>' : ""}</div>
+    <div class="ov-row"><span class="dot" style="background:#3d7bff"></span><span class="pname">Митхун</span><span class="elo">901</span>${state.showPeak ? '<span class="muted">pico 987</span>' : ""}</div>
+  </div>`;
+
+  if (state.moment === "queue") {
+    if (state.rivalCivs) {
+      html += `<div class="ov">
+        <div class="ov-head"><span>Últimas 5 civs · 1vs1 RM</span><span>historial real</span></div>
+        <div class="ov-block"><div class="ov-shields"><i title="Britons">BR</i><i title="Britons">BR</i><i title="Cumans">CU</i><i title="Gurjaras">GU</i><i title="Mongols">MO</i></div>
+        <div class="ov-val" style="margin-top:7px"><span class="muted">V · D · V · V · D · ladder #3</span></div></div>
+      </div>`;
+    }
+    html += `<div class="ov" style="color:#8b9cb0;text-align:center;padding:12px;font-size:11.5px">Civ real del rival: todavía no existe en COLA.<br />Winrate y estrategia con esa civ esperan al siguiente momento.</div>`;
+  } else {
+    html += `<div class="ov"><div class="ov-head"><span>Informe del rival · Митхун</span><span>datos reales</span></div>
+      <div class="ov-block"><div class="ov-key">Civ real</div><div class="ov-val"><span class="good">Cumans</span></div></div>`;
+    for (const id of state.order) {
+      const block = ENTRY_BLOCKS.find((b) => b.id === id);
+      if (!block || !state[block.key]) continue;
+      if (id === "civWinRate") {
+        html += `<div class="ov-block"><div class="ov-key">Winrate con Cumans</div><div class="ov-val">18 partidas · <span class="good">61% WR</span> <span class="muted">· RM 1v1</span></div></div>`;
+      } else if (id === "civStrategy") {
+        const enough = state.minCivReplays <= 11;
+        html += enough
+          ? `<div class="ov-block"><div class="ov-key">Estrategia con Cumans</div><div class="ov-val">Fast castle · <span class="good">7/11 (64%)</span> <span class="muted">· 11 replays</span></div></div>`
+          : `<div class="ov-block"><div class="ov-key">Estrategia con Cumans</div><div class="ov-val"><span class="warn">Muestra baja</span> <span class="muted">· 11 replays, mínimo ${state.minCivReplays}</span></div></div>`;
+      } else if (id === "pickRepeat") {
+        html += `<div class="ov-block"><div class="ov-key">Repite pick</div><div class="ov-val"><span class="warn">3 de sus últimas 5</span> civs fueron Cumans</div></div>`;
+      } else if (id === "civHelp") {
+        html += `<div class="ov-block"><div class="ov-key">Ayuda de civ</div><div class="ov-val">2 TC en Feudal · sin arbalestero</div></div>`;
+      }
+    }
+    html += `</div>`;
+  }
+
+  g.innerHTML = html + `<div class="game-label">Pantalla de juego · panel arriba al centro</div>`;
+  g.style.opacity = String(state.opacity / 100);
+
+  const h = estimateHeight();
+  const pct = Math.min(100, Math.round((h / 420) * 100));
+  $("heightBar").style.width = `${pct}%`;
+  $("heightBar").className = h > 360 ? "danger" : h > 280 ? "warn" : "";
+  $("heightText").textContent = `${h} px`;
+  $("previewNote").textContent = state.moment === "queue"
+    ? "COLA: nombre, ELO actual, ELO pico y 5 civs de 1vs1 RM. La civ real no existe todavía."
+    : "AL ENTRAR: la civ real habilita winrate y estrategia con esa civ. A 0:20 el panel se oculta; no hay fase posterior.";
+}
+
+function configJson() {
+  return JSON.stringify({
+    rivalCivs: state.rivalCivs,
+    showPeak: state.showPeak,
+    rivalCivWinRate: state.rivalCivWinRate,
+    rivalCivStrategy: state.rivalCivStrategy,
+    rivalPickRepeat: state.rivalPickRepeat,
+    civHelp: state.civHelp,
+    hideEloAt20: state.hideEloAt20,
+    hideRivalAt20: state.hideRivalAt20,
+    minCivReplays: state.minCivReplays,
+    rivalFavorites: false,
+    rivalOpenings: false,
+    density: state.density,
+    theme: state.theme,
+    opacity: state.opacity / 100,
+  }, null, 2);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
+}
+
+$("backBtn").addEventListener("click", () => go(state.step - 1));
+$("nextBtn").addEventListener("click", () => {
+  if (state.step === STEPS.length - 1) { toast("Configuración guardada (prototipo: no escribió ningún archivo)"); return; }
+  go(state.step + 1);
+});
+$("notesBtn").addEventListener("click", () => { state.notes = !state.notes; $("drawer").classList.toggle("open", state.notes); });
+$("drawerClose").addEventListener("click", () => { state.notes = false; $("drawer").classList.remove("open"); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.notes) { state.notes = false; $("drawer").classList.remove("open"); } });
+
+renderNav();
+renderContent();
+renderPreview();
+</script>
+</body>
+</html>

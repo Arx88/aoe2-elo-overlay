@@ -1,0 +1,18 @@
+# Dependencias y salida del build (se regeneran en CI)
+node_modules/
+dist/
+para-compartir/
+
+# Datos personales: NUNCA subir la cuenta del jugador ni los logs
+config.json
+*.log
+auto-publish.lock
+update-channel.local.json
+
+# Capturas de prueba: solo las de la raíz. assets/**/*.png SON parte del build.
+/*.png
+
+# Ruido del sistema / editor
+.workbuddy-ai/
+Thumbs.db
+.DS_Store

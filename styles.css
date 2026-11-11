@@ -1,0 +1,1438 @@
+:root {
+  --scale: 1;
+  /* Halo sutil: mantiene legible el texto sobre mapas claros o con mucho detalle. */
+  --text-halo: 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: calc(13px * var(--scale));
+  background: transparent;
+}
+
+body {
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  padding: 4px;
+  color: var(--text);
+  font-family: var(--font);
+}
+
+#panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  padding: var(--panel-pad);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  color: var(--text);
+  text-shadow: var(--text-halo);
+  animation: panel-in 0.24s ease-out both;
+  transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+#panel.stale {
+  opacity: 0.55;
+  filter: saturate(0.45);
+}
+
+/* Sala encontrada: el título pulsa hasta que arranca la partida. */
+#panel.lobby #head {
+  animation: head-pulse 1.15s ease-in-out infinite;
+}
+
+@keyframes head-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Sin partida: un punto que respira confirma que el overlay sigue escuchando. */
+#panel.idle #head::before {
+  content: '';
+  display: inline-block;
+  width: 0.34rem;
+  height: 0.34rem;
+  margin-right: 0.42rem;
+  border-radius: 50%;
+  background: var(--muted);
+  vertical-align: middle;
+  animation: idle-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes idle-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+/* Modo mover: el panel entero es manija de arrastre mientras dura. */
+body.moving #panel {
+  -webkit-app-region: drag;
+  border: 1px dashed var(--accent);
+  cursor: move;
+}
+
+body.moving #panel * {
+  -webkit-app-region: drag;
+}
+
+#head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: var(--head-size);
+  font-weight: var(--head-weight);
+  letter-spacing: var(--head-spacing);
+  text-transform: var(--head-transform);
+  color: var(--accent);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--head-border);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.head-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Modo ejemplo: los datos son reales, el reloj es de prueba. Se distingue
+   de una partida en vivo de un vistazo, con los colores de cualquier tema. */
+.example-badge {
+  flex: none;
+  margin-right: 0.15rem;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  padding: 0 0.32rem;
+  background: rgba(127, 127, 127, 0.18);
+  opacity: 0.95;
+}
+
+#panel.example {
+  border-style: dashed;
+}
+
+/* Aclara de qué ladder es el número, aunque el modo sea TG/EW/custom. */
+.elo-tag {
+  flex: none;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  opacity: 0.78;
+  background: rgba(127, 127, 127, 0.12);
+}
+
+#rows {
+  padding-top: var(--rows-pad);
+}
+
+.row {
+  display: grid;
+  /* columnas fijas para que escudo, ELO, rank y pico queden alineados */
+  grid-template-columns: 0.6rem minmax(0, 1fr) 1.5rem 4.4rem 3.2rem 4.6rem;
+  align-items: center;
+  gap: var(--row-gap);
+  padding: var(--row-pad);
+  border-radius: var(--row-radius);
+  font-size: var(--name-size);
+  animation: row-in 0.2s ease-out both;
+  transition: background-color 0.15s ease;
+}
+
+/* Entrada escalonada: las filas caen una tras otra, no todas de golpe. */
+.row:nth-child(1) { animation-delay: 0ms; }
+.row:nth-child(2) { animation-delay: 28ms; }
+.row:nth-child(3) { animation-delay: 56ms; }
+.row:nth-child(4) { animation-delay: 84ms; }
+.row:nth-child(5) { animation-delay: 112ms; }
+.row:nth-child(6) { animation-delay: 140ms; }
+.row:nth-child(7) { animation-delay: 168ms; }
+.row:nth-child(8) { animation-delay: 196ms; }
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.row.you {
+  color: var(--strong);
+  background: var(--you-bg);
+}
+
+.row.you .name {
+  font-weight: 700;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--dot-ring), 0 0 6px rgba(0, 0, 0, 0.35);
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name em {
+  font-style: normal;
+  font-size: var(--badge-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--badge-color);
+  background: var(--badge-bg);
+  border-radius: var(--badge-radius);
+  padding: 0 0.25rem;
+  margin-left: 0.35rem;
+  vertical-align: 1px;
+}
+
+.civ {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shield {
+  width: var(--shield-size);
+  height: var(--shield-size);
+  object-fit: contain;
+  display: block;
+  filter: var(--shield-filter);
+  opacity: var(--shield-opacity);
+}
+
+.shield-unknown {
+  width: var(--shield-size);
+  height: var(--shield-size);
+  border: 1px solid var(--muted);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 0.55rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.elo {
+  font-size: var(--elo-size);
+  font-weight: var(--elo-weight);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rank {
+  font-size: var(--rank-size);
+  color: var(--accent-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.peak {
+  font-size: var(--peak-size);
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sep {
+  height: 1px;
+  margin: var(--sep-margin);
+  background: var(--sep-bg);
+}
+
+.hint {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+  padding: 0.2rem 0 0.1rem;
+}
+
+.hint.dim,
+.hint .dim {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.hint .path {
+  display: inline-block;
+  margin: 0.15rem 0;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.7rem;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+/* Estado sin cuenta: tiene que llamar la atención, es el único bloqueante. */
+.alert {
+  padding: 0.35rem 0 0.3rem;
+}
+
+.alert-line {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.alert-line b {
+  color: var(--accent);
+}
+
+.alert-sub {
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.alert-sub .path {
+  display: inline-block;
+  margin-top: 0.15rem;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.66rem;
+  color: var(--accent-dim);
+  word-break: break-all;
+}
+
+#foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--foot-border);
+  font-size: var(--foot-size);
+  letter-spacing: var(--foot-spacing);
+  text-transform: var(--foot-transform);
+  color: var(--foot-color);
+}
+
+#foot #foottext {
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.credit {
+  flex: none;
+  font-size: var(--credit-size);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--credit-color);
+  font-style: italic;
+}
+
+#foot[hidden] {
+  display: none;
+}
+
+/* ============ 1) Clásico: pergamino oscuro y dorado (default) ============ */
+body,
+body[data-theme='clasico'] {
+  --font: 'Georgia', 'Times New Roman', serif;
+  --text: #f3ead8;
+  --strong: #ffffff;
+  --muted: #a99b83;
+  --accent: #d9b26a;
+  --accent-dim: #8d7442;
+  --panel-bg: linear-gradient(180deg, rgba(22, 17, 12, 0.94), rgba(14, 11, 8, 0.9));
+  --panel-border: rgba(217, 178, 106, 0.38);
+  --panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --panel-blur: blur(3px);
+  --radius: 0.6rem;
+  --panel-pad: 0.55rem 0.75rem 0.5rem;
+  --rows-pad: 0.3rem;
+  --row-gap: 0.45rem;
+  --row-pad: 0.18rem 0;
+  --row-radius: 0;
+  --you-bg: transparent;
+  --name-size: 0.92rem;
+  --head-size: 0.78rem;
+  --head-weight: 400;
+  --head-spacing: 0.14em;
+  --head-transform: uppercase;
+  --head-border: rgba(217, 178, 106, 0.22);
+  --badge-bg: #d9b26a;
+  --badge-color: #10100f;
+  --badge-size: 0.62rem;
+  --badge-radius: 3px;
+  --shield-size: 1.32rem;
+  --shield-filter: none;
+  --shield-opacity: 0.96;
+  --elo-size: 1.05rem;
+  --elo-weight: 400;
+  --rank-size: 0.68rem;
+  --peak-size: 0.7rem;
+  --dot-ring: rgba(255, 255, 255, 0.22);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(217, 178, 106, 0.35), transparent);
+  --sep-margin: 0.3rem 0 0.2rem;
+  --foot-border: rgba(217, 178, 106, 0.16);
+  --foot-color: #8d7442;
+  --foot-size: 0.62rem;
+  --foot-spacing: 0.08em;
+  --foot-transform: uppercase;
+  --credit-size: 0.58rem;
+  --credit-color: rgba(217, 178, 106, 0.62);
+}
+
+/* ============ 2) Noche: oscuro moderno, sin adornos ============ */
+body[data-theme='noche'] {
+  --font: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+  --text: #e8ecf3;
+  --strong: #ffffff;
+  --muted: #8a93a3;
+  --accent: #d5dce8;
+  --accent-dim: #6f7889;
+  --panel-bg: rgba(14, 16, 21, 0.93);
+  --panel-border: rgba(255, 255, 255, 0.09);
+  --panel-shadow: 0 14px 36px rgba(0, 0, 0, 0.6);
+  --panel-blur: blur(10px);
+  --radius: 14px;
+  --panel-pad: 0.7rem 0.8rem 0.6rem;
+  --rows-pad: 0.25rem;
+  --row-gap: 0.5rem;
+  --row-pad: 0.26rem 0.3rem;
+  --row-radius: 8px;
+  --you-bg: rgba(255, 255, 255, 0.05);
+  --name-size: 0.9rem;
+  --head-size: 0.7rem;
+  --head-weight: 600;
+  --head-spacing: 0.06em;
+  --head-transform: uppercase;
+  --head-border: rgba(255, 255, 255, 0.08);
+  --badge-bg: #7aa2ff;
+  --badge-color: #0b0d12;
+  --badge-size: 0.58rem;
+  --badge-radius: 999px;
+  --shield-size: 1.3rem;
+  --shield-filter: none;
+  --shield-opacity: 1;
+  --elo-size: 1.02rem;
+  --elo-weight: 600;
+  --rank-size: 0.66rem;
+  --peak-size: 0.68rem;
+  --dot-ring: rgba(255, 255, 255, 0.18);
+  --sep-bg: rgba(255, 255, 255, 0.08);
+  --sep-margin: 0.35rem 0.3rem 0.25rem;
+  --foot-border: rgba(255, 255, 255, 0.07);
+  --foot-color: #626b7b;
+  --foot-size: 0.6rem;
+  --foot-spacing: 0.05em;
+  --foot-transform: uppercase;
+  --credit-size: 0.56rem;
+  --credit-color: #626b7b;
+}
+
+/* ============ 3) Vidrio: translúcido con desenfoque ============ */
+body[data-theme='vidrio'] {
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --text: #f5f8ff;
+  --strong: #ffffff;
+  --muted: #c3cee3;
+  --accent: #e4ecff;
+  --accent-dim: #a3b6d6;
+  /* vidrio oscuro: base translúcida legible sobre cualquier mapa */
+  --panel-bg: linear-gradient(180deg, rgba(26, 36, 54, 0.66), rgba(9, 14, 24, 0.72));
+  --panel-border: rgba(255, 255, 255, 0.24);
+  --panel-shadow: 0 18px 44px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.34), inset 0 0 46px rgba(255, 255, 255, 0.05);
+  --panel-blur: blur(18px) saturate(150%);
+  --radius: 18px;
+  --panel-pad: 0.7rem 0.85rem 0.6rem;
+  --rows-pad: 0.25rem;
+  --row-gap: 0.5rem;
+  --row-pad: 0.26rem 0.3rem;
+  --row-radius: 10px;
+  --you-bg: rgba(255, 255, 255, 0.14);
+  --name-size: 0.92rem;
+  --head-size: 0.72rem;
+  --head-weight: 600;
+  --head-spacing: 0.08em;
+  --head-transform: uppercase;
+  --head-border: rgba(255, 255, 255, 0.3);
+  --badge-bg: rgba(255, 255, 255, 0.92);
+  --badge-color: #101a2e;
+  --badge-size: 0.58rem;
+  --badge-radius: 999px;
+  --shield-size: 1.32rem;
+  --shield-filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+  --shield-opacity: 1;
+  --elo-size: 1.04rem;
+  --elo-weight: 700;
+  --rank-size: 0.67rem;
+  --peak-size: 0.69rem;
+  --dot-ring: rgba(255, 255, 255, 0.45);
+  --sep-bg: rgba(255, 255, 255, 0.22);
+  --sep-margin: 0.35rem 0.3rem 0.25rem;
+  --foot-border: rgba(255, 255, 255, 0.18);
+  --foot-color: #c9d6ec;
+  --foot-size: 0.6rem;
+  --foot-spacing: 0.07em;
+  --foot-transform: uppercase;
+  --credit-size: 0.56rem;
+  --credit-color: #d5e0f2;
+}
+
+/* ============ 4) Claro: blanco, tipografía fina ============ */
+body[data-theme='claro'] {
+  --text-halo: none; /* texto oscuro sobre fondo claro: el halo lo ensuciaría */
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --text: #16202e;
+  --strong: #0b1220;
+  --muted: #64748b;
+  --accent: #0f172a;
+  --accent-dim: #94a3b8;
+  --panel-bg: rgba(255, 255, 255, 0.95);
+  --panel-border: rgba(15, 23, 42, 0.12);
+  --panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.24);
+  --panel-blur: none;
+  --radius: 14px;
+  --panel-pad: 0.7rem 0.8rem 0.6rem;
+  --rows-pad: 0.25rem;
+  --row-gap: 0.5rem;
+  --row-pad: 0.26rem 0.3rem;
+  --row-radius: 8px;
+  --you-bg: rgba(37, 99, 235, 0.08);
+  --name-size: 0.9rem;
+  --head-size: 0.7rem;
+  --head-weight: 700;
+  --head-spacing: 0.06em;
+  --head-transform: uppercase;
+  --head-border: rgba(15, 23, 42, 0.1);
+  --badge-bg: #2563eb;
+  --badge-color: #ffffff;
+  --badge-size: 0.58rem;
+  --badge-radius: 999px;
+  --shield-size: 1.3rem;
+  --shield-filter: none;
+  --shield-opacity: 1;
+  --elo-size: 1.02rem;
+  --elo-weight: 700;
+  --rank-size: 0.66rem;
+  --peak-size: 0.68rem;
+  --dot-ring: rgba(15, 23, 42, 0.25);
+  --sep-bg: rgba(15, 23, 42, 0.12);
+  --sep-margin: 0.35rem 0.3rem 0.25rem;
+  --foot-border: rgba(15, 23, 42, 0.1);
+  --foot-color: #8b98ab;
+  --foot-size: 0.6rem;
+  --foot-spacing: 0.05em;
+  --foot-transform: uppercase;
+  --credit-size: 0.56rem;
+  --credit-color: #94a3b8;
+}
+
+/* ============ 5) Neón: oscuro con acento cian ============ */
+body[data-theme='neon'] {
+  --font: 'Segoe UI', system-ui, sans-serif;
+  --text: #e8fbff;
+  --strong: #ffffff;
+  --muted: #78a6b8;
+  --accent: #00e5ff;
+  --accent-dim: #0e8496;
+  --panel-bg: rgba(7, 11, 19, 0.9);
+  --panel-border: rgba(0, 229, 255, 0.35);
+  --panel-shadow: 0 0 24px rgba(0, 229, 255, 0.18), inset 0 0 24px rgba(0, 229, 255, 0.05);
+  --panel-blur: blur(6px);
+  --radius: 10px;
+  --panel-pad: 0.65rem 0.8rem 0.55rem;
+  --rows-pad: 0.25rem;
+  --row-gap: 0.5rem;
+  --row-pad: 0.24rem 0.3rem;
+  --row-radius: 6px;
+  --you-bg: rgba(0, 229, 255, 0.08);
+  --name-size: 0.9rem;
+  --head-size: 0.7rem;
+  --head-weight: 700;
+  --head-spacing: 0.14em;
+  --head-transform: uppercase;
+  --head-border: rgba(0, 229, 255, 0.28);
+  --badge-bg: #ff2fb3;
+  --badge-color: #080d15;
+  --badge-size: 0.56rem;
+  --badge-radius: 3px;
+  --shield-size: 1.3rem;
+  --shield-filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.35));
+  --shield-opacity: 1;
+  --elo-size: 1.03rem;
+  --elo-weight: 700;
+  --rank-size: 0.66rem;
+  --peak-size: 0.68rem;
+  --dot-ring: rgba(0, 229, 255, 0.4);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.45), transparent);
+  --sep-margin: 0.32rem 0 0.22rem;
+  --foot-border: rgba(0, 229, 255, 0.16);
+  --foot-color: #0e8496;
+  --foot-size: 0.58rem;
+  --foot-spacing: 0.1em;
+  --foot-transform: uppercase;
+  --credit-size: 0.55rem;
+  --credit-color: rgba(0, 229, 255, 0.55);
+}
+
+/* ============ 6) Fantasma: el menos invasivo ============
+   Compacto, casi sin fondo: texto flotando sobre el juego. */
+body[data-theme='fantasma'] {
+  --font: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+  --text-halo: 0 1px 3px rgba(0, 0, 0, 0.95);
+  --text: #eef3fa;
+  --strong: #ffffff;
+  --muted: #bcc8d8;
+  --accent: #e2e9f4;
+  --accent-dim: #aebbd0;
+  --panel-bg: rgba(8, 11, 16, 0.62);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  --panel-blur: blur(12px) saturate(120%);
+  --radius: 12px;
+  --panel-pad: 0.42rem 0.7rem 0.36rem;
+  --rows-pad: 0.14rem;
+  --row-gap: 0.4rem;
+  --row-pad: 0.08rem 0.2rem;
+  --row-radius: 999px;
+  --you-bg: rgba(255, 255, 255, 0.1);
+  --name-size: 0.8rem;
+  --head-size: 0.58rem;
+  --head-weight: 600;
+  --head-spacing: 0.12em;
+  --head-transform: uppercase;
+  --head-border: transparent;
+  --badge-bg: rgba(255, 255, 255, 0.92);
+  --badge-color: #131720;
+  --badge-size: 0.52rem;
+  --badge-radius: 999px;
+  --shield-size: 1.08rem;
+  --shield-filter: none;
+  --shield-opacity: 0.94;
+  --elo-size: 0.88rem;
+  --elo-weight: 600;
+  --rank-size: 0.6rem;
+  --peak-size: 0.62rem;
+  --dot-ring: rgba(255, 255, 255, 0.14);
+  --sep-bg: rgba(255, 255, 255, 0.1);
+  --sep-margin: 0.2rem 0.2rem 0.14rem;
+  --foot-border: transparent;
+  --foot-color: #a6b4c6;
+  --foot-size: 0.52rem;
+  --foot-spacing: 0.06em;
+  --foot-transform: uppercase;
+  --credit-size: 0.5rem;
+  --credit-color: rgba(255, 255, 255, 0.62);
+}
+
+/* ============ 7) Aurora: degradado violeta → turquesa ============ */
+body[data-theme='aurora'] {
+  --font: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --text: #eef0ff;
+  --strong: #ffffff;
+  --muted: #9aa3c7;
+  --accent: #b7a3fb;
+  --accent-dim: #7c6fc9;
+  --panel-bg: linear-gradient(155deg, rgba(88, 48, 168, 0.5), rgba(13, 17, 33, 0.92) 46%, rgba(20, 78, 74, 0.42));
+  --panel-border: rgba(167, 139, 250, 0.38);
+  --panel-shadow: 0 14px 34px rgba(8, 6, 26, 0.62), 0 0 28px rgba(45, 212, 191, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --panel-blur: blur(14px) saturate(140%);
+  --radius: 16px;
+  --panel-pad: 0.68rem 0.82rem 0.58rem;
+  --rows-pad: 0.25rem;
+  --row-gap: 0.5rem;
+  --row-pad: 0.24rem 0.32rem;
+  --row-radius: 9px;
+  --you-bg: rgba(167, 139, 250, 0.13);
+  --name-size: 0.9rem;
+  --head-size: 0.7rem;
+  --head-weight: 700;
+  --head-spacing: 0.1em;
+  --head-transform: uppercase;
+  --head-border: rgba(167, 139, 250, 0.3);
+  --badge-bg: linear-gradient(90deg, #a78bfa, #2dd4bf);
+  --badge-color: #0d0a1f;
+  --badge-size: 0.57rem;
+  --badge-radius: 999px;
+  --shield-size: 1.3rem;
+  --shield-filter: drop-shadow(0 1px 3px rgba(10, 6, 26, 0.5));
+  --shield-opacity: 1;
+  --elo-size: 1.03rem;
+  --elo-weight: 700;
+  --rank-size: 0.66rem;
+  --peak-size: 0.68rem;
+  --dot-ring: rgba(255, 255, 255, 0.22);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.42), rgba(45, 212, 191, 0.42), transparent);
+  --sep-margin: 0.34rem 0.25rem 0.24rem;
+  --foot-border: rgba(167, 139, 250, 0.2);
+  --foot-color: #8f96bd;
+  --foot-size: 0.6rem;
+  --foot-spacing: 0.07em;
+  --foot-transform: uppercase;
+  --credit-size: 0.56rem;
+  --credit-color: rgba(167, 139, 250, 0.62);
+}
+
+/* ============ 8) Dorado: negro y oro, premium ============ */
+body[data-theme='dorado'] {
+  --font: 'Georgia', 'Times New Roman', serif;
+  --text: #f4ecd9;
+  --strong: #ffffff;
+  --muted: #b3a27a;
+  --accent: #e8c15a;
+  --accent-dim: #a98c3f;
+  --panel-bg: linear-gradient(180deg, rgba(19, 15, 8, 0.96), rgba(8, 7, 4, 0.94));
+  --panel-border: rgba(232, 193, 90, 0.48);
+  --panel-shadow: 0 12px 30px rgba(0, 0, 0, 0.66), inset 0 0 0 1px rgba(232, 193, 90, 0.1), inset 0 1px 0 rgba(255, 236, 190, 0.14);
+  --panel-blur: blur(4px);
+  --radius: 8px;
+  --panel-pad: 0.6rem 0.78rem 0.52rem;
+  --rows-pad: 0.28rem;
+  --row-gap: 0.46rem;
+  --row-pad: 0.2rem 0.1rem;
+  --row-radius: 4px;
+  --you-bg: rgba(232, 193, 90, 0.09);
+  --name-size: 0.92rem;
+  --head-size: 0.74rem;
+  --head-weight: 400;
+  --head-spacing: 0.18em;
+  --head-transform: uppercase;
+  --head-border: rgba(232, 193, 90, 0.32);
+  --badge-bg: linear-gradient(180deg, #f2d27e, #c9a143);
+  --badge-color: #171207;
+  --badge-size: 0.6rem;
+  --badge-radius: 3px;
+  --shield-size: 1.32rem;
+  --shield-filter: none;
+  --shield-opacity: 0.97;
+  --elo-size: 1.06rem;
+  --elo-weight: 700;
+  --rank-size: 0.68rem;
+  --peak-size: 0.7rem;
+  --dot-ring: rgba(255, 236, 190, 0.3);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(232, 193, 90, 0.5), transparent);
+  --sep-margin: 0.32rem 0 0.22rem;
+  --foot-border: rgba(232, 193, 90, 0.22);
+  --foot-color: #a98c3f;
+  --foot-size: 0.62rem;
+  --foot-spacing: 0.1em;
+  --foot-transform: uppercase;
+  --credit-size: 0.58rem;
+  --credit-color: rgba(232, 193, 90, 0.62);
+}
+
+/* ============ 9) Carbono: mate oscuro con acento rojo ============ */
+body[data-theme='carbono'] {
+  --font: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --text: #ececec;
+  --strong: #ffffff;
+  --muted: #8f8f8f;
+  --accent: #e5484d;
+  --accent-dim: #b3565a;
+  --panel-bg:
+    linear-gradient(180deg, rgba(24, 24, 24, 0.94), rgba(13, 13, 13, 0.92)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 7px);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-shadow: 0 12px 30px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --panel-blur: blur(8px);
+  --radius: 6px;
+  --panel-pad: 0.62rem 0.78rem 0.54rem;
+  --rows-pad: 0.24rem;
+  --row-gap: 0.5rem;
+  --row-pad: 0.22rem 0.28rem;
+  --row-radius: 5px;
+  --you-bg: rgba(229, 72, 77, 0.09);
+  --name-size: 0.9rem;
+  --head-size: 0.7rem;
+  --head-weight: 700;
+  --head-spacing: 0.12em;
+  --head-transform: uppercase;
+  --head-border: rgba(229, 72, 77, 0.45);
+  --badge-bg: #e5484d;
+  --badge-color: #160a0b;
+  --badge-size: 0.57rem;
+  --badge-radius: 3px;
+  --shield-size: 1.3rem;
+  --shield-filter: none;
+  --shield-opacity: 1;
+  --elo-size: 1.03rem;
+  --elo-weight: 700;
+  --rank-size: 0.66rem;
+  --peak-size: 0.68rem;
+  --dot-ring: rgba(255, 255, 255, 0.16);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(229, 72, 77, 0.42), transparent);
+  --sep-margin: 0.32rem 0.2rem 0.22rem;
+  --foot-border: rgba(255, 255, 255, 0.08);
+  --foot-color: #7a7a7a;
+  --foot-size: 0.6rem;
+  --foot-spacing: 0.08em;
+  --foot-transform: uppercase;
+  --credit-size: 0.56rem;
+  --credit-color: rgba(229, 72, 77, 0.55);
+}
+
+/* ============ 10) Pergamino: papel AoE2, claro y temático ============ */
+body[data-theme='pergamino'] {
+  --text-halo: none; /* texto oscuro sobre pergamino */
+  --font: 'Georgia', 'Times New Roman', serif;
+  --text: #3d2c15;
+  --strong: #241708;
+  --muted: #7a6440;
+  --accent: #8a5a1f;
+  --accent-dim: #a08048;
+  --panel-bg: linear-gradient(180deg, rgba(228, 201, 150, 0.96), rgba(203, 172, 120, 0.94));
+  --panel-border: rgba(84, 58, 26, 0.62);
+  --panel-shadow: 0 10px 26px rgba(30, 20, 8, 0.5), inset 0 0 42px rgba(120, 85, 35, 0.22), inset 0 1px 0 rgba(255, 244, 214, 0.6);
+  --panel-blur: blur(2px);
+  --radius: 6px;
+  --panel-pad: 0.6rem 0.78rem 0.52rem;
+  --rows-pad: 0.28rem;
+  --row-gap: 0.46rem;
+  --row-pad: 0.2rem 0.14rem;
+  --row-radius: 4px;
+  --you-bg: rgba(84, 58, 26, 0.13);
+  --name-size: 0.92rem;
+  --head-size: 0.74rem;
+  --head-weight: 700;
+  --head-spacing: 0.12em;
+  --head-transform: uppercase;
+  --head-border: rgba(84, 58, 26, 0.35);
+  --badge-bg: #8a5a1f;
+  --badge-color: #f6e7c8;
+  --badge-size: 0.6rem;
+  --badge-radius: 3px;
+  --shield-size: 1.32rem;
+  --shield-filter: none;
+  --shield-opacity: 1;
+  --elo-size: 1.06rem;
+  --elo-weight: 700;
+  --rank-size: 0.68rem;
+  --peak-size: 0.7rem;
+  --dot-ring: rgba(61, 44, 21, 0.4);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(84, 58, 26, 0.45), transparent);
+  --sep-margin: 0.32rem 0 0.22rem;
+  --foot-border: rgba(84, 58, 26, 0.3);
+  --foot-color: #8a6c3c;
+  --foot-size: 0.62rem;
+  --foot-spacing: 0.08em;
+  --foot-transform: uppercase;
+  --credit-size: 0.58rem;
+  --credit-color: rgba(84, 58, 26, 0.58);
+}
+
+/* ============ 11) Sakura: ciruela oscuro con rosa ============ */
+body[data-theme='sakura'] {
+  --font: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --text: #f6e9f1;
+  --strong: #ffffff;
+  --muted: #b08ba2;
+  --accent: #f472b6;
+  --accent-dim: #b05a86;
+  --panel-bg: linear-gradient(180deg, rgba(37, 19, 31, 0.93), rgba(18, 10, 16, 0.91));
+  --panel-border: rgba(244, 114, 182, 0.36);
+  --panel-shadow: 0 12px 30px rgba(20, 6, 14, 0.6), 0 0 24px rgba(244, 114, 182, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --panel-blur: blur(10px);
+  --radius: 14px;
+  --panel-pad: 0.66rem 0.8rem 0.56rem;
+  --rows-pad: 0.25rem;
+  --row-gap: 0.5rem;
+  --row-pad: 0.24rem 0.3rem;
+  --row-radius: 8px;
+  --you-bg: rgba(244, 114, 182, 0.11);
+  --name-size: 0.9rem;
+  --head-size: 0.7rem;
+  --head-weight: 700;
+  --head-spacing: 0.1em;
+  --head-transform: uppercase;
+  --head-border: rgba(244, 114, 182, 0.3);
+  --badge-bg: linear-gradient(90deg, #f9a8d4, #f472b6);
+  --badge-color: #2b0f1f;
+  --badge-size: 0.57rem;
+  --badge-radius: 999px;
+  --shield-size: 1.3rem;
+  --shield-filter: drop-shadow(0 1px 3px rgba(20, 6, 14, 0.5));
+  --shield-opacity: 1;
+  --elo-size: 1.03rem;
+  --elo-weight: 700;
+  --rank-size: 0.66rem;
+  --peak-size: 0.68rem;
+  --dot-ring: rgba(244, 114, 182, 0.3);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(244, 114, 182, 0.45), transparent);
+  --sep-margin: 0.34rem 0.25rem 0.24rem;
+  --foot-border: rgba(244, 114, 182, 0.18);
+  --foot-color: #9c7089;
+  --foot-size: 0.6rem;
+  --foot-spacing: 0.07em;
+  --foot-transform: uppercase;
+  --credit-size: 0.56rem;
+  --credit-color: rgba(244, 114, 182, 0.55);
+}
+
+/* =====================================================================
+   Ayuda de civ (0:01 → 0:20) y auto-ocultado del ELO en 0:20.
+   Todo con variables del diseño activo: funciona en los 11 temas, incluso
+   en los claros. El main decide CUÁNDO con el reloj real de la partida;
+   acá solo se define CÓMO se ve.
+   ===================================================================== */
+#stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Ocultar el panel de ELO: la ventana se achica sola porque reportHeight()
+   mide #stage y applyHeight() ajusta el BrowserWindow. */
+#panel.elo-hidden {
+  display: none;
+}
+
+body.elo-hidden #stage {
+  gap: 0;
+}
+
+#civHelp {
+  display: block;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  padding: 0.55rem 0.7rem 0.5rem;
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  color: var(--text);
+  text-shadow: var(--text-halo);
+  animation: civhelp-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes civhelp-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.civhelp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.45rem;
+  border-bottom: 1px solid var(--head-border);
+}
+
+.civhelp-title {
+  font-size: var(--head-size);
+  font-weight: var(--head-weight);
+  letter-spacing: var(--head-spacing);
+  text-transform: var(--head-transform);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.civhelp-clock {
+  flex: none;
+  font-family: ui-monospace, 'Consolas', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  opacity: 0.85;
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.civhelp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+#civHelp.single .civhelp-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.civhelp-civ {
+  min-width: 0;
+  border: 1px solid var(--head-border);
+  border-radius: calc(var(--radius) * 0.7);
+  background: rgba(127, 127, 127, 0.09);
+  padding: 0.45rem 0.5rem 0.4rem;
+  animation: row-in 0.24s ease-out both;
+}
+
+.civhelp-civ:nth-child(2) { animation-delay: 60ms; }
+.civhelp-civ:nth-child(3) { animation-delay: 120ms; }
+.civhelp-civ:nth-child(4) { animation-delay: 180ms; }
+
+.civhelp-civ-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  margin-bottom: 0.35rem;
+}
+
+.civhelp-shield,
+.civhelp-no-shield {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: contain;
+  filter: var(--shield-filter);
+  opacity: var(--shield-opacity);
+}
+
+.civhelp-no-shield {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--head-border);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.civhelp-ident {
+  min-width: 0;
+}
+
+.civhelp-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.civhelp-tag {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--badge-color);
+  background: var(--badge-bg);
+  border-radius: var(--badge-radius);
+  padding: 0.08rem 0.3rem;
+  margin-left: 0.35rem;
+  vertical-align: 2px;
+}
+
+.civhelp-tag.rival {
+  color: var(--text);
+  background: rgba(127, 127, 127, 0.28);
+}
+
+.civhelp-role {
+  font-size: 0.64rem;
+  line-height: 1.25;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.civhelp-fact {
+  display: grid;
+  grid-template-columns: 5.1rem minmax(0, 1fr);
+  gap: 0.35rem;
+  align-items: start;
+  padding: 0.13rem 0;
+  border-top: 1px solid rgba(127, 127, 127, 0.12);
+}
+
+.civhelp-key {
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding-top: 0.1rem;
+  opacity: 0.9;
+}
+
+.civhelp-fact.bad .civhelp-key {
+  color: #ff8f8f;
+}
+
+.civhelp-fact.unit .civhelp-key {
+  color: var(--muted);
+}
+
+.civhelp-val {
+  min-width: 0;
+  font-size: 0.68rem;
+  line-height: 1.32;
+  color: var(--text);
+}
+
+.civhelp-empty {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding: 0.5rem 0.2rem;
+}
+
+.civhelp-bar {
+  height: 3px;
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.24);
+  overflow: hidden;
+}
+
+.civhelp-bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.2s linear;
+}
+
+/* =====================================================================
+   Informe OPCIONAL del rival: últimas 5 civs, favoritos y aperturas REALES.
+   Mismo lenguaje visual que la ayuda de civ, variables del tema activo.
+   ===================================================================== */
+body.elo-hidden #rivalInfo {
+  display: none !important;
+}
+
+#rivalInfo {
+  display: block;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  padding: 0.55rem 0.7rem 0.55rem;
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  color: var(--text);
+  text-shadow: var(--text-halo);
+  animation: civhelp-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rival-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.45rem;
+  border-bottom: 1px solid var(--head-border);
+}
+
+.rival-title {
+  font-size: var(--head-size);
+  font-weight: var(--head-weight);
+  letter-spacing: var(--head-spacing);
+  text-transform: var(--head-transform);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.rival-source {
+  flex: none;
+  font-size: 0.55rem;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+.rival-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+#rivalInfo.single .rival-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rival-card {
+  min-width: 0;
+  border: 1px solid var(--head-border);
+  border-radius: calc(var(--radius) * 0.7);
+  background: rgba(127, 127, 127, 0.09);
+  padding: 0.45rem 0.55rem 0.45rem;
+  animation: row-in 0.24s ease-out both;
+}
+
+.rival-grid .rival-card:nth-child(2) { animation-delay: 60ms; }
+
+.rival-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  margin-bottom: 0.35rem;
+}
+
+.rival-name {
+  min-width: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rival-now {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
+.rival-block {
+  border-top: 1px solid rgba(127, 127, 127, 0.14);
+  padding-top: 0.3rem;
+  margin-top: 0.3rem;
+}
+
+.rival-key {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.9;
+  margin-bottom: 0.28rem;
+}
+
+.rival-badge {
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+  border: 1px solid var(--head-border);
+  border-radius: 999px;
+  padding: 0.02rem 0.35rem;
+  opacity: 0.9;
+}
+
+.rival-civ-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.rival-civ-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 1px solid var(--head-border);
+  border-radius: calc(var(--radius) * 0.55);
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.rival-civ-item.win { border-color: rgba(74, 190, 120, 0.55); }
+.rival-civ-item.loss { border-color: rgba(220, 100, 100, 0.5); }
+
+.rival-wl {
+  position: absolute;
+  right: -2px;
+  bottom: -3px;
+  font-size: 0.48rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.08rem 0.2rem;
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--panel-bg);
+  border: 1px solid var(--head-border);
+}
+
+.rival-civ-item.win .rival-wl { color: #63d69a; }
+.rival-civ-item.loss .rival-wl { color: #ff9a9a; }
+
+.rival-shield {
+  width: 1.85rem;
+  height: 1.85rem;
+  object-fit: contain;
+  filter: var(--shield-filter);
+  opacity: var(--shield-opacity);
+}
+
+.rival-shield.sm { width: 1.35rem; height: 1.35rem; }
+.rival-shield.xs { width: 1.1rem; height: 1.1rem; }
+
+.rival-shield.no-shield {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--head-border);
+  border-radius: 50%;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.rival-fav-row,
+.rival-map-row,
+.rival-opening-top {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.68rem;
+}
+
+.rival-map-row { margin-top: 0.2rem; }
+
+.rival-fav-name,
+.rival-map-name {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rival-fav-meta,
+.rival-map-key,
+.rival-sub {
+  font-size: 0.58rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.rival-fav-meta { margin-left: auto; }
+
+.rival-map-key {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.rival-opening-top {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.rival-opening-top b {
+  font-size: 0.86rem;
+  color: var(--accent);
+}
+
+.rival-opening-top span {
+  font-size: 0.6rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.rival-chip-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.32rem;
+}
+
+.rival-chip {
+  font-size: 0.56rem;
+  line-height: 1.4;
+  color: var(--text);
+  border: 1px solid var(--head-border);
+  border-radius: 999px;
+  padding: 0.05rem 0.38rem;
+  background: rgba(127, 127, 127, 0.14);
+  white-space: nowrap;
+}
+
+.rival-empty {
+  font-size: 0.65rem;
+  line-height: 1.35;
+  color: var(--muted);
+  padding: 0.18rem 0;
+}
+
+/* Accesibilidad: quien pide menos movimiento ve el panel quieto. */
+@media (prefers-reduced-motion: reduce) {
+  #panel,
+  #civHelp,
+  #rivalInfo,
+  .row,
+  .civhelp-civ,
+  .rival-card,
+  #panel.lobby #head,
+  #panel.idle #head::before {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  #panel.idle #head::before {
+    opacity: 0.8;
+  }
+}

@@ -1,0 +1,316 @@
+'use strict';
+
+/**
+ * Bloque opcional de datos del RIVAL. Todo es información REAL de fuentes
+ * públicas, sin API key y sin inferencias.
+ *
+ *  1. Últimas 5 civs  -> AoE2 Companion GET /api/matches?profile_ids=<rival>
+ *     Cada partida trae teams[].players[].civName, won y el mapa.
+ *  2. Civ / mapa más usados -> AoE2 Companion
+ *     GET /api/profiles/<rival>/stats?leaderboard_id=<enum>
+ *     Devuelve civ[] y map[] con games / wins / losses del histórico completo.
+ *  3. Aperturas -> AoE2Insights GET /stats/api/match-ups/ (src/insights.js)
+ *     Etiquetas detectadas en REPLAYS ANALIZADOS: Scout rush, Archer rush,
+ *     Drush, Fast castle, MAA rush… No es una "apertura típica por civ": es
+ *     lo que ese jugador hizo realmente en cada partida. Si no hay replays
+ *     analizados se informa `analyzed: 0` y NO se inventa nada.
+ *
+ * Todo se filtra por el MODO DE JUEGO de la partida en curso: EW se juega
+ * distinto a RM, así que un Drush de RM 1v1 no sirve para predecir el arranque
+ * en EW 1v1 (y viceversa). Las aperturas se consultan con un segundo `filter`
+ * por ladder (src/insights.js) y el historial de civs solo toma partidas del
+ * mismo modo. En custom/unranked el modo no se puede resolver y las aperturas
+ * se informan como no disponibles en lugar de mezclar modos.
+ *
+ * Todo se calcula DESPUÉS de pintar el roster: `main.js` dispara esto en
+ * segundo plano para no agregar ni un milisegundo al aviso de partida
+ * encontrada. Los errores se devuelven como `error` / `openingError` y nunca
+ * tiran excepción.
+ */
+
+const { getJson, fetchMatches } = require('./aoe');
+const { civSlug } = require('./civs');
+const {
+  buildRivalOpenings,
+  resolveMode,
+  DEFAULT_TTL_MS: OPENINGS_TTL_MS,
+} = require('./insights');
+
+const COMPANION_BASE = process.env.AOE_COMPANION_BASE || 'https://data.aoe2companion.com';
+const STATS_LADDERS = new Set(['rm_1v1', 'rm_team', 'ew_1v1', 'ew_team', 'dm_1v1', 'dm_team']);
+const NUMERIC_LADDERS = {
+  1: 'dm_1v1',
+  2: 'dm_team',
+  3: 'rm_1v1',
+  4: 'rm_team',
+  13: 'ew_1v1',
+  14: 'ew_team',
+};
+const FALLBACK_LADDER = 'rm_1v1';
+const HISTORY_SIZE = 5;
+const HISTORY_PAGE = 25;
+const DEFAULT_TTL_MS = 10 * 60 * 1000;
+
+const SOURCES = {
+  history: 'AoE2 Companion · historial público de partidas',
+  stats: 'AoE2 Companion · estadísticas del perfil',
+  openings: 'AoE2Insights · aperturas detectadas en replays analizados',
+};
+
+/**
+ * RIVALES de verdad (no aliados). El roster trae `team`: 1 = tu equipo,
+ * 2 = el rival. Sin esto, en una TG el informe mostraba a tus propios aliados
+ * y `RIVAL_LIMIT` se gastaba en ellos antes de llegar a los oponentes.
+ *
+ * Si el payload no trae equipos (o no marca `isYou`), se cae al criterio
+ * anterior: todos menos vos. Nunca devuelve una lista vacía habiendo rivales.
+ */
+function opponentsOf(state, limit = 2) {
+  const players = Array.isArray(state && state.players) ? state.players : [];
+  const candidates = players.filter((p) => p && !p.isYou && Number(p.profileId) > 0);
+  const you = players.find((p) => p && p.isYou);
+  const myTeam = you && you.team != null ? Number(you.team) : NaN;
+  if (!Number.isFinite(myTeam)) return candidates.slice(0, limit);
+  const enemies = candidates.filter((p) => Number(p.team) !== myTeam);
+  return (enemies.length ? enemies : candidates).slice(0, limit);
+}
+
+/** La API de stats solo acepta enums; en unranked/custom caemos a RM 1v1. */
+function statsLadder(leaderboardId) {
+  const raw = String(leaderboardId == null ? '' : leaderboardId).trim();
+  if (STATS_LADDERS.has(raw)) return raw;
+  if (NUMERIC_LADDERS[raw]) return NUMERIC_LADDERS[raw];
+  return FALLBACK_LADDER;
+}
+
+function pct(part, total) {
+  if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return null;
+  return Math.round((part / total) * 100);
+}
+
+function n(value) {
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? num : 0;
+}
+
+/**
+ * Últimas `limit` civs REALMENTE jugadas por el rival, de más nueva a más vieja.
+ * Se saltea la partida en curso (no es "elegida en el pasado", es la actual) y
+ * cualquier partida sin civ o sin resultado público.
+ *
+ * Con `options.mode` solo cuentan partidas del MISMO modo de juego (EW y RM
+ * no se juegan igual). Partidas cuya ladder no se puede resolver (custom,
+ * unranked) se descartan: no se mezclan modos para completar el cupo de 5.
+ */
+function parseRivalHistory(matches, profileId, currentMatchId, options = {}) {
+  const opts = typeof options === 'number' ? { limit: options } : options || {};
+  const limit = opts.limit != null ? opts.limit : HISTORY_SIZE;
+  const mode = opts.mode ? resolveMode(opts.mode) : null;
+  const id = Number(profileId);
+  const rows = [];
+  for (const match of Array.isArray(matches) ? matches : []) {
+    if (!match || match.ongoing) continue;
+    if (currentMatchId != null && Number(match.matchId) === Number(currentMatchId)) continue;
+    if (mode) {
+      const matchMode = resolveMode(match.leaderboardId);
+      if (!matchMode || matchMode.id !== mode.id) continue;
+    }
+    const player = (match.players || []).find((p) => Number(p.profileId) === id);
+    if (!player || !player.civ) continue;
+    const slug = civSlug(player.civ);
+    rows.push({
+      matchId: match.matchId,
+      civ: String(player.civ),
+      slug,
+      won: typeof player.won === 'boolean' ? player.won : null,
+      mapName: match.mapName || '—',
+      leaderboardName: match.leaderboardName || '',
+      startedAt: match.startedAt || null,
+    });
+  }
+  rows.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+  return rows.slice(0, limit);
+}
+
+/** Normaliza el /stats: ordena por partidas y calcula cuota y winrate. */
+function normalizeProfileStats(raw) {
+  const civs = (Array.isArray(raw && raw.civ) ? raw.civ : [])
+    .map((entry) => ({
+      slug: civSlug(entry.civ) || String(entry.civ || ''),
+      name: String(entry.civName || entry.civ || '—'),
+      games: n(entry.games),
+      wins: n(entry.wins),
+      losses: n(entry.losses),
+    }))
+    .filter((entry) => entry.games > 0)
+    .sort((a, b) => b.games - a.games);
+
+  const maps = (Array.isArray(raw && raw.map) ? raw.map : [])
+    .map((entry) => ({
+      name: String(entry.mapName || entry.map || '—'),
+      games: n(entry.games),
+      wins: n(entry.wins),
+    }))
+    .filter((entry) => entry.games > 0)
+    .sort((a, b) => b.games - a.games);
+
+  const totalGames = civs.reduce((sum, entry) => sum + entry.games, 0);
+  const totalMapGames = maps.reduce((sum, entry) => sum + entry.games, 0);
+  const decorateCiv = (entry) => ({
+    ...entry,
+    share: pct(entry.games, totalGames),
+    winRate: pct(entry.wins, entry.games),
+  });
+  const decorateMap = (entry) => ({ ...entry, share: pct(entry.games, totalMapGames) });
+
+  return {
+    statsLadderLabel: String((raw && raw.leaderboardName) || 'Ranked'),
+    totalGames,
+    topCivs: civs.slice(0, 3).map(decorateCiv),
+    favoriteCiv: civs.length ? decorateCiv(civs[0]) : null,
+    topMaps: maps.slice(0, 2).map(decorateMap),
+    favoriteMap: maps.length ? decorateMap(maps[0]) : null,
+  };
+}
+
+/**
+ * Arma el bloque completo de un rival. Acepta `fetchMatchesImpl` / `getJsonImpl`
+ * / `openingsImpl` para que el selftest pueda probar todo sin abrir la red.
+ *
+ * `includeOpenings` lo apaga main.js cuando la opción está desactivada: así no
+ * se consulta AoE2Insights (que puede tardar ~9s en calcular) si nadie lo pidió.
+ */
+async function buildRivalInsights(options = {}) {
+  const {
+    profileId,
+    name = null,
+    civ = null,
+    leaderboardId = null,
+    currentMatchId = null,
+    cache = null,
+    cacheTtlMs = DEFAULT_TTL_MS,
+    now = Date.now(),
+    includeOpenings = true,
+    openingsTtlMs = OPENINGS_TTL_MS,
+    fetchMatchesImpl = fetchMatches,
+    getJsonImpl = getJson,
+    openingsImpl = buildRivalOpenings,
+    onPartial = null,
+    fetchImpl,
+    sleep,
+    log = () => {},
+  } = options;
+
+  const id = Number(profileId);
+  const base = { profileId: id, name, civ, sources: SOURCES, fetchedAt: now, error: null };
+  if (!Number.isFinite(id) || id <= 0) return { ...base, error: 'perfil inválido' };
+
+  const ladder = statsLadder(leaderboardId);
+  // El MODO de la partida (RM 1v1, EW 1v1…) decide qué replays y qué
+  // partidas del historial cuentan. `null` = partida sin ladder rankeada.
+  const mode = resolveMode(leaderboardId);
+  const modeId = mode ? mode.id : 'sin-modo';
+  const key = `rival:insights:${id}:${ladder}:${modeId}:${includeOpenings ? 1 : 0}`;
+  const cached = cache && cache.get(key);
+  if (cached && now - cached.ts <= cacheTtlMs) {
+    return { ...base, ...cached.data, ladder, fromCache: true };
+  }
+
+  const result = {
+    ladder,
+    mode: mode ? { ...mode } : null,
+    history: [],
+    topCivs: [],
+    topMaps: [],
+    favoriteCiv: null,
+    favoriteMap: null,
+    totalGames: 0,
+    statsLadderLabel: null,
+    openings: null,
+    openingError: null,
+  };
+  const errors = [];
+
+  try {
+    const matches = await fetchMatchesImpl(id, HISTORY_PAGE);
+    result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
+  } catch (err) {
+    errors.push(`historial: ${err.message}`);
+  }
+
+  try {
+    const url =
+      `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
+      `?leaderboard_id=${encodeURIComponent(ladder)}`;
+    const raw = await getJsonImpl(url);
+    Object.assign(result, normalizeProfileStats(raw));
+  } catch (err) {
+    errors.push(`stats: ${err.message}`);
+  }
+
+  // Primer aviso: histórico de civs / favoritos ya están listos (~0.3s).
+  // AoE2Insights puede tardar ~9s en calcular la consulta, así que el panel
+  // pinta las civs AHORA y agrega las aperturas cuando llegan.
+  if (typeof onPartial === 'function' && includeOpenings) {
+    onPartial({ ...base, ...result, ladder, openings: null, pendingOpenings: true, fromCache: false });
+  }
+
+  // Aperturas REALES del MISMO modo de juego (la ladder va como segundo
+  // `filter` a AoE2Insights). Tienen su propia cache (30 min) porque
+  // reanalizar replays es lento y el histórico se refresca más seguido.
+  if (includeOpenings) {
+    try {
+      const openings = await openingsImpl({
+        profileId: id,
+        mode,
+        cache,
+        cacheTtlMs: openingsTtlMs,
+        now,
+        fetchImpl,
+        sleep,
+        log,
+      });
+      result.openings = openings;
+      result.openingError =
+        openings && openings.ok === false ? openings.error : null;
+    } catch (err) {
+      result.openingError = `aperturas: ${err.message}`;
+    }
+  }
+
+  result.error = errors.length ? errors.join(' · ') : null;
+  if (cache) cache.set(key, { ts: now, data: result });
+  if (result.error) log(`datos del rival #${id} incompletos: ${result.error}`);
+
+  return { ...base, ...result, fromCache: false };
+}
+
+/** ¿Hay que consultar la red o alcanza con lo que ya hay en memoria? */
+function hasCachedInsights(cache, profileId, leaderboardId, options = {}) {
+  if (!cache) return false;
+  const { now = Date.now(), cacheTtlMs = DEFAULT_TTL_MS, includeOpenings = true } = options;
+  const mode = resolveMode(leaderboardId);
+  const key =
+    `rival:insights:${Number(profileId)}:${statsLadder(leaderboardId)}:` +
+    `${mode ? mode.id : 'sin-modo'}:${includeOpenings ? 1 : 0}`;
+  const entry = cache.get(key);
+  return Boolean(entry && now - entry.ts <= cacheTtlMs);
+}
+
+module.exports = {
+  SOURCES,
+  STATS_LADDERS,
+  NUMERIC_LADDERS,
+  FALLBACK_LADDER,
+  HISTORY_SIZE,
+  DEFAULT_TTL_MS,
+  OPENINGS_TTL_MS,
+  opponentsOf,
+  statsLadder,
+  resolveMode,
+  pct,
+  parseRivalHistory,
+  normalizeProfileStats,
+  buildRivalInsights,
+  hasCachedInsights,
+};

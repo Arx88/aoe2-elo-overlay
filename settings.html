@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'" />
+    <title>Configuración · AoE2 ELO Overlay</title>
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <h1>AoE2 ELO Overlay</h1>
+        <span class="version" id="version"></span>
+      </div>
+      <span class="credit">By acido</span>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Cuenta</h2>
+        <div class="account">
+          <div class="account-name" id="currentName">—</div>
+          <div class="account-meta">
+            <span id="currentId" class="mono"></span>
+            <span id="currentOrigin" class="chip"></span>
+          </div>
+        </div>
+        <button id="autoBtn" class="ghost" type="button">Detectar automáticamente</button>
+      </section>
+
+      <section class="card">
+        <h2>Estado</h2>
+        <dl class="diag">
+          <div><dt>Cuenta</dt><dd id="diagProfile">—</dd></div>
+          <div><dt>Última consulta</dt><dd id="diagPoll">—</dd></div>
+          <div><dt>Partida</dt><dd id="diagMatch">—</dd></div>
+        </dl>
+        <button id="logBtn" class="ghost" type="button">Abrir carpeta del log</button>
+      </section>
+
+      <section class="card example-card">
+        <h2>Modo ejemplo</h2>
+        <p class="note intro-note">
+          Probá <b>todas las funciones de una sola vez</b> con la
+          <b>última partida real</b> de cualquier jugador: escribí su nombre o
+          su ID y tocá <b>Ver test</b>. Se pintan el <b>ELO RM 1v1 real</b> del
+          roster, los <b>escudos de las civs</b> de esa partida, la
+          <b>Ayuda de civ</b>, el <b>informe del rival</b> (últimas 5 civs,
+          civ/mapa favoritos y aperturas reales de AoE2Insights) y el
+          <b>reloj de 0:01 → 0:20</b>. Durante el ejemplo todas las opciones se
+          muestran activadas, pero <b>no se cambia ningún ajuste ni tu cuenta</b>.
+        </p>
+
+        <div class="example-row">
+          <input
+            id="exampleUser"
+            type="text"
+            placeholder="Nombre del jugador o profile ID…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="exampleBtn" class="primary" type="button">Ver test</button>
+        </div>
+
+        <div class="example-controls" id="exampleControls" hidden>
+          <div class="clock-row example-clock-row">
+            <span>Reloj de ejemplo</span>
+            <div class="segmented" id="exampleClock" role="group" aria-label="Reloj de ejemplo">
+              <button type="button" data-clock="3" title="Congelar en 0:03: ayuda de civ y ELO visibles">0:03</button>
+              <button type="button" data-clock="21" title="Congelar en 0:21: ELO e informe ya ocultos">0:21</button>
+              <button type="button" data-clock="live" title="Correr en vivo y ocultar solo a 0:20">En vivo</button>
+            </div>
+          </div>
+          <div class="example-meta" id="exampleMeta"></div>
+          <button id="exampleStopBtn" class="ghost" type="button">Terminar ejemplo</button>
+        </div>
+
+        <p id="exampleStatus" class="example-status"></p>
+        <p class="note source-note example-source-note">
+          <b>Datos reales</b> de AoE2 Companion, World's Edge y AoE2Insights;
+          lo único simulado es el <b>reloj de prueba</b>. Si el rival no tiene
+          replays analizados se indica y no se inventa ninguna apertura.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Apariencia</h2>
+        <div class="themes">
+          <button class="theme" type="button" data-theme="clasico" title="Pergamino oscuro y dorado, el de siempre">
+            <span class="swatch" data-theme="clasico"></span>
+            <span class="tname">Clásico</span>
+          </button>
+          <button class="theme" type="button" data-theme="noche" title="Oscuro moderno, sin adornos">
+            <span class="swatch" data-theme="noche"></span>
+            <span class="tname">Noche</span>
+          </button>
+          <button class="theme" type="button" data-theme="vidrio" title="Translúcido con desenfoque">
+            <span class="swatch" data-theme="vidrio"></span>
+            <span class="tname">Vidrio</span>
+          </button>
+          <button class="theme" type="button" data-theme="claro" title="Blanco, tipografía fina">
+            <span class="swatch" data-theme="claro"></span>
+            <span class="tname">Claro</span>
+          </button>
+          <button class="theme" type="button" data-theme="neon" title="Oscuro con acento cian">
+            <span class="swatch" data-theme="neon"></span>
+            <span class="tname">Neón</span>
+          </button>
+          <button class="theme" type="button" data-theme="fantasma" title="El menos invasivo: compacto y casi sin fondo, apenas visible sobre el juego">
+            <span class="swatch" data-theme="fantasma"></span>
+            <span class="tname">Fantasma</span>
+          </button>
+          <button class="theme" type="button" data-theme="aurora" title="Degradado violeta a turquesa">
+            <span class="swatch" data-theme="aurora"></span>
+            <span class="tname">Aurora</span>
+          </button>
+          <button class="theme" type="button" data-theme="dorado" title="Negro y oro, premium">
+            <span class="swatch" data-theme="dorado"></span>
+            <span class="tname">Dorado</span>
+          </button>
+          <button class="theme" type="button" data-theme="carbono" title="Mate oscuro con acento rojo, como el ícono">
+            <span class="swatch" data-theme="carbono"></span>
+            <span class="tname">Carbono</span>
+          </button>
+          <button class="theme" type="button" data-theme="pergamino" title="Papel estilo AoE2, claro y temático">
+            <span class="swatch" data-theme="pergamino"></span>
+            <span class="tname">Pergamino</span>
+          </button>
+          <button class="theme" type="button" data-theme="sakura" title="Ciruela oscuro con rosa">
+            <span class="swatch" data-theme="sakura"></span>
+            <span class="tname">Sakura</span>
+          </button>
+        </div>
+
+        <div class="slider-row">
+          <label for="opacity">Opacidad</label>
+          <input id="opacity" type="range" min="15" max="100" step="5" value="95" />
+          <output id="opacityValue" for="opacity">95%</output>
+        </div>
+
+        <p class="note">
+          El diseño y la opacidad se aplican al instante en el panel del juego.<br />
+          <b>Fantasma</b> es el más discreto: compacto y casi sin fondo.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Durante la partida</h2>
+        <p class="note intro-note">
+          El reloj se lee del <b>inicio real de la partida</b>, no de cuando la app
+          la detecta. Ambas opciones arrancan apagadas y se aplican al instante.
+        </p>
+
+        <label class="toggle" for="civHelp">
+          <span class="toggle-copy">
+            <span class="toggle-name">Ayuda de civ</span>
+            <span class="toggle-desc">
+              Tarjeta clara con los escudos de <b>ambas civilizaciones</b> y un
+              resumen corto de <b>BONOS</b>, <b>unidades</b> y <b>debilidades</b>.
+              Aparece a <b>0:01</b> y se oculta a <b>0:20</b>.
+            </span>
+          </span>
+          <input id="civHelp" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <label class="toggle" for="hideEloAt20">
+          <span class="toggle-copy">
+            <span class="toggle-name">Ocultar panel de ELO al segundo 20</span>
+            <span class="toggle-desc">
+              El ELO sigue visible al empezar, <b>aunque la ayuda de civ esté
+              apagada</b>, y se oculta a <b>0:20</b> para no molestar en el juego.
+              Vuelve a aparecer cuando termina la partida.
+            </span>
+          </span>
+          <input id="hideEloAt20" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <div class="clock-row">
+          <span>Reloj de partida</span>
+          <span id="matchClock" class="mono">—</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Informe del rival</h2>
+        <p class="note intro-note">
+          Elegí qué datos <b>reales</b> querés ver del rival cuando se encuentra
+          la partida. Todas las opciones arrancan <b>apagadas</b> y se aplican al
+          instante. En partidas de equipo se muestran hasta <b>2 rivales</b>.
+          Si activás <b>Ocultar panel de ELO al segundo 20</b>, este informe se
+          oculta junto con el ELO para no estorbar durante el juego.
+        </p>
+
+        <label class="toggle" for="rivalCivs">
+          <span class="toggle-copy">
+            <span class="toggle-name">Últimas 5 civis del rival</span>
+            <span class="toggle-desc">
+              Las últimas <b>5 civilizaciones que jugó de verdad</b>, con escudo,
+              resultado (V/D) y mapa, <b>del mismo modo de juego</b> que la
+              partida en curso. Fuente: historial público de AoE2 Companion.
+            </span>
+          </span>
+          <input id="rivalCivs" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <label class="toggle" for="rivalFavorites">
+          <span class="toggle-copy">
+            <span class="toggle-name">Civ y mapa que más usa</span>
+            <span class="toggle-desc">
+              Su <b>civilización favorita</b> y su <b>mapa más jugado</b> con
+              cantidad de partidas, cuota y winrate del histórico completo.
+            </span>
+          </span>
+          <input id="rivalFavorites" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <label class="toggle" for="rivalOpenings">
+          <span class="toggle-copy">
+            <span class="toggle-name">Aperturas reales del rival</span>
+            <span class="toggle-desc">
+              <b>Scout rush, Archer rush, Drush, Fast castle, MAA rush…</b>
+              detectadas en <b>replays analizados</b> por AoE2Insights: su apertura
+              más usada y las últimas partidas. No es una guía ni una suposición
+              por civ. Solo cuentan replays del <b>mismo modo de juego</b> (EW no
+              se juega como RM): si la partida es de EW 1v1 no se usan replays de
+              RM, y viceversa. Si el rival no tiene replays analizados en ese modo,
+              se indica y no se inventa nada. La primera consulta puede tardar unos
+              segundos.
+            </span>
+          </span>
+          <input id="rivalOpenings" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <p class="note source-note">
+          Fuentes: <b>AoE2 Companion</b> (historial y estadísticas) y
+          <b>AoE2Insights</b> (aperturas de replays). Sin cuenta ni API key.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Posición</h2>
+        <p class="note" id="positionInfo">Ahora está arriba al centro.</p>
+        <button id="moveBtn" class="ghost" type="button">Mover el panel</button>
+      </section>
+
+      <section class="card">
+        <h2>Cambiar de cuenta</h2>
+        <input
+          id="search"
+          type="text"
+          placeholder="Escribí tu nombre en el juego…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div id="results" class="results"></div>
+        <div class="inline">
+          <input id="manualId" type="text" inputmode="numeric" placeholder="profile ID" autocomplete="off" />
+          <button id="manualBtn" class="small" type="button">Usar ID</button>
+        </div>
+        <p class="note">Buscá por nombre, o pegá el número de aoe2insights.com/user/<b>1234567</b>.</p>
+      </section>
+
+      <p id="status" class="status"></p>
+    </main>
+
+    <footer>
+      <span id="configPath" class="path"></span>
+      <span class="hint">El panel no se puede clickear: esta ventana es solo para configurar. <b>Esc</b> la cierra.</span>
+    </footer>
+
+    <script src="settings.js"></script>
+  </body>
+</html>

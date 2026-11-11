@@ -1,0 +1,23 @@
+'use strict';
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('settings', {
+  get: () => ipcRenderer.invoke('settings:get'),
+  search: (query) => ipcRenderer.invoke('settings:search', query),
+  pick: (profileId) => ipcRenderer.invoke('settings:pick', profileId),
+  auto: () => ipcRenderer.invoke('settings:auto'),
+  theme: (theme) => ipcRenderer.invoke('settings:theme', theme),
+  opacity: (value) => ipcRenderer.invoke('settings:opacity', value),
+  civHelp: (on) => ipcRenderer.invoke('settings:civHelp', on),
+  hideEloAt20: (on) => ipcRenderer.invoke('settings:hideEloAt20', on),
+  rivalOption: (key, on) => ipcRenderer.invoke('settings:rivalOption', key, on),
+  exampleStart: (query, clock) => ipcRenderer.invoke('settings:exampleStart', query, clock),
+  exampleClock: (mode) => ipcRenderer.invoke('settings:exampleClock', mode),
+  exampleStop: () => ipcRenderer.invoke('settings:exampleStop'),
+  move: (on) => ipcRenderer.invoke('settings:move', on),
+  openLog: () => ipcRenderer.invoke('settings:open-log'),
+  onExample: (callback) => ipcRenderer.on('settings:example', (_event, info) => callback(info)),
+  onClock: (callback) => ipcRenderer.on('settings:clock', (_event, startedAt) => callback(startedAt)),
+  close: () => ipcRenderer.send('settings:close'),
+});

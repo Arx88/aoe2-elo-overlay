@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'"
+    />
+    <title>AoE2 ELO Overlay</title>
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <div id="panel">
+        <div id="head">AoE2 ELO</div>
+        <div id="rows"><div class="hint">Iniciando…</div></div>
+        <div id="foot"><span class="credit">By acido</span><span id="foottext"></span></div>
+      </div>
+
+      <!--
+        Ayuda de civ: la llena renderer.js con el dataset offline en español.
+        El main la muestra a 0:01 y la oculta a 0:20 usando el reloj REAL de
+        la partida (raw.started del REST), no un timer desde que se detecta.
+      -->
+      <section id="civHelp" hidden aria-live="polite">
+        <div class="civhelp-head">
+          <span class="civhelp-title">Ayuda de civ</span>
+          <span class="civhelp-clock" id="civhelpClock">0:01 / 0:20</span>
+        </div>
+        <div class="civhelp-grid" id="civhelpGrid"></div>
+        <div class="civhelp-bar"><i id="civhelpBar"></i></div>
+      </section>
+
+      <!--
+        Informe OPCIONAL del rival: últimas 5 civs, civ/mapa favoritos y
+        aperturas REALES detectadas en replays (AoE2Insights). Se calcula en
+        segundo plano y se va completando por partes, sin retrasar el ELO.
+      -->
+      <section id="rivalInfo" hidden aria-live="polite">
+        <div class="rival-head">
+          <span class="rival-title">Informe del rival</span>
+          <span class="rival-source" id="rivalSource">datos reales</span>
+        </div>
+        <div class="rival-grid" id="rivalGrid"></div>
+      </section>
+    </div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
