@@ -37,3 +37,16 @@ jobs:
         run: npm run release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notas del release actual
+        shell: bash
+        run: gh release edit "${{ github.ref_name }}" --notes-file RELEASE_NOTES.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notas del release anterior
+        shell: bash
+        continue-on-error: true
+        run: gh release edit v0.1.9 --notes-file RELEASE_NOTES.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
