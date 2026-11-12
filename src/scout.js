@@ -43,6 +43,7 @@ const {
   DEFAULT_TTL_MS,
 } = require('./insights');
 const { mapKey } = require('./rival');
+const { buildCivRecommendation, computeMyMapCivs } = require('./mine');
 
 const SOURCE = 'AoE2Insights · replays analizados';
 const ROW_LIMIT = 500;
@@ -278,6 +279,8 @@ function emptyTips(profileId, name, now, options = {}) {
     weakAgainst: [],
     openingsAgainst: [],
     tempo: null,
+    recommend: null,
+    recommendError: null,
     fetchedAt: now,
     fromCache: false,
   };
@@ -301,6 +304,10 @@ async function buildScoutTips(options = {}) {
     cacheTtlMs = DEFAULT_TTL_MS,
     now = Date.now(),
     limit = ROW_LIMIT,
+    // Civ recomendada: `myHistoryImpl` lo inyecta main.js (mi historial ya
+    // cacheado por src/mine.js, compartido con el head-to-head).
+    recommend = false,
+    myHistoryImpl = null,
     fetchImpl,
     sleep,
     attempts,
@@ -366,10 +373,31 @@ async function buildScoutTips(options = {}) {
     ...tips,
     fromCache,
   };
+
+  // Civ recomendada: cruza lo que le cuesta al rival (weakAgainst, arriba)
+  // con MI winrate con cada civ en este mapa. El fallo no tira el consejo.
+  if (recommend) {
+    if (typeof myHistoryImpl === 'function') {
+      try {
+        const mine = await myHistoryImpl();
+        result.recommend = buildCivRecommendation({
+          weakAgainst: tips.weakAgainst,
+          myCivs: computeMyMapCivs(mine.rows, mapName),
+        });
+      } catch (err) {
+        result.recommendError = err.message;
+        log(`scout #${id}: civ recomendada no disponible (${err.message})`);
+      }
+    } else {
+      result.recommendError = 'sin historial propio';
+    }
+  }
+
   log(
     `scout #${id} [${resolved.label}]: ${rows.length} partidas · recorte ${result.scopeLabel} ` +
       `(${result.sample} pj, ${result.winRate == null ? '—' : `${result.winRate}%`}) · ` +
-      `${result.weakAgainst.length} civs difíciles · ${result.openingsAgainst.length} aperturas que le duelen`,
+      `${result.weakAgainst.length} civs difíciles · ${result.openingsAgainst.length} aperturas que le duelen` +
+      (result.recommend ? ` · ${result.recommend.length} civs recomendadas` : ''),
   );
   return result;
 }

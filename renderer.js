@@ -3,6 +3,7 @@
 const stage = document.getElementById('stage');
 const panel = document.getElementById('panel');
 const head = document.getElementById('head');
+const balanceEl = document.getElementById('balance');
 const rowsEl = document.getElementById('rows');
 const footText = document.getElementById('foottext');
 const civHelpEl = document.getElementById('civHelp');
@@ -25,6 +26,7 @@ const updateToastText = document.getElementById('updateToastText');
 const ICONS = {
   escudo: '<path d="M12 3 4.8 5.9v5.3c0 4.1 3 7.4 7.2 9.8 4.2-2.4 7.2-5.7 7.2-9.8V5.9L12 3Z"/>',
   espadas: '<path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/>',
+  balanza: '<path d="M12 4v14"/><path d="M6.2 6.2h11.6"/><path d="m6.2 6.2-2.3 5.4a2.7 2.7 0 0 0 4.6 0L6.2 6.2Z"/><path d="m17.8 6.2-2.3 5.4a2.7 2.7 0 0 0 4.6 0L17.8 6.2Z"/><path d="M8.4 20h7.2"/>',
   mapa: '<path d="M9 4.5 3.5 6.4v13.1L9 17.6l6 1.9 5.5-1.9V4.5L15 6.4 9 4.5Z"/><path d="M9 4.5v13.1"/><path d="M15 6.4v13.1"/>',
   reloj: '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.3V12l3.1 1.9"/>',
   estrella: '<path d="m12 4.2 2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.5-4.6 2.5.9-5.1L4.5 9.7l5.2-.8L12 4.2Z"/>',
@@ -117,10 +119,19 @@ let civFrozenElapsed = null;
 
 // Informe opcional del rival: llega por `overlay:rival` en SEGUNDO PLANO.
 let rivalPayload = null;
-let rivalOptions = { rivalCivs: false, rivalFavorites: false, rivalOpenings: false };
+let rivalOptions = {
+  rivalCivs: false,
+  rivalFavorites: false,
+  rivalOpenings: false,
+  rivalH2H: false,
+};
 // Recomendaciones inteligentes: llegan por `overlay:scout`; solo pre-partida.
 let scoutPayload = null;
 let smartTipsEnabled = false;
+// Civ recomendada: comparte el payload de scout pero es su propia opción.
+let civRecommenderEnabled = false;
+// Balance de equipos (TG): puro pintado sobre el estado, sin datos extra.
+let balanceEnabled = false;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -282,7 +293,12 @@ function renderCivHelp() {
  * El bloque se oculta con el ELO cuando el usuario pidió ocultar a 0:20.
  * ---------------------------------------------------------------------- */
 function rivalEnabled() {
-  return rivalOptions.rivalCivs || rivalOptions.rivalFavorites || rivalOptions.rivalOpenings;
+  return (
+    rivalOptions.rivalCivs ||
+    rivalOptions.rivalFavorites ||
+    rivalOptions.rivalOpenings ||
+    rivalOptions.rivalH2H
+  );
 }
 
 /* =====================================================================
@@ -298,6 +314,7 @@ const analysisLabel = document.getElementById('analysisLabel');
 const ANALYSIS_LABELS = {
   elo: 'Consultando ELO RM 1v1…',
   rival: 'Buscando datos del rival…',
+  h2h: 'Buscando enfrentamientos previos…',
   replays: 'Analizando replays…',
   tips: 'Analizando replays del rival…',
 };
@@ -311,10 +328,11 @@ function analysisStage() {
   if (rivalEnabled()) {
     const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
     if (!reports.length || reports.some((report) => report.loading)) return 'rival';
+    if (rivalOptions.rivalH2H && reports.some((report) => report.h2hPending)) return 'h2h';
     if (rivalOptions.rivalOpenings && rivalPayload && rivalPayload.pendingOpenings) return 'replays';
   }
   // 3) Consejo pre-partida: solo existe mientras la fase sea `lobby`.
-  if (smartTipsEnabled && lastState.phase === 'lobby') {
+  if ((smartTipsEnabled || civRecommenderEnabled) && lastState.phase === 'lobby') {
     const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
     if (!tips.length || tips.some((tip) => tip.loading)) return 'tips';
     if (scoutPayload && scoutPayload.pending) return 'tips';
@@ -505,6 +523,71 @@ function rivalMapBlock(report) {
   return rivalBlock('', stats + note, 'favs');
 }
 
+/**
+ * HEAD-TO-HEAD (opción rivalH2H): tu V-D contra este rival, del propio
+ * historial, en el mismo modo. Mismo lenguaje visual que el bloque del mapa:
+ * número grande + contexto chico, sin frases que haya que leer completas.
+ */
+function rivalH2HBlock(report) {
+  if (report.loading || report.h2hPending) {
+    return rivalBlock(
+      '',
+      '<div class="rival-empty">Buscando enfrentamientos previos…</div>',
+      'h2h',
+    );
+  }
+  const h2h = report.h2h;
+  if (!h2h) return '';
+  const neverFaced = !Number(h2h.games);
+  if (neverFaced && !Number(h2h.asAllies)) {
+    return rivalBlock(
+      '',
+      '<div class="rival-empty">Nunca se enfrentaron en este modo.</div>',
+      'h2h',
+    );
+  }
+
+  if (neverFaced) {
+    // Ya jugaron juntos pero nunca uno contra el otro: también es información.
+    return rivalBlock(
+      '',
+      '<div class="rstat-grid">' +
+        '<div class="rstat">' +
+        `<span class="rstat-key">${icon('espadas')}Cara a cara</span>` +
+        '<b class="rstat-value">0-0</b>' +
+        '<span class="rstat-sub">Nunca como rivales</span></div>' +
+        '<div class="rstat">' +
+        `<span class="rstat-key">${icon('lista')}Como aliados</span>` +
+        `<b class="rstat-value rstat-civ">${fmtNumber(h2h.asAllies)}</b>` +
+        `<span class="rstat-sub">${escapeHtml(gamesText(h2h.asAllies))}</span></div>` +
+        '</div>',
+      'h2h',
+    );
+  }
+
+  const wins = Number(h2h.wins) || 0;
+  const losses = Number(h2h.losses) || 0;
+  const tone = wins > losses ? 'good' : losses > wins ? 'bad' : '';
+  const subParts = [gamesText(h2h.games)];
+  if (h2h.lastMatch && h2h.lastMatch.mapName && h2h.lastMatch.mapName !== '—') {
+    subParts.push(`última en ${h2h.lastMatch.mapName}`);
+  }
+  const tile =
+    '<div class="rstat">' +
+    `<span class="rstat-key">${icon('espadas')}Cara a cara</span>` +
+    `<b class="rstat-value ${tone}">${fmtNumber(wins)}-${fmtNumber(losses)}</b>` +
+    `<span class="rstat-sub">${escapeHtml(subParts.join(' · '))}</span></div>`;
+  // Las veces que jugaron como ALIADOS no son enfrentamientos, pero dan
+  // contexto (y explican por qué el V-D no suma todas las partidas compartidas).
+  const alliesTile = Number(h2h.asAllies)
+    ? '<div class="rstat">' +
+      `<span class="rstat-key">${icon('lista')}Como aliados</span>` +
+      `<b class="rstat-value rstat-civ">${fmtNumber(h2h.asAllies)}</b>` +
+      `<span class="rstat-sub">${escapeHtml(gamesText(h2h.asAllies))}</span></div>`
+    : '';
+  return rivalBlock('', `<div class="rstat-grid">${tile}${alliesTile}</div>`, 'h2h');
+}
+
 function rivalOpeningsBlock(report, pending) {
   const openings = report.openings;
   const mode = (openings && openings.mode) || report.mode || null;
@@ -576,6 +659,8 @@ function rivalCard(report) {
   const blocks = [];
   // La conclusión va primero: qué se juega en este mapa se lee antes que el historial.
   if (rivalOptions.rivalFavorites) blocks.push(rivalMapBlock(report));
+  // Cara a cara: el dato "ustedes dos" va pegado al dato "él en este mapa".
+  if (rivalOptions.rivalH2H) blocks.push(rivalH2HBlock(report));
   if (rivalOptions.rivalCivs) blocks.push(rivalHistoryBlock(report));
   if (rivalOptions.rivalOpenings) {
     blocks.push(rivalOpeningsBlock(report, Boolean(rivalPayload && rivalPayload.pendingOpenings)));
@@ -693,20 +778,62 @@ function scoutTipLines(tip) {
 
 function scoutCard(tip) {
   const name = tip.name || `Perfil ${tip.profileId || '?'}`;
+  // El consejo (smartTips) y la civ recomendada (civRecommender) comparten
+  // payload y tarjeta: cada bloque se muestra solo con su opción encendida.
+  const blocks = [];
+  if (smartTipsEnabled) {
+    blocks.push(`<div class="rival-block tips">${scoutTipLines(tip).join('')}</div>`);
+  }
+  const recommend = scoutRecommendBlock(tip);
+  if (recommend) blocks.push(recommend);
   return (
     '<article class="rival-card">' +
     '<div class="rival-card-head">' +
     `<span class="rival-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>` +
     '</div>' +
-    `<div class="rival-block tips">${scoutTipLines(tip).join('')}</div>` +
+    blocks.join('') +
     '</article>'
   );
+}
+
+/**
+ * CIV RECOMENDADA (opción civRecommender): qué civ jugársele a ESTE rival.
+ * Cada línea muestra sus dos evidencias: tu winrate con la civ en el mapa y
+ * lo que el rival pierde contra ella. Sin muestra suficiente no hay línea.
+ */
+function scoutRecommendBlock(tip) {
+  if (!civRecommenderEnabled) return '';
+  if (!tip || tip.loading) {
+    return '<div class="rival-block tips"><div class="rival-empty">Cruzando su debilidad con tu historial…</div></div>';
+  }
+  if (tip.modeUnavailable) {
+    return '<div class="rival-block tips"><div class="rival-empty">Solo en partidas ranked: en custom no se mezclan modos.</div></div>';
+  }
+  if (tip.recommendError) {
+    return '<div class="rival-block tips"><div class="rival-empty">No pude cruzar con tu historial ahora mismo.</div></div>';
+  }
+  const recs = Array.isArray(tip.recommend) ? tip.recommend : [];
+  if (!recs.length) {
+    return '<div class="rival-block tips"><div class="rival-empty">Sin muestra suficiente para recomendar una civ.</div></div>';
+  }
+  const lines = recs.map((row, index) => {
+    const parts = [];
+    if (row.mine && row.mine.winRate != null) {
+      parts.push(`vos ${fmtNumber(row.mine.winRate)}% (${fmtNumber(row.mine.games)} pj)`);
+    }
+    if (row.vsRival && row.vsRival.lossRate != null) {
+      parts.push(`le cuesta ${fmtNumber(row.vsRival.lossRate)}% (${fmtNumber(row.vsRival.games)} pj)`);
+    }
+    const text = `${index + 1}. ${row.civ || '?'}` + (parts.length ? ` · ${parts.join(' · ')}` : '');
+    return scoutLine(text, index === 0 ? 'CIV RECOMENDADA' : '');
+  });
+  return `<div class="rival-block tips">${lines.join('')}</div>`;
 }
 
 function renderScoutInfo() {
   if (!scoutInfoEl) return;
   const active =
-    smartTipsEnabled &&
+    (smartTipsEnabled || civRecommenderEnabled) &&
     lastState &&
     lastState.status === 'ongoing' &&
     lastState.phase === 'lobby' &&
@@ -813,6 +940,66 @@ function shortDate(timestamp) {
   }
 }
 
+/**
+ * BALANCE DE EQUIPOS (opción tgBalance, solo TG): promedio de ELO RM 1v1 por
+ * equipo. Es puro pintado sobre el roster — no consulta nada — y vive dentro
+ * del panel, así que se oculta con él a 0:20. Exige dos equipos con ≥2
+ * jugadores CON ELO cada uno: el promedio de un solo jugador no es balance.
+ */
+function renderBalance(state) {
+  if (!balanceEl) return;
+  let content = null;
+  if (state && state.status === 'ongoing' && balanceEnabled) {
+    const players = Array.isArray(state.players) ? state.players : [];
+    const teams = new Map();
+    for (const player of players) {
+      if (!player || !Number.isFinite(Number(player.rating))) continue;
+      const team = Number(player.team);
+      if (!Number.isFinite(team)) continue;
+      const entry = teams.get(team) || { sum: 0, count: 0 };
+      entry.sum += Number(player.rating);
+      entry.count += 1;
+      teams.set(team, entry);
+    }
+    const you = players.find((player) => player && player.isYou);
+    const myTeam = you && you.team != null ? Number(you.team) : null;
+    const solidTeams = [...teams.keys()].filter((team) => teams.get(team).count >= 2);
+    const isTeamGame =
+      players.length > 2 &&
+      solidTeams.length === 2 &&
+      myTeam != null &&
+      solidTeams.includes(myTeam);
+    if (isTeamGame) {
+      const otherTeam = solidTeams.find((team) => team !== myTeam);
+      const myEntry = teams.get(myTeam);
+      const theirEntry = teams.get(otherTeam);
+      const mine = Math.round(myEntry.sum / myEntry.count);
+      const theirs = Math.round(theirEntry.sum / theirEntry.count);
+      const diff = mine - theirs;
+      const verdict =
+        diff > 0
+          ? `arrancás ${fmtNumber(diff)} arriba`
+          : diff < 0
+            ? `arrancás ${fmtNumber(-diff)} abajo`
+            : 'parejos';
+      // Si hay jugadores sin ladder 1v1, el promedio está incompleto: se avisa.
+      const rated = myEntry.count + theirEntry.count;
+      const parcial = rated < players.length ? ' · parcial' : '';
+      content =
+        `<span class="bal-ic">${icon('balanza')}</span>` +
+        `<span>Tu equipo <b>${fmtNumber(mine)}</b> · Rival <b>${fmtNumber(theirs)}</b>` +
+        ` · ${verdict}${parcial}</span>`;
+    }
+  }
+  if (content == null) {
+    if (!balanceEl.hidden) balanceEl.hidden = true;
+    balanceEl.innerHTML = '';
+    return;
+  }
+  balanceEl.innerHTML = content;
+  balanceEl.hidden = false;
+}
+
 function renderOngoing(state) {
   // `ladder` es el MODO de la partida (RM team, EW 1v1, Unranked…). El ELO,
   // el pico y el rank que se ven abajo son SIEMPRE de RM 1v1, por eso el tag.
@@ -833,6 +1020,10 @@ function renderOngoing(state) {
     badge +
     `<span class="head-title">${escapeHtml(title)}</span>` +
     `<span class="elo-tag">ELO ${escapeHtml(eloLabel)}</span>`;
+
+  // El balance se calcula con el roster actual; si todavía no hay jugadores
+  // (aviso de "cola apareada") se oculta hasta que llegue.
+  renderBalance(state);
 
   // El pie muestra solo el modo y el pico (o el dato de la partida en ejemplo).
   const fecha = example ? shortDate(example.realStartedAt) : '';
@@ -895,6 +1086,8 @@ function renderRows(state) {
     return;
   }
 
+  // Sin partida (o error) no hay balance que mostrar.
+  renderBalance(null);
   footText.textContent = '';
 
   if (state.status === 'idle') {
@@ -983,6 +1176,8 @@ window.overlay.onConfig((config) => {
     if (config[key] !== undefined) rivalOptions[key] = Boolean(config[key]);
   }
   if (config.smartTips !== undefined) smartTipsEnabled = Boolean(config.smartTips);
+  if (config.civRecommender !== undefined) civRecommenderEnabled = Boolean(config.civRecommender);
+  if (config.tgBalance !== undefined) balanceEnabled = Boolean(config.tgBalance);
   if (config.moving !== undefined) setMoving(config.moving);
   document.documentElement.style.setProperty('--scale', String(config.scale || 1));
 

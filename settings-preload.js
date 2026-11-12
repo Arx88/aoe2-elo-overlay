@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('settings', {
   hideEloAt20: (on) => ipcRenderer.invoke('settings:hideEloAt20', on),
   hideAtSeconds: (seconds) => ipcRenderer.invoke('settings:hideAtSeconds', seconds),
   rivalOption: (key, on) => ipcRenderer.invoke('settings:rivalOption', key, on),
+  tgBalance: (on) => ipcRenderer.invoke('settings:tgBalance', on),
   autoUpdate: (on) => ipcRenderer.invoke('settings:autoUpdate', on),
   exampleStart: (query, clock) => ipcRenderer.invoke('settings:exampleStart', query, clock),
   exampleClock: (mode) => ipcRenderer.invoke('settings:exampleClock', mode),

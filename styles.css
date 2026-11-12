@@ -1231,6 +1231,44 @@ body.elo-hidden #stage {
 }
 
 /* =====================================================================
+   Balance de equipos (opcional, TG): una sola línea tenue entre la
+   cabecera y la barrita de análisis. Promedio de ELO RM 1v1 por equipo;
+   vive dentro del panel, así que se oculta con él a 0:20.
+   ===================================================================== */
+#balance {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0.42rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#balance[hidden] {
+  display: none;
+}
+
+#balance .bal-ic {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent);
+}
+
+#balance .bal-ic .ic {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+#balance b {
+  color: var(--strong);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
    Informe OPCIONAL del rival: últimas 5 civs, favoritos y aperturas REALES.
    Mismo lenguaje visual que la ayuda de civ, variables del tema activo.
    ===================================================================== */

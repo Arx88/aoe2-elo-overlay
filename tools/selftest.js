@@ -26,6 +26,13 @@ const {
 } = require('../src/aoe');
 const { detectProfile, listSteamIds } = require('../src/detect');
 const { CIV_SLUGS, civShield } = require('../src/civs');
+const {
+  computeH2H,
+  computeMyMapCivs,
+  buildCivRecommendation,
+  fetchMyHistory,
+  mineCacheKey,
+} = require('../src/mine');
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -1004,6 +1011,166 @@ function fakeLobby(leaderboardId, leaderboardName) {
         !/AoE2Insights|AoE2 Companion|aoe2insights\.com/.test(settingsHtml));
     check('electron-builder incluye src/**/* (insights.js y rival.js van en el asar)',
       /"src\/\*\*\/\*"/.test(builder));
+  }
+
+  console.log('\n--- 15bis) head-to-head y civ recomendada (src/mine.js, sin red) ---');
+  {
+    const MY = 500;
+    const RIVAL = 600;
+    const ALLY = 700;
+    const T = (teamId, players) => ({ teamId, players });
+    const P = (profileId, name, civName, won) => ({
+      profileId, name, civName, won, slot: profileId, status: 'player',
+    });
+    const rawMatch = (matchId, mapName, teams, started, leaderboardId = 'rm_team') => ({
+      matchId, mapName, leaderboardId, leaderboardName: 'RM Team',
+      started: new Date(Date.parse(started)).toISOString(),
+      finished: new Date(Date.parse(started) + 22 * 60 * 1000).toISOString(),
+      teams,
+    });
+    // m1: yo+aliado vs rival, gano · m2: igual, pierdo · m3: el rival en MI
+    // equipo (aliados) · m4: 1v1 contra el rival, gano (la más nueva).
+    const rawMatches = [
+      rawMatch(1, 'Arabia', [T(1, [P(MY, 'Yo', 'Franks', true), P(ALLY, 'Aliado', 'Vikings', true)]), T(2, [P(RIVAL, 'Rival', 'Poles', false)])], '2026-11-01T12:00:00Z'),
+      rawMatch(2, 'Arabia', [T(1, [P(MY, 'Yo', 'Franks', false), P(ALLY, 'Aliado', 'Vikings', false)]), T(2, [P(RIVAL, 'Rival', 'Poles', true)])], '2026-11-02T12:00:00Z'),
+      rawMatch(3, 'Steppe', [T(1, [P(MY, 'Yo', 'Mongols', true), P(RIVAL, 'Rival', 'Poles', true)]), T(2, [P(7, 'Otro', 'Huns', false)])], '2026-11-03T12:00:00Z'),
+      rawMatch(4, 'Runestones', [T(1, [P(MY, 'Yo', 'Franks', true)]), T(2, [P(RIVAL, 'Rival', 'Poles', false)])], '2026-11-10T12:00:00Z'),
+    ];
+    const history = await fetchMyHistory({
+      profileId: MY,
+      leaderboardId: 4,
+      fetchMatchesImpl: async () => rawMatches.map((m) => normalizeMatch(m)),
+      sleep: async () => {},
+    });
+    check('mi historial: pagina, normaliza y ordena de más nueva a más vieja',
+      history.rows.length === 4 && history.error === null &&
+        history.rows[0].matchId === 4 && history.rows[0].myTeam === 1 &&
+        history.rows[0].players.length === 2,
+      JSON.stringify(history.rows.map((r) => r.matchId)));
+
+    const h2h = computeH2H(history.rows, RIVAL);
+    check('h2h: solo enfrentamientos; los aliados van aparte y la última es la más nueva',
+      h2h.games === 3 && h2h.wins === 2 && h2h.losses === 1 && h2h.asAllies === 1 &&
+        h2h.lastMatch && h2h.lastMatch.mapName === 'Runestones' && h2h.lastMatch.won === true,
+      JSON.stringify(h2h));
+    const h2hUnknown = computeH2H(history.rows, 999);
+    check('h2h: un jugador que nunca compartió partida da cero en todo',
+      h2hUnknown.games === 0 && h2hUnknown.asAllies === 0 && h2hUnknown.lastMatch === null);
+
+    const civs = computeMyMapCivs(history.rows, 'Arabia');
+    check('mis civs del mapa: cuenta solo Arabia, agrupada por civ',
+      civs.length === 1 && civs[0].civ === 'Franks' && civs[0].games === 2 &&
+        civs[0].wins === 1 && civs[0].winRate === 50,
+      JSON.stringify(civs));
+
+    const rec = buildCivRecommendation({
+      weakAgainst: [
+        { civ: 'Gurjaras', games: 5, losses: 4, lossRate: 80 },
+        { civ: 'Teutons', games: 7, losses: 4, lossRate: 57 },
+      ],
+      myCivs: [
+        { civ: 'Gurjaras', slug: 'gurjaras', games: 9, wins: 6, winRate: 67 },
+        { civ: 'Franks', slug: 'franks', games: 2, wins: 2, winRate: 100 }, // 2 pj < mínimo: no entra
+        { civ: 'Mongols', slug: 'mongols', games: 5, wins: 1, winRate: 20 },
+      ],
+    });
+    check('civ recomendada: score 0.6×mía + 0.4×del rival, con ambas evidencias',
+      rec.length === 3 && rec[0].civ === 'Gurjaras' && rec[0].score === 72 &&
+        rec[0].mine.games === 9 && rec[0].vsRival.lossRate === 80,
+      JSON.stringify(rec));
+    check('civ recomendada: abajo del mínimo de muestra propia no entra (nunca inventa)',
+      rec[1].civ === 'Teutons' && rec[1].mine === null && rec[1].score === 57 &&
+        !rec.some((row) => row.civ === 'Franks'));
+    check('civ recomendada: sin datos en ninguna dimensión devuelve vacío',
+      buildCivRecommendation({ weakAgainst: [], myCivs: [] }).length === 0);
+    check('civ recomendada: respeta el límite de líneas',
+      buildCivRecommendation({
+        weakAgainst: [
+          { civ: 'A', games: 5, losses: 4, lossRate: 80 },
+          { civ: 'B', games: 5, losses: 4, lossRate: 70 },
+          { civ: 'C', games: 5, losses: 4, lossRate: 60 },
+          { civ: 'D', games: 5, losses: 4, lossRate: 55 },
+        ],
+        myCivs: [],
+      }).length === 3);
+
+    // Cache de mi historial: misma clave por perfil+modo, un solo pedido.
+    const cache = new Map();
+    let fetchCalls = 0;
+    const impl429 = async (id, perPage, page) => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) throw new Error('HTTP 429 en /api/matches');
+      return [];
+    };
+    const retried = await fetchMyHistory({
+      profileId: 555, leaderboardId: 3, cache, now: 1000,
+      fetchMatchesImpl: impl429, sleep: async () => {},
+    });
+    check('mi historial: reintenta el HTTP 429 y cachea vacío',
+      retried.fromCache === false && fetchCalls === 2 && cache.has(mineCacheKey(555, 3)));
+    const again = await fetchMyHistory({
+      profileId: 555, leaderboardId: 3, cache, now: 1000 + 60 * 1000,
+      fetchMatchesImpl: async () => { fetchCalls += 1; return []; },
+    });
+    check('mi historial: segunda lectura sale de cache sin pegarle a la red',
+      again.fromCache === true && fetchCalls === 2);
+    check('mi historial: la clave de cache separa por modo',
+      mineCacheKey(555, 3) !== mineCacheKey(555, 4) &&
+        mineCacheKey(555, null).endsWith('sin-modo'));
+
+    // Cableado estático de las opciones nuevas.
+    const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    const mainSrc = read('main.js');
+    const rendererSrc = read('renderer.js');
+    const settingsHtmlSrc = read('settings.html');
+    const settingsJsSrc = read('settings.js');
+    const settingsPreloadSrc = read('settings-preload.js');
+    const htmlSrc = read('index.html');
+    const cssSrc = read('styles.css');
+    const scoutSrc = read('src/scout.js');
+    check('DEFAULT_CONFIG: las 3 opciones nuevas arrancan APAGADAS',
+      ['rivalH2H', 'civRecommender', 'tgBalance'].every((key) =>
+        new RegExp(`${key}: false`).test(mainSrc)));
+    check('rivalH2H arma el informe y viaja en su firma; civRecommender entra al whitelist',
+      /RIVAL_REPORT_KEYS = \[[^\]]*'rivalH2H'/.test(mainSrc) &&
+        /RIVAL_OPTION_KEYS = \[[^\]]*'civRecommender'/.test(mainSrc));
+    check('emit dispara el head-to-head en segundo plano, tras el consejo',
+      /refreshScoutTips\(state\)\.catch\(\(\) => \{\}\);[\s\S]{0,220}refreshH2H\(state\)\.catch/.test(mainSrc));
+    check('sendRival inyecta el h2h sin que las etapas del informe lo pisen',
+      /function decorateH2H/.test(mainSrc) && /h2hByRival\.has\(/.test(mainSrc) &&
+        /clearRivalReports[\s\S]{0,400}h2hByRival\.clear\(\)/.test(mainSrc));
+    check('el consejo comparte flujo con la civ recomendada (guard y opciones)',
+      /!view\.smartTips && !view\.civRecommender\)/.test(mainSrc) &&
+        /recommend: Boolean\(view\.civRecommender\)/.test(mainSrc) &&
+        /myHistoryImpl: view\.civRecommender && runtimeProfileId\(\)/.test(mainSrc));
+    check('IPC del balance: settings:tgBalance persiste y reenvía config',
+      /ipcMain\.handle\('settings:tgBalance'/.test(mainSrc) &&
+        /tgBalance: \(on\) => ipcRenderer\.invoke\('settings:tgBalance', on\)/.test(settingsPreloadSrc));
+    check('config viaja al renderer: rivalH2H, civRecommender y tgBalance',
+      /rivalH2H: Boolean\(view\.rivalH2H\)/.test(mainSrc) &&
+        /civRecommender: Boolean\(view\.civRecommender\)/.test(mainSrc) &&
+        /tgBalance: Boolean\(view\.tgBalance\)/.test(mainSrc));
+    check('renderer: tile de cara a cara con tono y aliados aparte',
+      /function rivalH2HBlock/.test(rendererSrc) && /Cara a cara/.test(rendererSrc) &&
+        /Como aliados/.test(rendererSrc) && /Nunca se enfrentaron/.test(rendererSrc));
+    check('renderer: la civ recomendada muestra la muestra de cada línea',
+      /CIV RECOMENDADA/.test(rendererSrc) && /le cuesta /.test(rendererSrc) &&
+        /Sin muestra suficiente para recomendar una civ\./.test(rendererSrc));
+    check('renderer: la tarjeta scout muestra cada bloque con su opción',
+      /if \(smartTipsEnabled\) \{[\s\S]{0,120}scoutTipLines/.test(rendererSrc) &&
+        /\(smartTipsEnabled \|\| civRecommenderEnabled\)/.test(rendererSrc));
+    check('renderer: balance exige dos equipos con ≥2 ELO y avisa si es parcial',
+      /function renderBalance/.test(rendererSrc) && /count >= 2/.test(rendererSrc) &&
+        /parcial/.test(rendererSrc) && /balanceEl\.hidden/.test(rendererSrc));
+    check('overlay y estilos: la línea de balance existe y se oculta sola',
+      /id="balance"/.test(htmlSrc) && /#balance \{/.test(cssSrc) && /#balance\[hidden\]/.test(cssSrc));
+    check('configuración: los 3 toggles nuevos cableados',
+      ['rivalH2H', 'civRecommender', 'tgBalance'].every((key) =>
+        settingsHtmlSrc.includes(`id="${key}"`) && settingsJsSrc.includes(key)));
+    check('scout: la recomendación falla SOFT, sin tirar el consejo',
+      /recommendError = err\.message/.test(scoutSrc) && /buildCivRecommendation/.test(scoutSrc));
+    check('ajustes: el head-to-head aclara que solo cuenta el mismo modo de juego',
+      /Tu V-D contra este rival · del mismo modo de juego/.test(settingsHtmlSrc));
   }
 
   console.log('\n--- 16) Modo ejemplo: última partida REAL como panel (sin red) ---');

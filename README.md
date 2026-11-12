@@ -13,7 +13,7 @@ ARABIAN DESERT · RM team                    [ELO RM 1v1]
 
 La cabecera dice el **modo** de la partida; la etiqueta `ELO RM 1v1` aclara de dónde salen los números.
 
-Opcionalmente (todo **apagado de fábrica**) podés sumar la **Ayuda de civ** a 0:01 y un **informe del rival**: sus últimas 5 civs, la civ que más usa en el mapa de la partida y sus **aperturas reales** (`Scout rush`, `Archer rush`, `Drush`…) detectadas en replays analizados. Y, en la ventana de preparación, **Recomendaciones inteligentes**: un consejo por rival con qué civs y qué aperturas le cuestan en el mapa actual, y su perfil de ritmo, todo con datos reales de AoE2Insights. Podés hacer que todo eso se aparte solo al tiempo que elijas (entre 0:10 y 1:00; 0:20 por defecto) para que no estorbe durante el juego.
+Opcionalmente (todo **apagado de fábrica**) podés sumar la **Ayuda de civ** a 0:01 y un **informe del rival**: sus últimas 5 civs, la civ que más usa en el mapa de la partida, sus **aperturas reales** (`Scout rush`, `Archer rush`, `Drush`…) detectadas en replays analizados y el **cara a cara** (tu V-D contra ese rival). Y, en la ventana de preparación, **Recomendaciones inteligentes** con qué civs y qué aperturas le cuestan al rival en el mapa actual, más la **Civ recomendada**: contra este rival, en este mapa, qué civ jugársele (su debilidad × tu winrate). En team games hay **Balance de equipos**: el promedio de ELO 1v1 de tu equipo contra el del rival. Todo con datos reales. Podés hacer que todo eso se aparte solo al tiempo que elijas (entre 0:10 y 1:00; 0:20 por defecto) para que no estorbe durante el juego.
 
 Para revisar **todas esas funciones de una sola vez sin esperar a que el juego encuentre partida**, está el **Modo ejemplo** (`Ctrl+Alt+S → "Ver test"`): escribís cualquier nombre de jugador o su profile ID y el overlay se arma con la **última partida real** de ese perfil.
 
@@ -195,7 +195,7 @@ Para capturarlo sin jugar: `electron . --demo --civ-help --shot --out=demo-civhe
 
 ## Informe opcional del rival
 
-En **Configuración → Datos del rival** hay **cuatro** opciones independientes. **Todas arrancan apagadas**: elegís qué querés ver, y nada se muestra si no lo activaste. Se aplican al instante, sin reiniciar. La cuarta (**Recomendaciones inteligentes**) es **pre-partida**: solo se ve en la ventana de preparación (entre «partida encontrada» y el inicio) y desaparece sola al arrancar la partida.
+En **Configuración → Datos del rival** hay **seis** opciones independientes. **Todas arrancan apagadas**: elegís qué querés ver, y nada se muestra si no lo activaste. Se aplican al instante, sin reiniciar. **Recomendaciones inteligentes** y **Civ recomendada** son **pre-partida**: solo se ven en la ventana de preparación (entre «partida encontrada» y el inicio) y desaparecen solas al arrancar la partida.
 
 | Opción | Clave | Default | Qué muestra |
 | --- | --- | --- | --- |
@@ -205,6 +205,12 @@ El historial de `/api/matches` se consulta con `leaderboard_ids=<ladder>`: el ma
 
 | **Aperturas reales del rival** | `rivalOpenings` | `false` | `Scout rush`, `Archer rush`, `Drush`, `Drush fast castle`, `Man at arms rush`, `Fast castle`: apertura **más usada** y las últimas partidas, detectadas en **replays analizados** por AoE2Insights, **del mismo modo de juego** (EW no se mezcla con RM), **del mapa de la partida y de la civ que más usa en ese mapa**. Si no hay replays de esa civ en ese mapa, no se muestra la apertura general ni la de otra civ. |
 | **Recomendaciones inteligentes** | `smartTips` | `false` | Consejo **pre-partida** (solo en la ventana de preparación, se va al iniciar) calculado con replays reales de AoE2Insights: en **el mapa actual**, qué civilizaciones le **cuestan** al rival (`pierde 80% contra Gurjaras · 5 pj`), qué **aperturas le duelen** (`Scouts 39% · 31 pj`) y su **perfil de ritmo** (si le salen mejor las partidas cortas o las largas). Cada línea muestra su muestra; si el mapa no tiene datos suficientes, baja al tipo de mapa (abierto/cerrado) y lo dice. |
+| **Enfrentamientos previos** | `rivalH2H` | `false` | **Cara a cara**: tu V-D contra este rival, del **propio historial** y del **mismo modo de juego** (`1-2 · 3 partidas · última en Arabia`). Solo cuentan los enfrentamientos: las veces que jugaron **como aliados** van en una tarjeta aparte (`Como aliados 5`) y no suman al V-D. Si nunca se cruzaron, lo dice en vez de mostrar ceros. En equipo games muestra hasta 2 rivales, igual que el informe. |
+| **Civ recomendada** | `civRecommender` | `false` | **Pre-partida**: contra este rival, en este mapa, qué civ jugársele. Cruza dos datos reales: lo que el rival **pierde** según sus replays analizados y **tu winrate con cada civ en ese mapa** (de tu historial). Score = 60 % tuyo + 40 % del rival; **ninguna línea se muestra sin muestra suficiente** (3 partidas mínimo) y cada una declara la suya (`vos 67 % (9 pj) · le cuesta 80 % (5 pj)`). En custom/unranked no se consulta nada en vez de mezclar modos. |
+
+### Balance de equipos (TG)
+
+Opción aparte (**Configuración → Overlay → Balance**, clave `tgBalance`, apagada de fábrica). En team games agrega una línea tenue debajo del título con el **promedio de ELO RM 1v1 de cada equipo**: `Tu equipo 1412 · Rival 1419 · arrancás 7 abajo`. No consulta nada (se calcula con el roster ya en pantalla), exige dos equipos con **2 jugadores con ELO** cada uno, y avisa `parcial` si hay jugadores sin ladder 1v1. Vive dentro del panel: se oculta con él al tiempo elegido.
 
 ### Por qué las aperturas son datos reales y no una "guía por civ"
 
@@ -328,6 +334,17 @@ env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS \
 
 Flags: `--example=<nombre|id>`, `--example-match=<matchId>` (fija una partida puntual en vez de la última del perfil, p. ej. la última RM), `--example-clock=3|21|live`, `--example-settings-shot`, `--example-cycle` (recorre los botones de la UI y loguea cada transición: `21 → 3 → live → 3 → stop → restart`), `--shot-delay=<ms>` y `--isolated`. Las aperturas reales de AoE2Insights pueden tardar ~9 s la primera vez (`202 pending`), por eso el `--shot-delay`. Con `--example-clock=21 --shot` la captura del overlay sale **vacía**: es el comportamiento correcto, porque a 0:20 el panel se oculta entero.
 
+Para capturar la **pre-partida completa** (sala con todos los datos listos: informe, cara a cara y recomendaciones, sin estados de carga) existe `--lobby`, combinable con `--demo=rm1v1|tg`:
+
+```bash
+# 1v1 pre-partida con TODO encendido (informe + cara a cara + recomendaciones)
+env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS \
+  ./node_modules/electron/dist/electron.exe . \
+  --isolated --demo=rm1v1 --lobby --shot --out=demo-1v1-prepartida-completa.png
+```
+
+`--lobby` pone el estado en fase `lobby` y siembra el informe y las recomendaciones ya listos (el `--analyzing` histórico muestra, en cambio, los estados de carga). La Ayuda de civ **no aparece ahí por diseño**: en la sala no hay civs elegidas ni reloj real — la tarjeta vive a 0:01–0:20 de la partida ya arrancada (`--civ-help` sin `--lobby`).
+
 ## Icono, bandeja y "se cierra sola"
 
 El icono oficial es el **emblema dorado** de `assets/app-icon-source.png`: `tools/make-icon.py` lo recorta, lo centra en un lienzo cuadrado y genera `assets/app-icon.png` (ventanas, bandeja y cabecera de la configuración) y `assets/icon.ico` de 7 tamaños (exe, instalador y accesos directos).
@@ -376,10 +393,14 @@ En la app instalada/portable está en `%APPDATA%\AoE2 ELO Overlay\config.json`. 
 | `rivalCivs` | `false` | Últimas 5 civs jugadas por el rival (informe opcional) |
 | `rivalFavorites` | `false` | Civ y mapa más usados del rival |
 | `rivalOpenings` | `false` | Aperturas reales de AoE2Insights (replays analizados) |
+| `smartTips` | `false` | Consejos pre-partida del rival (solo en la ventana de preparación) |
+| `rivalH2H` | `false` | Cara a cara: tu V-D contra este rival, del propio historial y del mismo modo |
+| `civRecommender` | `false` | Civ recomendada contra el rival: su debilidad × tu winrate en el mapa (pre-partida) |
+| `tgBalance` | `false` | Balance de equipos en TG: promedio de ELO 1v1 por equipo |
 | `autoUpdate` | `false` | Actualizaciones automáticas: consulta cada 30 min y aplica sola lo que encuentre (nunca en partida). Se activa en la pestaña **Updater** |
 | `debug` | `false` | Loguea detalles de altura y diagnóstico |
 
-Las claves nuevas se agregan solas al `config.json` existente la primera vez que arranca (`loadConfig()` migra sin pisar lo que ya elegiste). Las cinco opciones de partida se cambian **en caliente** desde la configuración; no hace falta editar el archivo a mano.
+Las claves nuevas se agregan solas al `config.json` existente la primera vez que arranca (`loadConfig()` migra sin pisar lo que ya elegiste). Las opciones de partida se cambian **en caliente** desde la configuración; no hace falta editar el archivo a mano.
 
 ## De dónde salen los datos
 
@@ -397,6 +418,8 @@ Ninguna de las fuentes pide API key. `aoe2.net` está muerto (API dada de baja),
    `GET /api/profiles/<rival>/stats?leaderboard_id=<enum>` trae los agregados históricos `civ[]` y `map[]` con `games` / `wins` / `losses`. El `leaderboardId` numérico del juego se traduce a enum (`3 → rm_1v1`, `4 → rm_team`, `13 → ew_1v1`, `14 → ew_team`, `1/2 → dm_*`); en unranked/custom cae a `rm_1v1`.
 4. **Aperturas reales del rival** — AoE2Insights (`src/insights.js`, ver la sección anterior):
    `GET /stats/api/match-ups/` filtrado por `player_relic_id` (= `profileId`) **y por la ladder exacta de la partida** (`ladder = 3/4/13/14/1/2` según el modo). Es la **única** fuente que publica `strategy`, y solo para replays ya analizados. No hay inferencia por civ ni guía genérica, y jamás se mezclan modos.
+5. **Cara a cara y civ recomendada** — tu PROPIO historial (`src/mine.js`, solo si activás `rivalH2H` o `civRecommender`):
+   `GET /api/matches?profile_ids=<tu id>&per_page=100` paginado con pausa de 120 ms (hasta 6 páginas ≈ 600 partidas del modo, cache **30 min** compartida entre las dos opciones). De ahí salen tus enfrentamientos contra cada rival — reconocido por `profileId` dentro de `teams[].players[]`, separando aliados de rivales por `teamId` — y tu winrate con cada civ en el mapa de la partida. En modo ejemplo, "tu" historial es el del perfil del ejemplo (misma regla que `isYou`).
 
 Verificado el 2026-11-09 con un `matched` real de TG: los `rating` del evento coinciden con la ladder #4 (equipo), no con la #3, y `getPersonalStat` para 8 jugadores tarda ~0,5 s. También se confirmó que los jugadores que nunca jugaron 1v1 ranked **no tienen fila** en la ladder 3: no es un bug del parser, es así el backend.
 
@@ -423,6 +446,8 @@ Verificado con datos reales: en una TG de 4 jugadores, dos tenían ladder 3 y do
 - El backend de World's Edge es **no oficial y no documentado**: puede cambiar con un parche. Si falla, el overlay mantiene el último dato bueno en gris (`stale`) en vez de romperse.
 - **Cobertura de aperturas**: AoE2Insights solo etiqueta partidas cuyo replay fue analizado. Cuentas nuevas, rivales con pocas partidas o perfiles sin replays procesados muestran *"Sin replays analizados"*; no se rellena con una suposición. La primera consulta de un rival nuevo puede tardar ~9 s (`202 pending`), las siguientes salen de cache.
 - **TG**: el informe muestra hasta 2 rivales. Historial de civs, favoritos y aperturas son **del mismo modo de juego** de la partida en curso (RM 1v1, RM Team, EW 1v1, EW Team, DM): nunca se mezcla EW con RM. En custom/unranked las aperturas se informan como no disponibles (sin consulta), porque no hay ladder rankeado para filtrar.
+- **Cara a cara y civ recomendada**: el historial propio recorre hasta **~600 partidas** del modo (6 páginas de 100). Un enfrentamiento muy viejo puede quedar fuera del recorte. La civ recomendada necesita **≥3 partidas propias** con esa civ en el mapa **y/o ≥3 replays** del rival contra ella: por debajo de esos mínimos no muestra la línea (y sin muestra en ninguna dimensión, no recomienda nada).
+- **Balance de equipos** usa el promedio de **RM 1v1** como proxy del nivel en TG (el ELO de equipo no se muestra). Con jugadores sin ladder 1v1 el promedio está incompleto y la línea dice `parcial`.
 - Las tres fuentes del informe son **públicas y no oficiales**: si AoE2 Companion o AoE2Insights cambian su API o la bloquean, el informe queda incompleto pero el ELO sigue igual.
 - **Modo ejemplo**: usa la **última partida pública** del perfil, no una partida en vivo; si el perfil es privado o no tiene historial en AoE2 Companion, se muestra un error en vez de armar datos de relleno. El reloj es de prueba (congelado o en vivo desde 0:03), así que no refleja la duración real de esa partida. Las aperturas del rival dependen de que AoE2Insights tenga replays analizados **en el mismo modo de juego**, igual que en una partida real.
 - No muestra nada *dentro* del HUD del juego: es una ventana por encima.

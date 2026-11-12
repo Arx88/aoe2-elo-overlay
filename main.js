@@ -39,6 +39,7 @@ const {
 const { LobbyWatcher, QueueWatcher, FastLane } = require('./src/live');
 const { buildRivalInsights, opponentsOf, resolveMode, mapKey } = require('./src/rival');
 const { buildScoutTips } = require('./src/scout');
+const { fetchMyHistory, computeH2H } = require('./src/mine');
 const { initAutoUpdate } = require('./src/updater');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
@@ -85,6 +86,13 @@ const DEFAULT_CONFIG = {
   // Consejo pre-partida (mapa × civ × apertura que le cuestan al rival).
   // Solo en la ventana de preparación: se va apenas arranca la partida.
   smartTips: false,
+  // Head-to-head: tu V-D contra este rival, del propio historial (mismo modo).
+  rivalH2H: false,
+  // Civ recomendada contra este rival: su debilidad × tu winrate con cada
+  // civ en el mapa. Solo pre-partida, como smartTips.
+  civRecommender: false,
+  // Balance de equipos: promedio de ELO RM 1v1 por equipo en team games.
+  tgBalance: false,
   // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
   // nueva, la descarga e instala sola (nunca en media partida). Apagada de
   // fábrica: se activa desde la pestaña Updater.
@@ -92,11 +100,12 @@ const DEFAULT_CONFIG = {
   debug: false,
 };
 
-// Las 4 opciones entran al whitelist del IPC de configuración. Solo las 3
-// primeras arman el informe DURANTE la partida; smartTips es pre-partida y
-// tiene su propio flujo (refreshScoutTips) para no recalcular el informe.
-const RIVAL_OPTION_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'smartTips'];
-const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings'];
+// Las opciones entran al whitelist del IPC de configuración. rivalH2H arma el
+// informe DURANTE la partida (viaja en el mismo payload que el informe);
+// smartTips y civRecommender son pre-partida con su propio flujo
+// (refreshScoutTips) para no recalcular el informe.
+const RIVAL_OPTION_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'smartTips', 'rivalH2H', 'civRecommender'];
+const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'rivalH2H'];
 
 // Los `rating/peak/rank` de todos los demos son de RM 1v1 (igual que en vivo),
 // aunque el `ladder` del demo diga RM team / EW / Unranked.
@@ -121,7 +130,11 @@ const CIV_HELP_DEMO = Boolean(CIV_HELP_ARG);
 const CIV_HELP_LATE = CIV_HELP_ARG === '--civ-help=late';
 const HIDE_ELO_DEMO = ARGV.includes('--hide-elo');
 // --rival-info: siembra un informe de ejemplo para capturar la tarjeta nueva.
-const RIVAL_DEMO = ARGV.includes('--rival-info');
+// --lobby: lo mismo pero en la FASE de preparación (`lobby`), con el informe y
+// las recomendaciones ya listos — la vista completa de pre-partida. Solo
+// capturas: no toca config.json ni consulta la red.
+const LOBBY_DEMO = ARGV.includes('--lobby');
+const RIVAL_DEMO = ARGV.includes('--rival-info') || LOBBY_DEMO;
 // --analyzing: deja el informe en estado "analizando" para capturar la barrita
 // de carga (sin esperar a que una consulta real tarde o falle). Solo capturas.
 const ANALYZING = ARGV.includes('--analyzing');
@@ -159,7 +172,7 @@ if (ISOLATED) {
 const DEV_SESSION = Boolean(
   DEMO || SHOT || SETTINGS_SHOT || EXAMPLE_QUERY || EXAMPLE_SETTINGS_SHOT ||
   EXAMPLE_CYCLE || CIV_HELP_DEMO || RIVAL_DEMO || ANALYZING || FAKE_FOUND || MOVE_TEST ||
-  ISOLATED,
+  ISOLATED || LOBBY_DEMO,
 );
 
 function demoPlayer(name, options) {
@@ -210,9 +223,10 @@ function demoState(mode) {
   const withClock = CIV_HELP_DEMO || HIDE_ELO_DEMO;
   return {
     status: 'ongoing',
-    // En la captura de "analizando" se usa la fase de preparación: ahí es
-    // donde conviven el informe del rival y las recomendaciones.
-    ...(ANALYZING ? { phase: 'lobby' } : {}),
+    // En las capturas de "analizando" (todo pendiente) y de "--lobby" (todo
+    // listo) se usa la fase de preparación: ahí es donde conviven el informe
+    // del rival, las recomendaciones y el balance.
+    ...(ANALYZING || LOBBY_DEMO ? { phase: 'lobby' } : {}),
     match: {
       matchId: `demo-${mode}`,
       mapName: state.mapName,
@@ -284,6 +298,9 @@ if (RIVAL_DEMO) {
   config.rivalFavorites = true;
   config.rivalOpenings = true;
   config.smartTips = true;
+  config.rivalH2H = true;
+  config.civRecommender = true;
+  config.tgBalance = true;
 }
 
 let win = null;
@@ -337,6 +354,14 @@ let scoutQueuedSig = null;
 let rivalSig = '';
 let rivalFetching = false;
 let rivalQueuedSig = null;
+// Head-to-head: resultado por rival para la partida ACTUAL. Vive aparte del
+// informe porque el informe se reconstruye por partes (onPartial) y pisaría
+// el campo: sendRival() lo inyecta al publicar cada payload.
+const h2hByRival = new Map();
+const h2hPendingIds = new Set();
+let h2hSig = '';
+let h2hFetching = false;
+let h2hQueuedSig = null;
 /* -------------------------------------------------------------------------
  * MODO EJEMPLO
  *
@@ -367,6 +392,9 @@ const EXAMPLE_ALL_ON = {
   rivalFavorites: true,
   rivalOpenings: true,
   smartTips: true,
+  rivalH2H: true,
+  civRecommender: true,
+  tgBalance: true,
 };
 
 /** Config usada para dibujar. Nunca se persiste. */
@@ -455,6 +483,9 @@ function overlayConfig() {
     rivalFavorites: Boolean(view.rivalFavorites),
     rivalOpenings: Boolean(view.rivalOpenings),
     smartTips: Boolean(view.smartTips),
+    rivalH2H: Boolean(view.rivalH2H),
+    civRecommender: Boolean(view.civRecommender),
+    tgBalance: Boolean(view.tgBalance),
     example: Boolean(exampleActive && exampleInfo),
     moving,
   };
@@ -532,13 +563,37 @@ function leaderboardOf(state) {
 }
 
 function sendRival(payload) {
-  rivalReports = payload;
-  send('overlay:rival', payload);
+  // El head-to-head vive en los Map de arriba y se INYECTA acá, al publicar.
+  // Así sobrevive a que el informe se republish por partes (civs → aperturas)
+  // sin que cada etapa tenga que saber de él.
+  const decorated = payload && Array.isArray(payload.reports)
+    ? { ...payload, reports: payload.reports.map(decorateH2H) }
+    : payload;
+  rivalReports = decorated;
+  send('overlay:rival', decorated);
+}
+
+/** Inyecta el h2h calculado (o su marcador de "buscando") en un reporte. */
+function decorateH2H(report) {
+  const id = Number(report && report.profileId);
+  if (!Number.isFinite(id) || id <= 0) return report;
+  const out = { ...report };
+  if (h2hByRival.has(id)) {
+    out.h2h = h2hByRival.get(id);
+    delete out.h2hPending;
+  } else if (h2hPendingIds.has(id)) {
+    out.h2hPending = true;
+  }
+  return out;
 }
 
 function clearRivalReports() {
   rivalSig = '';
   rivalQueuedSig = null;
+  h2hSig = '';
+  h2hQueuedSig = null;
+  h2hByRival.clear();
+  h2hPendingIds.clear();
   if (rivalReports) sendRival(null);
 }
 
@@ -585,6 +640,19 @@ function demoRivalReports(state) {
       name: rival.name,
       civ: rival.civ,
       mode,
+      // Head-to-head de ejemplo: los datos demo son del mismo estilo que los
+      // reales (solo se usa para capturas, nunca en vivo).
+      h2h: {
+        games: 3,
+        wins: 1,
+        losses: 2,
+        asAllies: 1,
+        lastMatch: {
+          mapName: state.match.mapName === '—' ? 'Arabia' : state.match.mapName,
+          startedAt: Date.now() - 12 * 24 * 60 * 60 * 1000,
+          won: false,
+        },
+      },
       history,
       favoriteCiv: { name: 'Ethiopians', slug: 'ethiopians', games: 145, share: 53, winRate: 54 },
       mapStats: {
@@ -799,6 +867,30 @@ function demoScoutTips(state) {
         { name: 'Archer rush', short: 'Archer rush', games: 18, losses: 7, lossRate: 39, scope: 'recorte' },
       ],
       tempo: { shortGames: 9, shortWinRate: 33, longGames: 22, longWinRate: 64 },
+      recommend: [
+        {
+          civ: 'Gurjaras',
+          slug: 'gurjaras',
+          mine: { games: 9, wins: 6, winRate: 67 },
+          vsRival: { games: 5, losses: 4, lossRate: 80 },
+          score: 72,
+        },
+        {
+          civ: 'Teutons',
+          slug: 'teutons',
+          mine: { games: 6, wins: 4, winRate: 67 },
+          vsRival: { games: 7, losses: 4, lossRate: 57 },
+          score: 63,
+        },
+        {
+          civ: 'Bengalis',
+          slug: 'bengalis',
+          mine: null,
+          vsRival: { games: 5, losses: 4, lossRate: 80 },
+          score: 80,
+        },
+      ],
+      recommendError: null,
       fetchedAt: Date.now(),
       fromCache: false,
     })),
@@ -816,7 +908,9 @@ async function refreshScoutTips(state, options = {}) {
     if (RIVAL_DEMO && preStartState(state)) sendScout(demoScoutTips(state));
     return;
   }
-  if (!view.smartTips || !preStartState(state)) {
+  // smartTips (consejo) y civRecommender (civ recomendada) comparten la misma
+  // consulta de replays: cualquiera de las dos enciende el flujo pre-partida.
+  if ((!view.smartTips && !view.civRecommender) || !preStartState(state)) {
     clearScoutTips();
     return;
   }
@@ -877,6 +971,20 @@ async function refreshScoutTips(state, options = {}) {
         mapName,
         cache: statsCache,
         cacheTtlMs: 30 * 60 * 1000,
+        // La recomendación cruza con MI historial (mismo fetch cacheado que
+        // usa el head-to-head): una sola descarga sirve para todo. En modo
+        // ejemplo, "mi" historial es el del perfil del ejemplo.
+        recommend: Boolean(view.civRecommender),
+        myHistoryImpl: view.civRecommender && runtimeProfileId()
+          ? () => fetchMyHistory({
+              profileId: runtimeProfileId(),
+              leaderboardId: leaderboardOf(state),
+              currentMatchId: state.match && state.match.matchId,
+              cache: statsCache,
+              cacheTtlMs: 30 * 60 * 1000,
+              log,
+            })
+          : null,
         log,
       });
       const index = tips.findIndex((item) => item.profileId === tip.profileId);
@@ -898,6 +1006,96 @@ async function refreshScoutTips(state, options = {}) {
       refreshScoutTips(lastGood).catch(() => {});
     } else {
       scoutQueuedSig = null;
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * HEAD-TO-HEAD (opción `rivalH2H`)
+ *
+ * Tu V-D contra cada rival, del PROPIO historial (src/mine.js). La descarga
+ * de tu historial se comparte con la civ recomendada y queda en cache 30 min,
+ * así que habilitar las dos opciones no duplica la consulta.
+ *
+ * En modo ejemplo "vos" es el perfil del ejemplo (misma regla que isYou):
+ * el panel muestra cómo se vería contra los rivales de ESA partida.
+ *
+ * El resultado NO se guarda en el informe (que se republish por partes y lo
+ * pisaría): va a `h2hByRival` y sendRival() lo inyecta en cada payload. Los
+ * datos son de la partida actual: clearRivalReports() los descarta cuando
+ * cambia la partida, igual que el resto del informe.
+ * ---------------------------------------------------------------------- */
+
+/** Perfil del que sale MI historial: el del ejemplo si está activo, el real si no. */
+function runtimeProfileId() {
+  return exampleActive && exampleProfileId ? exampleProfileId : profileId;
+}
+
+async function refreshH2H(state, options = {}) {
+  const view = viewConfig();
+  if (DEMO) return; // las capturas usan los datos demo del informe
+  const myId = runtimeProfileId();
+  if (!view.rivalH2H || !state || state.status !== 'ongoing' || !myId) return;
+
+  const rivals = opponentsOf(state, RIVAL_LIMIT);
+  if (!rivals.length) return;
+
+  const matchId = (state.match && state.match.matchId) || 'sin-id';
+  const mode = resolveMode(leaderboardOf(state));
+  const sig = `${matchId}:${mode ? mode.id : 'sin-modo'}:${rivals
+    .map((rival) => rival.profileId)
+    .join(',')}`;
+  if (!options.force && sig === h2hSig) return;
+  if (h2hFetching) {
+    h2hQueuedSig = sig;
+    return;
+  }
+  h2hSig = sig;
+
+  h2hFetching = true;
+  const startedAt = Date.now();
+  try {
+    for (const rival of rivals) {
+      h2hByRival.delete(rival.profileId);
+      h2hPendingIds.add(rival.profileId);
+    }
+    // El marcador "buscando…" viaja re-enviando el payload actual decorado.
+    sendRival(rivalReports);
+
+    const mine = await fetchMyHistory({
+      profileId: myId,
+      leaderboardId: leaderboardOf(state),
+      currentMatchId: state.match && state.match.matchId,
+      cache: statsCache,
+      cacheTtlMs: 30 * 60 * 1000,
+      log,
+    });
+    for (const rival of rivals) {
+      const h2h = mine.rows.length ? computeH2H(mine.rows, rival.profileId) : null;
+      if (h2h) h2hByRival.set(rival.profileId, h2h);
+      h2hPendingIds.delete(rival.profileId);
+    }
+    sendRival(rivalReports);
+    log(
+      `head-to-head listo en ${Date.now() - startedAt}ms · ` +
+        rivals
+          .map((rival) => {
+            const h2h = h2hByRival.get(rival.profileId);
+            return `${rival.name}: ${h2h ? `${h2h.wins}-${h2h.losses}` : 'sin datos'}`;
+          })
+          .join(' · '),
+    );
+  } catch (err) {
+    log(`no pude armar el head-to-head: ${err.message}`);
+  } finally {
+    for (const rival of rivals) h2hPendingIds.delete(rival.profileId);
+    h2hFetching = false;
+    if (h2hQueuedSig && h2hQueuedSig !== h2hSig) {
+      h2hQueuedSig = null;
+      h2hSig = '';
+      refreshH2H(lastGood).catch(() => {});
+    } else {
+      h2hQueuedSig = null;
     }
   }
 }
@@ -1900,6 +2098,9 @@ function registerIpc() {
     rivalFavorites: Boolean(config.rivalFavorites),
     rivalOpenings: Boolean(config.rivalOpenings),
     smartTips: Boolean(config.smartTips),
+    rivalH2H: Boolean(config.rivalH2H),
+    civRecommender: Boolean(config.civRecommender),
+    tgBalance: Boolean(config.tgBalance),
     autoUpdate: Boolean(config.autoUpdate),
     matchStartedAt: intro && intro.engaged ? intro.startedAt : null,
     exampleClockElapsedMs:
@@ -2028,7 +2229,7 @@ function registerIpc() {
     return { ok: true, hideAtSeconds: seconds };
   });
 
-  // Las cuatro opciones de "Datos del rival" comparten un solo handler con
+  // Las opciones de "Datos del rival" comparten un solo handler con
   // whitelist: se prenden/apagan en caliente, sin reiniciar y sin consultar
   // la red cuando la última opción se apaga.
   ipcMain.handle('settings:rivalOption', (_event, rawKey, rawValue) => {
@@ -2045,15 +2246,29 @@ function registerIpc() {
       // Cambió el conjunto de datos pedidos: recalcular con la firma nueva.
       rivalSig = '';
       refreshRivalReports(lastGood, { force: true }).catch(() => {});
+      // El head-to-head viaja en el mismo payload: refrescarlo también.
+      h2hSig = '';
+      refreshH2H(lastGood, { force: true }).catch(() => {});
     }
-    // El consejo pre-partida es otra opción del mismo grupo: mismo tratamiento.
-    if (!viewConfig().smartTips) {
+    // El consejo pre-partida (y la civ recomendada, que comparte la consulta)
+    // es otra opción del mismo grupo: mismo tratamiento.
+    if (!viewConfig().smartTips && !viewConfig().civRecommender) {
       clearScoutTips();
     } else {
       scoutSig = '';
       refreshScoutTips(lastGood, { force: true }).catch(() => {});
     }
     return { ok: true, key, enabled };
+  });
+
+  // Balance de equipos (TG): es un dato de PINTADO, no consulta nada. Se
+  // aplica en caliente como civHelp: persistir + reenviar configuración.
+  ipcMain.handle('settings:tgBalance', (_event, raw) => {
+    const enabled = Boolean(raw);
+    persistConfig({ tgBalance: enabled });
+    send('overlay:config', overlayConfig());
+    log(`balance de equipos: ${enabled ? 'activado' : 'desactivado'}`);
+    return { ok: true, tgBalance: enabled };
   });
 
   // Actualizaciones automáticas (pestaña Updater). Al activarlas se consulta
@@ -2136,15 +2351,23 @@ function registerIpc() {
 
 function applyHeight(height) {
   if (!win) return;
-  const target = clamp(Math.round(height), 110, 640);
+  const display = screen.getDisplayMatching(win.getBounds());
+  const workArea = display.workArea;
+
+  // Techo ADAPTATIVO al monitor, no un número fijo. El tope viejo (640 px)
+  // venía de cuando el panel era solo el roster: con el informe del rival,
+  // las recomendaciones y el balance, el contenido legítimo mide más y lo
+  // que pasaba del techo se RECORTABA e invisible (no hay scroll). Ahora el
+  // límite es el área de trabajo del monitor menos el margen superior.
+  const offset = Math.max(0, Number(config.offsetY) || 0);
+  const maxHeight = Math.max(200, workArea.height - offset - 16);
+  const target = clamp(Math.round(height), 110, maxHeight);
   const [currentWidth] = win.getContentSize();
   win.setContentSize(currentWidth, target);
 
   // Si el usuario eligió el lugar, no se mueve solo nunca más.
   if (moving || config.position === 'custom') return;
 
-  const display = screen.getDisplayMatching(win.getBounds());
-  const workArea = display.workArea;
   const x = Math.round(
     workArea.x + (workArea.width - currentWidth) / 2 + Number(config.offsetX || 0),
   );
@@ -2226,6 +2449,8 @@ function emit(state) {
   refreshRivalReports(state).catch(() => {});
   // El consejo pre-partida tampoco: solo vive en la fase `lobby`.
   refreshScoutTips(state).catch(() => {});
+  // El head-to-head es otro cálculo en segundo plano, sobre MI historial.
+  refreshH2H(state).catch(() => {});
   return true;
 }
 

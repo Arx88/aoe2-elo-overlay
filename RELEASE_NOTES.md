@@ -1,3 +1,17 @@
+## v0.1.18 · Cara a cara, balance de TG y civ recomendada
+
+Tres opciones nuevas, todas **apagadas de fábrica** y pensadas para una sola cosa: **plantarse mejor ante el rival**.
+
+- **Enfrentamientos previos** (*Ajustes → Overlay → Datos del rival*): tu V-D contra este rival, del **propio historial** y del **mismo modo de juego**. En la tarjeta del rival aparece como tile: **CARA A CARA 1-2** (rojo si perdés la serie, verde si ganás) con el contexto chico debajo (*3 partidas · última en Arabia*). Solo cuentan los enfrentamientos: las veces que jugaron **como aliados** van en su propia tarjeta (*COMO ALIADOS 5*) y no ensucian el V-D. Si nunca se cruzaron, lo dice — «Nunca se enfrentaron en este modo» — en vez de mostrar ceros.
+- **Civ recomendada** (*Datos del rival*, pre-partida): contra este rival, en este mapa, **qué civ jugársele**. Cruza dos datos reales: lo que el rival **pierde** según sus replays analizados y **tu winrate con cada civ en ese mapa**. Score 60 % tuyo + 40 % del rival; cada línea muestra sus dos evidencias — «1. Gurjaras · vos 67 % (9 pj) · le cuesta 80 % (5 pj)» — y **ninguna se muestra sin muestra suficiente** (3 partidas mínimo en cada dimensión). Vive en la tarjeta de *Recomendaciones*, desaparece al arrancar la partida y en custom/unranked no consulta nada en vez de mezclar modos.
+- **Balance de equipos** (*Ajustes → Overlay → Balance*): en team games, una línea tenue debajo del título con el **promedio de ELO RM 1v1 de cada equipo** — «⚖ Tu equipo 1412 · Rival 1419 · arrancás 7 abajo». No consulta nada (es el roster que ya está en pantalla); exige dos equipos con 2 ELOs por lado y avisa *parcial* si falta alguien. Se oculta con el panel al tiempo elegido.
+- **Arreglado: el panel se cortaba por abajo y la mitad de las tarjetas no se veía.** La ventana tenía un techo fijo de 640 px de alto, herencia de cuando el panel era solo el roster. Con el informe del rival, las recomendaciones y el balance, el contenido legítimo mide más y lo que pasaba del techo se recortaba **e invisible** (no hay scroll: era un bug en pantalla, no solo en capturas). Ahora el alto de la ventana sigue al contenido con un techo **adaptativo al monitor** (área de trabajo menos el margen superior).
+- La barrita de análisis suma una etapa honesta: *Buscando enfrentamientos previos…* mientras llega tu historial. La consulta se **comparte** con la civ recomendada y queda en cache **30 minutos** — habilitar las dos opciones no duplica nada.
+- En el **Modo ejemplo** («Ver test») "vos" es el perfil del ejemplo (misma regla que `isYou`): las tarjetas de cara a cara y la civ recomendada muestran cómo se vería esa partida real.
+- Selftest: sección nueva con 25 chequeos offline del historial propio, el conteo de aliados/rivales y el scoring de la recomendación.
+
+---
+
 ## v0.1.17 · Iconos, jerarquía de dato y dos bugs de partida
 
 - **Iconos en todo el panel** (SVG inline: ni archivos nuevos ni peticiones, heredan el color de cada tema): escudo en *Ayuda de civ*, espadas en *Informe del rival*, foco en *Recomendaciones*, y ★ BONOS / ⚑ UNIDADES / ⚠ DEBILIDADES en cada civil. El pico del jugador pasó de la palabra «pico» a una flecha ↑.

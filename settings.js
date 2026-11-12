@@ -46,13 +46,18 @@ const rivalInputs = {
   rivalFavorites: el('rivalFavorites'),
   rivalOpenings: el('rivalOpenings'),
   smartTips: el('smartTips'),
+  rivalH2H: el('rivalH2H'),
+  civRecommender: el('civRecommender'),
 };
 const RIVAL_LABELS = {
   rivalCivs: 'Últimas 5 civs del rival',
   rivalFavorites: 'Civ y mapa más usados',
   rivalOpenings: 'Aperturas reales',
   smartTips: 'Recomendaciones inteligentes',
+  rivalH2H: 'Enfrentamientos previos',
+  civRecommender: 'Civ recomendada',
 };
+const tgBalanceInput = el('tgBalance');
 const themeButtons = [...document.querySelectorAll('.theme')];
 const navButtons = [...document.querySelectorAll('.nav-item')];
 const pageSections = [...document.querySelectorAll('.page')];
@@ -284,6 +289,11 @@ for (const [key, input] of Object.entries(rivalInputs)) {
   );
 }
 
+// Balance de equipos: dato de pintado del panel, sin consulta de red.
+tgBalanceInput.addEventListener('change', () =>
+  applyToggle(tgBalanceInput, (on) => window.settings.tgBalance(on), 'Balance de equipos'),
+);
+
 // Pestaña Updater: consulta cada 30 min y aplica sola lo que encuentra.
 autoUpdateInput.addEventListener('change', () =>
   applyToggle(
@@ -337,6 +347,7 @@ async function loadCurrent() {
   hideEloInput.checked = Boolean(info.hideEloAt20);
   paintHideAt(Number(info.hideAtSeconds) || 20);
   for (const [key, input] of Object.entries(rivalInputs)) input.checked = Boolean(info[key]);
+  tgBalanceInput.checked = Boolean(info.tgBalance);
   autoUpdateInput.checked = Boolean(info.autoUpdate);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt

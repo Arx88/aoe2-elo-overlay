@@ -150,7 +150,7 @@
               </div>
             </div>
 
-            <div class="group-head"><span>Datos del rival</span><i></i><em>4</em></div>
+            <div class="group-head"><span>Datos del rival</span><i></i><em>6</em></div>
             <div class="block">
               <label class="row tog" for="rivalCivs" title="Las últimas 5 civilizaciones que jugó de verdad, con escudo, resultado (V/D) y mapa, del mismo modo de juego que la partida en curso.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg></span>
@@ -189,6 +189,39 @@
                   <span class="rdesc">Consejo por rival · solo antes de iniciar · datos reales</span>
                 </span>
                 <input id="smartTips" type="checkbox" />
+                <span class="sw" aria-hidden="true"></span>
+              </label>
+
+              <label class="row tog" for="rivalH2H" title="Tu V-D contra este rival, del propio historial de partidas y del mismo modo de juego. Las veces que jugaron como aliados se muestran aparte y no cuentan como enfrentamientos.">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/></svg></span>
+                <span class="tcopy">
+                  <span class="rname">Enfrentamientos previos</span>
+                  <span class="rdesc">Tu V-D contra este rival · del mismo modo de juego</span>
+                </span>
+                <input id="rivalH2H" type="checkbox" />
+                <span class="sw" aria-hidden="true"></span>
+              </label>
+
+              <label class="row tog" for="civRecommender" title="Contra este rival, en este mapa: qué civ jugársele. Cruza lo que el rival pierde según replays analizados con tu winrate con cada civ en ese mapa. Cada línea muestra su muestra; solo antes de iniciar.">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.2"/></svg></span>
+                <span class="tcopy">
+                  <span class="rname">Civ recomendada</span>
+                  <span class="rdesc">Su debilidad × tu winrate en el mapa · con muestra</span>
+                </span>
+                <input id="civRecommender" type="checkbox" />
+                <span class="sw" aria-hidden="true"></span>
+              </label>
+            </div>
+
+            <div class="group-head"><span>Balance</span><i></i><em>1</em></div>
+            <div class="block">
+              <label class="row tog" for="tgBalance" title="En team games, una línea con el promedio de ELO 1v1 de cada equipo: cuántos puntos de diferencia hay entre tu equipo y el rival. No consulta nada: se calcula con el roster que ya está en pantalla.">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 4v14"/><path d="M6.2 6.2h11.6"/><path d="m6.2 6.2-2.3 5.4a2.7 2.7 0 0 0 4.6 0L6.2 6.2Z"/><path d="m17.8 6.2-2.3 5.4a2.7 2.7 0 0 0 4.6 0L17.8 6.2Z"/><path d="M8.4 20h7.2"/></svg></span>
+                <span class="tcopy">
+                  <span class="rname">Balance de equipos</span>
+                  <span class="rdesc">Promedio de ELO 1v1 por equipo en TG</span>
+                </span>
+                <input id="tgBalance" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
             </div>

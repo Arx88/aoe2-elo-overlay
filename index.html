@@ -15,6 +15,12 @@
       <div id="panel">
         <div id="head">AoE2 ELO</div>
         <!--
+          Balance de equipos (opcional, TG): promedio de ELO RM 1v1 por
+          equipo. Lo llena renderer.js solo cuando hay roster con ELOs y dos
+          equipos; vive dentro del panel, así que se oculta con él a 0:20.
+        -->
+        <div id="balance" hidden aria-live="polite"></div>
+        <!--
           Barrita de análisis: mientras se buscan los datos del rival o se
           analizan replays, el panel lo dice y la barra se mueve. Cuando no
           falta nada se oculta sola: en partida no queda nada animado.
