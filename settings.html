@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'" />
-    <title>Aoe2 Helper by Acido</title>
+    <title>Aoe2 Helper</title>
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="settings.css" />
   </head>
@@ -12,7 +12,6 @@
       <div class="winbar-brand">
         <img class="winbar-mark" src="assets/app-icon.png" alt="" draggable="false" />
         <span class="winbar-title">Aoe2 Helper</span>
-        <span class="winbar-sub">by Acido</span>
       </div>
       <div class="winbar-controls">
         <button id="winMin" class="winbtn" type="button" aria-label="Minimizar" title="Minimizar">
@@ -34,7 +33,6 @@
           <img class="rail-mark" src="assets/app-icon.png" alt="" draggable="false" />
           <div>
             <div class="rail-name">Aoe2 Helper</div>
-            <div class="rail-by">by Acido</div>
           </div>
         </div>
 
@@ -203,7 +201,7 @@
                 <button class="theme" type="button" data-theme="pergamino" title="Papel estilo AoE2, claro y temático"><span class="swatch" data-theme="pergamino"></span><span class="tname">Pergamino</span></button>
                 <button class="theme" type="button" data-theme="sakura" title="Ciruela oscuro con rosa"><span class="swatch" data-theme="sakura"></span><span class="tname">Sakura</span></button>
               </div>
-              <p class="mini">Se aplica al instante en el panel del juego. El panel no se puede clickear.</p>
+              <p class="mini">Se aplica al instante en el panel del juego.</p>
             </div>
 
             <div class="group-head"><span>Opacidad</span><i></i></div>
@@ -257,8 +255,8 @@
 
             <div class="upd-actions">
               <button id="skipBtn" class="btn" type="button">Omitir</button>
-              <button id="checkBtn" class="btn" type="button">Buscar de nuevo</button>
-              <button id="updateBtn" class="btn gold" type="button">Actualizar ahora</button>
+              <button id="checkBtn" class="btn" type="button">Buscar actualizaciones</button>
+              <button id="updateBtn" class="btn gold" type="button">Descargar</button>
             </div>
           </section>
         </div>
@@ -266,11 +264,6 @@
         <div class="status-bar"><span id="status" class="status"></span></div>
       </main>
     </div>
-
-    <footer class="app-foot">
-      <span id="configPath" class="path"></span>
-      <span class="hint">El panel no se puede clickear: esta ventana es solo para configurar. <b>Esc</b> la cierra.</span>
-    </footer>
 
     <div id="civHelpTip" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="civHelpTipTitle">
       <div class="modal-card">

@@ -606,7 +606,7 @@ function renderOngoing(state) {
     `<span class="head-title">${escapeHtml(title)}</span>` +
     `<span class="elo-tag">ELO ${escapeHtml(eloLabel)}</span>`;
 
-  // El crédito ("By acido") vive en el mismo pie y no se toca acá.
+  // El pie muestra solo el modo y el pico (o el dato de la partida en ejemplo).
   const fecha = example ? shortDate(example.realStartedAt) : '';
   footText.textContent = example
     ? `partida real #${example.matchId ?? '—'}${fecha ? ` · ${fecha}` : ''} · reloj de prueba`

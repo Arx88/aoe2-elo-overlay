@@ -8,7 +8,7 @@ Overlay de escritorio para **Age of Empires II: Definitive Edition**: muestra en
 ARABIAN DESERT · RM team                    [ELO RM 1v1]
 ● Yo            vos   1243 #812    pico 1290
 ● Rival               1250         pico 1301
-By acido                RM team · pico RM 1v1
+                         RM team · pico RM 1v1
 ```
 
 La cabecera dice el **modo** de la partida; la etiqueta `ELO RM 1v1` aclara de dónde salen los números.
@@ -470,7 +470,7 @@ En ambos casos `.github/workflows/release.yml` compila en `windows-latest` y pub
 
 **Cambios que no tocan el binario** (README, `tools/`, capturas): `git commit && git push` **sin tag**. Así no se genera un Release ni los usuarios bajan 117 MB por un cambio de documentación.
 
-**Regla de producto:** `src/updater.js` nunca consulta ni descarga mientras `lastGood.status === 'ongoing'`. Un overlay de AoE2 no debe comerse el ancho de banda ni reiniciarse en media partida. Consulta al arranque (20 s), cada 6 h y **cada 30 min mientras haya una versión pendiente**; si hay partida, pospone y reintenta solo. Desde la bandeja (**Buscar actualizaciones…**) o el botón **Buscar de nuevo** del panel se fuerza una consulta manual, incluso con una versión ya descargada.
+**Regla de producto:** `src/updater.js` nunca consulta ni descarga mientras `lastGood.status === 'ongoing'`. Un overlay de AoE2 no debe comerse el ancho de banda ni reiniciarse en media partida. Consulta al arranque (20 s), cada 6 h y **cada 30 min mientras haya una versión pendiente**; si hay partida, pospone y reintenta solo. Desde la bandeja (**Buscar actualizaciones…**) o el botón **Buscar actualizaciones** del panel se fuerza una consulta manual, incluso con una versión ya descargada. En el panel hay **un solo** botón de búsqueda: el botón principal únicamente descarga o instala.
 
 ### Avisos y versiones múltiples
 

@@ -352,7 +352,7 @@ body.moving #panel * {
 #foot {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.35rem;
   padding-top: 0.25rem;
@@ -368,15 +368,6 @@ body.moving #panel * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.credit {
-  flex: none;
-  font-size: var(--credit-size);
-  letter-spacing: 0.06em;
-  text-transform: none;
-  color: var(--credit-color);
-  font-style: italic;
 }
 
 #foot[hidden] {

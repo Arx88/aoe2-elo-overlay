@@ -1106,8 +1106,20 @@ function fakeLobby(leaderboardId, leaderboardName) {
         settingsHtml.includes(`data-page="${p}"`)) &&
         !settingsHtml.includes('data-page="comandos"') &&
         !/id="exampleUser"|Ver test|id="backBtn"|id="nextBtn"/.test(settingsHtml));
-    check('los atajos quedan en el pie y ya no hay pestaña Comandos',
-      settingsHtml.includes('Esc</b> la cierra') && !settingsJs.includes("'comandos'"));
+    check('pie limpio: sin ruta de config.json ni aviso de panel no clickeable',
+      !settingsHtml.includes('Esc</b> la cierra') &&
+        !settingsHtml.includes('id="configPath"') &&
+        !settingsHtml.includes('El panel no se puede clickear') &&
+        !settingsJs.includes('configPathEl') &&
+        !settingsJs.includes("'comandos'"));
+    const overlayHtmlCredit = read('index.html');
+    const mainCredit = read('main.js');
+    check('crédito By Acido: solo en el pie del riel, junto a la versión',
+      !/By acido/i.test(overlayHtmlCredit) &&
+        !/By acido/i.test(mainCredit) &&
+        !/by Acido/.test(settingsHtml) &&
+        (settingsHtml.match(/By acido/g) || []).length === 1 &&
+        /id="version"[\s\S]{0,120}By acido/.test(settingsHtml));
     check('settings.js navega 4 pestañas y no cablea el ejemplo',
       ['player', 'overlay', 'skins', 'updater'].every((p) => settingsJs.includes(`'${p}'`)) &&
         !/window\.settings\.exampleStart/.test(settingsJs) &&
@@ -1365,6 +1377,11 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /id="checkBtn"/.test(settingsHtmlSrc) &&
         /checkBtn\.addEventListener\('click'/.test(settingsJsSrc) &&
         /updaterCheck\(\)/.test(settingsJsSrc));
+    check('Updater: un solo botón de búsqueda (el primario solo descarga/instala)',
+      !/Buscar de nuevo/.test(settingsHtmlSrc) &&
+        !/\? 'Buscar actualizaciones'/.test(settingsJsSrc) &&
+        /updateBtn\.disabled = !snapshot\.active \|\| !\(snapshot\.ready \|\| snapshot\.available\)/.test(settingsJsSrc) &&
+        (settingsHtmlSrc.match(/Buscar actualizaciones/g) || []).length === 1);
     check('CI: sin versión hardcodeada y con verificación del canal',
       !/gh release edit v0\.1\.9/.test(workflowSrc) && /latest\.yml/.test(workflowSrc));
   }

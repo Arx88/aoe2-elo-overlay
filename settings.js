@@ -17,7 +17,6 @@ const searchHelpEl = el('searchHelp');
 const manualBtn = el('manualBtn');
 const autoBtn = el('autoBtn');
 const statusEl = el('status');
-const configPathEl = el('configPath');
 const versionEl = el('version');
 const opacityInput = el('opacity');
 const opacityValue = el('opacityValue');
@@ -316,8 +315,6 @@ moveBtn.addEventListener('click', () => setMoving(!moving));
 /* ---------- cuenta ---------- */
 async function loadCurrent() {
   const info = await window.settings.get();
-  configPathEl.textContent = info.configPath || '';
-  configPathEl.title = info.configPath || '';
   if (info.version) versionEl.textContent = `v${info.version}`;
 
   applyTheme(info.theme || currentTheme);
@@ -638,17 +635,17 @@ function renderUpdater(snapshot) {
     }
   }
 
-  updateBtn.disabled = !snapshot.active;
+  // Un solo botón busca: checkBtn. El primario únicamente descarga o instala
+  // y queda inactivo cuando no hay nada que hacer (antes también buscaba).
+  updateBtn.disabled = !snapshot.active || !(snapshot.ready || snapshot.available);
   checkBtn.disabled = !snapshot.active || Boolean(snapshot.checking);
   skipBtn.disabled = !snapshot.active || Boolean(snapshot.skipped) || !(snapshot.available || snapshot.ready);
   skipBtn.textContent = snapshot.skipped ? 'Omitida' : 'Omitir';
-  updateBtn.textContent = snapshot.ready
-    ? 'Actualizar ahora'
-    : snapshot.available
-      ? 'Descargar'
-      : snapshot.active
-        ? 'Buscar actualizaciones'
-        : 'No disponible';
+  updateBtn.textContent = !snapshot.active
+    ? 'No disponible'
+    : snapshot.ready
+      ? 'Actualizar ahora'
+      : 'Descargar';
 }
 
 window.settings.onUpdater(renderUpdater);
@@ -676,13 +673,11 @@ updateBtn.addEventListener('click', async () => {
   if (updaterState.available) {
     updPhase.textContent = 'Descargando paquete de actualización…';
     renderUpdater(await window.settings.updaterDownload());
-  } else {
-    // Feedback inmediato en el propio panel (no en la barra de estado, que
-    // quedaba con el texto colgado). El IPC espera la consulta real y el
-    // renderUpdater que llega después pisa este texto con el estado final.
-    updPhase.textContent = 'Buscando una versión nueva…';
-    renderUpdater(await window.settings.updaterCheck());
+    return;
   }
+  // El primario jamás busca: si el estado cambió mientras tanto, se repinta
+  // con el último snapshot en vez de habilitar una acción inválida.
+  renderUpdater(updaterState);
 });
 
 // Siempre se puede volver a consultar, incluso con una versión ya descargada:
