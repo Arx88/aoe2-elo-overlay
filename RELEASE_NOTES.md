@@ -1,11 +1,18 @@
-## v0.1.12 · Interfaz más limpia
+## v0.1.13 · Actualizar sin instalador a la vista
 
-- **Se sacó el pie de la configuración:** ya no muestra la ruta de `config.json` ni el aviso «el panel no se puede clickear / Esc la cierra». **Esc sigue cerrando la ventana.**
-- **Updater: un solo botón de búsqueda.** «Buscar actualizaciones» es el único que consulta y sigue disponible aunque ya haya una versión descargada. El botón principal solo descarga (**Descargar**) o instala (**Actualizar ahora**) y queda inactivo cuando no hay nada que hacer.
-- Se quitó la frase redundante «El panel no se puede clickear» de la pestaña Skins.
-- El crédito **By Acido** queda únicamente en el pie del riel, al lado de la versión. Se sacó de la barra superior, la marca del riel, el título de la ventana, el tooltip de la bandeja y el pie del overlay.
+- **«Actualizar ahora» ya no abre el instalador.** La instalación pasa a ser silenciosa (`/S`): no hay bienvenida, ni elección de carpeta, ni accesos directos, ni botón «Finalizar». La app se cierra, se reemplaza sin mostrar nada y **se reabre sola** (`--force-run`). Conserva la carpeta de instalación y no pide permisos de administrador.
+- **Nunca te corta una partida.** Si apretás «Actualizar ahora» con un juego en curso, la instalación se pospone y el panel lo avisa (*Instalación pospuesta*). Se aplica sola apenas termina la partida, sin que tengas que volver a tocar nada. Si en el medio sale una versión más nueva, se espera a esa y jamás se instala la vieja.
+- Se mantiene la instalación silenciosa al salir de la app (que ya funcionaba así) y la descarga diferencial por `.blockmap`.
+
+> En Windows el ejecutable está en uso mientras la app corre: no se puede reemplazar en caliente. Siempre hay un cierre breve y una reapertura automática; lo que desaparece es la ventana del asistente, no el reinicio.
 
 ---
+
+## Ya incluido desde v0.1.12
+
+- Pie de la configuración sin la ruta de `config.json` ni el aviso del panel no clickeable (**Esc sigue cerrando la ventana**).
+- Updater con **un solo** botón de búsqueda: «Buscar actualizaciones» consulta; el botón principal solo descarga o instala.
+- El crédito **By Acido** queda únicamente en el pie del riel, al lado de la versión.
 
 ## Ya incluido desde v0.1.11
 

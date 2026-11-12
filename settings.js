@@ -585,6 +585,9 @@ function renderUpdater(snapshot) {
   if (snapshot.publishing) {
     updPill.textContent = 'Publicándose…';
     updPill.classList.add('muted');
+  } else if (snapshot.installDeferred) {
+    updPill.textContent = 'Instalación pospuesta';
+    updPill.classList.add('muted');
   } else if (snapshot.error) {
     updPill.textContent = 'Error de consulta';
     updPill.classList.add('error');
@@ -610,6 +613,7 @@ function renderUpdater(snapshot) {
   updPercent.textContent = snapshot.downloading || snapshot.ready ? `${percent}%` : '';
 
   if (snapshot.publishing) updPhase.textContent = 'El release se está publicando. Reintento automático en unos minutos.';
+  else if (snapshot.installDeferred) updPhase.textContent = 'Hay partida en curso: se instala sola apenas termines.';
   else if (snapshot.error) updPhase.textContent = snapshot.error;
   else if (!snapshot.active) updPhase.textContent = 'Las actualizaciones se consultan al abrir la app instalada.';
   else if (snapshot.skipped) updPhase.textContent = 'Omitida: no se instala al salir. Podés buscar una versión más nueva.';
@@ -667,7 +671,12 @@ updateBtn.addEventListener('click', async () => {
   updateBtn.disabled = true;
   if (updaterState.ready) {
     updPhase.textContent = 'Instalando la actualización…';
-    await window.settings.updaterInstall();
+    const result = await window.settings.updaterInstall();
+    // Si había partida, install() pospone y el broadcast ya repinta el panel.
+    // Esto evita que quede «Instalando…» si el evento llega antes del repintado.
+    if (result && result.ok === false && result.reason === 'match') {
+      updPhase.textContent = 'Hay partida en curso: se instala sola apenas termines.';
+    }
     return;
   }
   if (updaterState.available) {

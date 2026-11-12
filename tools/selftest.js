@@ -1382,6 +1382,16 @@ function fakeLobby(leaderboardId, leaderboardName) {
         !/\? 'Buscar actualizaciones'/.test(settingsJsSrc) &&
         /updateBtn\.disabled = !snapshot\.active \|\| !\(snapshot\.ready \|\| snapshot\.available\)/.test(settingsJsSrc) &&
         (settingsHtmlSrc.match(/Buscar actualizaciones/g) || []).length === 1);
+    check('Updater: instalación silenciosa y reapertura automática',
+      /quitAndInstall\(true, true\)/.test(updaterSrc) &&
+        !/quitAndInstall\(false/.test(updaterSrc) &&
+        /\/S/.test(updaterSrc) && /--force-run/.test(updaterSrc));
+    check('Updater: instalar respeta la partida y se aplica al terminar',
+      /installRequested/.test(updaterSrc) &&
+        /installDeferred/.test(updaterSrc) &&
+        /reason: 'match'/.test(updaterSrc) &&
+        /installDeferred/.test(settingsJsSrc) &&
+        /return updater\.install\(\)/.test(mainSrc));
     check('CI: sin versión hardcodeada y con verificación del canal',
       !/gh release edit v0\.1\.9/.test(workflowSrc) && /latest\.yml/.test(workflowSrc));
   }

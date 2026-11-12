@@ -1602,8 +1602,10 @@ function registerIpc() {
     return updaterState();
   });
   ipcMain.handle('updater:install', () => {
-    if (updater) updater.install();
-    return { ok: true };
+    // install() devuelve { ok, reason }: el panel necesita saber si se pospuso
+    // por una partida en curso para no dejar colgado «Instalando…».
+    if (!updater) return { ok: false, reason: 'inactive' };
+    return updater.install();
   });
   ipcMain.handle('updater:skip', () => {
     if (updater) updater.skip();

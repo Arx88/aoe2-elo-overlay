@@ -8,9 +8,11 @@
  * release publica `latest.yml` + el instalador NSIS + su `.blockmap` (delta).
  *
  * Regla de producto: esto es un overlay de AoE2, así que NUNCA consulta ni
- * descarga mientras hay una partida en curso. La instalación es silenciosa y
- * ocurre al salir de la app, momento en el que el jugador ya terminó. Si no
- * hay red, simplemente se reintenta solo.
+ * descarga mientras hay una partida en curso. La instalación es SIEMPRE
+ * silenciosa (NSIS con /S), tanto al salir de la app como al apretar
+ * "Actualizar ahora"; en ese último caso la app se reabre sola (--force-run).
+ * En Windows el binario no se puede reemplazar en caliente: siempre hay un
+ * cierre breve, el swap y la reapertura. Si no hay red, se reintenta solo.
  *
  * Regla de versiones: tener una versión descargada NO impide volver a buscar.
  * Si aparece una más nueva, la descarga anterior se descarta y se baja solo la
@@ -94,6 +96,7 @@ function disabled(app) {
     notes: [],
     checkedAt: null,
     deferred: false,
+    installDeferred: false,
     targetVersion: null,
   };
   return {
@@ -161,6 +164,7 @@ function initAutoUpdate(options = {}) {
     notes: [],
     checkedAt: null,
     deferred: false,
+    installDeferred: false,
     targetVersion: null,
   };
 
@@ -182,6 +186,8 @@ function initAutoUpdate(options = {}) {
   let checkTimeout = null;
   let retryTimer = null;
   let checkingPromise = null;
+  // El usuario pidió instalar pero había partida: se ejecuta solo al terminar.
+  let installRequested = false;
 
   function emitStatus() {
     const snapshot = { ...status };
@@ -282,6 +288,7 @@ function initAutoUpdate(options = {}) {
       error: null,
       publishing: false,
       deferred: false,
+      installDeferred: false,
     });
     if (!keepNewer && !readyToInstall) notice('up-to-date', reported);
   });
@@ -456,30 +463,63 @@ function initAutoUpdate(options = {}) {
       });
   }
 
+  /**
+   * Devuelve { ok, reason } para que el panel sepa si la instalación arrancó
+   * o quedó pospuesta. Nunca reinicia la app con una partida en curso: en ese
+   * caso se agenda y el tick la ejecuta apenas el jugador termina.
+   */
   function install() {
-    if (!readyToInstall) return;
+    if (!readyToInstall) return { ok: false, reason: 'not-ready' };
     if (status.latest && status.readyVersion && compareVersions(status.latest, status.readyVersion) > 0) {
       say('hay una versión más nueva: no instalo la vieja');
       queueDownload();
-      return;
+      return { ok: false, reason: 'newer' };
     }
-    say('instalando a pedido del usuario');
+    if (isBusy()) {
+      installRequested = true;
+      say('instalación pospuesta: hay partida en curso · se aplica al terminar');
+      patch({ installDeferred: true, error: null });
+      return { ok: false, reason: 'match' };
+    }
+    installRequested = false;
+    patch({ installDeferred: false, deferred: false });
+    say('instalando en silencio a pedido del usuario · se reabre sola');
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.quitAndInstall(false, true);
+    // isSilent=true      → electron-updater le pasa /S al NSIS: sin bienvenida,
+    //                      sin elegir carpeta, sin accesos directos, sin "Finalizar".
+    // isForceRunAfter=true → le pasa --force-run: la app vuelve a abrirse sola.
+    // Antes era (false, true) y mostraba el asistente de instalación cada vez.
+    // El quit handler de electron-updater ya hacía install(true, false), o sea
+    // que salir normalmente SIEMPRE fue silencioso; acá igualamos ese criterio.
+    // Nota: en Windows el .exe está en uso mientras la app corre, así que no se
+    // puede reemplazar en caliente; lo que desaparece es la UI, no el reinicio.
+    autoUpdater.quitAndInstall(true, true);
+    return { ok: true };
   }
 
   function skip() {
     const version = status.readyVersion || status.latest;
     if (!version) return;
     skippedVersion = version;
+    installRequested = false;
     autoUpdater.autoInstallOnAppQuit = false;
     say(`v${version} omitida: no se instala al salir en esta sesión`);
-    patch({ skipped: true, skippedVersion: version });
+    patch({ skipped: true, skippedVersion: version, installDeferred: false });
   }
 
   const startTimer = setTimeout(() => check('arranque'), START_DELAY_MS);
   const tickTimer = setInterval(() => {
-    if (closed || isBusy()) return;
+    if (closed) return;
+    // Pedido de instalar hecho durante una partida: se ejecuta solo apenas
+    // termina. No cortamos el juego ni queda esperando otro clic del usuario.
+    // Si en el medio apareció otra versión, readyToInstall se limpia y se
+    // espera a la descarga nueva (nunca se instala una vieja).
+    if (installRequested && readyToInstall && !status.skipped && !isBusy()) {
+      installRequested = false;
+      install();
+      return;
+    }
+    if (isBusy()) return;
     if (wantsNewDownload && !downloading) queueDownload();
     else if (pendingInfo && !downloading && !readyToInstall && skippedVersion !== status.latest) download();
     if (Date.now() - lastCheck >= intervalMs()) check('periódica');
@@ -502,6 +542,7 @@ function initAutoUpdate(options = {}) {
     hasPending: () => readyToInstall,
     stop: () => {
       closed = true;
+      installRequested = false;
       clearTimeout(startTimer);
       clearInterval(tickTimer);
       clearCheckTimeout();
