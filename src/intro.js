@@ -48,21 +48,48 @@ function introKey(state) {
 }
 
 /**
- * Mantiene el estado de la intro entre snapshots. El mismo partido (mismo id +
- * startedAt) no reinicia el reloj aunque lleguen nuevos polls o cambie el ELO.
+ * Mantiene el estado de la intro entre snapshots.
+ *
+ * REGLA: el reloj pertenece al PARTIDO (matchId), no al `startedAt`. Mientras
+ * el estado siga siendo `ongoing` para el mismo matchId, la intro se conserva
+ * aunque `startedAt` cambie, falte un instante o el estado pase por la fase
+ * `lobby`. Antes cualquier variación de `startedAt` creaba una intro nueva con
+ * el reloj en 0:00 y la tarjeta de civ se volvía a abrir a mitad de partida.
+ *
+ * Cuando la partida termina (el estado deja de ser `ongoing`) la intro se
+ * suelta en el acto, para que el ELO vuelva a mostrarse.
  */
 function trackIntro(previous, state, now) {
+  const ongoing = Boolean(state && state.status === 'ongoing');
   const key = introKey(state);
-  if (!key) return null;
-  if (previous && previous.key === key) return previous;
+  const matchId = ongoing && state.match ? String(state.match.matchId ?? 'sin-id') : null;
+
+  if (!key) {
+    // Pre-partida del MISMO partido: el reloj no arranca, pero si ya había uno
+    // (el REST todavía no completa `startedAt`) tampoco se pierde.
+    if (ongoing && previous && previous.matchId === matchId) {
+      previous.lastSeen = now;
+      return previous;
+    }
+    return null;
+  }
+
+  if (previous && previous.matchId === matchId) {
+    // Mismo partido: se muta en el lugar a propósito. Devolver un objeto nuevo
+    // rompía la identidad que usa main (`intro === otro`) para no reprogramar.
+    previous.lastSeen = now;
+    return previous;
+  }
 
   const startedAt = state.match.startedAt;
   const elapsed = Math.max(0, now - startedAt);
   return {
     key,
+    matchId,
     startedAt,
     engaged: elapsed <= ENGAGE_LIMIT_MS,
     seenElapsed: elapsed,
+    lastSeen: now,
   };
 }
 

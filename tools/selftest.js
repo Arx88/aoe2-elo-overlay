@@ -334,6 +334,27 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('ELO NO se oculta si la opción está OFF', !introView(intro, helpOn, t0 + 30000).eloHidden);
     check('al terminar la partida el ELO vuelve', trackIntro(intro, { status: 'idle' }, t0 + 30000) === null);
     check('mismo partido no reinicia el reloj al hacer poll', trackIntro(intro, state, t0 + 9000) === intro);
+
+    // Regresión: el reloj es del PARTIDO, no del `startedAt`. Un poll que trae
+    // otro startedAt (o que lo pierde un instante) creaba una intro nueva con
+    // el reloj en 0:00 y VOLVÍA A ABRIR la tarjeta a mitad de partida.
+    const otherStart = trackIntro(intro, { ...state, match: { matchId: 777, startedAt: startedAt + 8000 } }, t0 + 12000);
+    check('mismo matchId con otro startedAt NO reinicia el reloj',
+      otherStart === intro && introView(otherStart, bothOn, t0 + 21000).civHelpVisible === false);
+    check('si el startedAt desaparece un instante, la intro se conserva',
+      trackIntro(intro, { ...state, match: { matchId: 777, startedAt: null } }, t0 + 15000) === intro);
+    check('la fase lobby del mismo partido tampoco reinicia la intro',
+      trackIntro(intro, { ...state, phase: 'lobby' }, t0 + 13000) === intro);
+    check('otra partida sí arranca un reloj nuevo',
+      trackIntro(intro, { ...state, match: { matchId: 888, startedAt: t0 + 12000 } }, t0 + 13000).matchId === '888');
+
+    const mainSrcForIntro = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+    check('main: un idle con la partida en pantalla se respeta (fin real, no se traga)',
+      /const showingLive = Boolean\([\s\S]{0,120}phase !== 'lobby'/.test(mainSrcForIntro) &&
+        /snapshot\.status === 'idle' &&\s*\n\s*!showingLive/.test(mainSrcForIntro));
+    check('main: al cambiar de partida se borra el informe y el consejo anteriores',
+      /lastOngoingMatchId/.test(mainSrcForIntro) &&
+        /if \(ongoingId && ongoingId !== lastOngoingMatchId\) \{[\s\S]{0,160}clearRivalReports\(\);[\s\S]{0,80}clearScoutTips\(\);/.test(mainSrcForIntro));
     check('próximos ticks: 0:01 y 0:20',
       nextIntroTick(intro, t0) === 1000 && nextIntroTick(intro, t0 + 1000) === 19000 &&
       nextIntroTick(intro, t0 + 20000) === null);
@@ -1416,16 +1437,16 @@ function fakeLobby(leaderboardId, leaderboardName) {
     // v0.1.16: el modo se lee en la cabecera ("HIDEOUT · RM 1V1") y NO se
     // repite en cada bloque. El caso "modo no disponible" se sigue avisando.
     check('renderer: el modo va solo en la cabecera, no repetido por bloque',
-      /APERTURA EN ESTE MAPA/.test(rendererSrc) && /ÚLTIMAS 5 CIVS/.test(rendererSrc) &&
+      /const title = 'APERTURA'/.test(rendererSrc) && /'ÚLTIMAS 5'/.test(rendererSrc) &&
         /modeUnavailable/.test(rendererSrc) && !/\$\{modeLabel\}/.test(rendererSrc));
-    check('renderer: el informe escribe la conclusión y no solo números',
+    check('renderer: el informe da jerarquía al dato, no solo números',
       /function gamesText\(/.test(rendererSrc) && /function recordText\(/.test(rendererSrc) &&
-        /le va mal/.test(rendererSrc) && /rival-verdict/.test(rendererSrc));
+        /le va mal/.test(rendererSrc) && /rstat-value/.test(rendererSrc));
     check('renderer: la tarjeta usa el mapa de la partida, no el favorito',
-      /EN ESTE MAPA/.test(rendererSrc) && /report\.mapStats/.test(rendererSrc) &&
+      /rstat-grid/.test(rendererSrc) && /report\.mapStats/.test(rendererSrc) &&
         !/rivalBlock\('MÁS USA'/.test(rendererSrc) && !/favoriteMap/.test(rendererSrc));
     check('renderer: la estrategia SOLO usa replays del mapa y de su civ más usada',
-      /APERTURA EN ESTE MAPA/.test(rendererSrc) && /openings\.mapCivFavorite/.test(rendererSrc) &&
+      /const title = 'APERTURA'/.test(rendererSrc) && /openings\.mapCivFavorite/.test(rendererSrc) &&
         !/openings\.mapFavorite/.test(rendererSrc) && !/openings\.favorite/.test(rendererSrc));
     // La apertura ya no es una fila más del bloque del mapa: tiene su bloque
     // (y se omite entero si no hay replays, para no dejar un vacío doble).

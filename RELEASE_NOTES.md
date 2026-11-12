@@ -1,3 +1,14 @@
+## v0.1.17 · Iconos, jerarquía de dato y dos bugs de partida
+
+- **Iconos en todo el panel** (SVG inline: ni archivos nuevos ni peticiones, heredan el color de cada tema): escudo en *Ayuda de civ*, espadas en *Informe del rival*, foco en *Recomendaciones*, y ★ BONOS / ⚑ UNIDADES / ⚠ DEBILIDADES en cada civil. El pico del jugador pasó de la palabra «pico» a una flecha ↑.
+- **El informe del rival se lee sin leerlo**: dos tarjetas de dato con el número grande (*33 %* en rojo si le va mal, verde si le va bien) y el contexto chico debajo (*9 partidas · 3-6 · le va mal*). Antes era una frase corrida que había que leer completa.
+- **Fuera el texto de relleno**: ya no se muestran las fuentes de datos (*AoE2 Companion · AoE2Insights*), ni el modo repetido en la cabecera cuando el tag ya dice *ELO RM 1v1*, ni *APERTURA EN ESTE MAPA* / *ÚLTIMAS 5 CIVS* / *ÚLTIMAS DE ESA CIV*. Los bloques sin datos dejan de tener título.
+- **Arreglado: la tarjeta de civ se volvía a abrir a mitad de partida.** El reloj de la intro se identificaba por `matchId + startedAt`, y el REST a veces manda el mismo partido con otro `startedAt` (o sin él un poll), lo que creaba una intro nueva con el reloj en 0:00 y volvía a mostrar la tarjeta. Ahora el reloj pertenece al **partido** (`matchId`): cambia el `startedAt`, pasa por `lobby` o falta un poll y no se reinicia; al terminar la partida se suelta en el acto.
+- **Arreglado: quedaba información vieja trabada al salir y volver a entrar.** El polling descartaba los snapshots *«sin partida»* durante 15 minutos después de aparearte, así que si el socket no avisaba el fin, el panel se quedaba con la partida anterior. Ahora, si el panel ya está mostrando una partida en curso, ese *«sin partida»* es el fin real. Además el informe del rival y las recomendaciones se borran **en el momento** en que cambia el partido, en vez de mostrar los del rival anterior mientras se consulta el nuevo.
+- Ajustes de espaciado y alineación: las tarjetas de dato comparten la línea de la sub-etiqueta, la fila de escudos ya no queda pegada al borde inferior y la barrita de la cuenta regresiva es más fina y tenue.
+
+---
+
 ## v0.1.16 · Barrita de análisis en el panel
 
 - **Arreglado: la partida vuelve a aparecer al ENCONTRAR rival**, en la sala de espera, sin esperar a entrar al mapa. El carril rápido tenía dos fallas: (1) solo se aceleraba si te veía *buscando*, así que una cola que pasaba de `queueing` a `matched` entre dos pings (6 s) nunca entraba al modo rápido; y (2) se pausaba justo en el aviso «encontré rival», **antes** de que llegara el roster, dejando el panel a merced del lote empujado (~15 s) o directamente del inicio de la partida. Ahora pide el snapshot global en el acto cuando el ping filtrado ya te ve apareado, la pausa es recién con el roster en pantalla, y si la pausa quedara colgada se reactiva sola a los 20 s.

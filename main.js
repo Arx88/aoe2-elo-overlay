@@ -327,6 +327,8 @@ let lastClockSent = null;
 // Informe del rival: se calcula en BACKGROUND para no retrasar el aviso de
 // "partida encontrada". `rivalSig` evita repetir consultas en cada poll.
 let rivalReports = null;
+// Última partida publicada: sirve para descartar el informe de la anterior.
+let lastOngoingMatchId = null;
 // Recomendaciones inteligentes (pre-partida): payload actual del consejo.
 let scoutPayload = null;
 let scoutSig = '';
@@ -2202,6 +2204,22 @@ function emit(state) {
   if (signature === lastSent) return false;
   lastSent = signature;
   lastGood = state;
+
+  // Partida nueva ⇒ el informe del rival y el consejo son los de la ANTERIOR.
+  // Se borran acá, no cuando llegue la consulta nueva: si la partida es de
+  // otro rival/mapa, durante los 1-9 s de carga se veían los datos viejos (y
+  // si la consulta fallaba, quedaban para siempre).
+  const ongoingId =
+    state && state.status === 'ongoing' && state.match
+      ? String(state.match.matchId ?? '')
+      : null;
+  if (ongoingId && ongoingId !== lastOngoingMatchId) {
+    lastOngoingMatchId = ongoingId;
+    clearRivalReports();
+    clearScoutTips();
+  }
+  if (!ongoingId) lastOngoingMatchId = null;
+
   send('overlay:state', state);
   syncIntro(state);
   // El informe del rival NO bloquea: se dispara y llega cuando esté listo.
@@ -2339,7 +2357,18 @@ async function poll() {
 
     // Mientras hay sala abierta el REST todavía no lista la partida (no
     // empezó): el panel se queda con la sala y no parpadea a "sin partida".
-    if (snapshot.status === 'idle' && (lobbyActive() || Date.now() < preMatchGraceUntil)) {
+    // ...pero SOLO mientras el panel no esté mostrando ya la partida en curso:
+    // si la está mostrando, un idle del REST es el FIN real. Tragárselo dejaba
+    // la partida anterior trabada en pantalla hasta que el socket avisara (y a
+    // veces el aviso no llega).
+    const showingLive = Boolean(
+      lastGood && lastGood.status === 'ongoing' && lastGood.phase !== 'lobby',
+    );
+    if (
+      snapshot.status === 'idle' &&
+      !showingLive &&
+      (lobbyActive() || Date.now() < preMatchGraceUntil)
+    ) {
       // Todavía en la pantalla de carga: el REST no la lista pero el panel ya
       // tiene el roster. No lo reemplazamos por "Sin partida".
       lastPollAt = Date.now();

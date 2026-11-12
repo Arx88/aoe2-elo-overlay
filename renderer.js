@@ -11,11 +11,40 @@ const civHelpClock = document.getElementById('civhelpClock');
 const civHelpBar = document.getElementById('civhelpBar');
 const rivalInfoEl = document.getElementById('rivalInfo');
 const rivalGrid = document.getElementById('rivalGrid');
-const rivalSource = document.getElementById('rivalSource');
 const scoutInfoEl = document.getElementById('scoutInfo');
 const scoutGrid = document.getElementById('scoutGrid');
 const updateToastEl = document.getElementById('updateToast');
 const updateToastText = document.getElementById('updateToastText');
+
+/* -------------------------------------------------------------------------
+ * ICONOS DE LÍNEA
+ * Set mínimo en SVG inline: la CSP del panel no permite recursos externos y
+ * así los iconos heredan el color del texto, sirven en los 11 temas y no
+ * agregan ni un archivo ni una petición.
+ * ---------------------------------------------------------------------- */
+const ICONS = {
+  escudo: '<path d="M12 3 4.8 5.9v5.3c0 4.1 3 7.4 7.2 9.8 4.2-2.4 7.2-5.7 7.2-9.8V5.9L12 3Z"/>',
+  espadas: '<path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/>',
+  mapa: '<path d="M9 4.5 3.5 6.4v13.1L9 17.6l6 1.9 5.5-1.9V4.5L15 6.4 9 4.5Z"/><path d="M9 4.5v13.1"/><path d="M15 6.4v13.1"/>',
+  reloj: '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.3V12l3.1 1.9"/>',
+  estrella: '<path d="m12 4.2 2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.5-4.6 2.5.9-5.1L4.5 9.7l5.2-.8L12 4.2Z"/>',
+  bandera: '<path d="M6.2 20V4.4"/><path d="M6.2 5.2h10.6l-1.8 3.3 1.8 3.3H6.2"/>',
+  alerta: '<path d="M12 4.4 20.8 19.6H3.2L12 4.4Z"/><path d="M12 9.8v4.1"/><path d="M12 17.1h.01"/>',
+  foco: '<path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/>',
+  sube: '<path d="M12 19.2V4.8"/><path d="m6.3 10.5 5.7-5.7 5.7 5.7"/>',
+  copa: '<path d="M8.2 4.2h7.6v4.6a3.8 3.8 0 0 1-7.6 0V4.2Z"/><path d="M8.2 5.8H5.4v1.8a2.8 2.8 0 0 0 2.8 2.8"/><path d="M15.8 5.8h2.8v1.8a2.8 2.8 0 0 1-2.8 2.8"/><path d="M12 12.6v4"/><path d="M9.2 20h5.6"/>',
+  lista: '<path d="M8.5 6.2h11.2"/><path d="M8.5 12h11.2"/><path d="M8.5 17.8h11.2"/><path d="M4.6 6.2h.01"/><path d="M4.6 12h.01"/><path d="M4.6 17.8h.01"/>',
+};
+
+function icon(name) {
+  const paths = ICONS[name];
+  if (!paths) return '';
+  return (
+    '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    `stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" ` +
+    `aria-hidden="true">${paths}</svg>`
+  );
+}
 
 /* ============================================================
    Aviso de actualización
@@ -190,9 +219,9 @@ function civCard(civ) {
   const tag = civ.isYou
     ? '<span class="civhelp-tag">VOS</span>'
     : '<span class="civhelp-tag rival">RIVAL</span>';
-  const fact = (label, value, kind, dropLast = true) =>
+  const fact = (ico, label, value, kind, dropLast = true) =>
     `<div class="civhelp-fact ${kind}">` +
-    `<span class="civhelp-key">${label}</span>` +
+    `<span class="civhelp-key">${icon(ico)}${label}</span>` +
     `<span class="civhelp-val">${escapeHtml(summarize(value, 108, dropLast))}</span>` +
     '</div>';
 
@@ -203,9 +232,9 @@ function civCard(civ) {
     `<div class="civhelp-ident"><div class="civhelp-name">${escapeHtml(name)}${tag}</div>` +
     `<div class="civhelp-role">${escapeHtml(role)}</div></div>` +
     '</div>' +
-    fact('BONOS', entry.bonuses, 'good') +
-    fact('UNIDADES', entry.units, 'unit', false) +
-    fact('DEBILIDADES', entry.weaknesses, 'bad') +
+    fact('estrella', 'BONOS', entry.bonuses, 'good') +
+    fact('bandera', 'UNIDADES', entry.units, 'unit', false) +
+    fact('alerta', 'DEBILIDADES', entry.weaknesses, 'bad') +
     '</article>'
   );
 }
@@ -337,20 +366,24 @@ function recordText(games, wins, winRate) {
   return ` (${fmtNumber(won)}-${fmtNumber(Math.max(0, total - won))})`;
 }
 
+/** Icono de cada bloque del informe: el título solo ya no alcanza. */
+const BLOCK_ICONS = { favs: 'mapa', civs: 'lista', openings: 'espadas', tips: 'foco' };
+
 function rivalBlock(label, body, extraClass = '', badge = '') {
-  return (
-    `<div class="rival-block ${extraClass}">` +
-    `<div class="rival-key">${escapeHtml(label)}${badge ? `<span class="rival-badge">${escapeHtml(badge)}</span>` : ''}</div>` +
-    body +
-    '</div>'
-  );
+  // Sin etiqueta, el bloque es solo su contenido: el título propio de una
+  // tarjeta que ya dice el mapa en la cabecera era texto de más.
+  const head = label
+    ? `<div class="rival-key">${icon(BLOCK_ICONS[extraClass])}${escapeHtml(label)}` +
+      `${badge ? `<span class="rival-badge">${escapeHtml(badge)}</span>` : ''}</div>`
+    : '';
+  return `<div class="rival-block ${extraClass}">${head}${body}</div>`;
 }
 
 function rivalHistoryBlock(report) {
   const rows = Array.isArray(report.history) ? report.history : [];
   if (report.loading) {
     return rivalBlock(
-      'ÚLTIMAS 5 CIVS',
+      'ÚLTIMAS 5',
       `<div class="rival-empty">Buscando sus últimas civs…</div>`,
     );
   }
@@ -358,7 +391,7 @@ function rivalHistoryBlock(report) {
     const msg = report.mode && report.mode.label
       ? `Sin partidas públicas recientes en ${report.mode.label}.`
       : 'Sin historial público reciente.';
-    return rivalBlock('ÚLTIMAS 5 CIVS', `<div class="rival-empty">${escapeHtml(msg)}</div>`);
+    return rivalBlock('ÚLTIMAS 5', `<div class="rival-empty">${escapeHtml(msg)}</div>`);
   }
   const items = rows
     .slice(0, 5)
@@ -374,7 +407,7 @@ function rivalHistoryBlock(report) {
       );
     })
     .join('');
-  return rivalBlock('ÚLTIMAS 5 CIVS', `<div class="rival-civ-list">${items}</div>`, 'civs');
+  return rivalBlock('ÚLTIMAS 5', `<div class="rival-civ-list">${items}</div>`, 'civs');
 }
 
 /**
@@ -386,7 +419,7 @@ function rivalMapBlock(report) {
   const map = report.mapStats;
   if (report.loading) {
     return rivalBlock(
-      'EN ESTE MAPA',
+      '',
       `<div class="rival-empty">Buscando su historial en este mapa…</div>`,
       'favs',
     );
@@ -397,7 +430,7 @@ function rivalMapBlock(report) {
     '—';
   if (!mapName || mapName === '—') {
     return rivalBlock(
-      'EN ESTE MAPA',
+      '',
       '<div class="rival-empty">Esperando el mapa de la partida…</div>',
       'favs',
     );
@@ -405,30 +438,52 @@ function rivalMapBlock(report) {
   const games = map && Number(map.games) > 0 ? Number(map.games) : 0;
   if (!games) {
     return rivalBlock(
-      'EN ESTE MAPA',
+      '',
       `<div class="rival-empty">Sin partidas públicas en ${escapeHtml(mapName)}.</div>`,
       'favs',
     );
   }
 
-  // Dos frases en vez de dos filas etiqueta/valor. Antes había que cruzar
-  // "9 pj · 33 % wr" con "2 de 8" para entender qué decía el informe; ahora
-  // la conclusión está escrita y los números llevan su récord al lado.
+  // Jerarquía de dato: número grande, etiqueta chica, contexto en una línea.
+  // Antes era una frase entera ("En Hideout le va mal: 33 % en 9 partidas"):
+  // para saber cómo le va había que leerla completa. El color del número y la
+  // etiqueta corta lo dicen de un vistazo.
   const rate = map.winRate != null ? Number(map.winRate) : null;
-  const tone = rate == null ? null : rate < 40 ? 'le va mal' : rate >= 60 ? 'le va bien' : 'va parejo';
-  const head =
-    rate == null
-      ? `En ${mapName} jugó ${gamesText(games)}${recordText(games, map.wins, null)}.`
-      : `En ${mapName} ${tone}: ${fmtNumber(rate)} % en ${gamesText(games)}` +
-        `${recordText(games, map.wins, rate)}.`;
+  const tone = rate == null ? '' : rate < 40 ? 'bad' : rate >= 60 ? 'good' : '';
+  const toneText = rate == null ? '' : rate < 40 ? 'le va mal' : rate >= 60 ? 'le va bien' : 'parejo';
+  const total = Number(games) || 0;
+  const won = Number.isFinite(Number(map.wins))
+    ? Number(map.wins)
+    : Math.round((total * (rate || 0)) / 100);
+  const lost = Math.max(0, total - won);
+
+  const mapTile =
+    '<div class="rstat">' +
+    `<span class="rstat-key">${icon('mapa')}${escapeHtml(mapName)}</span>` +
+    `<b class="rstat-value ${tone}">${rate != null ? `${fmtNumber(rate)} %` : '—'}</b>` +
+    '<span class="rstat-sub">' +
+    `${escapeHtml(gamesText(total))} · ${won}-${lost}` +
+    `${toneText ? ` <span class="rstat-tag ${tone}">${escapeHtml(toneText)}</span>` : ''}` +
+    '</span></div>';
+
   const civ = map.civ;
-  const civLine =
+  const civTile =
     civ && civ.name && Number(civ.games) > 0
-      ? `<span>Usa <b>${escapeHtml(civ.name)}</b> ahí: ${escapeHtml(gamesText(civ.games))}` +
-        `${civ.winRate != null ? `, gana el ${escapeHtml(fmtNumber(civ.winRate))} %` : ''}` +
-        `${escapeHtml(recordText(civ.games, civ.wins, civ.winRate))}.</span>`
-      : '';
-  const verdict = `<div class="rival-verdict"><b>${escapeHtml(head)}</b>${civLine}</div>`;
+      ? '<div class="rstat">' +
+        `<span class="rstat-key">${icon('escudo')}Su civ</span>` +
+        `<b class="rstat-value rstat-civ">${rivalShield(civ.name, 'rival-shield xs')}` +
+        `<span>${escapeHtml(civ.name)}</span></b>` +
+        '<span class="rstat-sub">' +
+        `${escapeHtml(gamesText(civ.games))}` +
+        `${civ.winRate != null ? ` · ${escapeHtml(fmtNumber(civ.winRate))} %` : ''}` +
+        `${escapeHtml(recordText(civ.games, civ.wins, civ.winRate))}` +
+        '</span></div>'
+      : '<div class="rstat">' +
+        `<span class="rstat-key">${icon('escudo')}Su civ</span>` +
+        '<b class="rstat-value rstat-civ">—</b>' +
+        '<span class="rstat-sub">Sin civ registrada</span></div>';
+
+  const stats = `<div class="rstat-grid">${mapTile}${civTile}</div>`;
 
   // La apertura tiene su PROPIO bloque cuando hay replays. Si no hay, se dice
   // una sola vez acá: antes quedaban dos avisos iguales seguidos (mapa y
@@ -443,13 +498,11 @@ function rivalMapBlock(report) {
       note =
         openings && openings.ok === false
           ? '<div class="rival-empty">Aperturas no disponibles ahora mismo.</div>'
-          : '<div class="rival-empty">Sin replays de ' +
-            `${escapeHtml(civ ? civ.name : 'su civ')} en ${escapeHtml(mapName)} ` +
-            'para leer su apertura.</div>';
+          : '<div class="rival-empty">Sin replays para ver su apertura.</div>';
     }
   }
 
-  return rivalBlock('EN ESTE MAPA', verdict + note, 'favs');
+  return rivalBlock('', stats + note, 'favs');
 }
 
 function rivalOpeningsBlock(report, pending) {
@@ -459,7 +512,9 @@ function rivalOpeningsBlock(report, pending) {
     (report.mapStats && report.mapStats.name) ||
     (lastState && lastState.match && lastState.match.mapName) ||
     null;
-  const title = 'APERTURA EN ESTE MAPA';
+  // El mapa ya está en la cabecera y en el bloque de arriba: repetirlo acá
+  // era texto que no aporta.
+  const title = 'APERTURA';
   if (report.loading || (pending && !openings)) {
     return rivalBlock(
       title,
@@ -507,12 +562,12 @@ function rivalOpeningsBlock(report, pending) {
       return `<span class="rival-chip" title="${escapeHtml(tip)}">${escapeHtml(item.short || item.name)}</span>`;
     })
     .join('');
-  const recent = chips ? `<div class="rival-chip-list"><span class="rival-sub">ÚLTIMAS DE ESA CIV</span>${chips}</div>` : '';
+  const recent = chips ? `<div class="rival-chip-list">${chips}</div>` : '';
   return rivalBlock(
     title,
     top + recent,
     'openings',
-    `${fmtNumber(openings.mapCivAnalyzed)} replays de ${civName || 'esa civ'}`,
+    `${fmtNumber(openings.mapCivAnalyzed)} replays`,
   );
 }
 
@@ -556,11 +611,6 @@ function renderRivalInfo() {
   rivalGrid.innerHTML = reports.length
     ? reports.map(rivalCard).join('')
     : `<div class="rival-empty">Buscando los datos del rival…</div>`;
-  if (rivalSource) {
-    rivalSource.textContent = rivalOptions.rivalOpenings
-      ? 'AoE2 Companion · AoE2Insights'
-      : 'AoE2 Companion';
-  }
   rivalInfoEl.hidden = false;
   renderAnalysis();
   requestAnimationFrame(reportHeight);
@@ -770,9 +820,10 @@ function renderOngoing(state) {
   const eloLabel = (state.eloLadder && state.eloLadder.label) || 'RM 1v1';
   const inLobby = state.phase === 'lobby';
   const example = state.example || null;
-  const title = inLobby
-    ? `Partida encontrada · ${ladder.label}`
-    : `${state.match.mapName} · ${ladder.label}`;
+  // El modo se repite solo si NO es RM 1v1: cuando el tag de la derecha ya
+  // dice "ELO RM 1v1", volver a escribirlo en el título es ruido.
+  const mode = ladder.label === 'RM 1v1' ? '' : ` · ${ladder.label}`;
+  const title = inLobby ? `Partida encontrada${mode}` : `${state.match.mapName}${mode}`;
   // El Modo ejemplo se distingue a simple vista: los DATOS son reales, lo que
   // se simula es el reloj. Hay que decirlo para no confundirlo con una partida.
   const badge = example
@@ -812,7 +863,11 @@ function renderOngoing(state) {
       const rank = player.rank
         ? `<span class="rank">#${player.rank}</span>`
         : `<span class="rank">${waiting ? '…' : ''}</span>`;
-      const peak = player.peak ? `pico ${fmtNumber(player.peak)}` : waiting ? '…' : '—';
+      // Pico con flecha en vez de la palabra: se entiende igual y deja de
+      // repetirse "pico" en cada fila del panel.
+      const peak = player.peak
+        ? `${icon('sube')}${fmtNumber(player.peak)}`
+        : waiting ? '…' : '—';
       return `${divider}
         <div class="row${player.isYou ? ' you' : ''}">
           <span class="dot"></span>
@@ -820,7 +875,7 @@ function renderOngoing(state) {
           ${civ}
           <span class="elo">${elo}</span>
           ${rank}
-          <span class="peak">${peak}</span>
+          <span class="peak" title="Pico de ELO (RM 1v1)">${peak}</span>
         </div>`;
     })
     .join('');
