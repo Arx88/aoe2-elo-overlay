@@ -162,18 +162,21 @@ function openingShort(name) {
   return (name && SHORT_LABELS[name]) || name || null;
 }
 
+/** Campos por defecto de la consulta de aperturas (los de siempre). */
+const DEFAULT_FIELDS = [
+  'strategy',
+  'match_id',
+  'started_time',
+  'civilization',
+  'map',
+  'ladder',
+  'player_name',
+];
+
 /** URL exacta de la consulta. Expuesta para el selftest. */
-function buildMatchUpsUrl(profileId, limit = ROW_LIMIT, mode = null) {
+function buildMatchUpsUrl(profileId, limit = ROW_LIMIT, mode = null, fields = DEFAULT_FIELDS) {
   const params = new URLSearchParams();
-  for (const field of [
-    'strategy',
-    'match_id',
-    'started_time',
-    'civilization',
-    'map',
-    'ladder',
-    'player_name',
-  ]) {
+  for (const field of fields) {
     params.append('field', field);
   }
   params.append(
@@ -219,13 +222,14 @@ async function fetchOpeningRows(profileId, options = {}) {
   const {
     limit = ROW_LIMIT,
     mode = null,
+    fields = DEFAULT_FIELDS,
     fetchImpl = globalThis.fetch,
     attempts = MAX_ATTEMPTS,
     retryMs = DEFAULT_RETRY_MS,
     timeoutMs = REQUEST_TIMEOUT_MS,
     sleep = defaultSleep,
   } = options;
-  const url = buildMatchUpsUrl(profileId, limit, mode);
+  const url = buildMatchUpsUrl(profileId, limit, mode, fields);
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const controller = new AbortController();
@@ -451,6 +455,7 @@ module.exports = {
   SHORT_LABELS,
   LADDER_MODES,
   MODE_KEYS,
+  DEFAULT_FIELDS,
   openingName,
   openingShort,
   resolveMode,

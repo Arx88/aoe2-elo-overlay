@@ -1196,7 +1196,8 @@ body.elo-hidden #rivalInfo {
   gap: 0.5rem;
 }
 
-#rivalInfo.single .rival-grid {
+#rivalInfo.single .rival-grid,
+#scoutInfo.single .rival-grid {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -1407,6 +1408,54 @@ body.elo-hidden #rivalInfo {
   line-height: 1.35;
   color: var(--muted);
   padding: 0.18rem 0;
+}
+
+/* =====================================================================
+   Recomendaciones inteligentes (opción smartTips): bloque pre-partida.
+   Misma estética que el informe del rival; cada línea lleva su etiqueta
+   y su muestra, así ningún consejo aparece sin número que lo respalde.
+   ===================================================================== */
+#scoutInfo {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem 0.6rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  color: var(--text);
+  text-shadow: var(--text-halo);
+  animation: civhelp-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rival-block.tips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.scout-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.scout-line .rival-sub {
+  flex: none;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--accent);
+}
+
+.scout-line > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* =====================================================================

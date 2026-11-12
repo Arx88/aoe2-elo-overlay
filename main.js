@@ -36,7 +36,8 @@ const {
   nextIntroTick,
 } = require('./src/intro');
 const { LobbyWatcher, QueueWatcher } = require('./src/live');
-const { buildRivalInsights, opponentsOf, resolveMode } = require('./src/rival');
+const { buildRivalInsights, opponentsOf, resolveMode, mapKey } = require('./src/rival');
+const { buildScoutTips } = require('./src/scout');
 const { initAutoUpdate } = require('./src/updater');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
@@ -80,10 +81,17 @@ const DEFAULT_CONFIG = {
   rivalCivs: false, // últimas 5 civilizaciones elegidas
   rivalFavorites: false, // civ más usada y winrate en el mapa de la partida
   rivalOpenings: false, // aperturas reales de AoE2Insights (replays analizados)
+  // Consejo pre-partida (mapa × civ × apertura que le cuestan al rival).
+  // Solo en la ventana de preparación: se va apenas arranca la partida.
+  smartTips: false,
   debug: false,
 };
 
-const RIVAL_OPTION_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings'];
+// Las 4 opciones entran al whitelist del IPC de configuración. Solo las 3
+// primeras arman el informe DURANTE la partida; smartTips es pre-partida y
+// tiene su propio flujo (refreshScoutTips) para no recalcular el informe.
+const RIVAL_OPTION_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'smartTips'];
+const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings'];
 
 // Los `rating/peak/rank` de todos los demos son de RM 1v1 (igual que en vivo),
 // aunque el `ladder` del demo diga RM team / EW / Unranked.
@@ -258,6 +266,7 @@ if (RIVAL_DEMO) {
   config.rivalCivs = true;
   config.rivalFavorites = true;
   config.rivalOpenings = true;
+  config.smartTips = true;
 }
 
 let win = null;
@@ -300,6 +309,11 @@ let lastClockSent = null;
 // Informe del rival: se calcula en BACKGROUND para no retrasar el aviso de
 // "partida encontrada". `rivalSig` evita repetir consultas en cada poll.
 let rivalReports = null;
+// Recomendaciones inteligentes (pre-partida): payload actual del consejo.
+let scoutPayload = null;
+let scoutSig = '';
+let scoutFetching = false;
+let scoutQueuedSig = null;
 let rivalSig = '';
 let rivalFetching = false;
 let rivalQueuedSig = null;
@@ -332,6 +346,7 @@ const EXAMPLE_ALL_ON = {
   rivalCivs: true,
   rivalFavorites: true,
   rivalOpenings: true,
+  smartTips: true,
 };
 
 /** Config usada para dibujar. Nunca se persiste. */
@@ -419,6 +434,7 @@ function overlayConfig() {
     rivalCivs: Boolean(view.rivalCivs),
     rivalFavorites: Boolean(view.rivalFavorites),
     rivalOpenings: Boolean(view.rivalOpenings),
+    smartTips: Boolean(view.smartTips),
     example: Boolean(exampleActive && exampleInfo),
     moving,
   };
@@ -462,6 +478,9 @@ function clockLabel(startedAt, now = Date.now()) {
  *   rivalFavorites → civ + mapa más usados (AoE2 Companion /stats)
  *   rivalOpenings  → aperturas detectadas en replays (AoE2Insights
  *                    /stats/api/match-ups/, campo `strategy`)
+ * La cuarta opción del grupo, `smartTips` (recomendaciones pre-partida), NO
+ * pasa por este flujo: vive solo en la fase `lobby` y la maneja
+ * refreshScoutTips (más abajo).
  *
  * Se dispara EN BACKGROUND desde emit(): el aviso de "partida encontrada" y
  * el ELO salen en 0-1ms; el informe llega después y se va completando por
@@ -471,12 +490,13 @@ const RIVAL_LIMIT = 2; // en TG mostramos hasta 2 rivales para no tapar el juego
 
 function rivalOptionsOn() {
   const view = viewConfig();
-  return RIVAL_OPTION_KEYS.some((key) => Boolean(view[key]));
+  return RIVAL_REPORT_KEYS.some((key) => Boolean(view[key]));
 }
 
 function rivalSignature(state, rivals) {
   const view = viewConfig();
-  const flags = RIVAL_OPTION_KEYS.map((key) => (view[key] ? '1' : '0')).join('');
+  // smartTips no entra en la firma: tiene su propio flujo pre-partida.
+  const flags = RIVAL_REPORT_KEYS.map((key) => (view[key] ? '1' : '0')).join('');
   const matchId = (state && state.match && state.match.matchId) || 'sin-id';
   const mapName = (state && state.match && state.match.mapName) || 'sin-mapa';
   const mode = resolveMode(leaderboardOf(state));
@@ -668,6 +688,169 @@ async function refreshRivalReports(state, options = {}) {
       refreshRivalReports(lastGood).catch(() => {});
     } else {
       rivalQueuedSig = null;
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * RECOMENDACIONES INTELIGENTES (opción `smartTips`, pre-partida)
+ *
+ * Consejo corto por rival calculado con datos REALES de AoE2Insights
+ * (src/scout.js): qué civs y qué aperturas le cuestan en el mapa/modo de la
+ * partida, y su perfil de ritmo. REGLA DE PRODUCTO: solo existe en la fase
+ * `lobby` (la ventana de ~60s entre "partida encontrada" y el inicio); cuando
+ * el REST confirma que la partida arrancó, el estado ya no trae esa fase y
+ * el bloque se borra solo.
+ * ---------------------------------------------------------------------- */
+
+/** ¿Estamos en la ventana de preparación (partida encontrada, no empezada)? */
+function preStartState(state) {
+  return Boolean(state && state.status === 'ongoing' && state.phase === 'lobby');
+}
+
+function sendScout(payload) {
+  scoutPayload = payload;
+  send('overlay:scout', payload);
+}
+
+function clearScoutTips() {
+  scoutSig = '';
+  scoutQueuedSig = null;
+  if (scoutPayload) sendScout(null);
+}
+
+/** Datos de ejemplo solo para capturas/demos (mismo criterio que demoRivalReports). */
+function demoScoutTips(state) {
+  const mode = resolveMode(leaderboardOf(state)) || {
+    id: 3, key: 'rm_1v1', label: 'RM 1v1', group: 'rm', size: '1v1',
+  };
+  const mapName = (state && state.match && state.match.mapName) || 'Arabia';
+  return {
+    ts: Date.now(),
+    pending: false,
+    demo: true,
+    tips: opponentsOf(state, RIVAL_LIMIT).map((rival) => ({
+      profileId: rival.profileId,
+      name: rival.name,
+      ok: true,
+      source: 'AoE2Insights · replays analizados',
+      mode,
+      modeUnavailable: false,
+      totalMatches: 96,
+      scope: 'map',
+      scopeLabel: `en ${mapName}`,
+      sample: 48,
+      wins: 25,
+      winRate: 52,
+      weakAgainst: [
+        { civ: 'Gurjaras', games: 5, losses: 4, lossRate: 80 },
+        { civ: 'Bengalis', games: 5, losses: 4, lossRate: 80 },
+        { civ: 'Teutons', games: 7, losses: 4, lossRate: 57 },
+      ],
+      openingsAgainst: [
+        { name: 'Scout rush', short: 'Scouts', games: 31, losses: 12, lossRate: 39, scope: 'recorte' },
+        { name: 'Archer rush', short: 'Archer rush', games: 18, losses: 7, lossRate: 39, scope: 'recorte' },
+      ],
+      tempo: { shortGames: 9, shortWinRate: 33, longGames: 22, longWinRate: 64 },
+      fetchedAt: Date.now(),
+      fromCache: false,
+    })),
+  };
+}
+
+/**
+ * Consulta y publica los consejos. Misma disciplina que el informe del rival:
+ * idempotente por partida, una consulta en vuelo como máximo, y jamás
+ * bloquea el aviso de partida encontrada.
+ */
+async function refreshScoutTips(state, options = {}) {
+  const view = viewConfig();
+  if (DEMO) {
+    if (RIVAL_DEMO && preStartState(state)) sendScout(demoScoutTips(state));
+    return;
+  }
+  if (!view.smartTips || !preStartState(state)) {
+    clearScoutTips();
+    return;
+  }
+
+  const rivals = opponentsOf(state, RIVAL_LIMIT);
+  const mode = resolveMode(leaderboardOf(state));
+  const matchId = (state.match && state.match.matchId) || 'sin-id';
+  const mapName = (state.match && state.match.mapName) || null;
+  const sig = `${matchId}:${mapKey(mapName)}:${mode ? mode.id : 'sin-modo'}:${rivals
+    .map((rival) => rival.profileId)
+    .join(',')}`;
+  if (!options.force && sig === scoutSig && scoutPayload) return;
+  if (scoutFetching) {
+    scoutQueuedSig = sig;
+    return;
+  }
+  scoutSig = sig;
+
+  if (!rivals.length) {
+    sendScout({ ts: Date.now(), pending: false, tips: [] });
+    return;
+  }
+  // Sin ladder rankeada no se mezclan modos: se avisa y listo.
+  if (!mode) {
+    sendScout({
+      ts: Date.now(),
+      pending: false,
+      tips: rivals.map((rival) => ({
+        profileId: rival.profileId,
+        name: rival.name,
+        modeUnavailable: true,
+      })),
+    });
+    return;
+  }
+
+  scoutFetching = true;
+  const startedAt = Date.now();
+  const tips = [];
+  const publish = () => {
+    sendScout({
+      ts: Date.now(),
+      pending: tips.length < rivals.length,
+      tips: tips.map((item) => ({ ...item })),
+    });
+  };
+  try {
+    sendScout({
+      ts: Date.now(),
+      pending: true,
+      tips: rivals.map((rival) => ({ profileId: rival.profileId, name: rival.name, loading: true })),
+    });
+    for (const rival of rivals) {
+      const tip = await buildScoutTips({
+        profileId: rival.profileId,
+        name: rival.name,
+        mode,
+        mapName,
+        cache: statsCache,
+        cacheTtlMs: 30 * 60 * 1000,
+        log,
+      });
+      const index = tips.findIndex((item) => item.profileId === tip.profileId);
+      if (index >= 0) tips[index] = tip;
+      else tips.push(tip);
+      publish();
+      log(
+        `consejo pre-partida de ${rival.name} listo en ${Date.now() - startedAt}ms · ` +
+          `${tip.totalMatches} replays del modo`,
+      );
+    }
+  } catch (err) {
+    log(`no pude armar el consejo pre-partida: ${err.message}`);
+  } finally {
+    scoutFetching = false;
+    if (scoutQueuedSig && scoutQueuedSig !== scoutSig) {
+      scoutQueuedSig = null;
+      scoutSig = '';
+      refreshScoutTips(lastGood).catch(() => {});
+    } else {
+      scoutQueuedSig = null;
     }
   }
 }
@@ -1577,6 +1760,7 @@ function registerIpc() {
     rivalCivs: Boolean(config.rivalCivs),
     rivalFavorites: Boolean(config.rivalFavorites),
     rivalOpenings: Boolean(config.rivalOpenings),
+    smartTips: Boolean(config.smartTips),
     matchStartedAt: intro && intro.engaged ? intro.startedAt : null,
     exampleClockElapsedMs:
       exampleFrozenAt != null && intro && intro.engaged
@@ -1704,7 +1888,7 @@ function registerIpc() {
     return { ok: true, hideAtSeconds: seconds };
   });
 
-  // Las tres opciones del informe del rival comparten un solo handler con
+  // Las cuatro opciones de "Datos del rival" comparten un solo handler con
   // whitelist: se prenden/apagan en caliente, sin reiniciar y sin consultar
   // la red cuando la última opción se apaga.
   ipcMain.handle('settings:rivalOption', (_event, rawKey, rawValue) => {
@@ -1721,6 +1905,13 @@ function registerIpc() {
       // Cambió el conjunto de datos pedidos: recalcular con la firma nueva.
       rivalSig = '';
       refreshRivalReports(lastGood, { force: true }).catch(() => {});
+    }
+    // El consejo pre-partida es otra opción del mismo grupo: mismo tratamiento.
+    if (!viewConfig().smartTips) {
+      clearScoutTips();
+    } else {
+      scoutSig = '';
+      refreshScoutTips(lastGood, { force: true }).catch(() => {});
     }
     return { ok: true, key, enabled };
   });
@@ -1757,6 +1948,8 @@ function registerIpc() {
     sendView(true);
     // Y también el informe del rival que ya estaba calculado.
     if (rivalReports) send('overlay:rival', rivalReports);
+    // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
+    if (scoutPayload) send('overlay:scout', scoutPayload);
 
     // Si el renderer se recargó mientras el chip de actualización estaba
     // vigente, lo repintamos (se apaga solo por su propio timer).
@@ -1860,6 +2053,8 @@ function emit(state) {
   syncIntro(state);
   // El informe del rival NO bloquea: se dispara y llega cuando esté listo.
   refreshRivalReports(state).catch(() => {});
+  // El consejo pre-partida tampoco: solo vive en la fase `lobby`.
+  refreshScoutTips(state).catch(() => {});
   return true;
 }
 

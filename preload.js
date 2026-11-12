@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('overlay', {
   onMovable: (callback) => ipcRenderer.on('overlay:movable', (_event, on) => callback(on)),
   onView: (callback) => ipcRenderer.on('overlay:view', (_event, view) => callback(view)),
   onRival: (callback) => ipcRenderer.on('overlay:rival', (_event, report) => callback(report)),
+  // Consejo pre-partida (recomendaciones inteligentes): solo fase `lobby`.
+  onScout: (callback) => ipcRenderer.on('overlay:scout', (_event, payload) => callback(payload)),
   // Aviso de actualización: el overlay es click-through, así que es solo visual.
   onUpdate: (callback) => ipcRenderer.on('overlay:update', (_event, payload) => callback(payload)),
   moveDone: () => ipcRenderer.send('overlay:move-done'),

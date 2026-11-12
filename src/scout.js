@@ -1,0 +1,396 @@
+'use strict';
+
+/**
+ * RECOMENDACIONES INTELIGENTES (pre-partida)
+ * ===========================================
+ *
+ * Qué es: al encontrarse la partida (fase `lobby`, antes de entrar al mapa),
+ * un consejo CORTO por rival calculado con datos REALES de AoE2Insights
+ * (`/stats/api/match-ups/`). Se muestra solo en esa ventana y desaparece
+ * apenas la partida arranca (ver el gate `phase === 'lobby'` del renderer).
+ *
+ * De dónde sale cada número (todo es la misma consulta, formato columna):
+ *
+ *   match_id               → dedup (una fila por enfrentamiento)
+ *   won                    → "Won" / "Not Won" (labels, no booleanos)
+ *   map                    → recorte "en ESTE mapa"
+ *   map_openness           → fallback "en mapas abiertos/cerrados" si el mapa
+ *                            puntual no tiene muestra suficiente
+ *   civilization_opponent  → qué civs le ganan al rival (el dato que pidió
+ *                            el usuario: "sufrió el 90% contra X civ")
+ *   strategy_opponent      → qué aperturas le hacen daño (el reemplazo real
+ *                            de "X unidad": no existe dato por unidad en
+ *                            ninguna API pública, verificado 2026-11-12)
+ *   match_duration         → perfil de ritmo: le va mejor en cortas o largas
+ *
+ * Reglas de honestidad (igual que el resto del overlay):
+ *  - NUNCA se inventa: cada línea muestra su muestra ("pierde 80% · 5 pj").
+ *  - Mínimos de muestra por recorte (MIN_*) — abajo de eso no se muestra.
+ *  - Si el mapa no tiene muestra se baja al tipo de mapa (abierto/cerrado),
+ *    y si tampoco, al modo completo. El alcance usado se declara siempre.
+ *  - Sin ladder rankeada (custom/unranked/quickplay) no se mezclan modos:
+ *    se devuelve `modeUnavailable` y el panel lo dice.
+ *
+ * Costo: UNA request por rival por modo (el filtro por ladder va server-side;
+ * el recorte por mapa se hace en cliente sobre esas filas). Primera vez ~3-9s
+ * (el backend calcula y responde 202), después Varnish + cache local 30 min.
+ */
+
+const {
+  fetchOpeningRows,
+  resolveMode,
+  openingShort,
+  DEFAULT_TTL_MS,
+} = require('./insights');
+const { mapKey } = require('./rival');
+
+const SOURCE = 'AoE2Insights · replays analizados';
+const ROW_LIMIT = 500;
+
+// Campos de la consulta. `won` llega como label "Won"/"Not Won" (verificado
+// en vivo 2026-11-12), no como booleano: isWin() normaliza ambos.
+const FIELDS = [
+  'match_id',
+  'won',
+  'map',
+  'map_openness',
+  'civilization',
+  'civilization_opponent',
+  'strategy',
+  'strategy_opponent',
+  'match_duration',
+  'started_time',
+];
+
+// Mínimos de muestra: un 80% sobre 2 partidas no es un dato, es ruido.
+const MIN_SCOPE_GAMES = 6; // recorte (mapa / tipo de mapa) para fiar números
+const MIN_CIV_GAMES = 3; // civ rival con menos de 3 partidas no entra
+const MIN_OPENING_GAMES = 4; // apertura rival con menos de 4 no entra
+const MIN_TEMPO_GAMES = 10; // perfil de duración (cortas + largas)
+const MIN_TEMPO_BUCKET = 3; // y cada extremo con al menos 3 partidas
+const SHORT_S = 15 * 60; // partida "corta": < 15 min
+const LONG_S = 25 * 60; // partida "larga": >= 25 min
+
+const WEAK_MIN_LOSS_RATE = 55; // "le cuesta" = pierde más de la mitad
+
+/** "Won" | "Not Won" | true | false | "true" | "false" → booleano. */
+function isWin(value) {
+  const raw = String(value == null ? '' : value).toLowerCase();
+  return value === true || raw === 'true' || raw === 'won';
+}
+
+/** Civs sin dato o desconocidas no cuentan para el cruce. */
+function validCiv(value) {
+  const raw = String(value == null ? '' : value).trim();
+  return raw && raw.toLowerCase() !== 'unknown' ? raw : null;
+}
+
+/** Apertura válida (misma idea que openingName de insights). */
+function validStrategy(value) {
+  const raw = String(value == null ? '' : value).trim();
+  return raw && raw.toLowerCase() !== 'unknown' ? raw : null;
+}
+
+/**
+ * Columnas → partidas únicas del jugador (perspectiva propia), ordenadas de
+ * más nueva a más vieja. `won` es SIEMPRE desde la perspectiva del perfil
+ * consultado (verificado: el filtro por player_relic_id devuelve solo filas
+ * donde es sujeto).
+ */
+function parseScoutRows(payload) {
+  const rows = (payload && payload.rows) || {};
+  const col = (name) => (Array.isArray(rows[name]) ? rows[name] : []);
+  const ids = col('match_id');
+  const won = col('won');
+  const maps = col('map');
+  const openness = col('map_openness');
+  const civs = col('civilization');
+  const oppCivs = col('civilization_opponent');
+  const strategies = col('strategy');
+  const oppStrategies = col('strategy_opponent');
+  const durations = col('match_duration');
+  const started = col('started_time');
+
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    const key = String(ids[i] ?? `row-${i}`);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const duration = Number(durations[i]);
+    out.push({
+      matchId: ids[i] ?? null,
+      won: isWin(won[i]),
+      map: maps[i] || null,
+      openness: openness[i] || null,
+      civ: validCiv(civs[i]),
+      oppCiv: validCiv(oppCivs[i]),
+      strategy: validStrategy(strategies[i]),
+      oppStrategy: validStrategy(oppStrategies[i]),
+      duration: Number.isFinite(duration) && duration > 0 ? duration : null,
+      startedAt: started[i] || null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Recorte a usar: el mapa exacto si tiene muestra; si no, el TIPO de mapa
+ * (map_openness del mapa actual, p. ej. mapas abiertos); si no, el modo
+ * completo. Devuelve { rows, scope, scopeLabel } con scopeLabel ya listo
+ * para mostrar ("en Arabia" / "en mapas abiertos" / "en RM 1v1").
+ */
+function pickScope(matches, mapName, mode) {
+  const all = Array.isArray(matches) ? matches : [];
+  const wanted = mapKey(mapName);
+  if (wanted) {
+    const onMap = all.filter((row) => mapKey(row.map) === wanted);
+    if (onMap.length >= MIN_SCOPE_GAMES) {
+      return { rows: onMap, scope: 'map', scopeLabel: `en ${mapName}` };
+    }
+    // Tipo de mapa del mapa actual (si alguna fila lo declara).
+    const openness = (onMap.find((row) => row.openness) || {}).openness || null;
+    if (openness) {
+      const sameKind = all.filter((row) => row.openness === openness);
+      if (sameKind.length >= MIN_SCOPE_GAMES) {
+        return { rows: sameKind, scope: 'openness', scopeLabel: `en mapas ${openness}` };
+      }
+    }
+  }
+  const modeLabel = mode && mode.label ? mode.label : 'este modo';
+  return { rows: all, scope: 'mode', scopeLabel: `en ${modeLabel}` };
+}
+
+/** % entero o null si no hay denominador. */
+function pct(part, total) {
+  if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return null;
+  return Math.round((part / total) * 100);
+}
+
+/**
+ * Civs contra las que el rival PIERDE más seguido en el recorte.
+ * Solo entran civs con >= MIN_CIV_GAMES partidas y lossRate > 50%:
+ * "le cuesta" significa que pierde más de la mitad, no cualquier número.
+ */
+function weakAgainst(rows) {
+  const byCiv = new Map();
+  for (const row of rows) {
+    if (!row.oppCiv) continue;
+    const entry = byCiv.get(row.oppCiv) || { civ: row.oppCiv, games: 0, losses: 0 };
+    entry.games += 1;
+    if (!row.won) entry.losses += 1;
+    byCiv.set(row.oppCiv, entry);
+  }
+  return [...byCiv.values()]
+    .filter((entry) => entry.games >= MIN_CIV_GAMES)
+    .map((entry) => ({ ...entry, lossRate: pct(entry.losses, entry.games) }))
+    .filter((entry) => entry.lossRate != null && entry.lossRate >= WEAK_MIN_LOSS_RATE)
+    .sort((a, b) => b.lossRate - a.lossRate || b.games - a.games)
+    .slice(0, 3);
+}
+
+/**
+ * Aperturas que le hacen daño al rival (strategy_opponent = lo que le jugaron).
+ * Primero en el recorte; si ahí no hay muestra, en el modo completo. Cada
+ * entrada declara su alcance para que el panel no mienta.
+ */
+function openingsAgainst(rows, allRows) {
+  const collect = (list, scope, minGames) => {
+    const byOpening = new Map();
+    for (const row of list) {
+      if (!row.oppStrategy) continue;
+      const entry = byOpening.get(row.oppStrategy) || {
+        name: row.oppStrategy,
+        games: 0,
+        losses: 0,
+      };
+      entry.games += 1;
+      if (!row.won) entry.losses += 1;
+      byOpening.set(row.oppStrategy, entry);
+    }
+    return [...byOpening.values()]
+      .filter((entry) => entry.games >= minGames)
+      .map((entry) => ({
+        ...entry,
+        short: openingShort(entry.name) || entry.name,
+        lossRate: pct(entry.losses, entry.games),
+        scope,
+      }))
+      .sort((a, b) => b.lossRate - a.lossRate || b.games - a.games)
+      .slice(0, 3);
+  };
+  const scoped = collect(rows, 'recorte', MIN_CIV_GAMES);
+  return scoped.length ? scoped : collect(allRows, 'modo', MIN_OPENING_GAMES);
+}
+
+/**
+ * Perfil de ritmo sobre TODAS las partidas del modo (muestra máxima):
+ * winrate en partidas cortas vs largas. Sirve para el consejo "cerralo
+ * temprano" / "alargá la partida", siempre con los números al lado.
+ */
+function tempoProfile(allRows) {
+  const timed = allRows.filter((row) => row.duration != null);
+  const short = timed.filter((row) => row.duration < SHORT_S);
+  const long = timed.filter((row) => row.duration >= LONG_S);
+  if (timed.length < MIN_TEMPO_GAMES) return null;
+  if (short.length < MIN_TEMPO_BUCKET || long.length < MIN_TEMPO_BUCKET) return null;
+  return {
+    shortGames: short.length,
+    shortWinRate: pct(short.filter((row) => row.won).length, short.length),
+    longGames: long.length,
+    longWinRate: pct(long.filter((row) => row.won).length, long.length),
+  };
+}
+
+/** Recorte completo de un rival a partir de sus partidas ya parseadas. */
+function computeTips(matches, options = {}) {
+  const { mapName = null, mode = null } = options;
+  const scoped = pickScope(matches, mapName, mode);
+  const wins = scoped.rows.filter((row) => row.won).length;
+  return {
+    scope: scoped.scope,
+    scopeLabel: scoped.scopeLabel,
+    sample: scoped.rows.length,
+    wins,
+    winRate: pct(wins, scoped.rows.length),
+    weakAgainst: weakAgainst(scoped.rows),
+    openingsAgainst: openingsAgainst(scoped.rows, matches),
+    tempo: tempoProfile(matches),
+  };
+}
+
+function emptyTips(profileId, name, now, options = {}) {
+  const { mode = null, modeUnavailable = false, error = null } = options;
+  return {
+    ok: !error,
+    error,
+    profileId: profileId != null ? Number(profileId) : null,
+    name: name || null,
+    source: SOURCE,
+    mode: mode ? { ...mode } : null,
+    modeUnavailable: Boolean(modeUnavailable),
+    totalMatches: 0,
+    scope: null,
+    scopeLabel: null,
+    sample: 0,
+    wins: 0,
+    winRate: null,
+    weakAgainst: [],
+    openingsAgainst: [],
+    tempo: null,
+    fetchedAt: now,
+    fromCache: false,
+  };
+}
+
+/**
+ * Entrada usada por main.js. Nunca tira excepción: los fallos vuelven como
+ * `error` y el panel simplemente no muestra el consejo.
+ *
+ * La cache guarda las FILAS parseadas por rival+modo (30 min), no el recorte:
+ * así dos mapas distintos contra el mismo rival no repiten la consulta.
+ */
+async function buildScoutTips(options = {}) {
+  const {
+    profileId,
+    name = null,
+    mode = null,
+    leaderboardId = null,
+    mapName = null,
+    cache = null,
+    cacheTtlMs = DEFAULT_TTL_MS,
+    now = Date.now(),
+    limit = ROW_LIMIT,
+    fetchImpl,
+    sleep,
+    attempts,
+    retryMs,
+    log = () => {},
+  } = options;
+
+  const id = Number(profileId);
+  if (!Number.isFinite(id) || id <= 0) {
+    return emptyTips(null, name, now, { error: 'perfil inválido' });
+  }
+
+  const resolved = mode ? resolveMode(mode) : resolveMode(leaderboardId);
+  if (!resolved) {
+    // Custom / unranked / quickplay: mismo criterio que las aperturas,
+    // no se mezclan modos para rellenar.
+    return { ...emptyTips(id, name, now), ok: true, modeUnavailable: true };
+  }
+
+  const rowsKey = `scout:rows:${id}:${resolved.id}`;
+  const cached = cache && cache.get(rowsKey);
+  let rows = null;
+  let totalRows = 0;
+  let fromCache = false;
+
+  if (cached && now - cached.ts <= cacheTtlMs) {
+    rows = cached.rows;
+    totalRows = cached.totalRows;
+    fromCache = true;
+  } else {
+    try {
+      const payload = await fetchOpeningRows(id, {
+        limit,
+        mode: resolved,
+        fields: FIELDS,
+        fetchImpl,
+        sleep,
+        attempts,
+        retryMs,
+      });
+      rows = parseScoutRows(payload);
+      totalRows = Number(payload && payload.count) || rows.length;
+      if (cache) cache.set(rowsKey, { ts: now, rows, totalRows });
+    } catch (err) {
+      if (cached) {
+        rows = cached.rows;
+        totalRows = cached.totalRows;
+        fromCache = true;
+        log(`scout #${id} [${resolved.label}]: red caída, uso filas anteriores (${err.message})`);
+      } else {
+        log(`scout #${id} [${resolved.label}] no disponible: ${err.message}`);
+        return emptyTips(id, name, now, { mode: resolved, error: err.message });
+      }
+    }
+  }
+
+  const tips = computeTips(rows, { mapName, mode: resolved });
+  const result = {
+    ...emptyTips(id, name, now, { mode: resolved }),
+    ok: true,
+    totalMatches: rows.length,
+    totalRows,
+    ...tips,
+    fromCache,
+  };
+  log(
+    `scout #${id} [${resolved.label}]: ${rows.length} partidas · recorte ${result.scopeLabel} ` +
+      `(${result.sample} pj, ${result.winRate == null ? '—' : `${result.winRate}%`}) · ` +
+      `${result.weakAgainst.length} civs difíciles · ${result.openingsAgainst.length} aperturas que le duelen`,
+  );
+  return result;
+}
+
+module.exports = {
+  SOURCE,
+  FIELDS,
+  ROW_LIMIT,
+  MIN_SCOPE_GAMES,
+  MIN_CIV_GAMES,
+  MIN_OPENING_GAMES,
+  MIN_TEMPO_GAMES,
+  SHORT_S,
+  LONG_S,
+  isWin,
+  parseScoutRows,
+  pickScope,
+  computeTips,
+  weakAgainst,
+  openingsAgainst,
+  tempoProfile,
+  emptyTips,
+  buildScoutTips,
+};

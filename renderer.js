@@ -12,6 +12,8 @@ const civHelpBar = document.getElementById('civhelpBar');
 const rivalInfoEl = document.getElementById('rivalInfo');
 const rivalGrid = document.getElementById('rivalGrid');
 const rivalSource = document.getElementById('rivalSource');
+const scoutInfoEl = document.getElementById('scoutInfo');
+const scoutGrid = document.getElementById('scoutGrid');
 const updateToastEl = document.getElementById('updateToast');
 const updateToastText = document.getElementById('updateToastText');
 
@@ -87,6 +89,9 @@ let civFrozenElapsed = null;
 // Informe opcional del rival: llega por `overlay:rival` en SEGUNDO PLANO.
 let rivalPayload = null;
 let rivalOptions = { rivalCivs: false, rivalFavorites: false, rivalOpenings: false };
+// Recomendaciones inteligentes: llegan por `overlay:scout`; solo pre-partida.
+let scoutPayload = null;
+let smartTipsEnabled = false;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -500,6 +505,112 @@ function renderRivalInfo() {
 }
 
 /* -------------------------------------------------------------------------
+ * RECOMENDACIONES INTELIGENTES (opción smartTips).
+ *
+ * REGLA: solo se ven ANTES de que la partida arranque (fase `lobby`, la
+ * ventana de ~60s tras "partida encontrada"). Apenas el estado llega sin
+ * esa fase (la partida empezó), el bloque se oculta solo: no hay timer ni
+ * reloj, el gate es la fase que manda main.
+ * Cada línea muestra su muestra ("pierde 80% · 5 pj"): nunca un número solo.
+ * ---------------------------------------------------------------------- */
+
+function scoutLine(text, sub) {
+  return (
+    `<div class="scout-line">` +
+    (sub ? `<span class="rival-sub">${escapeHtml(sub)}</span>` : '') +
+    `<span>${escapeHtml(text)}</span></div>`
+  );
+}
+
+function scoutTipLines(tip) {
+  if (!tip) return ['<div class="rival-empty">Sin datos.</div>'];
+  if (tip.loading) return ['<div class="rival-empty">Analizando replays del rival…</div>'];
+  if (tip.modeUnavailable) {
+    return ['<div class="rival-empty">Solo en partidas ranked: en custom no se mezclan modos.</div>'];
+  }
+  if (tip.error) return ['<div class="rival-empty">Replays no disponibles ahora mismo.</div>'];
+  if (!tip.sample) {
+    return [
+      `<div class="rival-empty">Sin replays analizados de este rival` +
+        `${tip.mode ? ` en ${escapeHtml(tip.mode.label)}` : ''}.</div>`,
+    ];
+  }
+
+  const lines = [];
+  const where = tip.scopeLabel || '';
+  if (tip.winRate != null) {
+    lines.push(scoutLine(`Gana el ${fmtNumber(tip.winRate)}%${where ? ` ${where}` : ''}`, `${fmtNumber(tip.sample)} PJ`));
+  }
+  if (tip.weakAgainst && tip.weakAgainst.length) {
+    const civs = tip.weakAgainst
+      .map((row) => `${row.civ} (pierde ${fmtNumber(row.lossRate)}% · ${fmtNumber(row.games)} pj)`)
+      .join(' · ');
+    lines.push(scoutLine(civs, 'LE CUESTAN'));
+  }
+  if (tip.openingsAgainst && tip.openingsAgainst.length) {
+    const scope = tip.openingsAgainst[0].scope === 'modo' ? ' · todo el modo' : '';
+    const openings = tip.openingsAgainst
+      .map((row) => `${row.short || row.name} ${fmtNumber(row.lossRate)}% (${fmtNumber(row.games)} pj)`)
+      .join(' · ');
+    lines.push(scoutLine(`${openings}${scope}`, 'APERTURAS QUE LE DUELEN'));
+  }
+  if (tip.tempo) {
+    const diff = tip.tempo.longWinRate - tip.tempo.shortWinRate;
+    if (diff >= 10) {
+      lines.push(
+        scoutLine(
+          `Le salen mejor las largas: ${fmtNumber(tip.tempo.longWinRate)}% si pasa de 25 min ` +
+            `(${fmtNumber(tip.tempo.shortWinRate)}% en cortas)`,
+          'RITMO',
+        ),
+      );
+    } else if (diff <= -10) {
+      lines.push(
+        scoutLine(
+          `Le cuestan las largas: ${fmtNumber(tip.tempo.shortWinRate)}% antes de 15 min ` +
+            `(${fmtNumber(tip.tempo.longWinRate)}% si se alarga)`,
+          'RITMO',
+        ),
+      );
+    }
+  }
+  return lines.length ? lines : ['<div class="rival-empty">Sin punto débil claro en su historial.</div>'];
+}
+
+function scoutCard(tip) {
+  const name = tip.name || `Perfil ${tip.profileId || '?'}`;
+  return (
+    '<article class="rival-card">' +
+    '<div class="rival-card-head">' +
+    `<span class="rival-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>` +
+    '</div>' +
+    `<div class="rival-block tips">${scoutTipLines(tip).join('')}</div>` +
+    '</article>'
+  );
+}
+
+function renderScoutInfo() {
+  if (!scoutInfoEl) return;
+  const active =
+    smartTipsEnabled &&
+    lastState &&
+    lastState.status === 'ongoing' &&
+    lastState.phase === 'lobby' &&
+    !moving;
+  if (!active) {
+    scoutInfoEl.hidden = true;
+    return;
+  }
+  const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
+  scoutInfoEl.classList.toggle('single', tips.length <= 1);
+  scoutGrid.innerHTML = tips.length
+    ? tips.map(scoutCard).join('')
+    : '<div class="rival-empty">Preparando el consejo del rival…</div>';
+  scoutInfoEl.hidden = false;
+  requestAnimationFrame(reportHeight);
+}
+
+/* -------------------------------------------------------------------------
  * Cuenta regresiva y barra: el main manda el tiempo REAL de partida que
  * falta hasta 0:20, así que activar la opción a 0:12 o recargar el panel
  * no reinicia el reloj.
@@ -711,6 +822,9 @@ function render(state) {
   // Las civs pueden llegar en un poll posterior: refrescá la tarjeta también.
   renderCivHelp();
   renderRivalInfo();
+  // El consejo pre-partida se reevalúa con CADA estado: cuando la fase deja
+  // de ser `lobby` (la partida arrancó), el bloque desaparece acá mismo.
+  renderScoutInfo();
   requestAnimationFrame(reportHeight);
 }
 
@@ -734,6 +848,7 @@ function setMoving(on) {
   }
   renderCivHelp();
   renderRivalInfo();
+  renderScoutInfo();
 }
 
 window.overlay.onConfig((config) => {
@@ -745,12 +860,14 @@ window.overlay.onConfig((config) => {
   for (const key of Object.keys(rivalOptions)) {
     if (config[key] !== undefined) rivalOptions[key] = Boolean(config[key]);
   }
+  if (config.smartTips !== undefined) smartTipsEnabled = Boolean(config.smartTips);
   if (config.moving !== undefined) setMoving(config.moving);
   document.documentElement.style.setProperty('--scale', String(config.scale || 1));
 
   // Cambiar de diseño o de dataset cambia la altura de la tarjeta.
   renderCivHelp();
   renderRivalInfo();
+  renderScoutInfo();
   if (lastState) render(lastState);
   requestAnimationFrame(reportHeight);
 });
@@ -763,6 +880,13 @@ if (window.overlay.onRival) {
   window.overlay.onRival((payload) => {
     rivalPayload = payload;
     renderRivalInfo();
+    requestAnimationFrame(reportHeight);
+  });
+}
+if (window.overlay.onScout) {
+  window.overlay.onScout((payload) => {
+    scoutPayload = payload;
+    renderScoutInfo();
     requestAnimationFrame(reportHeight);
   });
 }

@@ -44,11 +44,13 @@ const rivalInputs = {
   rivalCivs: el('rivalCivs'),
   rivalFavorites: el('rivalFavorites'),
   rivalOpenings: el('rivalOpenings'),
+  smartTips: el('smartTips'),
 };
 const RIVAL_LABELS = {
   rivalCivs: 'Últimas 5 civs del rival',
   rivalFavorites: 'Civ y mapa más usados',
   rivalOpenings: 'Aperturas reales',
+  smartTips: 'Recomendaciones inteligentes',
 };
 const themeButtons = [...document.querySelectorAll('.theme')];
 const navButtons = [...document.querySelectorAll('.nav-item')];

@@ -53,6 +53,19 @@
         </div>
         <div class="rival-grid" id="rivalGrid"></div>
       </section>
+
+      <!--
+        RECOMENDACIONES INTELIGENTES (opción smartTips): consejo por rival
+        calculado con replays reales de AoE2Insights. Solo vive en la
+        pre-partida (fase `lobby`): al arrancar la partida desaparece solo.
+      -->
+      <section id="scoutInfo" hidden aria-live="polite">
+        <div class="rival-head">
+          <span class="rival-title">Recomendaciones</span>
+          <span class="rival-source" id="scoutSource">AoE2Insights</span>
+        </div>
+        <div class="rival-grid" id="scoutGrid"></div>
+      </section>
     </div>
     <script src="renderer.js"></script>
   </body>
