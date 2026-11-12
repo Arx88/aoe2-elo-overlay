@@ -540,11 +540,13 @@ function rivalH2HBlock(report) {
   if (!h2h) return '';
   const neverFaced = !Number(h2h.games);
   if (neverFaced && !Number(h2h.asAllies)) {
-    return rivalBlock(
-      '',
-      '<div class="rival-empty">Nunca se enfrentaron en este modo.</div>',
-      'h2h',
-    );
+    // Decir DÓNDE se buscó: "nunca" sin ventana es una media verdad (el
+    // historial se recorre hasta ~600 partidas del modo).
+    const scanned = Number(h2h.scanned) || 0;
+    const msg = scanned
+      ? `Sin enfrentamientos en tus últimas ${fmtNumber(scanned)} partidas del modo.`
+      : 'Sin historial público reciente en este modo.';
+    return rivalBlock('', `<div class="rival-empty">${escapeHtml(msg)}</div>`, 'h2h');
   }
 
   if (neverFaced) {
@@ -567,7 +569,9 @@ function rivalH2HBlock(report) {
 
   const wins = Number(h2h.wins) || 0;
   const losses = Number(h2h.losses) || 0;
-  const tone = wins > losses ? 'good' : losses > wins ? 'bad' : '';
+  // Un 1-0 no es "ganás la serie": el color se fiaría solo con muestra.
+  const reliable = Number(h2h.games) >= 3;
+  const tone = reliable ? (wins > losses ? 'good' : losses > wins ? 'bad' : '') : '';
   const subParts = [gamesText(h2h.games)];
   if (h2h.lastMatch && h2h.lastMatch.mapName && h2h.lastMatch.mapName !== '—') {
     subParts.push(`última en ${h2h.lastMatch.mapName}`);
@@ -585,7 +589,27 @@ function rivalH2HBlock(report) {
       `<b class="rstat-value rstat-civ">${fmtNumber(h2h.asAllies)}</b>` +
       `<span class="rstat-sub">${escapeHtml(gamesText(h2h.asAllies))}</span></div>`
     : '';
-  return rivalBlock('', `<div class="rstat-grid">${tile}${alliesTile}</div>`, 'h2h');
+  // Los últimos 3 enfrentamientos: mi civ, resultado y mapa. El mismo
+  // lenguaje visual que las ÚLTIMAS 5 del informe.
+  const meetings = Array.isArray(h2h.recent) ? h2h.recent.slice(0, 3) : [];
+  const chips = meetings.length
+    ? '<div class="rival-civ-list">' +
+      meetings
+        .map((row) => {
+          const result = row.won === true ? 'V' : row.won === false ? 'D' : '·';
+          const cls = row.won === true ? 'win' : row.won === false ? 'loss' : '';
+          const tip = `Vos con ${row.civ || '?'} · ${result} · ${row.mapName || '—'}`;
+          return (
+            `<span class="rival-civ-item ${cls}" title="${escapeHtml(tip)}">` +
+            rivalShield(row.civ, 'rival-shield') +
+            `<i class="rival-wl">${result}</i>` +
+            '</span>'
+          );
+        })
+        .join('') +
+      '</div>'
+    : '';
+  return rivalBlock('', `<div class="rstat-grid">${tile}${alliesTile}</div>${chips}`, 'h2h');
 }
 
 function rivalOpeningsBlock(report, pending) {
@@ -819,7 +843,10 @@ function scoutRecommendBlock(tip) {
   const lines = recs.map((row, index) => {
     const parts = [];
     if (row.mine && row.mine.winRate != null) {
-      parts.push(`vos ${fmtNumber(row.mine.winRate)}% (${fmtNumber(row.mine.games)} pj)`);
+      // La cascada de alcance: si mi winrate viene del modo completo (no del
+      // mapa exacto), se declara — nunca se disfraza de dato del mapa.
+      const scopeTag = row.mine.scope === 'mode' ? ' · todo el modo' : '';
+      parts.push(`vos ${fmtNumber(row.mine.winRate)}% (${fmtNumber(row.mine.games)} pj${scopeTag})`);
     }
     if (row.vsRival && row.vsRival.lossRate != null) {
       parts.push(`le cuesta ${fmtNumber(row.vsRival.lossRate)}% (${fmtNumber(row.vsRival.games)} pj)`);
@@ -941,10 +968,12 @@ function shortDate(timestamp) {
 }
 
 /**
- * BALANCE DE EQUIPOS (opción tgBalance, solo TG): promedio de ELO RM 1v1 por
- * equipo. Es puro pintado sobre el roster — no consulta nada — y vive dentro
- * del panel, así que se oculta con él a 0:20. Exige dos equipos con ≥2
- * jugadores CON ELO cada uno: el promedio de un solo jugador no es balance.
+ * BALANCE DE EQUIPOS (opción tgBalance, solo TG): MEDIANA de ELO RM 1v1 por
+ * equipo, no el promedio — un smurf 2000 entre tres 1200 daba "parejo" con el
+ * promedio y la mediana lo muestra como es. Es puro pintado sobre el roster
+ * (no consulta nada) y vive dentro del panel: se oculta con él a 0:20.
+ * Exige dos equipos con ≥2 jugadores CON ELO cada uno; si un equipo está muy
+ * disperso (rango ≥200) declara el rango en vez de esconderlo.
  */
 function renderBalance(state) {
   if (!balanceEl) return;
@@ -956,14 +985,19 @@ function renderBalance(state) {
       if (!player || !Number.isFinite(Number(player.rating))) continue;
       const team = Number(player.team);
       if (!Number.isFinite(team)) continue;
-      const entry = teams.get(team) || { sum: 0, count: 0 };
-      entry.sum += Number(player.rating);
-      entry.count += 1;
-      teams.set(team, entry);
+      const list = teams.get(team) || [];
+      list.push(Number(player.rating));
+      teams.set(team, list);
     }
+    const medianOf = (list) => {
+      const sorted = [...list].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+    const rangeOf = (list) => [Math.min(...list), Math.max(...list)];
     const you = players.find((player) => player && player.isYou);
     const myTeam = you && you.team != null ? Number(you.team) : null;
-    const solidTeams = [...teams.keys()].filter((team) => teams.get(team).count >= 2);
+    const solidTeams = [...teams.keys()].filter((team) => teams.get(team).length >= 2);
     const isTeamGame =
       players.length > 2 &&
       solidTeams.length === 2 &&
@@ -971,10 +1005,8 @@ function renderBalance(state) {
       solidTeams.includes(myTeam);
     if (isTeamGame) {
       const otherTeam = solidTeams.find((team) => team !== myTeam);
-      const myEntry = teams.get(myTeam);
-      const theirEntry = teams.get(otherTeam);
-      const mine = Math.round(myEntry.sum / myEntry.count);
-      const theirs = Math.round(theirEntry.sum / theirEntry.count);
+      const mine = Math.round(medianOf(teams.get(myTeam)));
+      const theirs = Math.round(medianOf(teams.get(otherTeam)));
       const diff = mine - theirs;
       const verdict =
         diff > 0
@@ -982,12 +1014,20 @@ function renderBalance(state) {
           : diff < 0
             ? `arrancás ${fmtNumber(-diff)} abajo`
             : 'parejos';
-      // Si hay jugadores sin ladder 1v1, el promedio está incompleto: se avisa.
-      const rated = myEntry.count + theirEntry.count;
+      // Un equipo con ELOs muy separados no es un "equipo 1412": se declara.
+      const fmtTeam = (team) => {
+        const [min, max] = rangeOf(teams.get(team));
+        const value = team === myTeam ? mine : theirs;
+        return max - min >= 200
+          ? `${fmtNumber(value)} (de ${fmtNumber(min)} a ${fmtNumber(max)})`
+          : fmtNumber(value);
+      };
+      // Si hay jugadores sin ladder 1v1, la mediana está incompleta: se avisa.
+      const rated = teams.get(myTeam).length + teams.get(otherTeam).length;
       const parcial = rated < players.length ? ' · parcial' : '';
       content =
-        `<span class="bal-ic">${icon('balanza')}</span>` +
-        `<span>Tu equipo <b>${fmtNumber(mine)}</b> · Rival <b>${fmtNumber(theirs)}</b>` +
+        `<span class="bal-ic" title="Mediana de ELO RM 1v1 por equipo">${icon('balanza')}</span>` +
+        `<span>Tu equipo <b>${fmtTeam(myTeam)}</b> · Rival <b>${fmtTeam(otherTeam)}</b>` +
         ` · ${verdict}${parcial}</span>`;
     }
   }

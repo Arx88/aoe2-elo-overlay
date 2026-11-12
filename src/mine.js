@@ -162,6 +162,9 @@ async function fetchMyHistory(options = {}) {
 /**
  * CARA A CARA contra un rival: solo partidas en equipos opuestos. Las de
  * mismo equipo van a `asAllies` y no cuentan ni como victoria ni derrota.
+ *
+ * `recent` trae los últimos 3 enfrentamientos (mi civ, resultado y mapa):
+ * el V-D solo es un número, los chips cuentan la historia.
  */
 function computeH2H(rows, rivalProfileId) {
   const rivalId = Number(rivalProfileId);
@@ -170,6 +173,7 @@ function computeH2H(rows, rivalProfileId) {
   let losses = 0;
   let asAllies = 0;
   let lastMatch = null;
+  const recent = [];
 
   for (const row of Array.isArray(rows) ? rows : []) {
     const rival = (row.players || []).find((p) => p.profileId === rivalId);
@@ -190,6 +194,15 @@ function computeH2H(rows, rivalProfileId) {
         won: row.won,
       };
     }
+    // Las filas llegan de más nueva a más vieja: los primeros 3 son los últimos.
+    if (recent.length < 3) {
+      recent.push({
+        civ: row.civ,
+        slug: row.slug,
+        won: row.won,
+        mapName: row.mapName,
+      });
+    }
   }
 
   return {
@@ -198,29 +211,62 @@ function computeH2H(rows, rivalProfileId) {
     losses,
     asAllies,
     lastMatch,
+    recent,
   };
 }
 
 /**
- * Mi winrate con cada civ EN UN MAPA (del historial ya descargado). Devuelve
- * TODAS las civs con al menos una partida, ordenadas por partidas: el filtro
- * de muestra mínima lo hace buildCivRecommendation.
+ * Mi winrate con cada civ para el mapa de la partida, con CASCADA honesta:
+ *
+ *  - scope 'map'  → la civ tiene ≥ MIN_MY_CIV_GAMES en EL MAPA exacto: el dato
+ *    ideal ("vos 67% en Arabia").
+ *  - scope 'mode' → en el mapa no llega a la muestra, cae al MODO completo
+ *    para esa civ (si ahí también llega al mínimo). La entrada lo DECLARA:
+ *    un 3-0 de suerte en el mapa no se disfraza de winrate del mapa.
+ *
+ * Devuelve una entrada por civ (la mejor evidencia que tenga), ordenadas por
+ * partidas; el cruce final lo hace buildCivRecommendation.
  */
 function computeMyMapCivs(rows, mapName) {
   const wanted = mapKey(mapName);
-  if (!wanted) return [];
   const byCiv = new Map();
   for (const row of Array.isArray(rows) ? rows : []) {
-    if (!row.civ || mapKey(row.mapName) !== wanted) continue;
+    if (!row.civ) continue;
     const key = row.slug || row.civ;
-    const entry = byCiv.get(key) || { civ: row.civ, slug: row.slug, games: 0, wins: 0 };
-    entry.games += 1;
-    if (row.won === true) entry.wins += 1;
+    const entry =
+      byCiv.get(key) ||
+      { civ: row.civ, slug: row.slug, mapGames: 0, mapWins: 0, modeGames: 0, modeWins: 0 };
+    entry.modeGames += 1;
+    if (row.won === true) entry.modeWins += 1;
+    if (wanted && mapKey(row.mapName) === wanted) {
+      entry.mapGames += 1;
+      if (row.won === true) entry.mapWins += 1;
+    }
     byCiv.set(key, entry);
   }
-  return [...byCiv.values()]
-    .map((entry) => ({ ...entry, winRate: pct(entry.wins, entry.games) }))
-    .sort((a, b) => b.games - a.games || (b.winRate || 0) - (a.winRate || 0));
+  const out = [];
+  for (const entry of byCiv.values()) {
+    if (wanted && entry.mapGames >= MIN_MY_CIV_GAMES) {
+      out.push({
+        civ: entry.civ,
+        slug: entry.slug,
+        games: entry.mapGames,
+        wins: entry.mapWins,
+        winRate: pct(entry.mapWins, entry.mapGames),
+        scope: 'map',
+      });
+    } else if (entry.modeGames >= MIN_MY_CIV_GAMES) {
+      out.push({
+        civ: entry.civ,
+        slug: entry.slug,
+        games: entry.modeGames,
+        wins: entry.modeWins,
+        winRate: pct(entry.modeWins, entry.modeGames),
+        scope: 'mode',
+      });
+    }
+  }
+  return out.sort((a, b) => b.games - a.games || (b.winRate || 0) - (a.winRate || 0));
 }
 
 /**
@@ -254,7 +300,7 @@ function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3 } = {
     if (!slug) continue;
     if (!Number.isFinite(Number(entry.games)) || Number(entry.games) < MIN_MY_CIV_GAMES) continue;
     const existing = candidates.get(slug);
-    const mine = { games: entry.games, wins: entry.wins, winRate: entry.winRate };
+    const mine = { games: entry.games, wins: entry.wins, winRate: entry.winRate, scope: entry.scope || 'map' };
     if (existing) {
       // El nombre canónico es el de mi historial (Companion); el de las
       // replays a veces trae variantes del mismo juego.

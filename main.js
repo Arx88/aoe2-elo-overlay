@@ -647,11 +647,19 @@ function demoRivalReports(state) {
         wins: 1,
         losses: 2,
         asAllies: 1,
+        scanned: 612,
         lastMatch: {
           mapName: state.match.mapName === '—' ? 'Arabia' : state.match.mapName,
           startedAt: Date.now() - 12 * 24 * 60 * 60 * 1000,
           won: false,
         },
+        // Los últimos 3 enfrentamientos (mi civ, resultado, mapa): mismos
+        // campos que los reales de src/mine.js computeH2H.
+        recent: [
+          { civ: 'Magyars', slug: 'magyars', won: false, mapName: state.match.mapName === '—' ? 'Arabia' : state.match.mapName },
+          { civ: 'Mongols', slug: 'mongols', won: true, mapName: 'Steppe' },
+          { civ: 'Persians', slug: 'persians', won: false, mapName: 'African Clearing' },
+        ],
       },
       history,
       favoriteCiv: { name: 'Ethiopians', slug: 'ethiopians', games: 145, share: 53, winRate: 54 },
@@ -871,14 +879,15 @@ function demoScoutTips(state) {
         {
           civ: 'Gurjaras',
           slug: 'gurjaras',
-          mine: { games: 9, wins: 6, winRate: 67 },
+          mine: { games: 9, wins: 6, winRate: 67, scope: 'map' },
           vsRival: { games: 5, losses: 4, lossRate: 80 },
           score: 72,
         },
         {
           civ: 'Teutons',
           slug: 'teutons',
-          mine: { games: 6, wins: 4, winRate: 67 },
+          // Con cascada, esta civ cae al modo completo: la línea lo declara.
+          mine: { games: 6, wins: 4, winRate: 67, scope: 'mode' },
           vsRival: { games: 7, losses: 4, lossRate: 57 },
           score: 63,
         },
@@ -1071,8 +1080,12 @@ async function refreshH2H(state, options = {}) {
       log,
     });
     for (const rival of rivals) {
-      const h2h = mine.rows.length ? computeH2H(mine.rows, rival.profileId) : null;
-      if (h2h) h2hByRival.set(rival.profileId, h2h);
+      // Siempre se publica, incluso sin enfrentamientos: `scanned` le dice al
+      // panel en cuántas partidas se buscó, para que "no apareció" no se lea
+      // como "nunca jugaron" a secas.
+      const h2h = computeH2H(mine.rows, rival.profileId);
+      h2h.scanned = mine.rows.length;
+      h2hByRival.set(rival.profileId, h2h);
       h2hPendingIds.delete(rival.profileId);
     }
     sendRival(rivalReports);

@@ -1029,12 +1029,14 @@ function fakeLobby(leaderboardId, leaderboardName) {
       teams,
     });
     // m1: yo+aliado vs rival, gano · m2: igual, pierdo · m3: el rival en MI
-    // equipo (aliados) · m4: 1v1 contra el rival, gano (la más nueva).
+    // equipo (aliados) · m4: 1v1 contra el rival, gano · m5: 1v1 contra OTRO
+    // jugador en Arabia (para la cascada del recomendador, no toca el h2h).
     const rawMatches = [
       rawMatch(1, 'Arabia', [T(1, [P(MY, 'Yo', 'Franks', true), P(ALLY, 'Aliado', 'Vikings', true)]), T(2, [P(RIVAL, 'Rival', 'Poles', false)])], '2026-11-01T12:00:00Z'),
       rawMatch(2, 'Arabia', [T(1, [P(MY, 'Yo', 'Franks', false), P(ALLY, 'Aliado', 'Vikings', false)]), T(2, [P(RIVAL, 'Rival', 'Poles', true)])], '2026-11-02T12:00:00Z'),
       rawMatch(3, 'Steppe', [T(1, [P(MY, 'Yo', 'Mongols', true), P(RIVAL, 'Rival', 'Poles', true)]), T(2, [P(7, 'Otro', 'Huns', false)])], '2026-11-03T12:00:00Z'),
       rawMatch(4, 'Runestones', [T(1, [P(MY, 'Yo', 'Franks', true)]), T(2, [P(RIVAL, 'Rival', 'Poles', false)])], '2026-11-10T12:00:00Z'),
+      rawMatch(5, 'Arabia', [T(1, [P(MY, 'Yo', 'Franks', true)]), T(2, [P(800, 'Otro Más', 'Huns', false)])], '2026-11-11T12:00:00Z'),
     ];
     const history = await fetchMyHistory({
       profileId: MY,
@@ -1043,8 +1045,8 @@ function fakeLobby(leaderboardId, leaderboardName) {
       sleep: async () => {},
     });
     check('mi historial: pagina, normaliza y ordena de más nueva a más vieja',
-      history.rows.length === 4 && history.error === null &&
-        history.rows[0].matchId === 4 && history.rows[0].myTeam === 1 &&
+      history.rows.length === 5 && history.error === null &&
+        history.rows[0].matchId === 5 && history.rows[0].myTeam === 1 &&
         history.rows[0].players.length === 2,
       JSON.stringify(history.rows.map((r) => r.matchId)));
 
@@ -1053,15 +1055,28 @@ function fakeLobby(leaderboardId, leaderboardName) {
       h2h.games === 3 && h2h.wins === 2 && h2h.losses === 1 && h2h.asAllies === 1 &&
         h2h.lastMatch && h2h.lastMatch.mapName === 'Runestones' && h2h.lastMatch.won === true,
       JSON.stringify(h2h));
+    check('h2h: los últimos 3 enfrentamientos traen MI civ, resultado y mapa',
+      Array.isArray(h2h.recent) && h2h.recent.length === 3 &&
+        h2h.recent[0].mapName === 'Runestones' && h2h.recent[0].won === true &&
+        h2h.recent[0].civ === 'Franks' && h2h.recent[1].won === false,
+      JSON.stringify(h2h.recent));
     const h2hUnknown = computeH2H(history.rows, 999);
     check('h2h: un jugador que nunca compartió partida da cero en todo',
       h2hUnknown.games === 0 && h2hUnknown.asAllies === 0 && h2hUnknown.lastMatch === null);
 
+    // Cascada del recomendador: Arabia tiene Franks ×3 (m1, m2, m5) → scope
+    // 'map'. Mongols tiene 1 partida en el mapa pero 1 también en total → fuera.
     const civs = computeMyMapCivs(history.rows, 'Arabia');
-    check('mis civs del mapa: cuenta solo Arabia, agrupada por civ',
-      civs.length === 1 && civs[0].civ === 'Franks' && civs[0].games === 2 &&
-        civs[0].wins === 1 && civs[0].winRate === 50,
+    check('mis civs del mapa: cascada mapa→modo y mínimo de muestra',
+      civs.length === 1 && civs[0].civ === 'Franks' && civs[0].games === 3 &&
+        civs[0].wins === 2 && civs[0].winRate === 67 && civs[0].scope === 'map',
       JSON.stringify(civs));
+    // Sin mapa exacto (o sin muestra en él): cae al modo completo Y LO DECLARA.
+    const civsMode = computeMyMapCivs(history.rows, 'Arena');
+    check('mis civs: si el mapa no llega a la muestra, cae al modo completo con scope declarado',
+      civsMode.length === 1 && civsMode[0].civ === 'Franks' && civsMode[0].games === 4 &&
+        civsMode[0].wins === 3 && civsMode[0].scope === 'mode',
+      JSON.stringify(civsMode));
 
     const rec = buildCivRecommendation({
       weakAgainst: [
@@ -1150,18 +1165,25 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /rivalH2H: Boolean\(view\.rivalH2H\)/.test(mainSrc) &&
         /civRecommender: Boolean\(view\.civRecommender\)/.test(mainSrc) &&
         /tgBalance: Boolean\(view\.tgBalance\)/.test(mainSrc));
-    check('renderer: tile de cara a cara con tono y aliados aparte',
+    check('renderer: tile de cara a cara con tono solo con muestra y aliados aparte',
       /function rivalH2HBlock/.test(rendererSrc) && /Cara a cara/.test(rendererSrc) &&
-        /Como aliados/.test(rendererSrc) && /Nunca se enfrentaron/.test(rendererSrc));
+        /Como aliados/.test(rendererSrc) && /Number\(h2h\.games\) >= 3/.test(rendererSrc));
     check('renderer: la civ recomendada muestra la muestra de cada línea',
       /CIV RECOMENDADA/.test(rendererSrc) && /le cuesta /.test(rendererSrc) &&
         /Sin muestra suficiente para recomendar una civ\./.test(rendererSrc));
     check('renderer: la tarjeta scout muestra cada bloque con su opción',
       /if \(smartTipsEnabled\) \{[\s\S]{0,120}scoutTipLines/.test(rendererSrc) &&
         /\(smartTipsEnabled \|\| civRecommenderEnabled\)/.test(rendererSrc));
-    check('renderer: balance exige dos equipos con ≥2 ELO y avisa si es parcial',
-      /function renderBalance/.test(rendererSrc) && /count >= 2/.test(rendererSrc) &&
+    check('renderer: h2h muestra los últimos enfrentamientos y declara dónde buscó',
+      /h2h\.recent/.test(rendererSrc) && /rival-civ-list/.test(rendererSrc) &&
+        /tus últimas \$\{fmtNumber\(scanned\)\} partidas/.test(rendererSrc) &&
+        /Sin historial público reciente/.test(rendererSrc));
+    check('renderer: balance por MEDIANA, con rango si el equipo está disperso',
+      /function renderBalance/.test(rendererSrc) && /medianOf/.test(rendererSrc) &&
+        /length >= 2/.test(rendererSrc) && /de \$\{fmtNumber\(min\)\} a \$\{fmtNumber\(max\)\}/.test(rendererSrc) &&
         /parcial/.test(rendererSrc) && /balanceEl\.hidden/.test(rendererSrc));
+    check('renderer: la civ recomendada declara si su winrate viene del modo completo',
+      /scope === 'mode' \? ' · todo el modo'/.test(rendererSrc));
     check('overlay y estilos: la línea de balance existe y se oculta sola',
       /id="balance"/.test(htmlSrc) && /#balance \{/.test(cssSrc) && /#balance\[hidden\]/.test(cssSrc));
     check('configuración: los 3 toggles nuevos cableados',

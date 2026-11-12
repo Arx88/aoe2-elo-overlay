@@ -1,3 +1,13 @@
+## v0.1.19 · La mediana, los encuentros y la cascada
+
+Tres mejoras sobre lo que llegó en v0.1.18, todas sobre datos que ya estaban en memoria:
+
+- **Balance de TG por MEDIANA, no promedio.** Un smurf 2000 entre tres 1200 daba «parejo» con el promedio (1412 vs 1419) y la mediana lo muestra como es: `Tu equipo 1171 (de 1083 a 1982) · Rival 1433 · arrancás 262 abajo`. El rango del equipo se declara solo cuando está muy disperso (≥200 de diferencia) — escondido, el número mentía.
+- **Cara a cara: los últimos 3 enfrentamientos, no solo el V-D.** Debajo de las tarjetas aparecen los chips (escudo de la civ con la que jugaste + V/D), con el detalle completo en el tooltip (`Vos con Franks · V · Runestones`). Y dos honestidades nuevas: el color verde/rojo del V-D se fía **solo con 3 o más partidas** (un 1-0 no es "ganás la serie"), y cuando no hay enfrentamientos el panel dice **dónde se buscó** — «Sin enfrentamientos en tus últimas 612 partidas del modo» — en vez de un "nunca jugaron" que puede ser una media verdad.
+- **Civ recomendada con cascada de alcance.** Si una civ no llega a las 3 partidas en el mapa exacto, la recomendación cae al **modo completo** para esa civ — y la línea lo declara: `2. Teutons · vos 67% (6 pj · todo el modo) · le cuesta 57% (7 pj)`. Un 3-0 de suerte en el mapa ya no se disfraza de winrate del mapa.
+
+---
+
 ## v0.1.18 · Cara a cara, balance de TG y civ recomendada
 
 Tres opciones nuevas, todas **apagadas de fábrica** y pensadas para una sola cosa: **plantarse mejor ante el rival**.
