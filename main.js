@@ -22,6 +22,7 @@ const {
   buildSnapshotFromMatch,
   searchProfiles,
   fetchProfileIdentity,
+  fetchMatchById,
 } = require('./src/aoe');
 const { detectProfile } = require('./src/detect');
 const { CIV_SLUGS, CIV_ALIASES } = require('./src/civs');
@@ -121,6 +122,9 @@ const CIV_HELP_LATE = CIV_HELP_ARG === '--civ-help=late';
 const HIDE_ELO_DEMO = ARGV.includes('--hide-elo');
 // --rival-info: siembra un informe de ejemplo para capturar la tarjeta nueva.
 const RIVAL_DEMO = ARGV.includes('--rival-info');
+// --analyzing: deja el informe en estado "analizando" para capturar la barrita
+// de carga (sin esperar a que una consulta real tarde o falle). Solo capturas.
+const ANALYZING = ARGV.includes('--analyzing');
 const OUT_ARG = ARGV.find((arg) => arg.startsWith('--out='));
 const SHOT_PATH = path.join(__dirname, OUT_ARG ? OUT_ARG.split('=')[1] : 'demo-shot.png');
 // --example=<nombre|id>: arranca el Modo ejemplo con datos REALES para poder
@@ -128,6 +132,11 @@ const SHOT_PATH = path.join(__dirname, OUT_ARG ? OUT_ARG.split('=')[1] : 'demo-s
 // (las aperturas reales de AoE2Insights tardan ~9s la primera vez).
 const EXAMPLE_ARG = ARGV.find((arg) => arg.startsWith('--example='));
 const EXAMPLE_QUERY = EXAMPLE_ARG ? EXAMPLE_ARG.split('=').slice(1).join('=') : null;
+// --example-match=<matchId>: fija la partida exacta del ejemplo (si no, la última).
+const EXAMPLE_MATCH_ARG = ARGV.find((arg) => arg.startsWith('--example-match='));
+const EXAMPLE_MATCH_ID = EXAMPLE_MATCH_ARG
+  ? Number(EXAMPLE_MATCH_ARG.split('=')[1]) || null
+  : null;
 const EXAMPLE_CLOCK_ARG = ARGV.find((arg) => arg.startsWith('--example-clock='));
 const EXAMPLE_CLOCK = EXAMPLE_CLOCK_ARG ? EXAMPLE_CLOCK_ARG.split('=')[1] : '3';
 const SHOT_DELAY_ARG = ARGV.find((arg) => arg.startsWith('--shot-delay='));
@@ -149,7 +158,8 @@ if (ISOLATED) {
 // ninguna corrida de desarrollo, demo o captura debe consultar GitHub Releases.
 const DEV_SESSION = Boolean(
   DEMO || SHOT || SETTINGS_SHOT || EXAMPLE_QUERY || EXAMPLE_SETTINGS_SHOT ||
-  EXAMPLE_CYCLE || CIV_HELP_DEMO || RIVAL_DEMO || FAKE_FOUND || MOVE_TEST || ISOLATED,
+  EXAMPLE_CYCLE || CIV_HELP_DEMO || RIVAL_DEMO || ANALYZING || FAKE_FOUND || MOVE_TEST ||
+  ISOLATED,
 );
 
 function demoPlayer(name, options) {
@@ -200,6 +210,9 @@ function demoState(mode) {
   const withClock = CIV_HELP_DEMO || HIDE_ELO_DEMO;
   return {
     status: 'ongoing',
+    // En la captura de "analizando" se usa la fase de preparación: ahí es
+    // donde conviven el informe del rival y las recomendaciones.
+    ...(ANALYZING ? { phase: 'lobby' } : {}),
     match: {
       matchId: `demo-${mode}`,
       mapName: state.mapName,
@@ -529,6 +542,21 @@ function clearRivalReports() {
 
 /** Datos de ejemplo (reales de una consulta de prueba) solo para capturas. */
 function demoRivalReports(state) {
+  // Captura de la barrita: todo pendiente, como en los primeros 1-9 s reales.
+  if (ANALYZING) {
+    return {
+      ts: Date.now(),
+      demo: true,
+      pendingOpenings: true,
+      partial: true,
+      reports: opponentsOf(state, RIVAL_LIMIT).map((rival) => ({
+        profileId: rival.profileId,
+        name: rival.name,
+        civ: rival.civ,
+        loading: true,
+      })),
+    };
+  }
   const mode = resolveMode(leaderboardOf(state)) || {
     id: 3, key: 'rm_1v1', label: 'RM 1v1', group: 'rm', size: '1v1',
   };
@@ -726,6 +754,18 @@ function clearScoutTips() {
 
 /** Datos de ejemplo solo para capturas/demos (mismo criterio que demoRivalReports). */
 function demoScoutTips(state) {
+  if (ANALYZING) {
+    return {
+      ts: Date.now(),
+      demo: true,
+      pending: true,
+      tips: opponentsOf(state, RIVAL_LIMIT).map((rival) => ({
+        profileId: rival.profileId,
+        name: rival.name,
+        loading: true,
+      })),
+    };
+  }
   const mode = resolveMode(leaderboardOf(state)) || {
     id: 3, key: 'rm_1v1', label: 'RM 1v1', group: 'rm', size: '1v1',
   };
@@ -1367,8 +1407,9 @@ function startLive() {
       const at = Date.now();
       liveMatchAt = at;
       preMatchGraceUntil = at + 20000;
-      // Hay partida: el carril rápido deja de sondear (el socket sigue solo).
-      if (fastLane) fastLane.pause();
+      // El carril rápido SIGUE sondeando: este aviso llega antes que el
+      // roster, y es justamente el snapshot global el que lo trae en ~1,5 s.
+      // Pausarlo acá dejaba el roster a merced del lote empujado (~15 s).
       log(`PARTIDA ENCONTRADA · cola apareada (matchId ${matchId}) · aviso en 0ms`);
       emit({
         status: 'ongoing',
@@ -1396,6 +1437,9 @@ function startLive() {
     onSearching: (active) => {
       searching = active;
       log(active ? 'estás buscando partida (cola detectada) · polling acelerado' : 'cola finalizada');
+      // Volviste a la cola: si el carril quedó pausado (aviso de fin perdido),
+      // se reactiva sin esperar a que se reinicie la app.
+      if (active && fastLane) fastLane.resume();
       if (active) scheduleNext('idle');
     },
   });
@@ -1458,7 +1502,13 @@ function stopLive() {
 }
 
 function matchFoundActive() {
-  return Boolean(queueWatcher && queueWatcher.matched && Date.now() - liveMatchAt < 15 * 60 * 1000);
+  // Cuenta también el aviso "encontré rival" mientras llega el roster: si no,
+  // el polling podía tapar el cartel con "Sin partida" a los 20 s.
+  return Boolean(
+    queueWatcher &&
+      (queueWatcher.matched || queueWatcher.awaitingRoster) &&
+      Date.now() - liveMatchAt < 15 * 60 * 1000,
+  );
 }
 
 /** Hay pre-partida activa (match de ranked o sala custom). */
@@ -1733,12 +1783,17 @@ async function startExample(rawQuery, clockMode = '3') {
     exampleClockMode = mode;
     exampleFrozenAt = mode === 'live' ? null : began;
 
+    // Una partida puntual (--example-match) evita depender de cuál fue la última.
+    const explicitMatch = EXAMPLE_MATCH_ID ? await fetchMatchById(EXAMPLE_MATCH_ID) : null;
+    if (token !== exampleToken) return { ok: false, error: 'Otra prueba reemplazó a esta.' };
+
     const snapshot = await buildExampleSnapshot({
       profileId: resolved.profileId,
       cache: statsCache,
       cacheTtlMs: EXAMPLE_CACHE_TTL(),
       now: clockNow(),
       clockOffsetMs: EXAMPLE_CLOCK_OFFSETS[mode],
+      match: explicitMatch,
     });
     if (token !== exampleToken) return { ok: false, error: 'Otra prueba reemplazó a esta.' };
 

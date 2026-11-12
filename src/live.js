@@ -65,6 +65,9 @@ const FAST_TIMEOUT_MS = 4000;
 // Después de terminar una partida se sondea seguido 3 minutos: lo habitual es
 // volver a la cola enseguida.
 const HOT_IDLE_MS = 3 * 60 * 1000;
+// Mientras está pausado (partida en curso) se mira el ping filtrado cada 20 s:
+// si el aviso de "terminó" se pierde, el carril se reactiva solo.
+const PROBE_PAUSED_MS = 20000;
 
 /** URL de /listen para una query dada (misma forma para todos los sockets). */
 function socketUrl(query) {
@@ -310,6 +313,7 @@ class Socket {
  */
 class FastLane {
   constructor({ profileId, onSnapshot, onQueue, log = () => {}, readSnapshotImpl = readSnapshot }) {
+    this.pauseTimer = null;
     this.profileId = Number(profileId);
     this.onSnapshot = onSnapshot || (() => {});
     this.onQueue = onQueue || (() => {});
@@ -337,6 +341,8 @@ class FastLane {
   stop() {
     this.closed = true;
     this.clear();
+    clearTimeout(this.pauseTimer);
+    this.pauseTimer = null;
   }
 
   /** Hay partida apareada: no se sondea hasta que termine. */
@@ -344,9 +350,42 @@ class FastLane {
     this.paused = true;
     this.inQueue = false;
     this.clear();
+    this.probeAfterPause();
+  }
+
+  /**
+   * Una pausa NO puede dejar el carril muerto para siempre: si el aviso de
+   * "terminó la partida" no llega (socket caído, item que no desaparece) la
+   * app volvía a detectar solo por el feed empujado, que manda lotes cada
+   * ~15 s. Cada 20 s se mira el ping filtrado (300 B) y, si hay cola otra vez,
+   * se reactiva solo.
+   */
+  probeAfterPause() {
+    clearTimeout(this.pauseTimer);
+    this.pauseTimer = null;
+    if (this.closed) return;
+    this.pauseTimer = setTimeout(() => this.probe(), PROBE_PAUSED_MS);
+  }
+
+  async probe() {
+    this.pauseTimer = null;
+    if (this.closed) return;
+    const events = await this.readSnapshot(
+      { handler: 'queueing', language: 'en', profile_ids: this.profileId },
+      3000,
+    );
+    if (this.closed) return;
+    if (events && (hasMyQueue(events, this.profileId) || findMyMatch(events, this.profileId))) {
+      this.log('carril rápido: hay cola otra vez · se reactiva solo');
+      this.resume();
+      return;
+    }
+    if (this.paused) this.probeAfterPause();
   }
 
   resume() {
+    clearTimeout(this.pauseTimer);
+    this.pauseTimer = null;
     if (!this.paused) return;
     this.paused = false;
     this.inQueue = false;
@@ -393,13 +432,24 @@ class FastLane {
     this.polls += 1;
 
     if (!this.inQueue) {
-      if (!hasMyQueue(events, this.profileId)) return;
+      // Una cola rápida puede pasar de `queueing` a `matched` entre dos pings
+      // (cada 6 s). Mirar solo `queueing` hacía que el carril NUNCA se
+      // acelerara en esos casos: la partida aparecía recién con el lote
+      // empujado (~15 s) o cuando el REST ya la veía empezada.
+      const matched = findMyMatch(events, this.profileId);
+      if (!hasMyQueue(events, this.profileId) && !matched) return;
       this.inQueue = true;
       this.log(
-        `carril rápido: cola detectada · snapshot del feed cada ${FAST_QUEUE_MS / 1000}s ` +
-          'para ver la partida apenas se arme',
+        `carril rápido: ${matched ? 'partida apareada' : 'cola detectada'} · ` +
+          `snapshot del feed cada ${FAST_QUEUE_MS / 1000}s`,
       );
       this.onQueue(true);
+      if (!matched) return; // en cola: el próximo tick (1,5 s) trae el global
+      // Ya apareada: se pide el snapshot global AHORA, sin esperar el tick.
+      const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
+      if (this.closed || this.paused || !full || !full.length) return;
+      this.polls += 1;
+      this.onSnapshot(full);
       return;
     }
 
@@ -718,6 +768,15 @@ class QueueWatcher {
   /** Partida apareada y vigente (o null). */
   get matched() {
     return this.matchedId ? this.items.get(this.matchedId) || null : null;
+  }
+
+  /**
+   * Ya avisamos "encontré rival" (reason:'matched') pero el roster todavía no
+   * llegó. main lo usa para no dejar que el REST borre el panel mientras se
+   * arma la pre-partida.
+   */
+  get awaitingRoster() {
+    return this.pendingMatchId != null;
   }
 }
 

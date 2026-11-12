@@ -111,6 +111,20 @@ async function fetchLatestMatch(profileId) {
   return match || null;
 }
 
+/**
+ * Una partida puntual por `matchId` (Companion `GET /api/matches/:id`).
+ * Solo la usa el modo ejemplo para capturar una partida concreta del perfil
+ * (`--example-match=<id>`) en vez de la última.
+ */
+async function fetchMatchById(matchId) {
+  const id = Number(matchId);
+  if (!Number.isFinite(id) || id <= 0) throw new Error('Ese match ID no es válido.');
+  const data = await getJson(`${COMPANION_BASE}/api/matches/${id}`);
+  const raw = data && data.match ? data.match : data;
+  if (!raw || !raw.matchId) throw new Error(`AoE2 Companion no tiene la partida #${id}.`);
+  return normalizeMatch(raw);
+}
+
 function normalizeMatch(raw) {
   const teams = Array.isArray(raw.teams) ? raw.teams : [];
   const players = [];
@@ -591,6 +605,7 @@ module.exports = {
   getJson,
   fetchMatches,
   fetchLatestMatch,
+  fetchMatchById,
   fetchPersonalStats,
   searchProfiles,
   fetchProfileIdentity,

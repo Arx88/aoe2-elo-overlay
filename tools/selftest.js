@@ -463,6 +463,58 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('carril rápido: si no estoy en cola no dispara nada',
       idleFlags.length === 0 && idleLane.inQueue === false);
 
+    // Regresión v0.1.16: una cola rápida puede pasar de `queueing` a `matched`
+    // entre dos pings (6 s). Si el carril solo mira `queueing`, nunca se
+    // acelera y la partida se ve recién cuando el REST la ve empezada.
+    const fastSnapshots = [];
+    const fastLaneCalls = [];
+    const alreadyMatched = new FastLane({
+      profileId: 101,
+      log: () => {},
+      onSnapshot: (events) => fastSnapshots.push(events),
+      onQueue: () => {},
+      readSnapshotImpl: async (query) => {
+        fastLaneCalls.push(query);
+        return [{
+          type: 'queueingAdded',
+          data: {
+            id: 'm_901', status: 'matched', matchId: 901, leaderboard: 'rm_1v1',
+            players: [{ profileId: 101 }, { profileId: 102 }],
+          },
+        }];
+      },
+    });
+    await alreadyMatched.poll();
+    check('carril rápido: una cola ya apareada también acelera (no espera "queueing")',
+      alreadyMatched.inQueue === true && fastSnapshots.length === 1 &&
+        fastLaneCalls.length === 2 && !fastLaneCalls[1].profile_ids);
+
+    // Si el aviso de fin de partida se pierde, la pausa no puede ser eterna.
+    const reviveLane = new FastLane({
+      profileId: 101,
+      log: () => {},
+      onSnapshot: () => {},
+      onQueue: () => {},
+      readSnapshotImpl: async (query) =>
+        query.profile_ids
+          ? [{ type: 'queueingAdded', data: { id: 'q_mine', status: 'queueing', players: [{ profileId: 101 }] } }]
+          : [],
+    });
+    reviveLane.pause();
+    await reviveLane.probe();
+    check('carril rápido: pausado se reactiva solo cuando volvés a la cola',
+      reviveLane.paused === false);
+
+    // El aviso "encontré rival" llega ANTES del roster: pausar ahí dejaba el
+    // roster esperando el lote empujado (~15 s). Se pausa solo con el roster.
+    const mainSource = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'main.js'),
+      'utf8',
+    );
+    check('main: el carril se pausa al tener el roster, no al avisar "encontré rival"',
+      (mainSource.match(/fastLane\.pause\(\)/g) || []).length === 1 &&
+        (mainSource.match(/fastLane\.resume\(\)/g) || []).length >= 2);
+
     const liveSource = require('fs').readFileSync(
       require('path').join(__dirname, '..', 'src', 'live.js'),
       'utf8',
@@ -1361,19 +1413,25 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /const mode = resolveMode\(leaderboardId\);/.test(rivalSrc) &&
         /openingsImpl\(\{[\s\S]{0,120}mode,/.test(rivalSrc) &&
         /rival:insights:\$\{id\}:\$\{ladder\}:\$\{modeId\}/.test(rivalSrc));
-    check('renderer: etiqueta el modo y nunca mezcla (modo no disponible / descartados)',
-      /APERTURA EN ESTE MAPA\$\{modeLabel\}/.test(rendererSrc) && /modeUnavailable/.test(rendererSrc) &&
-        /discardedOtherModes/.test(rendererSrc) && /ÚLTIMAS 5 CIVS\$\{modeLabel\}/.test(rendererSrc));
-    check('renderer: el bloque EN ESTE MAPA también etiqueta el modo',
-      /EN ESTE MAPA\$\{modeLabel\}/.test(rendererSrc));
+    // v0.1.16: el modo se lee en la cabecera ("HIDEOUT · RM 1V1") y NO se
+    // repite en cada bloque. El caso "modo no disponible" se sigue avisando.
+    check('renderer: el modo va solo en la cabecera, no repetido por bloque',
+      /APERTURA EN ESTE MAPA/.test(rendererSrc) && /ÚLTIMAS 5 CIVS/.test(rendererSrc) &&
+        /modeUnavailable/.test(rendererSrc) && !/\$\{modeLabel\}/.test(rendererSrc));
+    check('renderer: el informe escribe la conclusión y no solo números',
+      /function gamesText\(/.test(rendererSrc) && /function recordText\(/.test(rendererSrc) &&
+        /le va mal/.test(rendererSrc) && /rival-verdict/.test(rendererSrc));
     check('renderer: la tarjeta usa el mapa de la partida, no el favorito',
       /EN ESTE MAPA/.test(rendererSrc) && /report\.mapStats/.test(rendererSrc) &&
         !/rivalBlock\('MÁS USA'/.test(rendererSrc) && !/favoriteMap/.test(rendererSrc));
     check('renderer: la estrategia SOLO usa replays del mapa y de su civ más usada',
       /APERTURA EN ESTE MAPA/.test(rendererSrc) && /openings\.mapCivFavorite/.test(rendererSrc) &&
         !/openings\.mapFavorite/.test(rendererSrc) && !/openings\.favorite/.test(rendererSrc));
-    check('renderer: la estrategia se muestra con la civ del mapa',
-      /ESTRATEGIA/.test(rendererSrc) && /mapCivFavorite/.test(rendererSrc));
+    // La apertura ya no es una fila más del bloque del mapa: tiene su bloque
+    // (y se omite entero si no hay replays, para no dejar un vacío doble).
+    check('renderer: la apertura usa la civ del mapa y se omite sin replays',
+      /const civName = report\.mapStats && report\.mapStats\.civ/.test(rendererSrc) &&
+        /mapCivFavorite/.test(rendererSrc) && /if \(!best \|\| !baseCount\) return '';/.test(rendererSrc));
     check('ajustes: la opción explica que solo cuenta el mismo modo de juego',
       /mismo modo de juego/.test(settingsHtmlSrc) && /EW no/.test(settingsHtmlSrc));
     check('ajustes: la opción habla del mapa de la partida, no del favorito',

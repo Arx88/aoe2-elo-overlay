@@ -14,6 +14,15 @@
     <div id="stage">
       <div id="panel">
         <div id="head">AoE2 ELO</div>
+        <!--
+          Barrita de análisis: mientras se buscan los datos del rival o se
+          analizan replays, el panel lo dice y la barra se mueve. Cuando no
+          falta nada se oculta sola: en partida no queda nada animado.
+        -->
+        <div id="analysis" hidden aria-live="polite">
+          <span class="analysis-label" id="analysisLabel">Analizando…</span>
+          <span class="analysis-track" aria-hidden="true"><i></i></span>
+        </div>
         <div id="rows"><div class="hint">Iniciando…</div></div>
         <div id="foot"><span id="foottext"></span></div>
       </div>

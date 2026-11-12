@@ -243,6 +243,8 @@ Verificado con datos reales del mismo rival (`#1135135`): sin filtro, AoE2Insigh
 ### Cómo se pinta sin molestar
 
 * `main.js` dispara `refreshRivalReports()` **en segundo plano desde `emit()`**: el aviso de partida encontrada y el ELO siguen saliendo en 0–1 ms. El informe llega después y se completa por partes (`onPartial`): civs y favoritos en ~0,3 s, aperturas en ~9 s la primera vez y al instante desde cache.
+* **Mientras analiza, el panel lo dice.** Debajo del título aparece **una sola barrita de análisis** con la etapa en curso (*Consultando ELO RM 1v1…*, *Buscando datos del rival…*, *Analizando replays…*, *Analizando replays del rival…*). Los bloques pendientes solo cambian su texto a *«Buscando…»*: no hay una barra animada por bloque, porque en un overlay eso es ruido. Antes esos bloques decían *«Sin historial público»* aunque la consulta estuviera en vuelo; ahora dicen *«Buscando sus últimas civs…»*. Cuando no falta nada la barra **se oculta sola**: en partida no queda nada animado. Respeta *reducir movimiento* (queda fija y tenue).
+* **El informe se lee, no se calcula.** En vez de filas `etiqueta → número` que hay que cruzar mentalmente, el bloque *En este mapa* escribe la conclusión: *«En Hideout le va mal: 33 % en 9 partidas (3-6). Usa Dravidians ahí: 2 partidas, gana el 50 % (1-1).»*. Cada número lleva su unidad y su récord, el modo ya no se repite en cada bloque (está en la cabecera) y cuando no hay replays se avisa **una sola vez** en vez de dejar dos bloques con el mismo aviso.
 * Se publica por el canal `overlay:rival`; `overlay:ready` lo reenvía si el renderer se recarga. Si el roster cambia mientras una consulta está en vuelo, se encola **un solo** refresh (`rivalSig` + `rivalQueuedSig`, y la firma incluye el modo: una partida de EW no reutiliza el informe de una de RM).
 * En TG se muestran hasta **2 rivales reales** (`opponentsOf()` filtra por `team`, no solo por `isYou`: tus aliados nunca aparecen en el informe).
 * Si **Ocultar panel de ELO al segundo 20** está activo, este informe se oculta **junto con el ELO** a 0:20.
@@ -324,7 +326,7 @@ env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS \
   --example-settings-shot --shot-delay=9000 --out=demo-ejemplo-021-ajustes.png
 ```
 
-Flags: `--example=<nombre|id>`, `--example-clock=3|21|live`, `--example-settings-shot`, `--example-cycle` (recorre los botones de la UI y loguea cada transición: `21 → 3 → live → 3 → stop → restart`), `--shot-delay=<ms>` y `--isolated`. Las aperturas reales de AoE2Insights pueden tardar ~9 s la primera vez (`202 pending`), por eso el `--shot-delay`. Con `--example-clock=21 --shot` la captura del overlay sale **vacía**: es el comportamiento correcto, porque a 0:20 el panel se oculta entero.
+Flags: `--example=<nombre|id>`, `--example-match=<matchId>` (fija una partida puntual en vez de la última del perfil, p. ej. la última RM), `--example-clock=3|21|live`, `--example-settings-shot`, `--example-cycle` (recorre los botones de la UI y loguea cada transición: `21 → 3 → live → 3 → stop → restart`), `--shot-delay=<ms>` y `--isolated`. Las aperturas reales de AoE2Insights pueden tardar ~9 s la primera vez (`202 pending`), por eso el `--shot-delay`. Con `--example-clock=21 --shot` la captura del overlay sale **vacía**: es el comportamiento correcto, porque a 0:20 el panel se oculta entero.
 
 ## Icono, bandeja y "se cierra sola"
 
@@ -448,7 +450,7 @@ env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS \
 
 Modos: `rm1v1`, `tg`, `ew`, `custom`. `--shot` guarda un PNG de la ventana y cierra. En los cuatro demos la cabecera cambia de modo pero los números son de RM 1v1 y la etiqueta `ELO RM 1v1` está presente, igual que en vivo.
 
-Otros flags de captura: `--civ-help` (0:03), `--civ-help=late` (0:21), `--hide-elo`, `--rival-info` (siembra el informe del rival con datos reales de prueba), `--settings-shot` (ventana de configuración), `--out=<archivo.png>` y `--isolated` (userData aparte, imprescindible si ya tenés el overlay corriendo). Ver **Informe opcional del rival** y **Modo ejemplo** para los comandos completos (`--example=…` usa datos 100 % reales).
+Otros flags de captura: `--civ-help` (0:03), `--civ-help=late` (0:21), `--hide-elo`, `--rival-info` (siembra el informe del rival con datos reales de prueba), `--analyzing` (deja el informe en estado *analizando* para capturar la barrita de carga), `--settings-shot` (ventana de configuración), `--out=<archivo.png>` y `--isolated` (userData aparte, imprescindible si ya tenés el overlay corriendo). Ver **Informe opcional del rival** y **Modo ejemplo** para los comandos completos (`--example=…` usa datos 100 % reales).
 
 ## Troubleshooting
 

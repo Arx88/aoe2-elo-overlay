@@ -1,3 +1,17 @@
+## v0.1.16 · Barrita de análisis en el panel
+
+- **Arreglado: la partida vuelve a aparecer al ENCONTRAR rival**, en la sala de espera, sin esperar a entrar al mapa. El carril rápido tenía dos fallas: (1) solo se aceleraba si te veía *buscando*, así que una cola que pasaba de `queueing` a `matched` entre dos pings (6 s) nunca entraba al modo rápido; y (2) se pausaba justo en el aviso «encontré rival», **antes** de que llegara el roster, dejando el panel a merced del lote empujado (~15 s) o directamente del inicio de la partida. Ahora pide el snapshot global en el acto cuando el ping filtrado ya te ve apareado, la pausa es recién con el roster en pantalla, y si la pausa quedara colgada se reactiva sola a los 20 s.
+- El aviso «encontré rival» ya no puede ser tapado por el polling con *«Sin partida»* mientras se arma la pre-partida.
+
+- **Una sola barrita de análisis** debajo del título: mientras el panel espera datos que se calculan en segundo plano muestra **qué está haciendo** (*Consultando ELO RM 1v1…*, *Buscando datos del rival…*, *Analizando replays…*, *Analizando replays del rival…*).
+- **Sin barras por bloque**: los bloques pendientes solo cambian su texto. Una barra animada en cada bloque es ruido en un overlay que se mira de reojo.
+- **Los bloques ya no dicen «sin historial» mientras cargan**: ahora dicen *«Buscando sus últimas civs…»* / *«Buscando su historial en este mapa…»*. Era información engañosa durante el análisis.
+- **Informe del rival reescrito para leerse de un vistazo**: la conclusión va escrita (*«En Hideout le va mal: 33 % en 9 partidas (3-6)»*), cada número lleva su unidad y su récord, el modo deja de repetirse en cada bloque (está en la cabecera) y cuando no hay replays se avisa **una vez** — antes había dos avisos seguidos que parecían un error.
+- **Se apaga sola** cuando no falta nada: en partida no queda nada animado tapando el juego. Respeta *reducir movimiento* (barra fija y tenue).
+- El color sigue al tema activo (dorado en Clásico, blanco en Fantasma, etc.).
+
+---
+
 ## v0.1.15 · La partida aparece al segundo + actualizaciones automáticas
 
 - **La partida apareada se ve en ~1,5 s, no 15 s después.** El feed de matchmaking de AoE2 Companion **no empuja cada evento**: manda un lote cada ~15 s, así que esperar al socket hacía que el panel se dibujara cuando la partida ya estaba por empezar. Ahora el overlay pide **snapshots frescos a demanda**: sin cola consulta el socket **filtrado por tu perfil** (~300 B, cada 6 s) y, en cuanto detecta que estás buscando, pide el snapshot **global** con el roster del `matched` **cada 1,5 s**. Al aparearse se pausa solo.
