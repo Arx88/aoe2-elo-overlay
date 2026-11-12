@@ -43,6 +43,106 @@ const RECONNECT_MAX_MS = 60000;
 // Si en 2 minutos no llegó ni un mensaje (ni pong), la conexión está zombie.
 const WATCHDOG_MS = 120000;
 
+/*
+ * CARRIL RÁPIDO (por qué existe)
+ *
+ * El feed global de `queueing` NO empuja cada evento: al conectar manda el
+ * estado completo (~75 KB) y después un lote cada ~14-15 s (medido contra el
+ * socket real). Esperar ese lote hacía que una partida recién apareada
+ * apareciera hasta 15 s tarde; sumado al tiempo del servidor, el panel se
+ * dibujaba cuando la partida ya estaba por empezar.
+ *
+ * La solución es pedir snapshots FRESCOS a demanda con una conexión corta:
+ *   · sin cola  → socket FILTRADO por perfil (~300 B): dice si estoy buscando.
+ *   · en cola   → socket GLOBAL (~75 KB, ~250 ms): trae el `matched` con el
+ *                 roster completo en cuanto el servidor lo crea.
+ * El snapshot global se le entrega a QueueWatcher.handleEvents(..., true), así
+ * la detección, el dedupe y los avisos siguen viviendo en un solo lugar.
+ */
+const FAST_IDLE_MS = 6000; // sin cola: ping filtrado (300 B)
+const FAST_QUEUE_MS = 1500; // en cola: snapshot global con el roster
+const FAST_TIMEOUT_MS = 4000;
+// Después de terminar una partida se sondea seguido 3 minutos: lo habitual es
+// volver a la cola enseguida.
+const HOT_IDLE_MS = 3 * 60 * 1000;
+
+/** URL de /listen para una query dada (misma forma para todos los sockets). */
+function socketUrl(query) {
+  const qs = Object.entries(query)
+    .filter(([, value]) => value != null && value !== '')
+    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+    .join('&');
+  return `${SOCKET_BASE}/listen?${qs}`;
+}
+
+/**
+ * Pide el PRIMER mensaje de una conexión nueva (el snapshot del servidor) y
+ * cierra. Devuelve el array de eventos, o null si hubo error/timeout. Nunca
+ * lanza: el carril rápido es un acelerador, no puede romper la app.
+ */
+function readSnapshot(query, timeoutMs = FAST_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    let ws = null;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        if (ws) ws.close();
+      } catch {
+        /* ya estaba cerrado */
+      }
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    try {
+      ws = new WebSocket(socketUrl(query));
+    } catch {
+      finish(null);
+      return;
+    }
+    ws.onmessage = (event) => {
+      let message;
+      try {
+        message = JSON.parse(String(event.data));
+      } catch {
+        return;
+      }
+      // Los mensajes de control (pong) no son estado: se sigue esperando.
+      if (!Array.isArray(message)) return;
+      finish(message);
+    };
+    ws.onerror = () => finish(null);
+    ws.onclose = () => finish(null);
+  });
+}
+
+/** ¿Este item del feed incluye al perfil dado? */
+function includesProfile(item, profileId) {
+  return (item.players || []).some((p) => p && Number(p.profileId) === Number(profileId));
+}
+
+/** Item `status:'matched'` del perfil (o null). */
+function findMyMatch(events, profileId) {
+  return (
+    (events || []).find(
+      (e) => e && e.data && e.data.status === 'matched' && includesProfile(e.data, profileId),
+    ) || null
+  );
+}
+
+/** ¿El perfil está en cola según este snapshot? */
+function hasMyQueue(events, profileId) {
+  return (events || []).some(
+    (e) =>
+      e &&
+      e.data &&
+      e.data.status === 'queueing' &&
+      includesProfile(e.data, profileId),
+  );
+}
+
 /** Reduce de eventos a lista de lobbies, igual que initLobbySubscription de la app. */
 function applyEvents(lobbies, events, filtered) {
   for (const event of events) {
@@ -105,11 +205,7 @@ class Socket {
   }
 
   url() {
-    const qs = Object.entries(this.query)
-      .filter(([, value]) => value != null && value !== '')
-      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
-      .join('&');
-    return `${SOCKET_BASE}/listen?${qs}`;
+    return socketUrl(this.query);
   }
 
   connect() {
@@ -198,6 +294,128 @@ class Socket {
       /* ya estaba cerrado */
     }
     this.ws = null;
+  }
+}
+
+/**
+ * Acelerador de detección: no decide nada, solo pide snapshots frescos.
+ *
+ * Mientras NO hay cola usa el socket filtrado (300 B) para enterarse rápido de
+ * que empezó la búsqueda; mientras ESTÁS EN COLA pide el snapshot global cada
+ * 1,5 s, que trae el `matched` con el roster en cuanto el servidor lo publica
+ * (el feed empujado tarda hasta 15 s en mandarlo).
+ *
+ * Cuando hay partida apareada se pausa: el socket normal ya mantiene los datos
+ * y no tiene sentido gastar ancho de banda. Se reanuda al terminar la partida.
+ */
+class FastLane {
+  constructor({ profileId, onSnapshot, onQueue, log = () => {}, readSnapshotImpl = readSnapshot }) {
+    this.profileId = Number(profileId);
+    this.onSnapshot = onSnapshot || (() => {});
+    this.onQueue = onQueue || (() => {});
+    this.log = log;
+    // Inyectable para poder probar la máquina de estados sin abrir sockets.
+    this.readSnapshot = readSnapshotImpl;
+    this.timer = null;
+    this.closed = false;
+    this.paused = false;
+    this.inQueue = false;
+    this.busy = false;
+    this.polls = 0;
+    this.startedAt = 0;
+    // Minutos "calientes" después de una partida: se vuelve a sonar seguido
+    // porque lo normal es volver a ponerse en cola enseguida.
+    this.hotUntil = 0;
+  }
+
+  start() {
+    this.closed = false;
+    this.startedAt = Date.now();
+    this.schedule(500);
+  }
+
+  stop() {
+    this.closed = true;
+    this.clear();
+  }
+
+  /** Hay partida apareada: no se sondea hasta que termine. */
+  pause() {
+    this.paused = true;
+    this.inQueue = false;
+    this.clear();
+  }
+
+  resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    this.inQueue = false;
+    this.hotUntil = Date.now() + HOT_IDLE_MS;
+    this.schedule(400);
+  }
+
+  /** Cadencia del ping filtrado cuando no hay cola. */
+  idleDelay() {
+    return Date.now() < this.hotUntil ? FAST_QUEUE_MS : FAST_IDLE_MS;
+  }
+
+  clear() {
+    clearTimeout(this.timer);
+    this.timer = null;
+  }
+
+  schedule(delay) {
+    if (this.closed || this.paused) return;
+    this.clear();
+    this.timer = setTimeout(() => this.tick(), delay);
+  }
+
+  tick() {
+    this.timer = null;
+    if (this.closed || this.paused || this.busy) return;
+    this.busy = true;
+    this.poll()
+      .catch(() => {})
+      .finally(() => {
+        this.busy = false;
+        if (this.closed || this.paused) return;
+        this.schedule(this.inQueue ? FAST_QUEUE_MS : this.idleDelay());
+      });
+  }
+
+  async poll() {
+    const query = this.inQueue
+      ? { handler: 'queueing', language: 'en' }
+      : { handler: 'queueing', language: 'en', profile_ids: this.profileId };
+    const events = await this.readSnapshot(query, this.inQueue ? FAST_TIMEOUT_MS : 3000);
+    if (this.closed || this.paused) return;
+    if (!events) return; // red lenta o servidor mudo: se reintenta en el próximo tick
+    this.polls += 1;
+
+    if (!this.inQueue) {
+      if (!hasMyQueue(events, this.profileId)) return;
+      this.inQueue = true;
+      this.log(
+        `carril rápido: cola detectada · snapshot del feed cada ${FAST_QUEUE_MS / 1000}s ` +
+          'para ver la partida apenas se arme',
+      );
+      this.onQueue(true);
+      return;
+    }
+
+    // Snapshot global: se le entrega al watcher para que aplique su lógica.
+    if (!events.length) return;
+    this.onSnapshot(events);
+    // Si ya no estoy ni en cola ni apareado, la búsqueda terminó: se vuelve al
+    // ping filtrado (300 B) hasta la próxima cola.
+    if (!hasMyQueue(events, this.profileId) && !findMyMatch(events, this.profileId)) {
+      this.inQueue = false;
+      this.onQueue(false);
+    }
+  }
+
+  get stats() {
+    return { polls: this.polls, inQueue: this.inQueue, paused: this.paused };
   }
 }
 
@@ -378,7 +596,7 @@ class QueueWatcher {
     this.sawDelta = false;
   }
 
-  handleEvents(events, isSnapshot = false) {
+  handleEvents(events, isSnapshot = false, options = {}) {
     // Cada conexión nueva trae el estado completo: se recalcula desde cero.
     if (isSnapshot) {
       this.items.clear();
@@ -441,8 +659,11 @@ class QueueWatcher {
     // Diagnóstico: deja evidencia en el log de que el socket está realmente
     // recibiendo el estado del matchmaking (no solo "conectado").
     if (isSnapshot) {
-      const matchedGlobal = [...this.items.values()].filter((i) => i.status === 'matched').length;
-      this.log(`queueing: estado inicial ${this.items.size} items (${matchedGlobal} apareadas globales)`);
+      // Los snapshots del carril rápido llegan cada 1,5 s: no inundan el log.
+      if (!options.quiet) {
+        const matchedGlobal = [...this.items.values()].filter((i) => i.status === 'matched').length;
+        this.log(`queueing: estado inicial ${this.items.size} items (${matchedGlobal} apareadas globales)`);
+      }
     } else if (!this.sawDelta && events.length) {
       this.sawDelta = true;
       this.log(`queueing: recibiendo eventos en vivo (${events.length})`);
@@ -500,4 +721,13 @@ class QueueWatcher {
   }
 }
 
-module.exports = { LobbyWatcher, QueueWatcher };
+module.exports = {
+  LobbyWatcher,
+  QueueWatcher,
+  FastLane,
+  readSnapshot,
+  findMyMatch,
+  hasMyQueue,
+  FAST_IDLE_MS,
+  FAST_QUEUE_MS,
+};

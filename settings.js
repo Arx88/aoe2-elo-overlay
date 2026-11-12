@@ -28,6 +28,7 @@ const moveBtn = el('moveBtn');
 const positionInfo = el('positionInfo');
 const positionLabel = el('positionLabel');
 const civHelpInput = el('civHelp');
+const autoUpdateInput = el('autoUpdate');
 const hideEloInput = el('hideEloAt20');
 const hideAtInput = el('hideAtSeconds');
 const hideAtValue = el('hideAtSecondsValue');
@@ -283,6 +284,15 @@ for (const [key, input] of Object.entries(rivalInputs)) {
   );
 }
 
+// Pestaña Updater: consulta cada 30 min y aplica sola lo que encuentra.
+autoUpdateInput.addEventListener('change', () =>
+  applyToggle(
+    autoUpdateInput,
+    (on) => window.settings.autoUpdate(on),
+    'Actualizaciones automáticas',
+  ),
+);
+
 /* ---------- posición ---------- */
 function paintPosition(info) {
   positionCustom = info.position === 'custom' && Number.isFinite(Number(info.x));
@@ -327,6 +337,7 @@ async function loadCurrent() {
   hideEloInput.checked = Boolean(info.hideEloAt20);
   paintHideAt(Number(info.hideAtSeconds) || 20);
   for (const [key, input] of Object.entries(rivalInputs)) input.checked = Boolean(info[key]);
+  autoUpdateInput.checked = Boolean(info.autoUpdate);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt
     : null;
@@ -643,6 +654,9 @@ function renderUpdater(snapshot) {
 
   // Un solo botón busca: checkBtn. El primario únicamente descarga o instala
   // y queda inactivo cuando no hay nada que hacer (antes también buscaba).
+  // El interruptor de automáticas solo tiene sentido en la app instalada
+  // (en desarrollo no hay updater).
+  autoUpdateInput.disabled = !snapshot.active;
   updateBtn.disabled = !snapshot.active || !(snapshot.ready || snapshot.available);
   checkBtn.disabled = !snapshot.active || Boolean(snapshot.checking);
   skipBtn.disabled = !snapshot.active || Boolean(snapshot.skipped) || !(snapshot.available || snapshot.ready);

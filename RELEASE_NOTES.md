@@ -1,3 +1,12 @@
+## v0.1.15 · La partida aparece al segundo + actualizaciones automáticas
+
+- **La partida apareada se ve en ~1,5 s, no 15 s después.** El feed de matchmaking de AoE2 Companion **no empuja cada evento**: manda un lote cada ~15 s, así que esperar al socket hacía que el panel se dibujara cuando la partida ya estaba por empezar. Ahora el overlay pide **snapshots frescos a demanda**: sin cola consulta el socket **filtrado por tu perfil** (~300 B, cada 6 s) y, en cuanto detecta que estás buscando, pide el snapshot **global** con el roster del `matched` **cada 1,5 s**. Al aparearse se pausa solo.
+- **El log mide la latencia real**: `el servidor la marcó hace 1400ms` / `servidor→pantalla 1900ms`, usando el `matchedAt` que publica el servidor.
+- **El ELO ya no se queda en `…`.** Si el backend de World's Edge falla justo cuando aparece la partida, se reintenta a los 1,5 s (hasta 3 veces) y la request tiene timeout de 7 s con un reintento inmediato. Antes, un solo fallo dejaba la columna en `…` hasta el inicio de la partida.
+- **Nueva opción «Actualizaciones automáticas»** en la pestaña **Updater** (apagada de fábrica): consulta cada **30 minutos** y, si hay una versión nueva, la **descarga e instala sola** en silencio. Nunca en media partida: si estás jugando, se aplica al terminar. Un «Omitir» anterior deja de bloquear.
+
+---
+
 ## v0.1.14 · Recomendaciones inteligentes (pre-partida)
 
 - **Nueva opción «Recomendaciones inteligentes»** en *Configuración → Datos del rival* (apagada de fábrica). Al encontrarse la partida (ventana de preparación) muestra un **consejo por rival** calculado con **datos reales** de AoE2Insights (`/stats/api/match-ups/` sobre replays analizados):

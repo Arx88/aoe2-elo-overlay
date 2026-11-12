@@ -109,6 +109,29 @@ En cuanto el juego **encuentra partida** (la ventana de ~60s antes de entrar al 
 
 El primer mensaje de cada conexión es el estado completo, así que una reconexión a mitad del countdown no pierde la partida. El REST cada **3 segundos** (`idlePollSeconds`) queda como respaldo y toma el control cuando la partida arranca: ahí llegan las civilizaciones y los colores reales.
 
+### Por qué no se espera al socket (carril rápido)
+
+El feed de `queueing` **no empuja cada evento**: al conectar manda el estado completo (~75 KB) y después **un lote cada ~14-15 s** (medido contra el socket real). Esperar ese lote hacía que una partida recién apareada apareciera hasta 15 s tarde; en la práctica el panel se dibujaba cuando la partida ya estaba por empezar.
+
+Por eso el overlay pide **snapshots frescos a demanda** con conexiones cortas (`src/live.js → FastLane`):
+
+| Situación | Qué consulta | Tamaño | Frecuencia |
+| --- | --- | --- | --- |
+| Sin partida | socket `queueing` **filtrado por tu perfil** | ~300 B | cada 6 s |
+| En cola | socket `queueing` **global** (trae el `matched` con roster) | ~75 KB | cada **1,5 s** |
+| Partida apareada | nada: se pausa y siguen los sockets normales | — | — |
+
+El snapshot global entra por el mismo `QueueWatcher.handleEvents(..., true)`, así que la detección, el dedupe y los avisos son **un solo código**. Resultado medido contra el feed real: la partida apareada se ve **≤1,5 s después de que AoE2 Companion la publica**, en vez de hasta 15 s después (lo que hacía que el panel apareciera con la partida ya empezada). El log lo deja medido, de punta a punta:
+
+```text
+PARTIDA ENCONTRADA · roster en pantalla en 120ms (6 jugadores, Coastal Forest) · pidiendo ELO RM 1v1 · el servidor la marcó hace 8200ms
+PRE-PARTIDA · Coastal Forest · RM team · ELO RM 1v1 · completo en 640ms (servidor→pantalla 8800ms) · …
+```
+
+Ojo con el número `servidor→pantalla`: incluye lo que **tarda el propio servidor de AoE2 Companion** en publicar la partida en el feed (medido: entre 7 y 20 s desde `matchedAt`, porque ingesta cada ~15 s). Eso no lo puede acelerar ninguna app cliente; lo que sí se eliminó es la espera extra del lote empujado y el `…` eterno cuando fallaba el ELO.
+
+Si el backend de ELO falla justo en ese momento, se **reintenta solo** a los 1,5 s (hasta 3 veces) y la request tiene timeout de 7 s con un reintento inmediato: antes, un solo fallo dejaba la columna en `…` hasta que arrancaba la partida.
+
 No espera a tener todo para dibujar, en **dos fases**:
 
 1. **Al instante** (0 requests): el roster completo, los equipos y el mapa ya están en pantalla; la columna de ELO muestra `…`. No se pinta el ELO del modo, porque ese número no es el que querés ver.
@@ -351,6 +374,7 @@ En la app instalada/portable está en `%APPDATA%\AoE2 ELO Overlay\config.json`. 
 | `rivalCivs` | `false` | Últimas 5 civs jugadas por el rival (informe opcional) |
 | `rivalFavorites` | `false` | Civ y mapa más usados del rival |
 | `rivalOpenings` | `false` | Aperturas reales de AoE2Insights (replays analizados) |
+| `autoUpdate` | `false` | Actualizaciones automáticas: consulta cada 30 min y aplica sola lo que encuentre (nunca en partida). Se activa en la pestaña **Updater** |
 | `debug` | `false` | Loguea detalles de altura y diagnóstico |
 
 Las claves nuevas se agregan solas al `config.json` existente la primera vez que arranca (`loadConfig()` migra sin pisar lo que ya elegiste). Las cinco opciones de partida se cambian **en caliente** desde la configuración; no hace falta editar el archivo a mano.
@@ -472,7 +496,18 @@ En ambos casos `.github/workflows/release.yml` compila en `windows-latest` y pub
 
 **Cambios que no tocan el binario** (README, `tools/`, capturas): `git commit && git push` **sin tag**. Así no se genera un Release ni los usuarios bajan 117 MB por un cambio de documentación.
 
-**Regla de producto:** `src/updater.js` nunca consulta ni descarga mientras `lastGood.status === 'ongoing'`. Un overlay de AoE2 no debe comerse el ancho de banda ni reiniciarse en media partida. Consulta al arranque (20 s), cada 6 h y **cada 30 min mientras haya una versión pendiente**; si hay partida, pospone y reintenta solo. Desde la bandeja (**Buscar actualizaciones…**) o el botón **Buscar actualizaciones** del panel se fuerza una consulta manual, incluso con una versión ya descargada. En el panel hay **un solo** botón de búsqueda: el botón principal únicamente descarga o instala. **Actualizar ahora** tampoco instala en media partida: pospone, lo avisa en el panel y se aplica sola apenas termina (o al salir de la app), así nunca te corta el overlay en el medio de un juego.
+**Regla de producto:** `src/updater.js` nunca consulta ni descarga mientras `lastGood.status === 'ongoing'`. Un overlay de AoE2 no debe comerse el ancho de banda ni reiniciarse en media partida. Consulta al arranque (20 s), cada 6 h y **cada 30 min mientras haya una versión pendiente**; si hay partida, pospone y reintenta solo.
+
+### Actualizaciones automáticas (opción, apagada de fábrica)
+
+En la pestaña **Updater** hay un interruptor, **Actualizaciones automáticas** (`autoUpdate` en `config.json`). Activado:
+
+- consulta GitHub Releases **cada 30 minutos** aunque no haya nada pendiente;
+- si encuentra una versión nueva, la **descarga** y la **instala sola** en silencio (la app se reabre);
+- **nunca en media partida**: si hay juego en curso, espera y se aplica al terminar;
+- descarta un **Omitir** anterior, para que no bloquee las automáticas.
+
+Apagado (default) se comporta como siempre: consulta al arrancar, cada 6 h, y cada 30 min solo si ya hay una versión pendiente. Al activarlo se consulta **al instante**, sin esperar el primer ciclo. Desde la bandeja (**Buscar actualizaciones…**) o el botón **Buscar actualizaciones** del panel se fuerza una consulta manual, incluso con una versión ya descargada. En el panel hay **un solo** botón de búsqueda: el botón principal únicamente descarga o instala. **Actualizar ahora** tampoco instala en media partida: pospone, lo avisa en el panel y se aplica sola apenas termina (o al salir de la app), así nunca te corta el overlay en el medio de un juego.
 
 **Sin instalador a la vista.** `electron-builder.json` genera un NSIS *asistido* (`oneClick: false`, con elección de carpeta y acceso directo), y `quitAndInstall(false, true)` lo mostraba cada vez que se apretaba **Actualizar ahora**. Ahora se llama con `quitAndInstall(true, true)`: `electron-updater` le pasa `/S` (ninguna ventana) y `--force-run` (reapertura automática), además de `--updated` y `/D=<carpeta actual>` para conservar la instalación. Como `perMachine: false`, no pide UAC. **Limitación real de Windows:** el `.exe` está en uso mientras la app corre, así que no se puede actualizar sin cerrar; siempre hay un cierre de unos segundos, el reemplazo y la reapertura. Lo que se elimina es el asistente, no el reinicio. La descarga ya era diferencial gracias a `.blockmap`.
 

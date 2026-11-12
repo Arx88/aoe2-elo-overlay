@@ -408,6 +408,61 @@ function fakeLobby(leaderboardId, leaderboardName) {
     q.handleEvents([{ type: 'queueingRemoved', data: { id: 'm_888', reason: 'started', matchId: 888 } }], false);
     check('al arrancar la partida se entrega el panel al REST', goneIds.length === 1 && goneIds[0] === 'm_888');
 
+    // Carril rápido: el feed empujado manda lotes cada ~15 s. El snapshot
+    // fresco (filtrado 300 B sin cola, global en cola) es lo que hace que la
+    // partida apareada se vea en ~1 s en vez de esperar el lote.
+    const { FastLane } = require('../src/live');
+    const laneSnapshots = [];
+    const laneQueue = [];
+    const laneQueries = [];
+    const lane = new FastLane({
+      profileId: 101,
+      log: () => {},
+      onSnapshot: (events) => laneSnapshots.push(events),
+      onQueue: (on) => laneQueue.push(on),
+      readSnapshotImpl: async (query) => {
+        laneQueries.push(query);
+        if (!query.profile_ids) {
+          return [{
+            type: 'queueingAdded',
+            data: {
+              id: 'm_900', status: 'matched', matchId: 900, leaderboard: 'rm_1v1',
+              mapName: 'Arabia', matchedAt: new Date().toISOString(),
+              players: [{ profileId: 101, team: 0 }, { profileId: 102, team: 1 }],
+            },
+          }];
+        }
+        return [{
+          type: 'queueingAdded',
+          data: { id: 'q_lane', status: 'queueing', players: [{ profileId: 101 }] },
+        }];
+      },
+    });
+    await lane.poll();
+    check('carril rápido: sin cola consulta el socket FILTRADO (300 B)',
+      Boolean(laneQueries[0] && laneQueries[0].profile_ids) && lane.inQueue);
+    check('carril rápido: avisa que empezó la búsqueda',
+      laneQueue.length === 1 && laneQueue[0] === true);
+    await lane.poll();
+    check('carril rápido: en cola pide el snapshot GLOBAL con el roster',
+      Boolean(laneQueries[1] && !laneQueries[1].profile_ids) &&
+        laneSnapshots.length === 1 && laneSnapshots[0][0].data.players.length === 2);
+    check('carril rápido: el snapshot global entra por handleEvents como snapshot',
+      /queueWatcher\.handleEvents\(events, true, \{ quiet: true \}\)/.test(
+        require('fs').readFileSync(require('path').join(__dirname, '..', 'main.js'), 'utf8'),
+      ));
+    const idleFlags = [];
+    const idleLane = new FastLane({
+      profileId: 101,
+      log: () => {},
+      onSnapshot: () => {},
+      onQueue: (on) => idleFlags.push(on),
+      readSnapshotImpl: async () => [],
+    });
+    await idleLane.poll();
+    check('carril rápido: si no estoy en cola no dispara nada',
+      idleFlags.length === 0 && idleLane.inQueue === false);
+
     const liveSource = require('fs').readFileSync(
       require('path').join(__dirname, '..', 'src', 'live.js'),
       'utf8',
@@ -1285,8 +1340,10 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('main.js: la ladder del match viaja al informe (con fallback a state.ladder)',
       /function leaderboardOf\(state\)/.test(mainSrc) && /leaderboardId = leaderboardOf\(state\)/.test(mainSrc) &&
         /sin-modo/.test(mainSrc));
+    // La firma se arma DENTRO de rivalSignature y el modo es parte del string:
+    // una partida de EW no puede reutilizar el informe cacheado de una de RM.
     check('main.js: la firma del informe incluye el modo (no reutiliza de otro modo)',
-      /rivalSignature\(state, rivals\)[\s\S]{0,400}sin-modo/.test(mainSrc));
+      /function rivalSignature\(state, rivals\)[\s\S]*?\$\{mode \? mode\.id : 'sin-modo'\}/.test(mainSrc));
     check('main.js: la firma y el pedido incluyen el MAPA de la partida',
       /rivalSignature\(state, rivals\)[\s\S]{0,500}sin-mapa/.test(mainSrc) &&
         /const mapName = state\.match && state\.match\.mapName/.test(mainSrc) &&

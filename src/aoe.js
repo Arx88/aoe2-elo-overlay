@@ -165,14 +165,16 @@ function normalizeMatch(raw) {
  * Devuelve Map<profileId, { rating, peak, rank, wins, losses }>.
  * Si un jugador no jugó ese ladder, no aparece en el Map.
  */
-async function fetchPersonalStats(profileIds, ladderId = ELO_LADDER.id) {
+async function fetchPersonalStats(profileIds, ladderId = ELO_LADDER.id, timeoutMs = 7000) {
   const ids = [...new Set((profileIds || []).map(Number).filter(Number.isFinite))];
   if (!ids.length || ladderId == null) return new Map();
 
   const url =
     `${WE_BASE}/community/leaderboard/getPersonalStat?title=age2` +
     `&profile_ids=${encodeURIComponent(JSON.stringify(ids))}`;
-  const data = await getJson(url);
+  // Timeout corto a propósito: el panel ya está en pantalla con `…` y esta
+  // request es lo único que falta. Antes eran 12 s de espera muerta.
+  const data = await getJson(url, timeoutMs);
 
   if (data && data.result && Number(data.result.code) !== 0) {
     throw new Error(`World's Edge: ${data.result.message || 'error'}`);
@@ -299,9 +301,19 @@ async function fetchEloStats(missing, fetchStatsImpl = fetchPersonalStats) {
   }
 }
 
-/** Aplica lo que llegó al Map y, si la request fue buena, lo deja en cache. */
+/**
+ * Aplica lo que llegó al Map y, si la request fue buena, lo deja en cache.
+ *
+ * Un fallo tiene UN reintento inmediato: la primera conexión TLS al backend a
+ * veces se corta y, sin reintento, el panel se quedaba con `…` hasta que el
+ * próximo poll volvía a pedir el ELO (en la pre-partida eso era el inicio de
+ * la partida). Devuelve el error final (o null) para que main pueda reintentar.
+ */
 async function completeEloStats(stats, missing, cache, now, fetchStatsImpl) {
-  const { ok, fresh, error } = await fetchEloStats(missing, fetchStatsImpl);
+  let { ok, fresh, error } = await fetchEloStats(missing, fetchStatsImpl);
+  if (!ok) {
+    ({ ok, fresh, error } = await fetchEloStats(missing, fetchStatsImpl));
+  }
   for (const id of missing) {
     const row = fresh.get(id) || { rating: null, peak: null, rank: null };
     // Se cachea también el "no tiene ladder 1v1" para no volver a preguntar,
@@ -358,8 +370,8 @@ async function buildSnapshot({ profileId, cache, cacheTtlMs = 15 * 60 * 1000, on
   // Primera pintura: nombres/equipos/escudos ya en pantalla, ELO en `…`.
   if (onPartial) onPartial(snapshot(true));
 
-  await completeEloStats(stats, missing, cache, now);
-  return snapshot(false);
+  const statsError = await completeEloStats(stats, missing, cache, now);
+  return { ...snapshot(false), statsError };
 }
 
 /**
@@ -434,8 +446,8 @@ async function buildExampleSnapshot({
 
   if (!missing.length) return snapshot(false);
   if (onPartial) onPartial(snapshot(true));
-  await completeEloStats(stats, missing, cache, cacheNow, fetchStatsImpl);
-  return snapshot(false);
+  const statsError = await completeEloStats(stats, missing, cache, cacheNow, fetchStatsImpl);
+  return { ...snapshot(false), statsError };
 }
 
 /**
@@ -513,8 +525,8 @@ async function buildSnapshotFromLobby(lobby, { profileId, cache, cacheTtlMs = 15
   // Primera fase: roster en pantalla, ELO 1v1 en `…` (nunca el ELO del modo).
   if (onPartial) onPartial(snapshot(true));
 
-  await completeEloStats(stats, missing, cache, now);
-  return snapshot(false);
+  const statsError = await completeEloStats(stats, missing, cache, now);
+  return { ...snapshot(false), statsError };
 }
 
 /**

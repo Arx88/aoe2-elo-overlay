@@ -27,6 +27,9 @@
 
 const DEFAULT_CHECK_MS = 6 * 60 * 60 * 1000;
 const PENDING_RECHECK_MS = 30 * 60 * 1000;
+// Opción "Actualizaciones automáticas": consulta cada 30 min y aplica sola.
+const AUTO_CHECK_MS = 30 * 60 * 1000;
+const AUTO_INSTALL_MS = 2500;
 const TICK_MS = 60 * 1000;
 const START_DELAY_MS = 20 * 1000;
 const MANUAL_CHECK_GAP_MS = 5 * 1000;
@@ -98,6 +101,7 @@ function disabled(app) {
     deferred: false,
     installDeferred: false,
     targetVersion: null,
+    auto: false,
   };
   return {
     active: false,
@@ -121,6 +125,8 @@ function initAutoUpdate(options = {}) {
     broadcast = () => {},
     onNotice = () => {},
     checkIntervalMs = DEFAULT_CHECK_MS,
+    // Lectura viva de la opción "Actualizaciones automáticas" (config.json).
+    isAuto = () => false,
   } = options;
 
   if (!enabled || !app || !app.isPackaged) return disabled(app);
@@ -134,6 +140,13 @@ function initAutoUpdate(options = {}) {
   }
 
   const say = (message) => log(`update · ${message}`);
+  const autoEnabled = () => {
+    try {
+      return Boolean(isAuto());
+    } catch {
+      return false;
+    }
+  };
 
   autoUpdater.logger = {
     info: (message) => say(text(message)),
@@ -166,6 +179,7 @@ function initAutoUpdate(options = {}) {
     deferred: false,
     installDeferred: false,
     targetVersion: null,
+    auto: autoEnabled(),
   };
 
   let lastCheck = 0;
@@ -185,11 +199,15 @@ function initAutoUpdate(options = {}) {
   let wantsNewDownload = false;
   let checkTimeout = null;
   let retryTimer = null;
+  let autoInstallTimer = null;
   let checkingPromise = null;
   // El usuario pidió instalar pero había partida: se ejecuta solo al terminar.
   let installRequested = false;
 
   function emitStatus() {
+    // `auto` no se guarda en status: se lee de la config en cada emisión, así
+    // el panel refleja el interruptor aunque se cambie desde otro lado.
+    status.auto = autoEnabled();
     const snapshot = { ...status };
     try {
       broadcast(snapshot);
@@ -213,8 +231,33 @@ function initAutoUpdate(options = {}) {
   }
   function intervalMs() {
     if (Date.now() < publishingUntil) return PUBLISHING_RETRY_MS;
+    // Con actualizaciones automáticas siempre se consulta cada 30 min.
+    if (autoEnabled()) return Math.min(checkIntervalMs, AUTO_CHECK_MS);
     if (hasPendingVersion()) return Math.min(checkIntervalMs, PENDING_RECHECK_MS);
     return checkIntervalMs;
+  }
+
+  /**
+   * Instalación automática: la pide la opción de la pestaña Updater cuando ya
+   * hay una versión descargada. Respeta la regla de oro: nunca en media
+   * partida (se agenda y el tick la aplica al terminar).
+   */
+  function autoInstallSoon(reason) {
+    if (closed || !autoEnabled() || !readyToInstall || status.skipped) return;
+    clearTimeout(autoInstallTimer);
+    autoInstallTimer = setTimeout(() => {
+      autoInstallTimer = null;
+      if (closed || !readyToInstall || !autoEnabled() || status.skipped) return;
+      if (isBusy()) {
+        installRequested = true;
+        say('instalación automática pospuesta: hay partida en curso · se aplica al terminar');
+        patch({ installDeferred: true });
+        return;
+      }
+      say(`instalación automática (${reason}) · se reabre sola`);
+      install();
+    }, AUTO_INSTALL_MS);
+    if (typeof autoInstallTimer.unref === 'function') autoInstallTimer.unref();
   }
 
   /** Apareció una versión más nueva: todo lo anterior deja de valer. */
@@ -335,6 +378,8 @@ function initAutoUpdate(options = {}) {
       publishing: false,
     });
     notice('ready', version || status.latest);
+    // Con la opción activada, la actualización se aplica sola (fuera de partida).
+    autoInstallSoon('descargada');
   });
 
   autoUpdater.on('error', (err) => {
@@ -510,12 +555,26 @@ function initAutoUpdate(options = {}) {
   const startTimer = setTimeout(() => check('arranque'), START_DELAY_MS);
   const tickTimer = setInterval(() => {
     if (closed) return;
+    // "Omitir" vale para una versión y esta sesión: si el usuario activa las
+    // actualizaciones automáticas, se descarta para que no bloquee nada.
+    if (autoEnabled() && skippedVersion) {
+      skippedVersion = null;
+      say('actualizaciones automáticas activas: se descarta el "Omitir" anterior');
+      patch({ skipped: false, skippedVersion: null });
+    }
     // Pedido de instalar hecho durante una partida: se ejecuta solo apenas
     // termina. No cortamos el juego ni queda esperando otro clic del usuario.
     // Si en el medio apareció otra versión, readyToInstall se limpia y se
     // espera a la descarga nueva (nunca se instala una vieja).
     if (installRequested && readyToInstall && !status.skipped && !isBusy()) {
       installRequested = false;
+      install();
+      return;
+    }
+    // Red de seguridad de la instalación automática: si quedó descargada y no
+    // hay partida, se aplica aunque el timer se haya perdido por un reinicio.
+    if (autoEnabled() && readyToInstall && !status.skipped && !isBusy()) {
+      say('instalación automática pendiente · se aplica ahora');
       install();
       return;
     }
@@ -528,13 +587,16 @@ function initAutoUpdate(options = {}) {
   if (typeof startTimer.unref === 'function') startTimer.unref();
   if (typeof tickTimer.unref === 'function') tickTimer.unref();
 
-  say(`activo · v${app.getVersion()} · consulta cada ${Math.round(checkIntervalMs / 3600000)} h`);
+  say(
+    `activo · v${app.getVersion()} · consulta cada ${Math.round(checkIntervalMs / 3600000)} h` +
+      `${autoEnabled() ? ' · automáticas cada 30 min' : ''}`,
+  );
   emitStatus();
 
   return {
     active: true,
     status,
-    getStatus: () => ({ ...status }),
+    getStatus: () => ({ ...status, auto: autoEnabled() }),
     check,
     download,
     install,
@@ -547,6 +609,7 @@ function initAutoUpdate(options = {}) {
       clearInterval(tickTimer);
       clearCheckTimeout();
       clearTimeout(retryTimer);
+      clearTimeout(autoInstallTimer);
     },
   };
 }

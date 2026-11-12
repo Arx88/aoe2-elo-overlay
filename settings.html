@@ -182,7 +182,7 @@
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="smartTips" title="Consejos pre-partida calculados con replays reales de AoE2Insights: en el mapa actual, qué civilizaciones y qué aperturas le cuestan al rival, y su perfil de ritmo. Solo se ven en la ventana de preparación (antes de que arranque la partida) y desaparecen solos al iniciar.">
+              <label class="row tog" for="smartTips" title="Consejos pre-partida calculados con replays analizados: en el mapa actual, qué civilizaciones y qué aperturas le cuestan al rival, y su perfil de ritmo. Solo se ven en la ventana de preparación (antes de que arranque la partida) y desaparecen solos al iniciar.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 7v5c0 4 3 7 8 9 5-2 8-5 8-9V7l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg></span>
                 <span class="tcopy">
                   <span class="rname">Recomendaciones inteligentes</span>
@@ -250,6 +250,19 @@
                 <strong id="updLatest">—</strong>
               </div>
               <span class="upd-pill" id="updPill">—</span>
+            </div>
+
+            <div class="block">
+              <label class="row tog" for="autoUpdate" title="Si está activado, la app consulta GitHub Releases cada 30 minutos y, cuando hay una versión nueva, la descarga e instala sola (silenciosa, se reabre). Nunca lo hace en media partida: si estás jugando, espera a que termines.">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.1M20 5v6h-6"/></svg></span>
+                <span class="tcopy">
+                  <span class="rname">Actualizaciones automáticas</span>
+                  <span class="rdesc">Cada 30 min busca, descarga e instala sola</span>
+                </span>
+                <input id="autoUpdate" type="checkbox" />
+                <span class="sw" aria-hidden="true"></span>
+              </label>
+              <p class="mini">Nunca en media partida: si estás jugando, se aplica sola al terminar.</p>
             </div>
 
             <div class="upd-download">

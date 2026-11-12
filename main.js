@@ -35,7 +35,7 @@ const {
   introView,
   nextIntroTick,
 } = require('./src/intro');
-const { LobbyWatcher, QueueWatcher } = require('./src/live');
+const { LobbyWatcher, QueueWatcher, FastLane } = require('./src/live');
 const { buildRivalInsights, opponentsOf, resolveMode, mapKey } = require('./src/rival');
 const { buildScoutTips } = require('./src/scout');
 const { initAutoUpdate } = require('./src/updater');
@@ -84,6 +84,10 @@ const DEFAULT_CONFIG = {
   // Consejo pre-partida (mapa × civ × apertura que le cuestan al rival).
   // Solo en la ventana de preparación: se va apenas arranca la partida.
   smartTips: false,
+  // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
+  // nueva, la descarga e instala sola (nunca en media partida). Apagada de
+  // fábrica: se activa desde la pestaña Updater.
+  autoUpdate: false,
   debug: false,
 };
 
@@ -295,6 +299,7 @@ let moving = false;
 let moveSaveTimer = null;
 let liveWatcher = null; // salas personalizadas (handler=lobbies)
 let queueWatcher = null; // matchmaking ranked (handler=queueing) ← el importante
+let fastLane = null; // sondeo de snapshots frescos: detecta la partida en ~1s
 let liveLobbyAt = 0;
 let liveMatchAt = 0;
 let searching = false; // en cola: el REST se consulta más seguido
@@ -1362,6 +1367,8 @@ function startLive() {
       const at = Date.now();
       liveMatchAt = at;
       preMatchGraceUntil = at + 20000;
+      // Hay partida: el carril rápido deja de sondear (el socket sigue solo).
+      if (fastLane) fastLane.pause();
       log(`PARTIDA ENCONTRADA · cola apareada (matchId ${matchId}) · aviso en 0ms`);
       emit({
         status: 'ongoing',
@@ -1377,11 +1384,13 @@ function startLive() {
     onMatched: (item) => {
       liveMatchAt = Date.now();
       preMatchGraceUntil = liveMatchAt + 20000;
+      if (fastLane) fastLane.pause();
       showMatchFound(item);
     },
     onGone: (id) => {
       log(`partida apareada ${id} terminó/canceló: toma el control el REST`);
       liveMatchAt = 0;
+      if (fastLane) fastLane.resume();
       poll();
     },
     onSearching: (active) => {
@@ -1391,6 +1400,30 @@ function startLive() {
     },
   });
   queueWatcher.start();
+
+  // Carril rápido: el feed empujado manda lotes cada ~15 s, así que la partida
+  // apareada podía verse recién 15 s después (y con la partida ya empezando).
+  // Mientras estás en cola se pide un snapshot fresco cada 1,5 s; al aparearse
+  // se pausa. El snapshot entra por handleEvents(..., true): misma detección,
+  // mismo dedupe y mismos avisos que el socket empujado.
+  fastLane = new FastLane({
+    profileId,
+    log,
+    onSnapshot: (events) => {
+      if (queueWatcher) queueWatcher.handleEvents(events, true, { quiet: true });
+    },
+    onQueue: (active) => {
+      if (active === searching) return;
+      searching = active;
+      log(
+        active
+          ? 'estás buscando partida (carril rápido) · polling acelerado'
+          : 'cola finalizada (carril rápido)',
+      );
+      if (active) scheduleNext('idle');
+    },
+  });
+  fastLane.start();
 
   // Secundario: salas personalizadas.
   liveWatcher = new LobbyWatcher({
@@ -1404,6 +1437,7 @@ function startLive() {
     },
     onLobbyGone: () => {
       liveLobbyAt = 0;
+      if (fastLane) fastLane.resume();
       poll();
     },
   });
@@ -1413,8 +1447,10 @@ function startLive() {
 function stopLive() {
   if (liveWatcher) liveWatcher.stop();
   if (queueWatcher) queueWatcher.stop();
+  if (fastLane) fastLane.stop();
   liveWatcher = null;
   queueWatcher = null;
+  fastLane = null;
   liveLobbyAt = 0;
   liveMatchAt = 0;
   searching = false;
@@ -1430,9 +1466,47 @@ function lobbyActive() {
   return matchFoundActive() || Boolean(liveWatcher && liveWatcher.lobby && Date.now() - liveLobbyAt < 15 * 60 * 1000);
 }
 
+/**
+ * Cuánto hace que el SERVIDOR marcó la partida (campo `matchedAt` del feed).
+ * Sirve para medir la latencia de punta a punta en el log: cuánto se tardó en
+ * pasar del hecho (el juego armó la partida) a los datos en pantalla.
+ */
+function serverMatchedLag(item) {
+  const serverAt = Date.parse((item && item.matchedAt) || '');
+  return Number.isFinite(serverAt) ? Math.max(0, Date.now() - serverAt) : null;
+}
+
+// Reintento del ELO si el backend falla justo cuando aparece la partida. Un
+// solo fallo dejaba el panel en `…` hasta el inicio de la partida.
+let eloRetryTimer = null;
+let eloRetryKey = '';
+let eloRetryCount = 0;
+const ELO_RETRY_MS = 1500;
+const ELO_RETRY_MAX = 3;
+
+function scheduleEloRetry(matchId, item) {
+  const key = String(matchId ?? '');
+  if (!key) return;
+  if (eloRetryKey !== key) {
+    eloRetryKey = key;
+    eloRetryCount = 0;
+  }
+  clearTimeout(eloRetryTimer);
+  eloRetryTimer = null;
+  if (eloRetryCount >= ELO_RETRY_MAX) return;
+  eloRetryTimer = setTimeout(() => {
+    eloRetryTimer = null;
+    if (exampleActive || !lobbyActive()) return;
+    eloRetryCount += 1;
+    log(`ELO RM 1v1: reintento ${eloRetryCount}/${ELO_RETRY_MAX} de la consulta`);
+    showMatchFound(item);
+  }, ELO_RETRY_MS);
+}
+
 /** Dibuja el roster en el mismo instante en que el juego encontró partida. */
 async function showMatchFound(item) {
   const startedAt = Date.now();
+  const serverLag = serverMatchedLag(item);
   try {
     const snapshot = await buildSnapshotFromMatch(item, {
       profileId,
@@ -1442,7 +1516,8 @@ async function showMatchFound(item) {
         if (emit(partial)) {
           log(
             `PARTIDA ENCONTRADA · roster en pantalla en ${Date.now() - startedAt}ms ` +
-              `(${partial.players.length} jugadores, ${partial.match.mapName}) · pidiendo ELO RM 1v1`,
+              `(${partial.players.length} jugadores, ${partial.match.mapName}) · pidiendo ELO RM 1v1` +
+              (serverLag == null ? '' : ` · el servidor la marcó hace ${serverLag}ms`),
           );
         }
       },
@@ -1453,8 +1528,15 @@ async function showMatchFound(item) {
         .join(' · ');
       log(
         `PRE-PARTIDA · ${snapshot.match.mapName} · ${snapshot.ladder.label} · ELO RM 1v1 · ` +
-          `completo en ${Date.now() - startedAt}ms · ${roster}`,
+          `completo en ${Date.now() - startedAt}ms` +
+          (serverLag == null ? '' : ` (servidor→pantalla ${serverLag}ms)`) +
+          ` · ${roster}`,
       );
+    }
+    // Si el backend de ELO falló, se reintenta sin esperar al próximo poll.
+    if (snapshot.statsError) {
+      log(`ELO RM 1v1 no llegó (${snapshot.statsError}): reintento en ${ELO_RETRY_MS}ms`);
+      scheduleEloRetry(snapshot.match.matchId, item);
     }
   } catch (err) {
     log(`no pude armar la partida encontrada: ${err.message}`);
@@ -1761,6 +1843,7 @@ function registerIpc() {
     rivalFavorites: Boolean(config.rivalFavorites),
     rivalOpenings: Boolean(config.rivalOpenings),
     smartTips: Boolean(config.smartTips),
+    autoUpdate: Boolean(config.autoUpdate),
     matchStartedAt: intro && intro.engaged ? intro.startedAt : null,
     exampleClockElapsedMs:
       exampleFrozenAt != null && intro && intro.engaged
@@ -1914,6 +1997,21 @@ function registerIpc() {
       refreshScoutTips(lastGood, { force: true }).catch(() => {});
     }
     return { ok: true, key, enabled };
+  });
+
+  // Actualizaciones automáticas (pestaña Updater). Al activarlas se consulta
+  // enseguida: si ya hay una versión nueva, se descarga e instala sola. Nunca
+  // en media partida: el updater lo pospone hasta que termines.
+  ipcMain.handle('settings:autoUpdate', (_event, raw) => {
+    const enabled = Boolean(raw);
+    persistConfig({ autoUpdate: enabled });
+    log(
+      `actualizaciones automáticas: ${enabled ? 'activadas · consulta cada 30 min' : 'desactivadas'}`,
+    );
+    if (enabled && updater && updater.active) {
+      updater.check('al activar automáticas');
+    }
+    return { ok: true, autoUpdate: enabled };
   });
 
   // Modo ejemplo: arrancar con la última partida REAL, mover el reloj y salir.
@@ -2194,6 +2292,10 @@ async function poll() {
       return 'idle';
     }
 
+    // Partida terminada (o nunca empezó): el carril rápido vuelve a sondear,
+    // por si el jugador se pone en cola otra vez. Es idempotente.
+    if (snapshot.status === 'idle' && fastLane) fastLane.resume();
+
     // La firma se calcula sin checkedAt: si nada cambió, no se repinta ni se loguea.
     if (emit(snapshot)) {
       if (snapshot.status === 'ongoing') {
@@ -2378,6 +2480,9 @@ if (!gotLock) {
       log,
       enabled: !DEV_SESSION,
       isBusy: matchOngoing,
+      // Opción "Actualizaciones automáticas" de la pestaña Updater: consulta
+      // cada 30 min y aplica sola lo que encuentre (siempre fuera de partida).
+      isAuto: () => Boolean(config.autoUpdate),
       onNotice: showUpdateNotice,
       broadcast: (snapshot) => {
         if (settingsWin && !settingsWin.isDestroyed()) {
