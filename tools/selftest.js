@@ -1070,9 +1070,33 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /body\.elo-hidden #analysis/.test(css) &&
         /function applyVisibility\(\)/.test(renderer) &&
         /civHelpEl\.hidden = !\(ongoing/.test(renderer) &&
-        /rivalInfoEl\.hidden = !\(ongoing/.test(renderer) &&
-        /scoutInfoEl\.hidden = !scoutVisible\(\)/.test(renderer) &&
+        /!hidden && !detailMode/.test(renderer) &&
         /if \(civView\.eloHidden\) return null;/.test(renderer));
+    /* ---- v0.1.24 · SCOUTING UNIFICADO -------------------------------- */
+    check('scouting unificado: UNA sección compacta y UNA tarjeta por rival',
+      /id="scouting"/.test(html) && /id="scoutCards"/.test(html) &&
+        /#scouting/.test(css) && /function renderScouting\(\)/.test(renderer) &&
+        /scoutCompactCard\(entry, wide\)/.test(renderer) &&
+        /function scoutUniverse\(\)/.test(renderer));
+    check('compacto y detalle son excluyentes: nunca las tres secciones juntas',
+      /scoutingEl\.hidden = !\(ongoing && compactAvailable\(\) && !hidden && !detailMode\)/.test(renderer) &&
+        /rivalInfoEl\.hidden = !\(detailMode && ongoing/.test(renderer) &&
+        /scoutInfoEl\.hidden = !\(detailMode && scoutVisible\(\)\)/.test(renderer));
+    check('tarjeta compacta: UN hero, una barra, UNA acción y proveniencia al pie',
+      /class="scout-hero"/.test(renderer) && /class="scout-bar"/.test(renderer) &&
+        /class="scout-action/.test(renderer) && /scoutFootnoteEl\.textContent/.test(renderer) &&
+        /function scoutHero\(/.test(renderer) && /function scoutAction\(/.test(renderer));
+    check('sin dominancia clara la tarjeta compacta dice MIXTO, no AGRESIVO 53%',
+      /style\.dominant === 'mixto'/.test(renderer) &&
+        /MIXTO · sin estilo dominante/.test(renderer));
+    check('CSP: el ancho de la barra se aplica por CSSOM, nunca como style inline',
+      /data-w=/.test(renderer) && /querySelectorAll\('\[data-w\]'\)/.test(renderer) &&
+        /bar\.style\.width/.test(renderer) && !/style="/.test(renderer));
+    check('F2: canal, atajo global, estado en el main y reenvío al recargar',
+      /onDetail/.test(preload) && /overlay:detail/.test(preload) &&
+        /globalShortcut\.register\('F2'/.test(main) &&
+        /function sendDetail\(\)/.test(main) && /sendDetail\(\);/.test(main) &&
+        /function setDetail\(/.test(renderer) && /onDetail/.test(renderer));
     check('un solo pase de visibilidad: nada decide su hidden por su cuenta',
       /function applyVisibility\(\)/.test(renderer) &&
         !/rivalInfoEl\.hidden = false/.test(renderer) &&
@@ -1771,11 +1795,17 @@ function fakeLobby(leaderboardId, leaderboardName) {
     // que encogerse, no recortar la última tarjeta (pasó: 1209 px en 1155).
     check('renderer: el panel se ajusta al alto del monitor en vez de recortarse',
       /function fitStage\(/.test(rendererSrc) &&
-        /stageMaxHeight \/ natural/.test(rendererSrc) &&
+        /usable \/ natural/.test(rendererSrc) &&
         /function panelMaxHeight\(/.test(require('fs').readFileSync(
           require('path').join(__dirname, '..', 'main.js'), 'utf8')) &&
         /maxHeight,/.test(require('fs').readFileSync(
           require('path').join(__dirname, '..', 'main.js'), 'utf8')));
+    // fitStage escalaba hasta el máximo exacto, pero reportHeight suma 8 px:
+    // esos 8 px recortaban la última fila del detalle en TG (1164 / 1155).
+    check('renderer: el escalado reserva el margen que después suma reportHeight',
+      /const HEIGHT_PADDING = 8/.test(rendererSrc) &&
+        /const usable = stageMaxHeight - HEIGHT_PADDING/.test(rendererSrc) &&
+        /\+ HEIGHT_PADDING/.test(rendererSrc));
     // "MAPAS CLOSED" era map_openness sin traducir y se leía como un mapa.
     check('scout: el tipo de mapa se muestra en español',
       opennessLabelCheck);
@@ -1888,6 +1918,87 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /return updater\.install\(\)/.test(mainSrc));
     check('CI: sin versión hardcodeada y con verificación del canal',
       !/gh release edit v0\.1\.9/.test(workflowSrc) && /latest\.yml/.test(workflowSrc));
+  }
+
+  /* -------------------------------------------------------------------
+     Comportamiento REAL de la tarjeta compacta: se ejecuta renderer.js en
+     un VM con DOM stub. Los chequeos estáticos solo prueban que el cable
+     existe; acá se comprueba que la lógica no miente.
+     ------------------------------------------------------------------- */
+  {
+    const vm = require('node:vm');
+    const rendererSrc = fs.readFileSync(path.join(__dirname, '..', 'renderer.js'), 'utf8');
+    const stub = () => ({
+      hidden: false, textContent: '', innerHTML: '', dataset: {}, style: {},
+      classList: { toggle() {}, add() {}, remove() {} },
+      querySelectorAll: () => [], appendChild() {},
+    });
+    const sandbox = {
+      document: {
+        getElementById: () => stub(), addEventListener() {}, body: stub(),
+        documentElement: { style: { setProperty() {} } },
+      },
+      window: {
+        overlay: {
+          onState() {}, onConfig() {}, onUpdate() {}, onMovable() {}, onView() {},
+          onRival() {}, onScout() {}, onDetail() {}, ready() {}, reportError() {},
+        },
+        addEventListener() {},
+      },
+      ResizeObserver: class { observe() {} },
+      requestAnimationFrame() {}, console,
+      setInterval() {}, clearInterval() {}, setTimeout() {}, clearTimeout() {},
+      Date, Math, Number, String, Boolean, Array, Object, JSON, Intl,
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(rendererSrc, sandbox, { filename: 'renderer.js' });
+    const hero = (style) => sandbox.scoutHero({ style, scopeLabel: 'en Arabia' }, null);
+
+    const agresivo = hero({ scope: 'recorte', analyzed: 34, aggressive: 25, boom: 9,
+      hybrid: 6, dominant: 'agresivo', share: 74, top: { short: 'Scouts' } });
+    check('compacta: agresivo publica 74% en rojo y una barra 74/26',
+      agresivo.value.includes('74') && agresivo.tone === 'bad' &&
+        agresivo.bar.agro === 74 && agresivo.bar.boom === 26);
+    const boom = hero({ scope: 'modo', analyzed: 22, aggressive: 7, boom: 15,
+      hybrid: 3, dominant: 'boom', share: 68, top: { short: 'FC' } });
+    check('compacta: boom publica 68% en verde y declara el cambio de alcance',
+      boom.value.includes('68') && boom.tone === 'good' && boom.styleScope === true);
+    const mixto = hero({ scope: 'recorte', analyzed: 20, aggressive: 11, boom: 9,
+      hybrid: 3, dominant: 'mixto', share: null, top: null });
+    check('compacta: sin dominancia se publica el reparto, no una etiqueta falsa',
+      mixto.value.includes('11') && mixto.value.includes('9') &&
+        mixto.tone === '' && mixto.label.includes('MIXTO'));
+    const chica = hero({ scope: 'recorte', analyzed: 11, aggressive: 8, boom: 3,
+      hybrid: 1, dominant: 'agresivo', share: 73, top: { short: 'Scouts' } });
+    check('compacta: con n<20 publica la fracción y NUNCA un porcentaje',
+      chica.value.includes('/') && !chica.value.includes('%'));
+    check('compacta: sin estilo cae al pick real de civ, sin inventar aperturas',
+      (() => {
+        const h = sandbox.scoutHero(null, { mapStats: { name: 'Arabia', games: 12,
+          civ: { name: 'Magyars', games: 2 } } });
+        return h && h.label.includes('Magyars') && h.bar === null;
+      })());
+    const accion = sandbox.scoutAction({ openingsAgainst: [
+      { name: 'Archer rush', short: 'Archer rush', games: 11, losses: 8 }] });
+    check('compacta: la apertura que le duele se convierte en orden de producción',
+      accion.title === 'Jugá arqueros' && accion.value.includes('8') &&
+        accion.legend === 'derrotas / partidas');
+    check('compacta: sin evidencia no se inventa un consejo',
+      sandbox.scoutAction({ openingsAgainst: [], weakAgainst: [], tempo: null }).empty === true);
+    check('compacta: el consejo de ritmo exige muestra en ambos extremos y gap real',
+      sandbox.tempoAdvice({ shortGames: 3, shortWinRate: 33, longGames: 22, longWinRate: 64 }) === null &&
+        sandbox.tempoAdvice({ shortGames: 12, shortWinRate: 60, longGames: 12, longWinRate: 65 }) === null &&
+        sandbox.tempoAdvice({ shortGames: 9, shortWinRate: 33, longGames: 22, longWinRate: 64 }).forceShort === true);
+    // Los `let` del renderer son bindings léxicos del VM: se asignan adentro.
+    vm.runInContext(`
+      rivalPayload = { reports: [{ profileId: 1, name: 'A' }, { profileId: 2, name: 'B' }] };
+      scoutPayload = { matchId: 'm1', tips: [{ profileId: 1, name: 'A' }, { profileId: 2, name: 'B' }] };
+      lastState = { status: 'ongoing', phase: 'lobby', match: { matchId: 'm1', mapName: 'Arabia' },
+        ladder: { label: 'RM 1v1' }, players: [{ profileId: 1 }, { profileId: 2 }] };
+    `, sandbox);
+    const universe = sandbox.scoutUniverse();
+    check('compacta: los dos payloads se unen por profileId -> 2 tarjetas, no 4',
+      universe.length === 2 && universe.every((u) => u.report && u.tip));
   }
 
   console.log(`\n${failures === 0 ? 'TODO OK' : `${failures} chequeo(s) fallaron`}`);

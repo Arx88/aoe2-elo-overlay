@@ -15,6 +15,12 @@ const rivalGrid = document.getElementById('rivalGrid');
 const rivalFootnoteEl = document.getElementById('rivalFootnote');
 const scoutInfoEl = document.getElementById('scoutInfo');
 const scoutGrid = document.getElementById('scoutGrid');
+// Scouting unificado (v0.1.24): UNA sección compacta por defecto; las dos
+// secciones de arriba pasan a ser el detalle que se abre con F2.
+const scoutingEl = document.getElementById('scouting');
+const scoutCardsEl = document.getElementById('scoutCards');
+const scoutContextEl = document.getElementById('scoutContext');
+const scoutFootnoteEl = document.getElementById('scoutFootnote');
 const updateToastEl = document.getElementById('updateToast');
 const updateToastText = document.getElementById('updateToastText');
 
@@ -132,6 +138,10 @@ let scoutPayload = null;
 let smartTipsEnabled = false;
 // Civ recomendada: comparte el payload de scout pero es su propia opción.
 let civRecommenderEnabled = false;
+// Compacto (false) = una sola tarjeta de scouting por rival. Detalle (true) =
+// las dos secciones completas de siempre. Lo alterna F2 desde el main; no se
+// persiste en config: es un gesto del momento, no una preferencia.
+let detailMode = false;
 // Balance de equipos (TG): puro pintado sobre el estado, sin datos extra.
 let balanceEnabled = false;
 
@@ -373,6 +383,23 @@ function scoutVisible() {
   return sameMatch && tips.length > 0;
 }
 
+/** ¿Hay ALGUNA fuente de scouting encendida? (informe, consejo o civ). */
+function compactAvailable() {
+  return rivalEnabled() || smartTipsEnabled || civRecommenderEnabled;
+}
+
+/**
+ * F2: compacto <-> detalle. No se persiste en config: es un gesto del
+ * momento (querés mirar el H2H un segundo y volver), no una preferencia.
+ */
+function setDetail(on) {
+  const next = Boolean(on);
+  if (next === detailMode) return;
+  detailMode = next;
+  renderScouting();
+  applyVisibility();
+}
+
 /** Aplica visibilidad de TODOS los bloques y pide una sola medición de alto. */
 function applyVisibility() {
   const ongoing = Boolean(lastState && lastState.status === 'ongoing');
@@ -381,10 +408,16 @@ function applyVisibility() {
   panel.classList.toggle('elo-hidden', Boolean(civView.eloHidden));
   document.body.classList.toggle('elo-hidden', Boolean(civView.eloHidden));
   document.body.classList.toggle('moving', moving);
+  document.body.classList.toggle('scout-detail', detailMode);
 
   civHelpEl.hidden = !(ongoing && civView.civHelpVisible && !moving);
-  rivalInfoEl.hidden = !(ongoing && rivalEnabled() && !hidden);
-  scoutInfoEl.hidden = !scoutVisible();
+  // UNA SOLA FUENTE DE VERDAD y una sola sección visible a la vez:
+  //   compacto -> #scouting (una tarjeta por rival)
+  //   detalle  -> #rivalInfo + #scoutInfo (todo el dato crudo)
+  // Nunca las tres juntas: era exactamente la duplicación a eliminar.
+  scoutingEl.hidden = !(ongoing && compactAvailable() && !hidden && !detailMode);
+  rivalInfoEl.hidden = !(detailMode && ongoing && rivalEnabled() && !hidden);
+  scoutInfoEl.hidden = !(detailMode && scoutVisible());
   analysisEl.hidden = analysisStage() == null;
 
   scheduleHeight();
@@ -830,6 +863,7 @@ function renderRivalInfo() {
       ? 'Muestra chica: es una pista, no una tendencia.'
       : '';
   }
+  renderScouting();
   applyVisibility();
 }
 
@@ -934,6 +968,25 @@ function tacBig(part, games) {
   return { big: '—', note: `solo ${fmtNumber(n)} · muestra chica` };
 }
 
+/**
+ * Consejo de RITMO compartido por la vista compacta y el detalle. No basta
+ * con esconder el porcentaje: una frase como "cerrá temprano" derivada de 3
+ * partidas cortas es una inferencia sin sustento. Exige gap >= 15 pp y
+ * muestra en AMBOS extremos.
+ */
+function tempoAdvice(tempo) {
+  if (!tempo || !Number.isFinite(tempo.shortWinRate) || !Number.isFinite(tempo.longWinRate)) return null;
+  const gap = tempo.longWinRate - tempo.shortWinRate;
+  const shortGames = Number(tempo.shortGames) || 0;
+  const longGames = Number(tempo.longGames) || 0;
+  const enoughTempo = shortGames >= TAC_MIN_TEMPO_BUCKET && longGames >= TAC_MIN_TEMPO_BUCKET;
+  if (Math.abs(gap) < TAC_MIN_TEMPO_GAP || !enoughTempo) return null;
+  const forceShort = gap > 0;
+  const games = forceShort ? shortGames : longGames;
+  const wins = Math.round(((forceShort ? tempo.shortWinRate : tempo.longWinRate) * games) / 100);
+  return { forceShort, games, wins };
+}
+
 /** Tile: etiqueta arriba, número dominante, denominador abajo. Sin párrafos. */
 function tacTile({ label = '', value = '', sub = '', tone = '', ico = '', hero = false } = {}) {
   return (
@@ -1013,26 +1066,18 @@ function scoutTipSections(tip) {
   }
 
   // 3) RITMO. La etiqueta ES el consejo; el número es SU winrate en el tramo
-  //    que te conviene forzar. Solo si el diferencial es real (>= 12 pp).
-  const tempo = tip.tempo;
-  if (tempo && Number.isFinite(tempo.shortWinRate) && Number.isFinite(tempo.longWinRate)) {
-    const gap = tempo.longWinRate - tempo.shortWinRate;
-    const shortGames = Number(tempo.shortGames) || 0;
-    const longGames = Number(tempo.longGames) || 0;
-    const enoughTempo = shortGames >= TAC_MIN_TEMPO_BUCKET && longGames >= TAC_MIN_TEMPO_BUCKET;
-    if (Math.abs(gap) >= TAC_MIN_TEMPO_GAP && enoughTempo) {
-      const forceShort = gap > 0;
-      const games = forceShort ? shortGames : longGames;
-      const wins = Math.round(((forceShort ? tempo.shortWinRate : tempo.longWinRate) * games) / 100);
-      const big = tacBig(wins, games);
-      tiles.push(tacTile({
-        label: forceShort ? 'CERRÁ TEMPRANO' : 'ALARGÁ LA PARTIDA',
-        ico: 'foco',
-        value: big.big,
-        sub: `gana en ${forceShort ? 'cortas' : 'largas'} · ${escapeHtml(big.note)}`,
-        tone: 'good',
-      }));
-    }
+  //    que te conviene forzar. `tempoAdvice` comparte el mismo umbral con la
+  //    tarjeta compacta, así las dos vistas nunca se contradicen.
+  const advice = tempoAdvice(tip.tempo);
+  if (advice) {
+    const big = tacBig(advice.wins, advice.games);
+    tiles.push(tacTile({
+      label: advice.forceShort ? 'CERRÁ TEMPRANO' : 'ALARGÁ LA PARTIDA',
+      ico: 'foco',
+      value: big.big,
+      sub: `gana en ${advice.forceShort ? 'cortas' : 'largas'} · ${escapeHtml(big.note)}`,
+      tone: 'good',
+    }));
   }
 
   if (!tiles.length) return '<div class="rival-empty">Sin punto débil claro en su historial.</div>';
@@ -1174,7 +1219,303 @@ function renderScoutInfo() {
   scoutGrid.innerHTML = tips.length
     ? tips.map(scoutCard).join('')
     : `<div class="rival-empty">Preparando el consejo del rival…</div>`;
+  renderScouting();
   applyVisibility();
+}
+
+/* =====================================================================
+   SCOUTING UNIFICADO (v0.1.24) · VISTA COMPACTA POR DEFECTO
+   ---------------------------------------------------------------------
+   Une `overlay:rival` (civ / mapa / H2H) y `overlay:scout` (estilo,
+   debilidades, ritmo) por profileId en UNA sola tarjeta por rival. Antes
+   eran dos secciones con dos cabeceras, el mismo nombre dos veces y dos
+   números hero compitiendo por la misma mirada en ~10 s de lectura.
+
+   Reglas de la tarjeta, en este orden y sin excepciones:
+     1) un escudo grande y el nombre;
+     2) UN número dominante (estilo, o el pick de civ si no hay replays);
+     3) una barra de reparto con su muestra en una línea;
+     4) UNA acción concreta con su evidencia y su denominador;
+     5) proveniencia y honestidad UNA sola vez, al pie de la sección.
+
+   Nada se inventa: sin muestra no hay porcentaje ni consejo. El detalle
+   completo sigue vivo en #rivalInfo + #scoutInfo, detrás de F2.
+   ===================================================================== */
+
+/** `strategy_opponent` dice qué apertura le GANÓ: esa es la orden de producción. */
+const SCOUT_ACTIONS = {
+  'Scout rush': 'Jugá scouts',
+  'Archer rush': 'Jugá arqueros',
+  Drush: 'Drusheá',
+  'Drush fast castle': 'Drush y subí a Castillo',
+  'Man at arms rush': 'Jugá MAA',
+  'Fast castle': 'Subí a Castillo',
+};
+
+function scoutActionFor(opening) {
+  const name = (opening && opening.name) || '';
+  if (SCOUT_ACTIONS[name]) return SCOUT_ACTIONS[name];
+  const short = (opening && (opening.short || opening.name)) || '';
+  return short ? `Jugá ${short}` : 'Aprovechá su punto débil';
+}
+
+/** Número hero + barra. Con estilo -> reparto; si no, el pick de civ del mapa. */
+function scoutHero(tip, report) {
+  const style = tip && tip.style;
+  const total = style ? Number(style.analyzed) || 0 : 0;
+  if (style && total >= 5) {
+    const mixed = style.dominant === 'mixto';
+    const agro = Number(style.aggressive) || 0;
+    const boom = Number(style.boom) || 0;
+    const hybrid = Number(style.hybrid) || 0;
+    const big = mixed
+      ? { big: `${fmtNumber(agro)}<small>:${fmtNumber(boom)}</small>` }
+      : tacBig(style.dominant === 'agresivo' ? agro : boom, total);
+    return {
+      value: big.big,
+      label: mixed
+        ? 'MIXTO · sin estilo dominante'
+        : style.dominant === 'agresivo' ? 'Agresivo en Feudal' : 'Boomea / Fast Castle',
+      tone: mixed ? '' : style.dominant === 'agresivo' ? 'bad' : 'good',
+      bar: {
+        agro: Math.round((agro / total) * 100),
+        boom: Math.round((boom / total) * 100),
+      },
+      // Longitud acotada a propósito: con dos columnas, una línea de más en
+      // una sola tarjeta desalinea las dos cajas de acción. El alcance
+      // ("estilo de todo el modo") se declara UNA vez al pie de la sección.
+      dist:
+        `${fmtNumber(agro)} agresivas · ${fmtNumber(boom)} boom de ${fmtNumber(total)}` +
+        (hybrid ? ` · ${fmtNumber(hybrid)} híbridos` : ''),
+      styleScope: style.scope === 'modo',
+    };
+  }
+  // Sin replays analizados: el pick de civ del mapa es la única señal real.
+  const map = report && report.mapStats;
+  if (map && map.civ && map.civ.name && Number(map.games) > 0) {
+    const n = Number(map.games);
+    const hits = Number(map.civ.games) || 0;
+    return {
+      value: tacBig(hits, n).big,
+      label: `Suele jugar ${map.civ.name}`,
+      tone: '',
+      bar: null,
+      dist:
+        `${fmtNumber(hits)} de ${fmtNumber(n)} partidas acá` +
+        (map.name && map.name !== '—' ? ` · ${map.name}` : ''),
+    };
+  }
+  return null;
+}
+
+/** UNA acción: apertura que le duele > civ que le cuesta > ritmo. */
+function scoutAction(tip) {
+  const weak = tip && tip.openingsAgainst && tip.openingsAgainst[0];
+  if (weak) {
+    const n = Number(weak.games) || 0;
+    const losses = Number(weak.losses) || 0;
+    return {
+      title: scoutActionFor(weak),
+      sub: `Le duele ${weak.short || weak.name || '?'}`,
+      value: tacBig(losses, n).big,
+      legend: 'derrotas / partidas',
+    };
+  }
+  const hard = tip && tip.weakAgainst && tip.weakAgainst[0];
+  if (hard) {
+    const n = Number(hard.games) || 0;
+    const losses = Number(hard.losses) || 0;
+    return {
+      title: `Jugale ${hard.civ || 'esa civ'}`,
+      sub: `Le cuesta ${hard.civ || '?'}`,
+      value: tacBig(losses, n).big,
+      legend: 'derrotas / partidas',
+    };
+  }
+  const advice = tempoAdvice(tip && tip.tempo);
+  if (advice) {
+    return {
+      title: advice.forceShort ? 'Cerrá temprano' : 'Alargá la partida',
+      sub: `Forzá ${advice.forceShort ? 'partidas cortas' : 'partidas largas'} · ${fmtNumber(advice.games)} en el tramo`,
+      value: tacBig(advice.wins, advice.games).big,
+      legend: 'victorias / partidas',
+    };
+  }
+  return {
+    empty: true,
+    title: 'Sin punto débil claro',
+    sub: 'Sin evidencia suficiente para recomendar una apertura.',
+    value: '—',
+    legend: '',
+  };
+}
+
+/**
+ * Universo de rivales: la UNIÓN de los dos payloads, limitada a 2 (el mismo
+ * RIVAL_LIMIT del main). Si todavía no llegó ninguno, se cae al roster para
+ * dibujar la tarjeta vacía con la MISMA geometría: el panel no salta cuando
+ * llegan los datos en segundo plano.
+ */
+function scoutUniverse() {
+  const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
+  const { tips, sameMatch } = tipsForCurrentMatch();
+  const usableTips = (Boolean(lastState && lastState.phase === 'lobby') || sameMatch) ? tips : [];
+  const ids = [];
+  const push = (id) => {
+    const key = String(id == null ? '' : id);
+    if (key && key !== 'NaN' && !ids.includes(key)) ids.push(key);
+  };
+  for (const report of reports) push(report && report.profileId);
+  for (const tip of usableTips) push(tip && tip.profileId);
+  if (!ids.length) {
+    const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
+    for (const player of players) {
+      if (!player || player.isYou) continue;
+      push(player.profileId);
+      if (ids.length >= 2) break;
+    }
+  }
+  const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
+  return ids.slice(0, 2).map((key) => {
+    const report = reports.find((item) => String(item && item.profileId) === key) || null;
+    const tip = usableTips.find((item) => String(item && item.profileId) === key) || null;
+    const player = players.find((item) => String(item && item.profileId) === key) || null;
+    return {
+      key,
+      report,
+      tip,
+      player,
+      name: (report && report.name) || (tip && tip.name) || (player && player.name) || `Perfil ${key}`,
+    };
+  });
+}
+
+/** Una tarjeta por rival: identidad -> hero -> barra -> acción. Nada más. */
+function scoutCompactCard(entry, wide) {
+  const { report, tip, player, name } = entry;
+  const loading = Boolean((tip && tip.loading) || (report && report.loading));
+  const civ = (report && report.civ) || (player && player.civ) || null;
+  const mapName = (lastState && lastState.match && lastState.match.mapName) || null;
+  const modeLabel = (lastState && lastState.ladder && lastState.ladder.label) || null;
+  const smurf = smurfSignal(tip || { profileId: entry.key });
+  // Con dos columnas el badge a la derecha recortaba el nombre a "Ri...".
+  // Va DENTRO de la línea de contexto, primero para que nunca se corte, y
+  // sin su propia fila: así las dos tarjetas siguen alineadas.
+  const smurfTag = smurf
+    ? `<b class="scout-smurf-inline" title="Pico histórico ${fmtNumber(smurf.peak)} de ELO en RM 1v1, ahora ${fmtNumber(smurf.rating)}. Posible cuenta alternativa: respetá el primer push.">` +
+      `POSIBLE SMURF ${fmtNumber(smurf.peak)}</b>`
+    : '';
+  // Mapa y modo ya están en la cabecera y al pie de la SECCIÓN: repetirlos
+  // en cada tarjeta era ruido. Solo se agregan cuando hay una columna ancha.
+  const metaParts = [civ];
+  if (wide && mapName && mapName !== '—') metaParts.push(mapName);
+  if (wide && modeLabel) metaParts.push(modeLabel);
+  const meta = metaParts.filter((part) => part && part !== '—').join(' · ');
+  const head =
+    '<div class="scout-unit-head">' +
+    rivalShield(civ || '', 'rival-shield scout-shield') +
+    '<div class="scout-who">' +
+    `<b class="scout-name" title="${escapeHtml(name)}">${escapeHtml(name)}</b>` +
+    `<span class="scout-meta">${smurfTag}${smurfTag && meta ? ' · ' : ''}${escapeHtml(meta || 'Sin civ detectada')}</span>` +
+    '</div>' +
+    '</div>';
+
+  // Mientras llegan los datos se conserva la geometría final: sin esto el
+  // panel cambiaba de alto dos veces en los primeros segundos.
+  if (loading) {
+    return (
+      '<article class="scout-unit">' + head +
+      '<div class="scout-hero"><b class="scout-hero-value">—</b>' +
+      '<span class="scout-hero-label">Analizando…</span></div>' +
+      '<div class="scout-bar"><i class="flat" data-w="100"></i></div>' +
+      '<p class="scout-dist">Buscando sus aperturas en replays…</p>' +
+      '<div class="scout-action empty"><div class="scout-action-copy">' +
+      '<div class="scout-action-title">Todavía no hay una acción clara</div>' +
+      '<div class="scout-action-sub">Los datos llegan en segundo plano.</div>' +
+      '</div><div class="scout-action-stat"><b class="scout-action-value">—</b></div></div>' +
+      '</article>'
+    );
+  }
+
+  const hero = scoutHero(tip, report);
+  const action = scoutAction(tip);
+  let dist = hero ? hero.dist : 'Sin replays analizados ni civ del mapa con muestra.';
+  if (tip && tip.error) dist += ' · replays no disponibles ahora mismo';
+  else if (tip && tip.modeUnavailable) dist += ' · solo partidas ranked';
+
+  const heroMarkup = hero
+    ? `<b class="scout-hero-value${hero.tone ? ` ${hero.tone}` : ''}">${hero.value}</b>` +
+      `<span class="scout-hero-label${hero.tone ? ` ${hero.tone}` : ''}">${escapeHtml(hero.label)}</span>`
+    : '<b class="scout-hero-value">—</b><span class="scout-hero-label">Sin muestra suficiente</span>';
+  // CSP `style-src 'self'`: el ancho se aplica por CSSOM en renderScouting(),
+  // nunca con un atributo style inline (el CSP lo bloquearía).
+  const barMarkup = hero && hero.bar
+    ? `<div class="scout-bar"><i class="agro" data-w="${hero.bar.agro}"></i>` +
+      `<i class="boom" data-w="${hero.bar.boom}"></i></div>`
+    : '<div class="scout-bar"><i class="flat" data-w="100"></i></div>';
+
+  return (
+    '<article class="scout-unit">' + head +
+    `<div class="scout-hero">${heroMarkup}</div>` +
+    barMarkup +
+    `<p class="scout-dist">${escapeHtml(dist)}</p>` +
+    `<div class="scout-action${action.empty ? ' empty' : ''}">` +
+    '<div class="scout-action-copy">' +
+    `<div class="scout-action-title">${escapeHtml(action.title)}</div>` +
+    `<div class="scout-action-sub">${escapeHtml(action.sub)}</div>` +
+    '</div>' +
+    '<div class="scout-action-stat">' +
+    `<b class="scout-action-value">${action.value}</b>` +
+    (action.legend ? `<span class="scout-action-legend">${escapeHtml(action.legend)}</span>` : '') +
+    '</div>' +
+    '</div>' +
+    '</article>'
+  );
+}
+
+/** Pinta la sección compacta. La visibilidad la decide applyVisibility(). */
+function renderScouting() {
+  if (!scoutingEl || !scoutCardsEl) return;
+  const entries = scoutUniverse();
+  const mapName = (lastState && lastState.match && lastState.match.mapName) || null;
+  scoutingEl.classList.toggle('single', entries.length <= 1);
+  if (scoutContextEl) {
+    scoutContextEl.textContent = entries.length
+      ? `${fmtNumber(entries.length)} rival${entries.length === 1 ? '' : 'es'}` +
+        (mapName && mapName !== '—' ? ` · ${mapName}` : '')
+      : '';
+  }
+  const wide = entries.length <= 1;
+  scoutCardsEl.innerHTML = entries.length
+    ? entries.map((entry) => scoutCompactCard(entry, wide)).join('')
+    : '<div class="rival-empty">Buscando los datos del rival…</div>';
+  // Los anchos de barra se aplican por CSSOM (CSP sin unsafe-inline).
+  scoutCardsEl.querySelectorAll('[data-w]').forEach((bar) => {
+    const width = Math.max(0, Math.min(100, Number(bar.dataset.w) || 0));
+    bar.style.width = `${width}%`;
+  });
+  // Proveniencia + honestidad de muestra: UNA vez por sección, y SOLO por
+  // datos que esta vista realmente muestra. Antes la disparaba el informe
+  // del rival (que en modo compacto ni se ve): un aviso sin causa visible.
+  const smallSample = entries.some(({ tip }) => {
+    const style = tip && tip.style;
+    if (style && Number(style.analyzed) < TAC_MIN_PCT_GAMES) return true;
+    const weak = tip && tip.openingsAgainst && tip.openingsAgainst[0];
+    return Boolean(weak) && Number(weak.games) < TAC_MIN_PCT_GAMES;
+  });
+  // Sin mapa ni modo: ya están en la cabecera del ELO y en la de esta misma
+  // sección. Repetirlos acá era el tercer "MegaRandom" de la pantalla.
+  const foot = ['AoE2Insights · aperturas de replays analizados'];
+  // Si algún estilo cayó al modo completo, se declara UNA vez acá en vez de
+  // alargar el caption de una sola tarjeta y desalinear las dos columnas.
+  if (entries.some(({ tip }) => tip && tip.style && tip.style.scope === 'modo')) {
+    foot.push('sin replays del mapa, el estilo se tomó de todo el modo');
+  }
+  if (smallSample) foot.push('muestra chica: es una pista, no una tendencia');
+  if (scoutFootnoteEl) {
+    scoutFootnoteEl.hidden = false;
+    scoutFootnoteEl.textContent = foot.join(' · ');
+  }
 }
 
 /* -------------------------------------------------------------------------
@@ -1254,13 +1595,20 @@ function applyView(payload) {
  */
 let stageMaxHeight = 0;
 let stageScale = 1;
+// Aire que reportHeight() suma siempre. fitStage() tiene que RESERVARLO:
+// si escala hasta el máximo exacto, esos 8 px se recortan y la última fila
+// del detalle queda cortada (pasó en TG: 1164 px de contenido / 1155 px).
+const HEIGHT_PADDING = 8;
 
 function fitStage() {
   if (!stage) return;
   const natural = stage.scrollHeight;
+  // -2 por el redondeo subpíxel de getBoundingClientRect(): sin eso el
+  // Math.ceil de reportHeight() pedía 1156 contra 1155 disponibles.
+  const usable = stageMaxHeight - HEIGHT_PADDING - 2;
   let scale = 1;
-  if (stageMaxHeight > 0 && natural > stageMaxHeight) {
-    scale = Math.max(0.82, stageMaxHeight / natural);
+  if (usable > 0 && natural > usable) {
+    scale = Math.max(0.82, usable / natural);
   }
   if (Math.abs(scale - stageScale) > 0.002) {
     stageScale = scale;
@@ -1272,7 +1620,7 @@ function reportHeight() {
   // Mide TODO el stage: si el ELO está oculto a 0:20, la ventana se achica
   // sola y deja de estorbar; si vuelve la tarjeta de civ, vuelve a crecer.
   fitStage();
-  const height = Math.ceil(stage.getBoundingClientRect().height) + 8;
+  const height = Math.ceil(stage.getBoundingClientRect().height) + HEIGHT_PADDING;
   if (Math.abs(height - lastReported) > 1) {
     lastReported = height;
     window.overlay.reportHeight(height);
@@ -1558,6 +1906,8 @@ window.overlay.onState(render);
 window.overlay.onUpdate(showUpdateToast);
 window.overlay.onMovable(setMoving);
 if (window.overlay.onView) window.overlay.onView(applyView);
+// F2: el main posee el estado (el renderer se puede recargar en caliente).
+if (window.overlay.onDetail) window.overlay.onDetail((payload) => setDetail(payload && payload.detail));
 if (window.overlay.onRival) {
   window.overlay.onRival((payload) => {
     rivalPayload = payload;

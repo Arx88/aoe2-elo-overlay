@@ -2006,11 +2006,13 @@ body.elo-hidden #updateToast {
 @media (prefers-reduced-motion: reduce) {
   #panel,
   #civHelp,
+  #scouting,
   #rivalInfo,
   #updateToast,
   .row,
   .civhelp-civ,
   .rival-card,
+  .scout-unit,
   #panel.lobby #head,
   #panel.idle #head::before {
     animation: none !important;
@@ -2335,3 +2337,309 @@ body.elo-hidden #updateToast {
 }
 
 .smurf-tag b { font-variant-numeric: tabular-nums; }
+
+/* =====================================================================
+   SCOUTING UNIFICADO (v0.1.24) · UNA TARJETA POR RIVAL
+   ---------------------------------------------------------------------
+   Antes: dos secciones, dos cabeceras, el nombre repetido, dos números
+   hero y ~10 cifras para ~10 s de lectura. Ahora una sola sección con
+   una jerarquía estricta, en este orden:
+
+     1. Identidad  -> escudo grande + nombre + civ / mapa / modo
+     2. UN hero    -> el número que cambia la decisión (estilo o pick)
+     3. Reparto    -> barra agresivo / boom + su muestra en una línea
+     4. UNA acción -> qué producir, con su evidencia y su denominador
+     5. Footer     -> proveniencia y honestidad, UNA vez por sección
+
+   Nada de hex fijos: todo color semántico sale de --good / --bad, que
+   los temas claros ya redefinen. El chip F2 es solo informativo: el
+   overlay es click-through y no recibe foco.
+   ===================================================================== */
+#scouting {
+  display: block;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  padding: var(--panel-pad);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  color: var(--text);
+  text-shadow: var(--text-halo);
+  animation: civhelp-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.scout-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.8rem;
+  border-bottom: 1px solid var(--head-border);
+}
+
+.scout-title {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--head-size);
+  font-weight: var(--head-weight);
+  letter-spacing: var(--head-spacing);
+  text-transform: var(--head-transform);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.scout-title .ic { width: 0.95rem; height: 0.95rem; margin-right: 0.4rem; }
+
+.scout-context {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Pista del atajo. El overlay no recibe clics: esto NO es un botón. */
+.scout-toggle {
+  flex: none;
+  margin-left: auto;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--head-border);
+  border-radius: calc(var(--radius) * 0.5);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.rival-head .scout-toggle { font-size: 0.7rem; }
+
+/* Dos rivales = dos columnas de texto, sin cajas dentro de la sección. */
+.scout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0;
+}
+
+#scouting.single .scout-grid { grid-template-columns: minmax(0, 1fr); }
+
+.scout-unit {
+  min-width: 0;
+  padding: 0 var(--sp-4);
+  animation: row-in 0.24s ease-out both;
+}
+
+.scout-unit:first-child { padding-left: 0; }
+
+.scout-unit + .scout-unit {
+  padding-right: 0;
+  border-left: 1px solid var(--sep-bg);
+}
+
+#scouting.single .scout-unit { padding: 0; border-left: 0; }
+
+.scout-grid .scout-unit:nth-child(2) { animation-delay: 60ms; }
+
+/* 1) IDENTIDAD: el escudo es el reconocimiento más rápido de todos. */
+.scout-unit-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.scout-shield {
+  width: 2.9rem;
+  height: 2.9rem;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.scout-shield.no-shield {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 127, 127, 0.18);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.scout-who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.scout-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scout-meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Smurf en la línea de contexto: va PRIMERO para que nunca lo corte el
+   ellipsis, y no ocupa su propia fila (las dos columnas siguen alineadas). */
+.scout-smurf-inline {
+  font-weight: 700;
+  color: var(--bad);
+  white-space: nowrap;
+}
+
+.scout-unit-head .smurf-tag { flex: none; }
+
+/* 2) UN SOLO NÚMERO GRITA. Todo lo demás es un escalón más chico. */
+.scout-hero {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.7rem;
+  margin-top: 1rem;
+}
+
+.scout-hero-value {
+  font-size: 2.65rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.scout-hero-value small { font-size: 1.2rem; font-weight: 600; }
+.scout-hero-value.bad { color: var(--bad); }
+.scout-hero-value.good { color: var(--good); }
+
+.scout-hero-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--strong);
+}
+
+.scout-hero-label.bad { color: var(--bad); }
+.scout-hero-label.good { color: var(--good); }
+
+.scout-hero-note {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* 3) REPARTO: una barra en vez de tres tiles con tres porcentajes. */
+.scout-bar {
+  display: flex;
+  height: 0.6rem;
+  margin-top: 0.7rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.18);
+}
+
+.scout-bar > i { display: block; height: 100%; }
+.scout-bar .agro { background: var(--bad); }
+.scout-bar .boom { background: var(--good); }
+.scout-bar .flat { background: rgba(127, 127, 127, 0.5); }
+
+.scout-dist {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* 4) UNA ACCIÓN: qué producir + evidencia + denominador. */
+.scout-action {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.7rem 0.8rem;
+  border-left: 3px solid var(--good);
+  border-radius: calc(var(--radius) * 0.6);
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.scout-action.empty { border-left-color: rgba(127, 127, 127, 0.5); }
+
+.scout-action-copy { flex: 1; min-width: 0; }
+
+.scout-action-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--strong);
+}
+
+.scout-action-sub {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* Número y su leyenda en la MISMA columna: la leyenda ya no se mete dentro
+   de la frase de la izquierda, que dejaba un "partidas" colgado en TG. */
+.scout-action-stat {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.scout-action-value {
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--good);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.scout-action-value small { font-size: 0.9rem; font-weight: 600; }
+.scout-action.empty .scout-action-value { color: var(--muted); }
+
+.scout-action-legend {
+  font-size: 0.7rem;
+  line-height: 1.2;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 5) PROVENIENCIA: una sola vez por sección, nunca por tarjeta. */
+.scout-footnote {
+  margin-top: 0.85rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--head-border);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* El detalle (F2) es la vista densa: en TG pedía 1163 px contra 1155 del
+   monitor y la última fila quedaba cortada. Recortar ~7 px de aire por
+   sección lo deja entrar SIN escalar tipografía (la regla del rediseño). */
+body.scout-detail #rivalInfo,
+body.scout-detail #scoutInfo {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}

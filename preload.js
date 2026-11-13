@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('overlay', {
   onConfig: (callback) => ipcRenderer.on('overlay:config', (_event, config) => callback(config)),
   onMovable: (callback) => ipcRenderer.on('overlay:movable', (_event, on) => callback(on)),
   onView: (callback) => ipcRenderer.on('overlay:view', (_event, view) => callback(view)),
+  // F2: alterna la tarjeta única de scouting y el detalle completo.
+  // El estado vive en el main para sobrevivir a una recarga del renderer.
+  onDetail: (callback) => ipcRenderer.on('overlay:detail', (_event, detail) => callback(detail)),
   onRival: (callback) => ipcRenderer.on('overlay:rival', (_event, report) => callback(report)),
   // Consejo pre-partida (recomendaciones inteligentes): solo fase `lobby`.
   onScout: (callback) => ipcRenderer.on('overlay:scout', (_event, payload) => callback(payload)),

@@ -138,6 +138,9 @@ const RIVAL_DEMO = ARGV.includes('--rival-info') || LOBBY_DEMO;
 // --analyzing: deja el informe en estado "analizando" para capturar la barrita
 // de carga (sin esperar a que una consulta real tarde o falle). Solo capturas.
 const ANALYZING = ARGV.includes('--analyzing');
+// --detail: arranca en la VISTA DE DETALLE (la que abre F2) para poder
+// capturarla sin simular la pulsación de una tecla global. Solo capturas.
+const DETAIL_DEMO = ARGV.includes('--detail');
 const OUT_ARG = ARGV.find((arg) => arg.startsWith('--out='));
 const SHOT_PATH = path.join(__dirname, OUT_ARG ? OUT_ARG.split('=')[1] : 'demo-shot.png');
 // --example=<nombre|id>: arranca el Modo ejemplo con datos REALES para poder
@@ -333,6 +336,9 @@ let updateToast = null; // { payload, until }
 let deferredUpdateNotice = null;
 let heightLogged = false;
 let moving = false;
+// F2: compacto (una tarjeta de scouting por rival) <-> detalle completo.
+// Vive en el main: si el renderer se recarga, se le reenvía en overlay:ready.
+let detailMode = DETAIL_DEMO;
 let moveSaveTimer = null;
 let liveWatcher = null; // salas personalizadas (handler=lobbies)
 let queueWatcher = null; // matchmaking ranked (handler=queueing) ← el importante
@@ -954,64 +960,91 @@ function demoScoutTips(state) {
     ts: Date.now(),
     pending: false,
     demo: true,
-    tips: opponentsOf(state, RIVAL_LIMIT).map((rival) => ({
-      profileId: rival.profileId,
-      name: rival.name,
-      ok: true,
-      source: 'AoE2Insights · replays analizados',
-      mode,
-      modeUnavailable: false,
-      totalMatches: 96,
-      scope: 'map',
-      scopeLabel: `en ${mapName}`,
-      sample: 48,
-      wins: 25,
-      winRate: 52,
-      weakAgainst: [
-        { civ: 'Gurjaras', games: 5, losses: 4, lossRate: 80 },
-        { civ: 'Bengalis', games: 5, losses: 4, lossRate: 80 },
-        { civ: 'Teutons', games: 7, losses: 4, lossRate: 57 },
-      ],
-      openingsAgainst: [
-        { name: 'Archer rush', short: 'Archer rush', games: 11, losses: 8, lossRate: 73, scope: 'recorte' },
-        { name: 'Scout rush', short: 'Scouts', games: 14, losses: 8, lossRate: 57, scope: 'recorte' },
-      ],
-      style: {
-        scope: 'recorte', analyzed: 34, aggressive: 25, boom: 9, hybrid: 6,
-        aggressiveShare: 74, dominant: 'agresivo', share: 74,
-        top: { name: 'Scout rush', short: 'Scouts', games: 16 },
-      },
-      tempo: { shortGames: 9, shortWinRate: 33, longGames: 22, longWinRate: 64 },
-      recommend: [
-        {
-          civ: 'Gurjaras',
-          slug: 'gurjaras',
-          mine: { games: 9, wins: 6, winRate: 67, scope: 'map' },
-          vsRival: { games: 5, losses: 4, lossRate: 80 },
-          score: 72,
-        },
-        {
-          civ: 'Teutons',
-          slug: 'teutons',
-          // Con cascada, esta civ cae al modo completo: la línea lo declara.
-          mine: { games: 6, wins: 4, winRate: 67, scope: 'mode' },
-          vsRival: { games: 7, losses: 4, lossRate: 57 },
-          score: 63,
-        },
-        {
-          civ: 'Bengalis',
-          slug: 'bengalis',
-          mine: null,
-          vsRival: { games: 5, losses: 4, lossRate: 80 },
-          score: 80,
-        },
-      ],
-      recommendError: null,
-      fetchedAt: Date.now(),
-      fromCache: false,
-    })),
+    tips: opponentsOf(state, RIVAL_LIMIT).map((rival, index) => {
+      // Dos perfiles DISTINTOS: si las dos tarjetas de TG muestran lo mismo,
+      // la captura no sirve para comprobar que cada una refleja a SU rival.
+      const p = DEMO_SCOUT_PROFILES[index % DEMO_SCOUT_PROFILES.length];
+      return {
+        profileId: rival.profileId,
+        name: rival.name,
+        ok: true,
+        source: 'AoE2Insights · replays analizados',
+        mode,
+        modeUnavailable: false,
+        totalMatches: p.totalMatches,
+        scope: p.scope,
+        scopeLabel: p.scope === 'mode' ? `en ${mode.label}` : `en ${mapName}`,
+        sample: p.sample,
+        wins: p.wins,
+        winRate: p.winRate,
+        weakAgainst: p.weakAgainst,
+        openingsAgainst: p.openingsAgainst,
+        style: p.style,
+        tempo: p.tempo,
+        recommend: p.recommend,
+        recommendError: null,
+        fetchedAt: Date.now(),
+        fromCache: false,
+      };
+    }),
   };
 }
+
+/* Perfiles de ejemplo para capturas: uno agresivo y uno que boomea, con
+   debilidades y muestras distintas. Nunca se usan en vivo. */
+const DEMO_SCOUT_PROFILES = [
+  {
+    totalMatches: 96, scope: 'map', sample: 48, wins: 25, winRate: 52,
+    weakAgainst: [
+      { civ: 'Gurjaras', games: 5, losses: 4, lossRate: 80 },
+      { civ: 'Bengalis', games: 5, losses: 4, lossRate: 80 },
+      { civ: 'Teutons', games: 7, losses: 4, lossRate: 57 },
+    ],
+    openingsAgainst: [
+      { name: 'Archer rush', short: 'Archer rush', games: 11, losses: 8, lossRate: 73, scope: 'recorte' },
+      { name: 'Scout rush', short: 'Scouts', games: 14, losses: 8, lossRate: 57, scope: 'recorte' },
+    ],
+    style: {
+      scope: 'recorte', analyzed: 34, aggressive: 25, boom: 9, hybrid: 6,
+      aggressiveShare: 74, dominant: 'agresivo', share: 74,
+      top: { name: 'Scout rush', short: 'Scouts', games: 16 },
+    },
+    tempo: { shortGames: 9, shortWinRate: 33, longGames: 22, longWinRate: 64 },
+    recommend: [
+      { civ: 'Gurjaras', slug: 'gurjaras', mine: { games: 9, wins: 6, winRate: 67, scope: 'map' },
+        vsRival: { games: 5, losses: 4, lossRate: 80 }, score: 72 },
+      // Con cascada, esta civ cae al modo completo: la línea lo declara.
+      { civ: 'Teutons', slug: 'teutons', mine: { games: 6, wins: 4, winRate: 67, scope: 'mode' },
+        vsRival: { games: 7, losses: 4, lossRate: 57 }, score: 63 },
+      { civ: 'Bengalis', slug: 'bengalis', mine: null,
+        vsRival: { games: 5, losses: 4, lossRate: 80 }, score: 80 },
+    ],
+  },
+  {
+    totalMatches: 74, scope: 'map', sample: 31, wins: 15, winRate: 48,
+    weakAgainst: [
+      { civ: 'Teutons', games: 6, losses: 4, lossRate: 67 },
+      { civ: 'Magyars', games: 8, losses: 5, lossRate: 63 },
+    ],
+    openingsAgainst: [
+      { name: 'Man at arms rush', short: 'MAA rush', games: 9, losses: 6, lossRate: 67, scope: 'recorte' },
+      { name: 'Archer rush', short: 'Archer rush', games: 12, losses: 7, lossRate: 58, scope: 'recorte' },
+    ],
+    // Boomea y el estilo viene del MODO completo: la tarjeta lo declara.
+    style: {
+      scope: 'modo', analyzed: 22, aggressive: 7, boom: 15, hybrid: 3,
+      aggressiveShare: 32, dominant: 'boom', share: 68,
+      top: { name: 'Fast castle', short: 'FC', games: 12 },
+    },
+    tempo: { shortGames: 12, shortWinRate: 64, longGames: 10, longWinRate: 42 },
+    recommend: [
+      { civ: 'Magyars', slug: 'magyars', mine: { games: 7, wins: 4, winRate: 57, scope: 'map' },
+        vsRival: { games: 8, losses: 5, lossRate: 63 }, score: 61 },
+      { civ: 'Teutons', slug: 'teutons', mine: null,
+        vsRival: { games: 6, losses: 4, lossRate: 67 }, score: 67 },
+    ],
+  },
+];
 
 /**
  * Consulta y publica los consejos. Misma disciplina que el informe del rival:
@@ -2462,8 +2495,10 @@ function registerIpc() {
     send('overlay:config', overlayConfig());
     lastSent = null;
     if (lastGood) emit(lastGood);
-    // El renderer nuevo arranca sin clases: hay que reenviarle la vista activa.
+    // El renderer nuevo arranca sin clases: hay que reenviarle la vista activa
+    // y el modo de scouting (F2) que estuviera puesto antes de la recarga.
     sendView(true);
+    sendDetail();
     // Y también el informe del rival que ya estaba calculado.
     if (rivalReports) send('overlay:rival', rivalReports);
     // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
@@ -2628,6 +2663,11 @@ function panelMaxHeight() {
   const display = screen.getDisplayMatching(win.getBounds());
   const offset = Math.max(0, Number(config.offsetY) || 0);
   return Math.max(200, display.workArea.height - offset - 16);
+}
+
+/** Reenvía el modo de scouting activo (compacto / detalle) al renderer. */
+function sendDetail() {
+  send('overlay:detail', { detail: detailMode });
 }
 
 function sendView(force = false) {
@@ -3034,6 +3074,16 @@ if (!gotLock) {
       log('cerrando por hotkey');
       quitApp('hotkey Ctrl+Alt+Q');
     });
+
+    // F2: tarjeta única de scouting <-> informe + recomendaciones completos.
+    // El overlay es click-through, así que el atajo es la ÚNICA forma de
+    // abrir el detalle. No se persiste: es un gesto del momento.
+    const detailRegistered = globalShortcut.register('F2', () => {
+      detailMode = !detailMode;
+      sendDetail();
+      log(`scouting: ${detailMode ? 'detalle (F2 para resumen)' : 'resumen (F2 para detalle)'}`);
+    });
+    if (!detailRegistered) log('no pude registrar F2: otro proceso ya usa ese atajo');
   });
 
   app.on('second-instance', () => {

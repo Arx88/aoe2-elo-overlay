@@ -57,13 +57,35 @@
       </section>
 
       <!--
-        Informe OPCIONAL del rival: últimas 5 civs, civ/mapa favoritos y
-        aperturas REALES detectadas en replays (AoE2Insights). Se calcula en
-        segundo plano y se va completando por partes, sin retrasar el ELO.
+        SCOUTING UNIFICADO (v0.1.24): UNA sola sección y UNA tarjeta por rival.
+        Es la vista por defecto (compacta): un escudo grande, UN número que
+        grita, una barra de reparto, UNA acción concreta y una línea de
+        proveniencia. Todo lo demás queda detrás de F2. Antes había dos
+        secciones con dos cabeceras, el mismo nombre repetido y ~10 cifras
+        compitiendo por una ventana de 10 s de lectura real.
+      -->
+      <section id="scouting" hidden aria-live="polite">
+        <div class="scout-head">
+          <span class="scout-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/></svg>Scouting</span>
+          <span class="scout-context" id="scoutContext"></span>
+          <!-- El overlay es click-through: el chip es SOLO la pista del atajo. -->
+          <span class="scout-toggle" id="scoutToggle">F2 · Ver todo</span>
+        </div>
+        <div class="scout-grid" id="scoutCards"></div>
+        <!-- Honestidad de muestra y alcance: UNA vez por sección. -->
+        <p class="scout-footnote" id="scoutFootnote" hidden></p>
+      </section>
+
+      <!--
+        VISTA DE DETALLE (F2). Informe OPCIONAL del rival: últimas 5 civs,
+        civ/mapa favoritos, H2H y aperturas REALES de AoE2Insights. Se calcula
+        en segundo plano y se va completando por partes, sin retrasar el ELO.
+        En modo compacto estas dos secciones están ocultas.
       -->
       <section id="rivalInfo" hidden aria-live="polite">
         <div class="rival-head">
           <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/></svg>Informe del rival</span>
+          <span class="scout-toggle">F2 · Resumen</span>
         </div>
         <div class="rival-grid" id="rivalGrid"></div>
         <!-- Honestidad de muestra: UNA sola vez por sección, no por tarjeta. -->
@@ -71,13 +93,15 @@
       </section>
 
       <!--
-        RECOMENDACIONES INTELIGENTES (opción smartTips): consejo por rival
-        calculado con replays reales de AoE2Insights. Solo vive en la
-        pre-partida (fase `lobby`): al arrancar la partida desaparece solo.
+        VISTA DE DETALLE (F2). RECOMENDACIONES INTELIGENTES (smartTips):
+        consejo por rival calculado con replays reales de AoE2Insights.
+        Solo vive en la pre-partida (fase `lobby`): al arrancar la partida
+        desaparece solo.
       -->
       <section id="scoutInfo" hidden aria-live="polite">
         <div class="rival-head">
           <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/></svg>Recomendaciones</span>
+          <span class="scout-toggle">F2 · Resumen</span>
         </div>
         <div class="rival-grid" id="scoutGrid"></div>
       </section>
