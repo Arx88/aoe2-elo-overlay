@@ -141,6 +141,29 @@ function parseScoutRows(payload) {
  * completo. Devuelve { rows, scope, scopeLabel } con scopeLabel ya listo
  * para mostrar ("en Arabia" / "en mapas abiertos" / "en RM 1v1").
  */
+/**
+ * `map_openness` llega de AoE2Insights como "Open" / "Semi-Open" / "Closed".
+ * Tal cual se imprimía en inglés ("en mapas Closed", que se lee como el
+ * nombre de un mapa). Acá se traduce y, si viene un valor desconocido, se
+ * devuelve el original en minúsculas en vez de inventar una categoría.
+ */
+const OPENNESS_LABELS = {
+  open: 'abiertos',
+  'semi-open': 'semiabiertos',
+  semiopen: 'semiabiertos',
+  closed: 'cerrados',
+  'semi-closed': 'semicerrados',
+  mixed: 'mixtos',
+  hybrid: 'mixtos',
+  water: 'con agua',
+  nomad: 'nómades',
+};
+
+function opennessLabel(value) {
+  const key = String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, '-');
+  return OPENNESS_LABELS[key] || String(value == null ? '' : value).trim();
+}
+
 function pickScope(matches, mapName, mode) {
   const all = Array.isArray(matches) ? matches : [];
   const wanted = mapKey(mapName);
@@ -154,7 +177,11 @@ function pickScope(matches, mapName, mode) {
     if (openness) {
       const sameKind = all.filter((row) => row.openness === openness);
       if (sameKind.length >= MIN_SCOPE_GAMES) {
-        return { rows: sameKind, scope: 'openness', scopeLabel: `en mapas ${openness}` };
+        return {
+          rows: sameKind,
+          scope: 'openness',
+          scopeLabel: `en mapas ${opennessLabel(openness)}`,
+        };
       }
     }
   }
@@ -406,6 +433,8 @@ module.exports = {
   SOURCE,
   FIELDS,
   ROW_LIMIT,
+  OPENNESS_LABELS,
+  opennessLabel,
   MIN_SCOPE_GAMES,
   MIN_CIV_GAMES,
   MIN_OPENING_GAMES,

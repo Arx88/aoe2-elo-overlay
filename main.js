@@ -152,6 +152,13 @@ const EXAMPLE_MATCH_ID = EXAMPLE_MATCH_ARG
   : null;
 const EXAMPLE_CLOCK_ARG = ARGV.find((arg) => arg.startsWith('--example-clock='));
 const EXAMPLE_CLOCK = EXAMPLE_CLOCK_ARG ? EXAMPLE_CLOCK_ARG.split('=')[1] : '3';
+// --example-phase=lobby: emite la partida de ejemplo como PRE-PARTIDA (fase
+// `lobby`, sin reloj) para revisar/capturar el consejo con datos reales.
+const EXAMPLE_PHASE_ARG = ARGV.find((arg) => arg.startsWith('--example-phase='));
+const EXAMPLE_PHASE = EXAMPLE_PHASE_ARG ? EXAMPLE_PHASE_ARG.split('=')[1] : null;
+// --example-real-config: usa las opciones REALES del usuario en vez de encender
+// todas para la revisión; sirve para capturar lo que ve el usuario tal cual.
+const EXAMPLE_REAL_CONFIG = ARGV.includes('--example-real-config');
 const SHOT_DELAY_ARG = ARGV.find((arg) => arg.startsWith('--shot-delay='));
 const SHOT_DELAY_MS = SHOT_DELAY_ARG ? Number(SHOT_DELAY_ARG.split('=')[1]) : 1500;
 const EXAMPLE_SETTINGS_SHOT = ARGV.includes('--example-settings-shot');
@@ -411,7 +418,8 @@ const EXAMPLE_ALL_ON = {
 
 /** Config usada para dibujar. Nunca se persiste. */
 function viewConfig() {
-  return exampleActive ? { ...config, ...EXAMPLE_ALL_ON } : config;
+  if (!exampleActive || EXAMPLE_REAL_CONFIG) return config;
+  return { ...config, ...EXAMPLE_ALL_ON };
 }
 
 /** Reloj usado por la intro: congelado en el ejemplo, real en partida. */
@@ -732,9 +740,18 @@ function scheduleRivalRetry(reports, rivals) {
     rivalRetryCount = 0;
   }
   if (rivalRetryCount >= RIVAL_RETRY_MAX) return;
+  // Las aperturas NO cuentan como dato faltante: con el historial completo de
+  // replays tardan ~20 s en frío y ya vienen por `onOpenings`. Reintentar por
+  // ellas duplicaba la consulta (hasta 3 por rival) sin adelantar nada.
+  let reason = '';
   const missing = rivals.some((rival) => {
     const report = reports.find((item) => Number(item.profileId) === Number(rival.profileId));
-    return !report || report.error || !Array.isArray(report.history) || !report.history.length;
+    if (!report) reason = `sin informe de ${rival.name}`;
+    else if (report.error) reason = `error de ${rival.name}: ${report.error}`;
+    else if (!Array.isArray(report.history) || !report.history.length) {
+      reason = `sin historial de ${rival.name}`;
+    }
+    return Boolean(reason);
   });
   if (!missing) return;
   clearTimeout(rivalRetryTimer);
@@ -742,7 +759,7 @@ function scheduleRivalRetry(reports, rivals) {
     rivalRetryTimer = null;
     if (!preStartState(lastGood)) return;
     rivalRetryCount += 1;
-    log(`informe del rival incompleto: reintento ${rivalRetryCount}/${RIVAL_RETRY_MAX}`);
+    log(`informe del rival incompleto (${reason}): reintento ${rivalRetryCount}/${RIVAL_RETRY_MAX}`);
     // La caché no guarda resultados con error: este intento sí puede traer datos.
     rivalSig = '';
     rivalQueuedSig = null;
@@ -833,12 +850,23 @@ async function refreshRivalReports(state, options = {}) {
           includeOpenings: Boolean(view.rivalOpenings),
           // AoE2Insights contesta 202 y tarda ~9s: las civs se pintan YA.
           onPartial: (partial) => publish(decorated(partial), true, true),
+          // Con el historial completo las aperturas pueden tardar ~20 s en
+          // frío. El informe ya se publicó sin ellas; cuando llegan, se
+          // repinta SOLO esa tarjeta (mismo `publish`, por profileId).
+          onOpenings: (full) => {
+            log(
+              `aperturas tardías ${rival.name} (#${rival.profileId}): ` +
+                `${full.openings ? full.openings.analyzed : 0} replays al ` +
+                `${Date.now() - startedAt}ms`,
+            );
+            publish(decorated({ ...full, openingsPending: false }), false, false);
+          },
           log,
         });
         pendingCount -= 1;
         publish(
           decorated(report),
-          pendingCount > 0 && Boolean(view.rivalOpenings),
+          (pendingCount > 0 || report.openingsPending) && Boolean(view.rivalOpenings),
           pendingCount > 0,
         );
         log(
@@ -2109,6 +2137,12 @@ async function startExample(rawQuery, clockMode = '3') {
     exampleMatch = exampleMatchFrom(snapshot);
     exampleInfo = exampleInfoFrom(snapshot, resolved, mode, began);
 
+    // Captura de pre-partida: el MISMO partido real, emitido como `lobby`.
+    if (EXAMPLE_PHASE === 'lobby') {
+      snapshot.phase = 'lobby';
+      snapshot.match = { ...snapshot.match, startedAt: null };
+    }
+
     // Partida nueva ⇒ reloj e informe del rival nuevos.
     intro = null;
     lastSent = '';
@@ -2471,6 +2505,12 @@ function applyHeight(height) {
   const offset = Math.max(0, Number(config.offsetY) || 0);
   const maxHeight = Math.max(200, workArea.height - offset - 16);
   const target = clamp(Math.round(height), 110, maxHeight);
+  if (target < Math.round(height)) {
+    log(
+      `alto recortado: el contenido pide ${Math.round(height)} px y el monitor ` +
+        `deja ${maxHeight} (workArea ${workArea.height}, offset ${offset})`,
+    );
+  }
   const [currentWidth] = win.getContentSize();
   win.setContentSize(currentWidth, target);
 
@@ -2573,10 +2613,23 @@ function emit(state) {
  * win.hide(): así el atajo manual Ctrl+Alt+E sigue siendo independiente y
  * nunca queda pisado por el auto-ocultado.
  * ---------------------------------------------------------------------- */
+/**
+ * Alto MÁXIMO útil del panel: área de trabajo del monitor menos el margen
+ * superior. El panel no tiene scroll, así que esto es lo que el renderer usa
+ * para saber cuánto tiene que encogerse cuando el contenido no entra.
+ */
+function panelMaxHeight() {
+  if (!win || win.isDestroyed()) return 0;
+  const display = screen.getDisplayMatching(win.getBounds());
+  const offset = Math.max(0, Number(config.offsetY) || 0);
+  return Math.max(200, display.workArea.height - offset - 16);
+}
+
 function sendView(force = false) {
   const now = clockNow();
   const view = introView(intro, viewConfig(), now);
-  const signature = `${view.eloHidden ? 1 : 0}${view.civHelpVisible ? 1 : 0}${exampleClockMode}`;
+  const maxHeight = panelMaxHeight();
+  const signature = `${view.eloHidden ? 1 : 0}${view.civHelpVisible ? 1 : 0}${exampleClockMode}:${maxHeight}`;
   if (!force && signature === lastViewSig) return;
   lastViewSig = signature;
   const hideAt = hideAtMs(viewConfig());
@@ -2592,6 +2645,9 @@ function sendView(force = false) {
     hideInMs: view.elapsed == null ? null : Math.max(0, hideAt - view.elapsed),
     hideAtSecs: hideAt / 1000,
     showAtSecs: SHOW_AT_MS / 1000,
+    // Techo real de la ventana: si el contenido lo pasa, el renderer lo escala
+    // (en vez de recortar la última tarjeta, que es lo que pasaba).
+    maxHeight,
   });
   log(
     `vista · ELO ${view.eloHidden ? 'oculto' : 'visible'} · ayuda de civ ` +

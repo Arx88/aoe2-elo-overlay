@@ -11,6 +11,14 @@
    de texto y separación vertical sin cambiar la estructura del panel.
    ===================================================================== */
 #stage {
+  /* Escala única de espaciado y de tipografía. Todo lo de abajo usa estos
+     valores: antes cada bloque traía su propio margen (0.16, 0.3, 0.34, 0.45,
+     0.5 rem…) y el conjunto se veía desparejo aunque cada parte estuviera bien. */
+  --sp-1: 0.25rem;
+  --sp-2: 0.45rem;
+  --sp-3: 0.7rem;
+  --sp-4: 0.95rem;
+  --fs-micro: 0.6rem;
   --head-size: 0.7rem;
   --foot-size: 0.64rem;
   --credit-size: 0.6rem;
@@ -946,8 +954,12 @@ body[data-theme='sakura'] {
 #stage {
   display: flex;
   flex-direction: column;
-  /* Separación entre tarjetas: que cada bloque se lea como una unidad. */
-  gap: 0.55rem;
+  /* Separación entre secciones del panel: el mismo valor que usan las
+     tarjetas por dentro. */
+  gap: var(--sp-3);
+  /* fitStage() puede escalar el panel un poco para que entre en el monitor;
+     desde arriba y centrado, así el encogido no lo corre de lugar. */
+  transform-origin: top center;
 }
 
 [hidden] {
@@ -1288,7 +1300,8 @@ body.elo-hidden #analysis {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   box-shadow: var(--panel-shadow);
-  padding: 0.7rem 0.8rem 0.65rem;
+  /* Mismo padding que el resto de las secciones del panel. */
+  padding: var(--panel-pad);
   backdrop-filter: var(--panel-blur);
   -webkit-backdrop-filter: var(--panel-blur);
   color: var(--text);
@@ -1363,80 +1376,6 @@ body[data-theme='pergamino'] {
   opacity: 0.75;
 }
 
-.rstat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7.4rem, 1fr));
-  gap: 0.5rem;
-}
-
-.rstat {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  /* Las dos tarjetas comparten la línea de la sub-etiqueta aunque el valor de
-     una sea un número de 20 px y el de la otra un nombre de 13 px. */
-  justify-content: space-between;
-  gap: 0.16rem;
-  padding: 0.4rem 0.55rem 0.42rem;
-  border: 1px solid var(--head-border);
-  border-radius: calc(var(--radius) * 0.5);
-  background: rgba(127, 127, 127, 0.1);
-}
-
-.rstat-key {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rstat-key .ic {
-  width: 0.8rem;
-  height: 0.8rem;
-  margin-right: 0.26rem;
-  opacity: 0.85;
-}
-
-.rstat-value {
-  min-width: 0;
-  font-size: 1.45rem;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-  color: var(--strong);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rstat-value.bad { color: var(--bad); }
-.rstat-value.good { color: var(--good); }
-
-.rstat-value.rstat-civ {
-  display: flex;
-  align-items: center;
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.rstat-value.rstat-civ .rival-shield {
-  margin-right: 0.26rem;
-}
-
-.rstat-sub {
-  font-size: 0.74rem;
-  line-height: 1.35;
-  color: var(--muted);
-}
-
 /* "le va mal" / "le va bien": mismo color que el número, para que el juicio
    no dependa solo de leer el porcentaje. */
 .rstat-tag {
@@ -1446,10 +1385,24 @@ body[data-theme='pergamino'] {
 .rstat-tag.bad { color: var(--bad); }
 .rstat-tag.good { color: var(--good); }
 
+/* DOS RIVALES = DOS COLUMNAS DE TEXTO, no dos cajas.
+   El único recuadro es la sección (#rivalInfo), igual que el bloque de ELO.
+   Las columnas se separan con la misma línea de 1 px que separa los equipos
+   en el roster, no con bordes alrededor de cada tarjeta. */
 .rival-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  column-gap: 0;
+}
+
+.rival-card {
+  padding-right: var(--sp-4);
+}
+
+.rival-card + .rival-card {
+  padding-right: 0;
+  padding-left: var(--sp-4);
+  border-left: 1px solid var(--sep-bg);
 }
 
 #rivalInfo.single .rival-grid,
@@ -1457,12 +1410,14 @@ body[data-theme='pergamino'] {
   grid-template-columns: minmax(0, 1fr);
 }
 
+#rivalInfo.single .rival-card,
+#scoutInfo.single .rival-card {
+  padding: 0;
+  border-left: 0;
+}
+
 .rival-card {
   min-width: 0;
-  border: 1px solid var(--head-border);
-  border-radius: calc(var(--radius) * 0.7);
-  background: rgba(127, 127, 127, 0.09);
-  padding: 0.6rem 0.7rem 0.62rem;
   animation: row-in 0.24s ease-out both;
 }
 
@@ -1472,15 +1427,16 @@ body[data-theme='pergamino'] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--sp-2);
   min-width: 0;
-  margin-bottom: 0.45rem;
+  margin-bottom: var(--sp-2);
 }
 
 .rival-name {
   min-width: 0;
-  font-size: 1.02rem;
-  font-weight: 700;
+  /* Mismo tamaño y peso que los nombres del roster: es la misma información. */
+  font-size: var(--name-size);
+  font-weight: 600;
   color: var(--strong);
   white-space: nowrap;
   overflow: hidden;
@@ -1491,80 +1447,219 @@ body[data-theme='pergamino'] {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.72rem;
+  gap: var(--sp-1);
+  font-size: var(--rank-size);
   color: var(--muted);
 }
 
 .rival-block {
   border-top: 1px solid rgba(127, 127, 127, 0.14);
-  padding-top: 0.45rem;
-  margin-top: 0.5rem;
+  padding-top: var(--sp-2);
+  margin-top: var(--sp-3);
+  min-width: 0;
 }
 
-.rival-key {
+/* Todos los bloques de una tarjeta llevan la misma línea y el mismo aire: es
+   lo que hace que la tarjeta se lea como una lista y no como un collage. */
+.rival-block > .rival-key:first-child { margin-top: 0; }
+
+/* =====================================================================
+   FRANJA "SI TUVIERAS QUE APOSTAR"
+   Las dos conclusiones de la tarjeta (civ del mapa y arranque), arriba y
+   separadas del resto: sin esto había que leer cuatro bloques para saber
+   qué esperar. Recuadro tenue, sin animación, para no competir con el ELO.
+   ================================================================== */
+/* ---------------------------------------------------------------------
+   SISTEMA DE LAS TARJETAS DE DATOS
+   Regla única: todo es PLANO. Etiqueta de bloque al borde izquierdo de la
+   tarjeta, contenido debajo en la misma x, y el número grande al borde
+   derecho. Nada de cajas dentro de la tarjeta: antes la mitad de los bloques
+   eran cajas con 11 px de padding y la otra mitad iba al ras, así que ninguna
+   columna alineaba con la de al lado.
+   ------------------------------------------------------------------ */
+.stat-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.stat-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.stat-row-sub {
+  /* Un solo tamaño para todo el texto explicativo del panel ("gana 10 de sus
+     18 partidas"), el mismo que usa el pico/rank del roster. */
+  font-size: var(--peak-size);
+  line-height: 1.35;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.stat-row-value {
+  flex: none;
+  /* Mismo cuerpo y peso que el ELO del roster: es el número grande del panel. */
+  font-size: var(--elo-size);
+  font-weight: var(--elo-weight);
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  color: var(--strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-row-value.bad { color: var(--bad); }
+.stat-row-value.good { color: var(--good); }
+
+/* Franja "Si tuvieras que apostar": mismo tratamiento plano que el resto.
+   El icono ocupa una columna fija para que el texto arranque siempre en la
+   misma x, incluso cuando ocupa dos líneas. */
+.rival-pred {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.pred-row {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-2);
+}
+
+.pred-ico {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.64rem;
+  justify-content: center;
+  height: 1rem;
+}
+
+/* El .ic trae margen derecho para pegarse a un texto; acá va centrado en su
+   columna, así que ese margen lo corría. */
+.pred-ico .ic,
+.rival-key .ic,
+.scout-key .ic {
+  margin-right: 0;
+}
+
+.pred-text {
+  font-size: var(--peak-size);
+  line-height: 1.4;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.pred-text b {
+  color: var(--strong);
+  font-weight: 700;
+}
+
+.pred-text i { font-style: normal; }
+
+/* "eligió ahora": la civ de la cabecera es la de ESTA partida, no la que más
+   juega en el mapa. Sin la aclaración parecían dos datos contradictorios. */
+.rival-now-tag {
+  font-style: normal;
+  font-size: var(--fs-micro);
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.rival-lead {
+  font-size: var(--peak-size);
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.rival-lead b { color: var(--strong); }
+
+.rival-lead i,
+.scout-note i {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.rival-small {
+  margin-top: var(--sp-1);
+  font-size: var(--peak-size);
+  line-height: 1.35;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* Una sola etiqueta de bloque para el informe y para el consejo: antes eran
+   dos reglas casi iguales con tamaños distintos (0.64 vs 0.6) que se notaban
+   al comparar una tarjeta con la otra. */
+.rival-key,
+.scout-key {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+  /* Misma etiqueta chica que los badges del roster ("VOS"): un solo tamaño
+     para todo lo que es etiqueta en mayúsculas. */
+  font-size: var(--badge-size);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
   opacity: 0.9;
-  margin-bottom: 0.28rem;
 }
 
+/* Mismo badge que "VOS" en el roster: un solo estilo de etiqueta rellena. */
 .rival-badge {
-  font-size: 0.5rem;
+  font-size: var(--badge-size);
   font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  color: var(--muted);
-  border: 1px solid var(--head-border);
-  border-radius: 999px;
-  padding: 0.02rem 0.35rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--badge-color);
+  background: var(--badge-bg);
+  border-radius: var(--badge-radius);
+  padding: 0 0.25rem;
+  margin-left: 0.35rem;
   opacity: 0.9;
 }
 
 .rival-civ-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
   /* Los V/D van posicionados y sobresalen del escudo: sin este aire quedaban
      pegados al borde inferior de la tarjeta. */
   padding-bottom: 0.28rem;
 }
 
+/* Escudo + resultado, como una fila del roster: sin caja y con la letra al
+   lado, no encimada sobre el escudo. */
 .rival-civ-item {
-  position: relative;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: 2.15rem;
-  height: 2.15rem;
-  border: 1px solid var(--head-border);
-  border-radius: calc(var(--radius) * 0.55);
-  background: rgba(127, 127, 127, 0.12);
+  gap: 0.1rem;
+  width: 1.85rem;
 }
 
 .rival-civ-item.win { border-color: rgba(74, 190, 120, 0.55); }
 .rival-civ-item.loss { border-color: rgba(220, 100, 100, 0.5); }
 
 .rival-wl {
-  position: absolute;
-  right: -2px;
-  bottom: -3px;
-  font-size: 0.48rem;
+  font-size: var(--badge-size);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
-  padding: 0.08rem 0.2rem;
-  border-radius: 999px;
-  color: var(--text);
-  background: var(--panel-bg);
-  border: 1px solid var(--head-border);
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
+
+.rival-civ-item.win .rival-wl { color: var(--good); }
+.rival-civ-item.loss .rival-wl { color: var(--bad); }
 
 .rival-civ-item.win .rival-wl { color: #63d69a; }
 .rival-civ-item.loss .rival-wl { color: #ff9a9a; }
@@ -1651,14 +1746,17 @@ body[data-theme='pergamino'] {
   margin-top: 0.32rem;
 }
 
+/* Pastilla chica, igual que el tag "ELO RM 1V1" de la cabecera: borde del
+   propio color del texto y sin relleno fuerte. */
 .rival-chip {
-  font-size: 0.56rem;
-  line-height: 1.4;
-  color: var(--text);
-  border: 1px solid var(--head-border);
+  font-size: var(--badge-size);
+  line-height: 1.6;
+  color: var(--accent);
+  border: 1px solid currentColor;
   border-radius: 999px;
-  padding: 0.05rem 0.38rem;
-  background: rgba(127, 127, 127, 0.14);
+  padding: 0 0.4rem;
+  background: rgba(127, 127, 127, 0.12);
+  opacity: 0.8;
   white-space: nowrap;
 }
 
@@ -1675,8 +1773,8 @@ body[data-theme='pergamino'] {
    y su muestra, así ningún consejo aparece sin número que lo respalde.
    ===================================================================== */
 #scoutInfo {
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.65rem 0.6rem;
+  margin-top: var(--sp-3);
+  padding: var(--panel-pad);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   background: var(--panel-bg);
@@ -1691,7 +1789,8 @@ body[data-theme='pergamino'] {
 .rival-block.tips {
   display: flex;
   flex-direction: column;
-  gap: 0.22rem;
+  /* Mismo aire entre secciones que entre bloques del informe. */
+  gap: var(--sp-3);
 }
 
 /* =====================================================================
@@ -1701,21 +1800,9 @@ body[data-theme='pergamino'] {
    que cada línea arrancaba en una x distinta y el texto se apretaba y se
    cortaba con '…'.
    ===================================================================== */
-.scout-sec + .scout-sec {
-  margin-top: 0.7rem;
-}
-
-.scout-key {
-  display: flex;
-  align-items: center;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--accent);
-  opacity: 0.9;
-  margin-bottom: 0.3rem;
-}
+/* El aire entre secciones lo pone el `gap` del contenedor: sumar márgenes acá
+   duplicaba la separación solo en algunas tarjetas. */
+.scout-sec { min-width: 0; }
 
 .scout-chips {
   display: flex;
@@ -1726,14 +1813,15 @@ body[data-theme='pergamino'] {
 .scout-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.1rem 0.5rem;
-  border: 1px solid var(--head-border);
+  gap: var(--sp-1);
+  padding: 0 0.45rem;
+  border: 1px solid currentColor;
   border-radius: 999px;
   background: rgba(127, 127, 127, 0.12);
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--text);
+  /* Mismo cuerpo que el rank del roster, misma pastilla que el tag de ELO. */
+  font-size: var(--rank-size);
+  line-height: 1.7;
+  color: var(--accent);
   white-space: nowrap;
 }
 
@@ -1762,7 +1850,7 @@ body[data-theme='pergamino'] {
 }
 
 .scout-note {
-  font-size: 0.82rem;
+  font-size: var(--peak-size);
   line-height: 1.45;
   color: var(--muted);
 }
@@ -1770,43 +1858,6 @@ body[data-theme='pergamino'] {
 .scout-note b {
   color: var(--text);
   font-weight: 700;
-}
-
-/* Tira del winrate: etiqueta + muestra a la izquierda, número a la derecha. */
-.scout-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--head-border);
-  border-radius: calc(var(--radius) * 0.5);
-  background: rgba(127, 127, 127, 0.1);
-}
-
-.scout-hero-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.06rem;
-  min-width: 0;
-}
-
-.scout-hero-text .scout-key {
-  margin-bottom: 0;
-}
-
-.scout-hero-sub {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-.scout-hero-value {
-  flex: none;
-  font-size: 1.4rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--strong);
-  font-variant-numeric: tabular-nums;
 }
 
 /* Civ recomendada: fila con rank, escudo, civ y DOS columnas de dato

@@ -973,7 +973,39 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('perfil inválido: error controlado y cero requests',
       /inválido/.test(invalid.error) && calls.matches === beforeInvalid);
 
+    // v0.1.22: con el historial completo de replays la consulta de aperturas
+    // tarda ~20 s en frío (medido contra la API real). El informe NO puede
+    // esperarla: espera acotada + aviso tardío. Esto lo mide de verdad.
+    {
+      const slowCache = new Map();
+      let late = null;
+      const startedAt = Date.now();
+      const slow = await buildRivalInsights({
+        ...opts,
+        profileId: 4245,
+        cache: slowCache,
+        openingsWaitMs: 200,
+        openingsImpl: () =>
+          new Promise((resolve) => setTimeout(() => resolve(fakeOpenings), 700)),
+        onOpenings: (full) => {
+          late = { at: Date.now() - startedAt, full };
+        },
+      });
+      const elapsed = Date.now() - startedAt;
+      check('aperturas lentas: el informe sale igual, sin esperarlas',
+        slow.openings === null && slow.openingsPending === true && elapsed < 600,
+        `tardó ${elapsed}ms esperando aperturas`);
+      check('aperturas lentas: un informe incompleto NO se cachea',
+        slowCache.size === 0, `${slowCache.size} entradas`);
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      check('aperturas lentas: aviso tardío listo para repintar esa tarjeta',
+        Boolean(late && late.full.openings && late.full.openingsPending === false) &&
+          late.at >= 600,
+        late ? `aviso a ${late.at}ms` : 'no hubo aviso');
+    }
+
     const rivalSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'rival.js'), 'utf8');
+    const insightsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'insights.js'), 'utf8');
     check('regresión: no queda ninguna inferencia de apertura por civilización',
       !/openingForCiv|require\(['"]\.\/openings['"]\)/.test(rivalSrc) &&
         !fs.existsSync(path.join(__dirname, '..', 'src', 'openings.js')));
@@ -984,7 +1016,18 @@ function fakeLobby(leaderboardId, leaderboardName) {
         rivalSrc.indexOf('const firstPagePromise = fetchPage(1)') <
           rivalSrc.indexOf('applyStats(await statsPromise)'));
     check('dato al instante: tope de tiempo para las páginas y NUNCA se cachea un fallo',
-      /HISTORY_BUDGET_MS/.test(rivalSrc) && /if \(cache && !result\.error\) cache\.set/.test(rivalSrc));
+      /HISTORY_BUDGET_MS/.test(rivalSrc) &&
+        /if \(cache && !result\.error && !result\.openingsPending\)/.test(rivalSrc));
+    // v0.1.22: con el historial completo de replays (limit 500) la consulta de
+    // aperturas tarda ~20 s en frío. Medido en dos cuentas reales, por eso el
+    // informe NO puede quedar esperándola: espera acotada + aviso tardío.
+    check('aperturas: el informe no se bloquea esperándolas (espera acotada + aviso tardío)',
+      /const OPENINGS_WAIT_MS = \d+/.test(rivalSrc) &&
+        /Promise\.race\(\[/.test(rivalSrc) &&
+        /onOpenings\(applyOpenings\(late\)\)/.test(rivalSrc) &&
+        /openingsPending = true/.test(rivalSrc));
+    check('aperturas: se pide el historial completo del modo, no las 120 más recientes',
+      /const ROW_LIMIT = 500/.test(insightsSrc));
   }
 
   console.log('\n--- 15) cableado del informe opcional (chequeo estático) ---');
@@ -1204,9 +1247,11 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /rivalH2H: Boolean\(view\.rivalH2H\)/.test(mainSrc) &&
         /civRecommender: Boolean\(view\.civRecommender\)/.test(mainSrc) &&
         /tgBalance: Boolean\(view\.tgBalance\)/.test(mainSrc));
-    check('renderer: tile de cara a cara con tono solo con muestra y aliados aparte',
+    // v0.1.22: el cara a cara usa el mismo hero que el mapa; los aliados van
+    // en el subtítulo en vez de en un tile propio.
+    check('renderer: cara a cara con tono solo con muestra y aliados en el subtítulo',
       /function rivalH2HBlock/.test(rendererSrc) && /Cara a cara/.test(rendererSrc) &&
-        /Como aliados/.test(rendererSrc) && /Number\(h2h\.games\) >= 3/.test(rendererSrc));
+        /de aliados/.test(rendererSrc) && /Number\(h2h\.games\) >= 3/.test(rendererSrc));
     check('renderer: la civ recomendada muestra la muestra de cada línea',
       /Civ recomendada/.test(rendererSrc) && /row\.mine\.games/.test(rendererSrc) &&
         /row\.vsRival\.games/.test(rendererSrc) &&
@@ -1444,7 +1489,9 @@ function fakeLobby(leaderboardId, leaderboardName) {
       !/src\/example-data|fakeRoster|MOCK_ROSTER/.test(main));
     check('EXAMPLE_ALL_ON enciende las 5 opciones solo en memoria',
       /const EXAMPLE_ALL_ON = \{[\s\S]*?civHelp: true[\s\S]*?hideEloAt20: true[\s\S]*?rivalCivs: true[\s\S]*?rivalFavorites: true[\s\S]*?rivalOpenings: true/.test(main) &&
-      /function viewConfig\(\) \{[\s\S]{0,160}exampleActive \? \{ \.\.\.config, \.\.\.EXAMPLE_ALL_ON \} : config/.test(main));
+      // El flag de desarrollo `--example-real-config` solo salta el forzado
+      // para sacar capturas con la config real; por defecto sigue forzando.
+      /function viewConfig\(\) \{[\s\S]{0,200}!exampleActive[\s\S]{0,200}return \{ \.\.\.config, \.\.\.EXAMPLE_ALL_ON \};/.test(main));
     check('el ejemplo NO guarda nada en config.json ni toca la cuenta',
       exampleBlock.length > 1000 && !/persistConfig\s*\(|writeFileSync|chooseProfile/.test(exampleBlock));
     check('emit() bloquea el estado real mientras el ejemplo está activo',
@@ -1674,13 +1721,62 @@ function fakeLobby(leaderboardId, leaderboardName) {
     // v0.1.16: el modo se lee en la cabecera ("HIDEOUT · RM 1V1") y NO se
     // repite en cada bloque. El caso "modo no disponible" se sigue avisando.
     check('renderer: el modo va solo en la cabecera, no repetido por bloque',
-      /const title = 'APERTURA'/.test(rendererSrc) && /'ÚLTIMAS 5'/.test(rendererSrc) &&
+      /const title = 'APERTURA'/.test(rendererSrc) &&
+        /'ASÍ JUGÓ SUS ÚLTIMAS 5'/.test(rendererSrc) &&
         /modeUnavailable/.test(rendererSrc) && !/\$\{modeLabel\}/.test(rendererSrc));
+    // v0.1.22 (UX de datos): la conclusión de la tarjeta se lee sin recorrer
+    // los bloques, y cada cifra viaja con su denominador real.
+    const { opennessLabel } = require('../src/scout');
+    const opennessLabelCheck =
+      opennessLabel('Closed') === 'cerrados' &&
+      opennessLabel('Open') === 'abiertos' &&
+      opennessLabel('Semi-Open') === 'semiabiertos';
+    check('renderer: franja "Si tuvieras que apostar" con la civ del mapa y su arranque',
+      /function rivalPredStrip\(/.test(rendererSrc) &&
+        /Si tuvieras que apostar/.test(rendererSrc) &&
+        /Arranca con /.test(rendererSrc) &&
+        /de sus \$\{escapeHtml\(gamesText\(total\)\)\} acá/.test(rendererSrc));
+    check('renderer: el mapa y la civ se explican con "X de Y", no con porcentajes sueltos',
+      /gana \$\{escapeHtml\(fmtNumber\(won\)\)\} de sus /.test(rendererSrc) &&
+        /de sus \$\{escapeHtml\(gamesText\(total\)\)\} acá/.test(rendererSrc) &&
+        /replay\$\{base === 1 \? '' : 's'\} acá/.test(rendererSrc));
+    check('renderer: muestra chica declarada en vez de disfrazada de tendencia',
+      /Muestra chica: es una pista, no una tendencia/.test(rendererSrc));
+    // El panel no tiene scroll: si el contenido supera el alto del monitor hay
+    // que encogerse, no recortar la última tarjeta (pasó: 1209 px en 1155).
+    check('renderer: el panel se ajusta al alto del monitor en vez de recortarse',
+      /function fitStage\(/.test(rendererSrc) &&
+        /stageMaxHeight \/ natural/.test(rendererSrc) &&
+        /function panelMaxHeight\(/.test(require('fs').readFileSync(
+          require('path').join(__dirname, '..', 'main.js'), 'utf8')) &&
+        /maxHeight,/.test(require('fs').readFileSync(
+          require('path').join(__dirname, '..', 'main.js'), 'utf8')));
+    // "MAPAS CLOSED" era map_openness sin traducir y se leía como un mapa.
+    check('scout: el tipo de mapa se muestra en español',
+      opennessLabelCheck);
     check('renderer: el informe da jerarquía al dato, no solo números',
       /function gamesText\(/.test(rendererSrc) && /function recordText\(/.test(rendererSrc) &&
-        /le va mal/.test(rendererSrc) && /rstat-value/.test(rendererSrc));
+        /le va mal/.test(rendererSrc) && /stat-row-value/.test(rendererSrc));
+    // Un solo componente de dato (stat-hero) para mapa, cara a cara y consejo:
+    // antes cada uno tenía su padding y su tamaño de número.
+    // Un solo componente de dato (statRow) para mapa, cara a cara y consejo, y
+    // sin cajas con padding propio dentro de las tarjetas (desalineaban todo).
+    check('renderer: mapa, cara a cara y consejo comparten el mismo componente',
+      /function statRow\(/.test(rendererSrc) &&
+        (rendererSrc.match(/statRow\(\{/g) || []).length >= 3 &&
+        !/class="rstat"/.test(rendererSrc) && !/stat-hero/.test(rendererSrc));
+    const cssTail = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+    check('styles: las tarjetas de datos son planas (una sola x de etiqueta)',
+      !/\.stat-hero\b/.test(cssTail) && !/\.rstat-map\b/.test(cssTail) &&
+        /\.stat-row \{/.test(cssTail) && /\.rival-key,\n\.scout-key \{/.test(cssTail));
+    // Una sola caja por sección: la tarjeta de cada rival ya no dibuja borde ni
+    // fondo propio (era caja dentro de caja).
+    check('styles: la tarjeta del rival no es una caja dentro de la sección',
+      /^\.rival-card \{\n  min-width: 0;\n/m.test(cssTail) &&
+        !/\.rival-card \{[^}]*border:/.test(cssTail) &&
+        !/\.rival-card \{[^}]*background:/.test(cssTail));
     check('renderer: la tarjeta usa el mapa de la partida, no el favorito',
-      /rstat-grid/.test(rendererSrc) && /report\.mapStats/.test(rendererSrc) &&
+      /report\.mapStats/.test(rendererSrc) &&
         !/rivalBlock\('MÁS USA'/.test(rendererSrc) && !/favoriteMap/.test(rendererSrc));
     check('renderer: la estrategia SOLO usa replays del mapa y de su civ más usada',
       /const title = 'APERTURA'/.test(rendererSrc) && /openings\.mapCivFavorite/.test(rendererSrc) &&

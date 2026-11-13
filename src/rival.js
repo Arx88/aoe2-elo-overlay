@@ -62,6 +62,12 @@ const MAP_MAX_PAGES = 100;
 // una cuenta de miles de partidas el recorrido llegaba a 100 páginas (~40 s):
 // la pre-partida se pasaba mostrando "cargando…" y en TG ni llegaba a verse.
 const HISTORY_BUDGET_MS = 6000;
+// Espera MÁXIMA por las aperturas antes de publicar el informe sin ellas. Con
+// el historial completo del modo (limit 500) la consulta a AoE2Insights tarda
+// ~20 s en frío la primera vez de cada rival y ~70 ms después: esperarla
+// dejaría la tarjeta "analizando replays…" media pre-partida. Si no llega a
+// tiempo, el informe sale igual y `onOpenings` repinta cuando están listas.
+const OPENINGS_WAIT_MS = 1200;
 const PAGE_DELAY_MS = 120; // evita ráfagas que terminan en HTTP 429
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
@@ -344,6 +350,10 @@ async function buildRivalInsights(options = {}) {
     getJsonImpl = getJson,
     openingsImpl = buildRivalOpenings,
     onPartial = null,
+    // Aviso TARDÍO de aperturas: se llama si llegaron después de
+    // `openingsWaitMs`, con el informe completo listo para publicar.
+    onOpenings = null,
+    openingsWaitMs = OPENINGS_WAIT_MS,
     fetchImpl,
     sleep,
     log = () => {},
@@ -383,6 +393,7 @@ async function buildRivalInsights(options = {}) {
     statsLadderLabel: null,
     openings: null,
     openingError: null,
+    openingsPending: false,
   };
   const errors = [];
   const wait = typeof sleep === 'function' ? sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -541,8 +552,7 @@ async function buildRivalInsights(options = {}) {
   // Aperturas REALES del MISMO modo de juego (la ladder va como segundo
   // `filter` a AoE2Insights). Tienen su propia cache (30 min) porque
   // reanalizar replays es lento y el histórico se refresca más seguido.
-  if (includeOpenings && openingsPromise) {
-    const openings = await openingsPromise;
+  const applyOpenings = (openings) => {
     result.openings = openings;
     result.openingError =
       openings && openings.ok === false ? openings.error : null;
@@ -557,12 +567,44 @@ async function buildRivalInsights(options = {}) {
       result.openings = { ...result.openings, ...summary };
       delete result.openings.analyzedMatches;
     }
+    result.openingsPending = false;
+    return { ...base, ...result };
+  };
+
+  // Se espera como MUCHO `openingsWaitMs`: el informe no puede quedar colgado
+  // de una consulta de ~20 s. Si llega tarde, se avisa por `onOpenings` y el
+  // panel repinta esa tarjeta sin mover nada más.
+  if (includeOpenings && openingsPromise) {
+    const raced = await Promise.race([
+      openingsPromise.then((value) => ({ ready: true, value })),
+      wait(openingsWaitMs).then(() => ({ ready: false })),
+    ]);
+    if (raced.ready) {
+      applyOpenings(raced.value);
+    } else {
+      result.openingsPending = true;
+      openingsPromise
+        .then((late) => {
+          if (!late || typeof onOpenings !== 'function') return;
+          try {
+            onOpenings(applyOpenings(late));
+          } catch (err) {
+            log(`aperturas tardías #${id}: ${err.message}`);
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   result.error = errors.length ? errors.join(' · ') : null;
   // Un fallo de red NO se cachea: si quedara guardado, el reintento de la
   // pre-partida devolvería el mismo resultado vacío durante 10 minutos.
-  if (cache && !result.error) cache.set(key, { ts: now, data: result });
+  // Un informe con aperturas en camino NO se cachea: quedaría 10 minutos
+  // diciendo "sin replays" aunque ya hayan llegado. Las aperturas tienen su
+  // propia cache de 30 min, así que reconstruirlo es barato.
+  if (cache && !result.error && !result.openingsPending) {
+    cache.set(key, { ts: now, data: result });
+  }
   if (result.error) log(`datos del rival #${id} incompletos: ${result.error}`);
 
   return { ...base, ...result, fromCache: false };
@@ -589,6 +631,7 @@ module.exports = {
   HISTORY_PAGE,
   MAP_PAGE_SIZE,
   MAP_MAX_PAGES,
+  OPENINGS_WAIT_MS,
   DEFAULT_TTL_MS,
   OPENINGS_TTL_MS,
   opponentsOf,

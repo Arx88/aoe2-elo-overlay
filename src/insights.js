@@ -66,10 +66,22 @@ const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-const ROW_LIMIT = 120; // filas de match-ups (se deduplican por partida)
+// Filas de match-ups (se deduplican por partida). Antes 120: con eso la
+// muestra quedaba cortada en las partidas más recientes de TODOS los mapas, así
+// que un mapa jugado hace dos meses aparecía como "sin replays". Medido con
+// dos cuentas reales (RM Team, 13/11/2026): limit=120 devolvía 18 replays
+// analizados en 9 mapas; el historial completo, 60 en 16 mapas. El tope ahora
+// es el historial entero del modo; el endpoint tarda ~20 s en frío la primera
+// vez y ~70 ms después (tiene su propia cache), por eso src/rival.js ya no
+// bloquea el informe esperándolo.
+const ROW_LIMIT = 500;
 const RECENT_LIMIT = 5; // aperturas recientes que se pintan
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
-const MAX_ATTEMPTS = 6;
+// El endpoint contesta 202 mientras calcula. Con el historial completo
+// (limit 500) el cálculo en frío tarda ~20 s: con 6 intentos cada 3 s el
+// cliente se rendía a los 15 s y las aperturas se mostraban como "no
+// disponibles" justo la primera vez de cada rival. 12 intentos cubren ~36 s.
+const MAX_ATTEMPTS = 12;
 const DEFAULT_RETRY_MS = 3000;
 const REQUEST_TIMEOUT_MS = 15000;
 

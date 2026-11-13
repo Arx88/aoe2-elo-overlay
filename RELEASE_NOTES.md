@@ -1,3 +1,35 @@
+## v0.1.22 · El informe del rival, en palabras
+
+El informe deja de ser un tablero de números: cada cifra ahora se lee como una frase, siempre con su muestra real.
+
+- **«Si tuvieras que apostar»**, arriba de cada rival: las dos cosas que más sirven para preparar la partida en dos líneas — la civ que más usa **en este mapa** con su cuota real (*«Koreans en 67 % de sus 18 partidas acá»*) y cómo arranca (*«Arranca con FC en 1 de 1 replay acá»*).
+- **Cada número con su denominador.** Ya no hay un `45 %` suelto: dice *«gana 29 de sus 65 partidas»*. La civ del mapa se explica igual: *«la eligió en 20 de sus 65 partidas (31 %)»*, que es la probabilidad de que la repita.
+- **Aperturas con la muestra completa.** Se consultaba solo la ventana de las 120 partidas más recientes de todos los mapas, así que un mapa jugado hace dos meses aparecía como *«sin replays»* y la muestra quedaba a la mitad (medido: 18 replays en 9 mapas → 60 replays en 16 mapas con el historial completo). Ahora se pide todo el historial del modo.
+- **Esa consulta ya no frena el panel.** Con el historial completo tarda ~20 s la primera vez de cada rival (después ~70 ms por la cache): el informe se publica igual a los ~6 s sin aperturas y la tarjeta se completa sola cuando llegan. Antes el informe **esperaba** esa consulta.
+- **Muestra chica, dicha.** Con 1 a 4 replays el bloque avisa *«Muestra chica: es una pista, no una tendencia»* en vez de mostrar un `100 %` que parece certeza.
+- **Arreglado: el panel se recortaba abajo.** El contenido pedía 1209 px y el monitor dejaba 1155, así que la última tarjeta se cortaba sin aviso (no hay scroll). Ahora el renderer conoce el alto disponible y se ajusta lo mínimo necesario; además el espaciado se compactó sin apretar el texto.
+- **Arreglado: las aperturas se daban por perdidas en frío.** El cliente reintentaba 6 veces cada 3 s y se rendía a los 15 s, cuando la consulta completa tarda ~20 s. Ahora el presupuesto cubre el cálculo real.
+- **Arreglado: «MAPAS CLOSED».** El tipo de mapa (`map_openness`) se mostraba en inglés y se leía como el nombre de un mapa. Ahora dice *«en mapas cerrados»*, *«abiertos»* o *«semiabiertos»*.
+- **Diseño coherente con el resto del panel.** Una sola caja por sección (antes había cajas dentro de cajas), los dos rivales son dos columnas de texto separadas por la misma línea que separa los equipos en el roster, y abajo se usa la misma escala que arriba: nombres a 1 rem, números grandes al tamaño del ELO, etiquetas al tamaño del badge «VOS» y todo el texto explicativo a un único tamaño. Los escudos de «así jugó sus últimas 5» ya no viven en recuadros.
+- **Arreglado: «1 replays»** y los porcentajes que se partían de línea (`46` / `% de 13 partidas`).
+
+---
+
+## v0.1.21 · Estabilidad del panel
+
+- Visibilidad centralizada (`applyVisibility()`) y una sola medición de alto por frame: los bloques ya no se quedan abiertos por su cuenta ni la ventana salta de tamaño mientras se acomoda.
+- Anti-parpadeo en la pre-partida: un `idle` momentáneo del REST ya no borra la partida que está en pantalla (se sostiene 3 minutos o hasta que el servidor marque el fin).
+- Pre-partida a prueba de fallos: rivales en paralelo, reintento acotado del informe y tope de tiempo para recorrer el historial.
+
+---
+
+## v0.1.20 · Recomendaciones legibles
+
+- Bloque de recomendaciones reordenado: etiqueta arriba, chips con escudo y filas de dos columnas (VOS / LE CUESTA) en vez de frases corridas.
+- Apertura del rival atada al `matchId`: el consejo de un rival ya no aparece en la partida siguiente.
+
+---
+
 ## v0.1.19 · La mediana, los encuentros y la cascada
 
 Tres mejoras sobre lo que llegó en v0.1.18, todas sobre datos que ya estaban en memoria:

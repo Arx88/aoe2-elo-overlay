@@ -452,7 +452,7 @@ function rivalHistoryBlock(report) {
   const rows = Array.isArray(report.history) ? report.history : [];
   if (report.loading) {
     return rivalBlock(
-      'ÚLTIMAS 5',
+      'ASÍ JUGÓ SUS ÚLTIMAS 5',
       `<div class="rival-empty">Buscando sus últimas civs…</div>`,
     );
   }
@@ -460,7 +460,7 @@ function rivalHistoryBlock(report) {
     const msg = report.mode && report.mode.label
       ? `Sin partidas públicas recientes en ${report.mode.label}.`
       : 'Sin historial público reciente.';
-    return rivalBlock('ÚLTIMAS 5', `<div class="rival-empty">${escapeHtml(msg)}</div>`);
+    return rivalBlock('ASÍ JUGÓ SUS ÚLTIMAS 5', `<div class="rival-empty">${escapeHtml(msg)}</div>`);
   }
   const items = rows
     .slice(0, 5)
@@ -476,7 +476,11 @@ function rivalHistoryBlock(report) {
       );
     })
     .join('');
-  return rivalBlock('ÚLTIMAS 5', `<div class="rival-civ-list">${items}</div>`, 'civs');
+  return rivalBlock(
+    'ASÍ JUGÓ SUS ÚLTIMAS 5',
+    `<div class="rival-civ-list">${items}</div>`,
+    'civs',
+  );
 }
 
 /**
@@ -526,52 +530,22 @@ function rivalMapBlock(report) {
     : Math.round((total * (rate || 0)) / 100);
   const lost = Math.max(0, total - won);
 
-  const mapTile =
-    '<div class="rstat">' +
-    `<span class="rstat-key">${icon('mapa')}${escapeHtml(mapName)}</span>` +
-    `<b class="rstat-value ${tone}">${rate != null ? `${fmtNumber(rate)} %` : '—'}</b>` +
-    '<span class="rstat-sub">' +
-    `${escapeHtml(gamesText(total))} · ${won}-${lost}` +
-    `${toneText ? ` <span class="rstat-tag ${tone}">${escapeHtml(toneText)}</span>` : ''}` +
-    '</span></div>';
+  // Un solo componente para el dato grande (acá, cara a cara y en el consejo):
+  // etiqueta arriba, contexto abajo, número a la derecha. Antes el mapa eran
+  // DOS tiles con paddings distintos y la civ se repetía en la franja de
+  // arriba; con un hero de ancho completo sobra aire y no se repite el dato.
+  const hero = statRow({
+    iconName: 'mapa',
+    label: mapName,
+    sub:
+      `gana ${escapeHtml(fmtNumber(won))} de sus ${escapeHtml(gamesText(total))}` +
+      `${toneText ? ` · <span class="rstat-tag ${tone}">${escapeHtml(toneText)}</span>` : ''}`,
+    value: rate != null ? `${fmtNumber(rate)}\u00a0%` : '—',
+    tone,
+    title: `${won}-${lost} en ${mapName}`,
+  });
 
-  const civ = map.civ;
-  const civTile =
-    civ && civ.name && Number(civ.games) > 0
-      ? '<div class="rstat">' +
-        `<span class="rstat-key">${icon('escudo')}Su civ</span>` +
-        `<b class="rstat-value rstat-civ">${rivalShield(civ.name, 'rival-shield xs')}` +
-        `<span>${escapeHtml(civ.name)}</span></b>` +
-        '<span class="rstat-sub">' +
-        `${escapeHtml(gamesText(civ.games))}` +
-        `${civ.winRate != null ? ` · ${escapeHtml(fmtNumber(civ.winRate))} %` : ''}` +
-        `${escapeHtml(recordText(civ.games, civ.wins, civ.winRate))}` +
-        '</span></div>'
-      : '<div class="rstat">' +
-        `<span class="rstat-key">${icon('escudo')}Su civ</span>` +
-        '<b class="rstat-value rstat-civ">—</b>' +
-        '<span class="rstat-sub">Sin civ registrada</span></div>';
-
-  const stats = `<div class="rstat-grid">${mapTile}${civTile}</div>`;
-
-  // La apertura tiene su PROPIO bloque cuando hay replays. Si no hay, se dice
-  // una sola vez acá: antes quedaban dos avisos iguales seguidos (mapa y
-  // aperturas) y el informe parecía roto.
-  let note = '';
-  if (rivalOptions.rivalOpenings) {
-    const openings = report.openings;
-    const pending = Boolean(rivalPayload && rivalPayload.pendingOpenings);
-    const hasOpening = Boolean(openings && openings.mapCivFavorite) &&
-      Number(openings.mapCivAnalyzed) > 0;
-    if (!hasOpening && !pending) {
-      note =
-        openings && openings.ok === false
-          ? '<div class="rival-empty">Aperturas no disponibles ahora mismo.</div>'
-          : '<div class="rival-empty">Sin replays para ver su apertura.</div>';
-    }
-  }
-
-  return rivalBlock('', stats + note, 'favs');
+  return rivalBlock('', hero, 'favs');
 }
 
 /**
@@ -604,16 +578,12 @@ function rivalH2HBlock(report) {
     // Ya jugaron juntos pero nunca uno contra el otro: también es información.
     return rivalBlock(
       '',
-      '<div class="rstat-grid">' +
-        '<div class="rstat">' +
-        `<span class="rstat-key">${icon('espadas')}Cara a cara</span>` +
-        '<b class="rstat-value">0-0</b>' +
-        '<span class="rstat-sub">Nunca como rivales</span></div>' +
-        '<div class="rstat">' +
-        `<span class="rstat-key">${icon('lista')}Como aliados</span>` +
-        `<b class="rstat-value rstat-civ">${fmtNumber(h2h.asAllies)}</b>` +
-        `<span class="rstat-sub">${escapeHtml(gamesText(h2h.asAllies))}</span></div>` +
-        '</div>',
+      statRow({
+        iconName: 'espadas',
+        label: 'Cara a cara',
+        sub: `nunca como rivales · ${escapeHtml(gamesText(h2h.asAllies))} de aliados`,
+        value: '0-0',
+      }),
       'h2h',
     );
   }
@@ -627,22 +597,24 @@ function rivalH2HBlock(report) {
   if (h2h.lastMatch && h2h.lastMatch.mapName && h2h.lastMatch.mapName !== '—') {
     subParts.push(`última en ${h2h.lastMatch.mapName}`);
   }
-  const tile =
-    '<div class="rstat">' +
-    `<span class="rstat-key">${icon('espadas')}Cara a cara</span>` +
-    `<b class="rstat-value ${tone}">${fmtNumber(wins)}-${fmtNumber(losses)}</b>` +
-    `<span class="rstat-sub">${escapeHtml(subParts.join(' · '))}</span></div>`;
   // Las veces que jugaron como ALIADOS no son enfrentamientos, pero dan
   // contexto (y explican por qué el V-D no suma todas las partidas compartidas).
-  const alliesTile = Number(h2h.asAllies)
-    ? '<div class="rstat">' +
-      `<span class="rstat-key">${icon('lista')}Como aliados</span>` +
-      `<b class="rstat-value rstat-civ">${fmtNumber(h2h.asAllies)}</b>` +
-      `<span class="rstat-sub">${escapeHtml(gamesText(h2h.asAllies))}</span></div>`
-    : '';
+  if (Number(h2h.asAllies)) subParts.push(`${fmtNumber(h2h.asAllies)} de aliados`);
+  const tile = statRow({
+    iconName: 'espadas',
+    label: 'Cara a cara',
+    sub: escapeHtml(subParts.join(' · ')),
+    value: `${fmtNumber(wins)}-${fmtNumber(losses)}`,
+    tone,
+  });
   // Los últimos 3 enfrentamientos: mi civ, resultado y mapa. El mismo
   // lenguaje visual que las ÚLTIMAS 5 del informe.
-  const meetings = Array.isArray(h2h.recent) ? h2h.recent.slice(0, 3) : [];
+  // Con UN solo enfrentamiento el escudo suelto quedaba huérfano debajo del
+  // número (y no agrega nada que el subtítulo no diga). Desde 2, sí: se ve la
+  // racha de resultados.
+  const meetings = Number(h2h.games) >= 2 && Array.isArray(h2h.recent)
+    ? h2h.recent.slice(0, 3)
+    : [];
   const chips = meetings.length
     ? '<div class="rival-civ-list">' +
       meetings
@@ -660,7 +632,7 @@ function rivalH2HBlock(report) {
         .join('') +
       '</div>'
     : '';
-  return rivalBlock('', `<div class="rstat-grid">${tile}${alliesTile}</div>${chips}`, 'h2h');
+  return rivalBlock('', tile + chips, 'h2h');
 }
 
 function rivalOpeningsBlock(report, pending) {
@@ -707,12 +679,18 @@ function rivalOpeningsBlock(report, pending) {
   const scope = civName
     ? `con ${civName} en ${mapName || 'este mapa'}`
     : `en ${mapName || 'este mapa'}`;
+  // Frase, no tablero: "Abre con FC en 3 de 7 replays de Fortress". Un 43 %
+  // suelto obliga a deducir sobre cuántos replays, y con muestra de 1 no dice
+  // nada. La muestra chica se avisa en vez de disfrazarse de tendencia.
+  const sampleNote = baseCount < 5
+    ? '<p class="rival-small">Muestra chica: es una pista, no una tendencia.</p>'
+    : '';
   const top =
-    `<div class="rival-opening-top" title="${escapeHtml(`Apertura ${scope}`)}">` +
-    `<b>${escapeHtml(best.short || best.name)}</b>` +
-    `<span>${escapeHtml(fmtNumber(best.count))} de ${escapeHtml(fmtNumber(baseCount))}` +
-    `${best.share != null ? ` · ${escapeHtml(fmtNumber(best.share))}%` : ''}</span>` +
-    '</div>';
+    `<p class="rival-lead" title="${escapeHtml(`Apertura ${scope}`)}">` +
+    `Abre con <b>${escapeHtml(best.short || best.name)}</b> ` +
+    `<i>en ${escapeHtml(fmtNumber(best.count))} de ${escapeHtml(fmtNumber(baseCount))} ` +
+    `replay${baseCount === 1 ? '' : 's'} de ${escapeHtml(mapName || 'este mapa')}</i>.</p>` +
+    sampleNote;
   const chips = (Array.isArray(openings.recent) ? openings.recent : [])
     .slice(0, 5)
     .map((item) => {
@@ -725,7 +703,87 @@ function rivalOpeningsBlock(report, pending) {
     title,
     top + recent,
     'openings',
-    `${fmtNumber(openings.mapCivAnalyzed)} replays`,
+    `${fmtNumber(openings.mapCivAnalyzed)} replay${Number(openings.mapCivAnalyzed) === 1 ? '' : 's'}`,
+  );
+}
+
+/**
+ * FRANJA "SI TUVIERAS QUE APOSTAR": las dos cosas que más sirven para
+ * preparar la partida, en dos líneas y sin leer el resto de la tarjeta. Todo
+ * sale de datos ya cargados (no hay ni una request nueva): la civ más usada
+ * EN ESTE MAPA con su cuota real, y su arranque según los replays del mapa.
+ * Un porcentaje sin denominador no se muestra: siempre "X de Y".
+ */
+function rivalPredStrip(report) {
+  if (!report || report.loading) return '';
+  const map = report.mapStats;
+  const mapName = (map && map.name) || null;
+  if (!mapName || mapName === '—' || !(Number(map.games) > 0)) return '';
+  const total = Number(map.games);
+  const items = [];
+
+  const civ = map.civ;
+  if (civ && civ.name && Number(civ.games) > 0) {
+    const share = Math.round((Number(civ.games) / total) * 100);
+    items.push(
+      predRow(
+        rivalShield(civ.name, 'rival-shield xs'),
+        `<b>${escapeHtml(civ.name)}</b> en <b>${escapeHtml(fmtNumber(share))}\u00a0%</b> ` +
+          `<i>de sus ${escapeHtml(gamesText(total))} acá</i>`,
+      ),
+    );
+  }
+
+  if (rivalOptions.rivalOpenings) {
+    const openings = report.openings;
+    const best = openings && openings.mapCivFavorite ? openings.mapCivFavorite : null;
+    const base = openings ? Number(openings.mapCivAnalyzed) || 0 : 0;
+    const pending = Boolean(report.openingsPending) ||
+      Boolean(rivalPayload && rivalPayload.pendingOpenings);
+    if (best && base > 0) {
+      items.push(
+        predRow(
+          icon('espadas'),
+          `<b>Arranca con ${escapeHtml(best.short || best.name)}</b> ` +
+            `<i>en ${escapeHtml(fmtNumber(best.count))} de ${escapeHtml(fmtNumber(base))} ` +
+            `replay${base === 1 ? '' : 's'} acá</i>`,
+        ),
+      );
+    } else if (pending) {
+      items.push(
+        predRow(icon('espadas'), '<i>Analizando sus replays para ver cómo arranca…</i>'),
+      );
+    } else if (openings) {
+      // Hay que distinguir "no hay replays del mapa" de "hay replays del mapa,
+      // pero ninguno con SU civ": decir lo primero con lo segundo en la mano
+      // era una media verdad (123456 tenía 3 replays de Fortress, de otras civs).
+      const mapSaw = Number(openings.mapAnalyzed) || 0;
+      const civName = map.civ && map.civ.name ? map.civ.name : null;
+      const why = mapSaw > 0 && civName
+        ? `Sin replays de ${civName} acá (${fmtNumber(mapSaw)} de otras civs)`
+        : `Sin replays de ${mapName} para saber cómo arranca`;
+      items.push(predRow(icon('espadas'), `<i>${escapeHtml(why)}</i>`));
+    }
+  }
+
+  if (!items.length) return '';
+  // Misma etiqueta de bloque que el resto (rival-key): antes tenía una clase
+  // propia con otro tamaño y otro color, y se notaba el salto.
+  return (
+    '<div class="rival-pred">' +
+    `<span class="rival-key">${icon('foco')}Si tuvieras que apostar</span>` +
+    items.join('') +
+    '</div>'
+  );
+}
+
+/** Fila de la franja: icono en una columna fija, texto alineado a la misma x. */
+function predRow(ico, text) {
+  return (
+    '<span class="pred-row">' +
+    `<span class="pred-ico">${ico}</span>` +
+    `<span class="pred-text">${text}</span>` +
+    '</span>'
   );
 }
 
@@ -738,16 +796,24 @@ function rivalCard(report) {
   if (rivalOptions.rivalH2H) blocks.push(rivalH2HBlock(report));
   if (rivalOptions.rivalCivs) blocks.push(rivalHistoryBlock(report));
   if (rivalOptions.rivalOpenings) {
-    blocks.push(rivalOpeningsBlock(report, Boolean(rivalPayload && rivalPayload.pendingOpenings)));
+    blocks.push(
+      rivalOpeningsBlock(
+        report,
+        Boolean(report.openingsPending) ||
+          Boolean(rivalPayload && rivalPayload.pendingOpenings),
+      ),
+    );
   }
   return (
     '<article class="rival-card">' +
     '<div class="rival-card-head">' +
     `<span class="rival-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>` +
     (report.civ
-      ? `<span class="rival-now">${rivalShield(report.civ, 'rival-shield xs')}<span>${escapeHtml(report.civ)}</span></span>`
+      ? `<span class="rival-now">${rivalShield(report.civ, 'rival-shield xs')}<span>${escapeHtml(report.civ)}</span>` +
+        '<i class="rival-now-tag">eligió ahora</i></span>'
       : '') +
     '</div>' +
+    rivalPredStrip(report) +
     blocks.filter(Boolean).join('') +
     '</article>'
   );
@@ -782,6 +848,27 @@ function renderRivalInfo() {
  * zigzag) y el texto quedaba apretado contra el borde y cortado con '…'. Con
  * la etiqueta como encabezado, todo el contenido comparte el mismo margen.
  */
+/**
+ * Componente ÚNICO de dato principal: etiqueta arriba, contexto abajo y el
+ * número grande a la DERECHA, al ras del borde de la tarjeta.
+ *
+ * Es plano a propósito: nada de cajas con su propio padding dentro de la
+ * tarjeta. Antes la mitad de los bloques eran cajas (texto desfasado 11 px) y
+ * la otra mitad iba al ras, así que ninguna columna alineaba con la de al lado.
+ */
+function statRow({ iconName = '', label = '', sub = '', value = '', tone = '', title = '' } = {}) {
+  const head = label
+    ? `<span class="rival-key">${iconName ? icon(iconName) : ''}${escapeHtml(label)}</span>`
+    : '';
+  return (
+    `<div class="stat-row"${title ? ` title="${escapeHtml(title)}"` : ''}>` +
+    `<div class="stat-row-text">${head}` +
+    `${sub ? `<span class="stat-row-sub">${sub}</span>` : ''}</div>` +
+    `<b class="stat-row-value${tone ? ` ${tone}` : ''}">${escapeHtml(String(value))}</b>` +
+    '</div>'
+  );
+}
+
 function scoutSection(ico, label, body, extraClass = '') {
   return (
     `<div class="scout-sec${extraClass ? ` ${extraClass}` : ''}">` +
@@ -824,16 +911,18 @@ function scoutTipSections(tip) {
   // 1) Dato base: su winrate. Número grande, como el resto del informe.
   if (tip.winRate != null) {
     const scope = String(tip.scopeLabel || 'en este mapa').replace(/^en\s+/i, '');
+    // La cifra chica ya no repite "partidas · gana": dice el hecho completo.
+    const won = Math.round((Number(tip.sample) * Number(tip.winRate)) / 100);
+    const heroSub = `gana ${fmtNumber(won)} de sus ${gamesText(tip.sample)}`;
     // Tira horizontal en vez de tile de ancho completo: el número manda pero
     // no se come una fila entera de la tarjeta.
     sections.push(
-      '<div class="scout-hero">' +
-        '<div class="scout-hero-text">' +
-        `<span class="scout-key">${icon('mapa')}${escapeHtml(scope)}</span>` +
-        `<span class="scout-hero-sub">${escapeHtml(gamesText(tip.sample))} · gana</span>` +
-        '</div>' +
-        `<b class="scout-hero-value">${fmtNumber(tip.winRate)} %</b>` +
-        '</div>',
+      statRow({
+        iconName: 'mapa',
+        label: scope,
+        sub: escapeHtml(heroSub),
+        value: `${fmtNumber(tip.winRate)}\u00a0%`,
+      }),
     );
   }
 
@@ -845,20 +934,26 @@ function scoutTipSections(tip) {
     sections.push(scoutSection('alerta', 'Le cuestan', `<div class="scout-chips">${chips}</div>`));
   }
 
-  // 3) Aperturas que le duelen.
+  // 3) Aperturas contra las que pierde, en frase: "Cuando le arrancan con FC
+  // pierde 46 % de 13 partidas". El chip suelto obligaba a armar la oración.
   if (tip.openingsAgainst && tip.openingsAgainst.length) {
     const allMode = tip.openingsAgainst[0].scope === 'modo';
-    const chips = tip.openingsAgainst
-      .map((row) =>
-        scoutChip('', row.short || row.name || '?', row.lossRate, `${fmtNumber(row.games)} pj`, 'bad'),
-      )
+    const lines = tip.openingsAgainst
+      .map((row) => {
+        const label = row.short || row.name || '?';
+        return (
+          '<p class="scout-note">Cuando le arrancan con ' +
+          `<b>${escapeHtml(label)}</b> pierde ` +
+          `<b>${fmtNumber(row.lossRate)}\u00a0%</b> ` +
+          `<i>de ${escapeHtml(gamesText(row.games))}</i>.</p>`
+        );
+      })
       .join('');
     sections.push(
       scoutSection(
         'espadas',
-        'Aperturas que le duelen',
-        `<div class="scout-chips">${chips}</div>` +
-          (allMode ? '<p class="scout-note">Datos de todo el modo, no solo de este mapa.</p>' : ''),
+        'Pierde contra',
+        lines + (allMode ? '<p class="scout-note">Datos de todo el modo, no solo de este mapa.</p>' : ''),
       ),
     );
   }
@@ -1039,6 +1134,8 @@ function applyView(payload) {
     eloHidden: Boolean(next.eloHidden),
     civHelpVisible: Boolean(next.civHelpVisible),
   };
+  // Alto disponible en este monitor: lo usa fitStage() para no recortar.
+  if (Number.isFinite(Number(next.maxHeight))) stageMaxHeight = Number(next.maxHeight);
   // Las clases las aplica applyVisibility() (fuente única).
   if (civView.eloHidden) hideUpdateToast();
 
@@ -1064,9 +1161,33 @@ function applyView(payload) {
   applyVisibility();
 }
 
+/**
+ * El panel NO tiene scroll: si el contenido mide más que el monitor, la
+ * última tarjeta quedaba cortada (pasó con las recomendaciones: 1209 px de
+ * contenido en 1155 disponibles). Acá se escala lo mínimo necesario para que
+ * entre — un 4 % no se nota, una tarjeta cortada sí. `maxHeight` lo manda
+ * main desde el área de trabajo del monitor, así no se adivina.
+ */
+let stageMaxHeight = 0;
+let stageScale = 1;
+
+function fitStage() {
+  if (!stage) return;
+  const natural = stage.scrollHeight;
+  let scale = 1;
+  if (stageMaxHeight > 0 && natural > stageMaxHeight) {
+    scale = Math.max(0.82, stageMaxHeight / natural);
+  }
+  if (Math.abs(scale - stageScale) > 0.002) {
+    stageScale = scale;
+    stage.style.transform = scale < 1 ? `scale(${scale.toFixed(4)})` : '';
+  }
+}
+
 function reportHeight() {
   // Mide TODO el stage: si el ELO está oculto a 0:20, la ventana se achica
   // sola y deja de estorbar; si vuelve la tarjeta de civ, vuelve a crecer.
+  fitStage();
   const height = Math.ceil(stage.getBoundingClientRect().height) + 8;
   if (Math.abs(height - lastReported) > 1) {
     lastReported = height;
