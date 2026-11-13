@@ -1,3 +1,17 @@
+## v0.1.25 · El "0 %" del pick de civ: una sola fuente de verdad
+
+Reporte del usuario: *"analiza 4000 partidas y dice 0 % cuando muestra la civ que jugó en ese mapa"*. No era cosmético: el porcentaje de la civ del rival se calculaba dividiendo **dos fuentes distintas** — `mapStats.civ.games` (las partidas del mapa que se leyeron del historial) sobre `mapStats.games` (el total histórico que declara `/stats`). Medido en vivo: un rival con 1748 partidas de Arabia y 32 de Huns publicaba `2 %` (0 % en casos peores). Peor aún: mientras cargaban los datos, el informe **parcial** usaba el sample leído y el **final** el total de `/stats`, así que el número cambiaba solo delante del usuario.
+
+- **Numerador y denominador de la MISMA fuente.** `scoutPickHero()` es ahora la única función que produce el pick de civ, y su porcentaje es siempre `civ.games / sampleGames` — las partidas del mapa que realmente se leyeron. Nunca se mezcla con el total de `/stats`.
+- **Umbral de dominancia.** Con menos de 5 partidas o menos del 30 % del sample, no existe una apuesta posible: la tarjeta dice **«Sin civ dominante acá»** (*«juega de todo · Britons es su más usada: 51 de 1748 acá»*). Decir «Suele jugar X 3 %» era una etiqueta que se contradecía sola: nadie «suele jugar» algo que elige el 3 % de las veces.
+- **El sample parcial se declara.** Si se leyeron menos partidas de las que declara `/stats`, la línea dice **«últimas N»** (*«en 28 de sus últimas 40 partidas acá»*): el historial se recorre de la más nueva a la más vieja, así que es una ventana reciente — decirlo es gratis y es verdad.
+- **Una sola implementación.** La tira del detalle (`rivalPredStrip`), el hero de la tarjeta compacta sin replays (`scoutHero`) y el fallback usan la misma función; antes había dos copias del cálculo (una de ellas era la del bug).
+- **El número hereda la cascada de honestidad.** El valor viene de `tacBig()`: porcentaje solo con `n >= 20`; con 5–19 la fracción `8/11`; con menos, nada.
+- **Verificación.** Repro en vivo del bug (perfil real, Arabia, RM 1v1: 1748 partidas, civ top 51 → antes «Suele jugar Britons 3 %», ahora «Sin civ dominante acá») y repro de los tres comportamientos en el selftest (`TODO OK`, con `renderer.js` ejecutándose en un VM con DOM stub): mezcla de fuentes, dominancia publicada sobre el sample, y sample parcial declarado como «últimas». Datos de ejemplo con dos `mapStats` distintos (uno dominante, uno sin dominancia) para que una captura de TG muestre los dos estados.
+- Queda igual pendiente lo declarado en v0.1.24 (heurístico de smurf débil, `Fast castle` como proxy de boom, «le duele» sin filtrar por aperturas ejecutables, flank/pocket en TG, `map_openness`).
+
+---
+
 ## v0.1.24 · Una sola tarjeta de scouting (y F2 para ver todo)
 
 La versión anterior **sumaba** señales tácticas encima del informe que ya existía: dos secciones, dos cabeceras, el nombre del rival repetido, dos números hero compitiendo (`17 %` y `74 %`) y unas diez cifras para una ventana de ~10 s de lectura real. Esta versión **reemplaza** en vez de sumar.

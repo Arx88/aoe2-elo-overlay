@@ -2162,6 +2162,9 @@ body.elo-hidden #updateToast {
   font-variant-numeric: tabular-nums;
 }
 
+/* El número viene de tacBig(): "62<small>%</small>" o "8<small>/11</small>". */
+.pick-value small { font-size: 1.05rem; font-weight: 600; }
+
 /* La apertura ya no es un párrafo: una línea con el dato y su muestra. */
 .pred-row { grid-template-columns: 1.15rem minmax(0, 1fr); }
 

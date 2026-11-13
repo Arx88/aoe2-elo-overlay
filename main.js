@@ -647,6 +647,15 @@ function demoRivalReports(state) {
   const mode = resolveMode(leaderboardOf(state)) || {
     id: 3, key: 'rm_1v1', label: 'RM 1v1', group: 'rm', size: '1v1',
   };
+  // Dos mapStats distintos para las capturas TG: uno con civ dominante
+  // (publica "Suele jugar…") y otro sin (publica "Sin civ dominante acá").
+  // Nunca se usan en vivo.
+  const DEMO_MAP_STATS = [
+    { games: 34, wins: 19, winRate: 56, sampleGames: 34,
+      civ: { name: 'Magyars', slug: 'magyars', games: 21, wins: 12, share: 62, winRate: 57 } },
+    { games: 31, wins: 16, winRate: 52, sampleGames: 31,
+      civ: { name: 'Poles', slug: 'poles', games: 9, wins: 5, share: 29, winRate: 56 } },
+  ];
   const history = [
     { civ: 'Magyars', slug: 'magyars', won: true, mapName: 'Arabia' },
     { civ: 'Mongols', slug: 'mongols', won: true, mapName: 'Steppe' },
@@ -665,7 +674,7 @@ function demoRivalReports(state) {
     ts: Date.now(),
     demo: true,
     pendingOpenings: false,
-    reports: opponentsOf(state, RIVAL_LIMIT).map((rival) => ({
+    reports: opponentsOf(state, RIVAL_LIMIT).map((rival, index) => ({
       profileId: rival.profileId,
       name: rival.name,
       civ: rival.civ,
@@ -695,11 +704,11 @@ function demoRivalReports(state) {
       favoriteCiv: { name: 'Ethiopians', slug: 'ethiopians', games: 145, share: 53, winRate: 54 },
       mapStats: {
         name: state.match.mapName,
-        games: 12,
-        wins: 7,
-        winRate: 58,
-        sampleGames: 2,
-        civ: { name: 'Magyars', slug: 'magyars', games: 2, wins: 1, share: 100, winRate: 50 },
+        // games/wins/winRate: el histórico completo del mapa (/stats).
+        // sampleGames + civ.games: las partidas del mapa que se LEYERON.
+        // Mismo denominador que el renderer espera desde v0.1.25 (mezclarlos
+        // era el bug del "0 %").
+        ...DEMO_MAP_STATS[index % DEMO_MAP_STATS.length],
       },
       totalGames: 276,
       statsLadderLabel: '1v1 Empire Wars',

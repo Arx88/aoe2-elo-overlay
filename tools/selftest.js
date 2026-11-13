@@ -1097,6 +1097,13 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /globalShortcut\.register\('F2'/.test(main) &&
         /function sendDetail\(\)/.test(main) && /sendDetail\(\);/.test(main) &&
         /function setDetail\(/.test(renderer) && /onDetail/.test(renderer));
+    /* ---- v0.1.25 · PICK DE CIV SIN FUENTES MEZCLADAS -------------------- */
+    check('pick de civ: una sola fuente de verdad y umbral de dominancia',
+      /function scoutPickHero\(/.test(renderer) &&
+        /Number\(map\.sampleGames\)/.test(renderer) &&
+        /PICK_MIN_GAMES = 5/.test(renderer) && /PICK_MIN_SHARE = 30/.test(renderer) &&
+        !/civ\.games\) \/ total/.test(renderer) &&
+        /Sin civ dominante/.test(renderer));
     check('un solo pase de visibilidad: nada decide su hidden por su cuenta',
       /function applyVisibility\(\)/.test(renderer) &&
         !/rivalInfoEl\.hidden = false/.test(renderer) &&
@@ -1784,10 +1791,10 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /function rivalPredStrip\(/.test(rendererSrc) &&
         /Si tuvieras que apostar/.test(rendererSrc) &&
         /Arranca con /.test(rendererSrc) &&
-        /de sus \$\{escapeHtml\(gamesText\(total\)\)\} acá/.test(rendererSrc));
+        /scoutPickHero\(report\)/.test(rendererSrc));
     check('renderer: el mapa y la civ se explican con "X de Y", no con porcentajes sueltos',
       /gana \$\{escapeHtml\(fmtNumber\(won\)\)\} de sus /.test(rendererSrc) &&
-        /de sus \$\{escapeHtml\(gamesText\(total\)\)\} acá/.test(rendererSrc) &&
+        /en \$\{fmtNumber\(hits\)\} de sus /.test(rendererSrc) &&
         /replay\$\{base === 1 \? '' : 's'\} acá/.test(rendererSrc));
     check('renderer: muestra chica declarada en vez de disfrazada de tendencia',
       /Muestra chica: es una pista, no una tendencia/.test(rendererSrc));
@@ -1972,11 +1979,32 @@ function fakeLobby(leaderboardId, leaderboardName) {
       hybrid: 1, dominant: 'agresivo', share: 73, top: { short: 'Scouts' } });
     check('compacta: con n<20 publica la fracción y NUNCA un porcentaje',
       chica.value.includes('/') && !chica.value.includes('%'));
+    check('pick: numerador y denominador de la MISMA fuente (repro del "0 %")',
+      (() => {
+        // Repro medido en vivo: Huns 32 en el historial LEÍDO, /stats declara
+        // 1748 en el mapa. Antes: 32/1748 = 2 % (0 % en casos peores).
+        const p = sandbox.scoutPickHero({ mapStats: { name: 'Arabia', games: 1748,
+          sampleGames: 1105, civ: { name: 'Huns', games: 32 } } });
+        return p && p.none === true && p.sub.includes('32 de 1105');
+      })());
+    check('pick: con dominancia real publica "Suele jugar" sobre el sample',
+      (() => {
+        const p = sandbox.scoutPickHero({ mapStats: { name: 'Arabia', games: 34,
+          sampleGames: 34, civ: { name: 'Magyars', games: 21 } } });
+        return p && !p.none && p.value.includes('62') &&
+          p.label === 'Suele jugar Magyars' && p.sub.includes('21 de sus 34');
+      })());
+    check('pick: sample parcial del histórico se declara como "últimas"',
+      (() => {
+        const p = sandbox.scoutPickHero({ mapStats: { name: 'Arabia', games: 4000,
+          sampleGames: 40, civ: { name: 'Huns', games: 28 } } });
+        return p && !p.none && p.value.includes('70') && p.sub.includes('últimas 40');
+      })());
     check('compacta: sin estilo cae al pick real de civ, sin inventar aperturas',
       (() => {
-        const h = sandbox.scoutHero(null, { mapStats: { name: 'Arabia', games: 12,
-          civ: { name: 'Magyars', games: 2 } } });
-        return h && h.label.includes('Magyars') && h.bar === null;
+        const h = sandbox.scoutHero(null, { mapStats: { name: 'Arabia', games: 34,
+          sampleGames: 34, civ: { name: 'Magyars', games: 21 } } });
+        return h && h.label === 'Suele jugar Magyars' && h.bar === null;
       })());
     const accion = sandbox.scoutAction({ openingsAgainst: [
       { name: 'Archer rush', short: 'Archer rush', games: 11, losses: 8 }] });

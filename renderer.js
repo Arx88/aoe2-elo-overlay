@@ -738,26 +738,28 @@ function rivalPredStrip(report) {
   const map = report.mapStats;
   const mapName = (map && map.name) || null;
   if (!mapName || mapName === '—' || !(Number(map.games) > 0)) return '';
-  const total = Number(map.games);
   const items = [];
 
-  const civ = map.civ;
-  if (civ && civ.name && Number(civ.games) > 0) {
-    const share = Math.round((Number(civ.games) / total) * 100);
+  const pick = scoutPickHero(report);
+  if (pick && !pick.none) {
     // HERO de la tarjeta. La señal más predictiva en pre-partida no es el
     // winrate (con 10-30 partidas tiene ±18 pp de error) sino QUÉ civ juega
     // acá y cada cuánto: escudo grande + número grande + una línea de contexto.
     items.push(
       '<div class="pick-hero">' +
-        rivalShield(civ.name, 'rival-shield pick-shield') +
+        rivalShield(pick.name, 'rival-shield pick-shield') +
         '<div class="pick-copy">' +
           '<span class="pick-label">Suele jugar</span>' +
-          `<b class="pick-name">${escapeHtml(civ.name)}</b>` +
-          `<i class="pick-sub">de sus ${escapeHtml(gamesText(total))} acá</i>` +
+          `<b class="pick-name">${escapeHtml(pick.name)}</b>` +
+          `<i class="pick-sub">${escapeHtml(pick.sub)}</i>` +
         '</div>' +
-        `<b class="pick-value">${escapeHtml(fmtNumber(share))}\u00a0%</b>` +
+        `<b class="pick-value">${pick.value}</b>` +
       '</div>',
     );
+  } else if (pick) {
+    // Sin dominancia no hay apuesta posible: se dice explícito en una línea.
+    // Decir "Suele jugar X 3 %" era una etiqueta que se contradecía sola.
+    items.push(predRow(icon('lista'), `<i>${escapeHtml(pick.sub)}</i>`));
   }
 
   // Con smartTips la tira táctica ya responde "cómo arranca" con la
@@ -1291,21 +1293,62 @@ function scoutHero(tip, report) {
     };
   }
   // Sin replays analizados: el pick de civ del mapa es la única señal real.
+  return scoutPickHero(report);
+}
+
+/*
+ * PICK DE CIV DEL MAPA · una sola fuente de verdad para el porcentaje.
+ *
+ * BUG que corrige (v0.1.25): `mapStats.civ.games` cuenta partidas del
+ * historial LEÍDO y `mapStats.games` es el total de /stats (el histórico
+ * completo del mapa). Dividir una por el otro daba "0 %": medido real,
+ * Huns 32 de 1748 en Arabia. Peor: el informe parcial usaba el sample de la
+ * primera página y el final el total de /stats, así que el número CAMBIABA
+ * solo mientras cargaban los datos. Ahora numerador y denominador salen
+ * SIEMPRE de las partidas del mapa que se leyeron (`sampleGames`).
+ *
+ * Y umbral de honestidad: si la civ más usada no llega al 30 % del sample,
+ * no existe una apuesta posible y no se publica la etiqueta "Suele jugar"
+ * (un rival que rota 40 civs no "suele jugar" ninguna: medido 3 % real).
+ */
+const PICK_MIN_GAMES = 5;
+const PICK_MIN_SHARE = 30;
+
+function scoutPickHero(report) {
   const map = report && report.mapStats;
-  if (map && map.civ && map.civ.name && Number(map.games) > 0) {
-    const n = Number(map.games);
-    const hits = Number(map.civ.games) || 0;
+  const civ = map && map.civ;
+  if (!civ || !civ.name) return null;
+  const hits = Number(civ.games) || 0;
+  if (hits <= 0) return null;
+  const sample = Math.max(Number(map.sampleGames) || 0, hits);
+  const total = Number(map.games) || 0;
+  const share = (hits / sample) * 100;
+  // Si se leyó menos de lo que declara /stats, se dice "últimas": el recorrido
+  // del historial va de la más nueva a la más vieja, así que es una ventana
+  // reciente, no el histórico completo. Declararlo es gratis y es verdad.
+  const recent = sample < total ? 'últimas ' : '';
+  const scope = map.name && map.name !== '—' ? ` · ${map.name}` : '';
+  if (hits >= PICK_MIN_GAMES && share >= PICK_MIN_SHARE) {
     return {
-      value: tacBig(hits, n).big,
-      label: `Suele jugar ${map.civ.name}`,
+      name: civ.name,
+      value: tacBig(hits, sample).big,
+      label: `Suele jugar ${civ.name}`,
+      sub: `en ${fmtNumber(hits)} de sus ${recent}${fmtNumber(sample)} partidas acá`,
       tone: '',
       bar: null,
-      dist:
-        `${fmtNumber(hits)} de ${fmtNumber(n)} partidas acá` +
-        (map.name && map.name !== '—' ? ` · ${map.name}` : ''),
+      dist: `${fmtNumber(hits)} de sus ${recent}${fmtNumber(sample)} partidas acá${scope}`,
     };
   }
-  return null;
+  return {
+    none: true,
+    name: civ.name,
+    value: '—',
+    label: 'Sin civ dominante acá',
+    sub: `juega de todo · ${civ.name} es su más usada: ${fmtNumber(hits)} de ${fmtNumber(sample)} acá`,
+    tone: '',
+    bar: null,
+    dist: `juega de todo · ${civ.name} es su más usada: ${fmtNumber(hits)} de ${fmtNumber(sample)} acá${scope}`,
+  };
 }
 
 /** UNA acción: apertura que le duele > civ que le cuesta > ritmo. */
