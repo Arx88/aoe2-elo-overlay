@@ -58,6 +58,10 @@ const HISTORY_PAGE = 25;
 // la civ habitual; el tope de páginas es solo una red de seguridad.
 const MAP_PAGE_SIZE = 100;
 const MAP_MAX_PAGES = 100;
+// Tope de tiempo para recorrer páginas del historial. Con MAP_PAGE_SIZE=100 y
+// una cuenta de miles de partidas el recorrido llegaba a 100 páginas (~40 s):
+// la pre-partida se pasaba mostrando "cargando…" y en TG ni llegaba a verse.
+const HISTORY_BUDGET_MS = 6000;
 const PAGE_DELAY_MS = 120; // evita ráfagas que terminan en HTTP 429
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
@@ -383,6 +387,23 @@ async function buildRivalInsights(options = {}) {
   const errors = [];
   const wait = typeof sleep === 'function' ? sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  // Aviso TEMPRANO: en cuanto la primera página del historial está parseada ya
+  // se pueden pintar las últimas civs y el mapa del rival. Antes se avisaba
+  // recién al terminar todo el recorrido de páginas.
+  let partialSent = false;
+  const sendPartial = () => {
+    if (typeof onPartial !== 'function') return;
+    partialSent = true;
+    onPartial({
+      ...base,
+      ...result,
+      ladder,
+      openings: null,
+      pendingOpenings: Boolean(includeOpenings),
+      fromCache: false,
+    });
+  };
+
   // Las aperturas no dependen del mapa ni de la civ: se piden YA, en paralelo
   // con el historial. Así el total no es historial + ~15s, sino el máximo de
   // ambos, y la estrategia puede estar lista antes de que arranque la partida.
@@ -401,21 +422,23 @@ async function buildRivalInsights(options = {}) {
 
   // Primero /stats: la consulta va filtrada por el MISMO ladder/modo de la
   // partida y dice cuántas partidas hay en ESTE mapa en todo el historial.
+  // /stats y la PRIMERA página del historial son consultas independientes: se
+  // piden A LA VEZ. Antes iban en serie (stats → historial → páginas) y el
+  // primer dato del panel esperaba a todas.
+  const statsPromise = getJsonImpl(
+    `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
+      `?leaderboard_id=${encodeURIComponent(ladder)}`,
+  );
+
   // Con eso se corta al encontrar todas las del mapa.
   let targetMapGames = Number.POSITIVE_INFINITY;
   let maxPages = MAP_MAX_PAGES;
-  try {
-    const url =
-      `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
-      `?leaderboard_id=${encodeURIComponent(ladder)}`;
-    const raw = await getJsonImpl(url);
+  const applyStats = (raw) => {
     Object.assign(result, normalizeProfileStats(raw, mapName));
     targetMapGames = result.currentMap ? Number(result.currentMap.games) : 0;
     const total = Number(result.totalGames) || 0;
     if (total > 0) maxPages = Math.min(MAP_MAX_PAGES, Math.ceil(total / MAP_PAGE_SIZE) + 1);
-  } catch (err) {
-    errors.push(`stats: ${err.message}`);
-  }
+  };
 
   try {
     const matches = [];
@@ -444,23 +467,52 @@ async function buildRivalInsights(options = {}) {
       return [];
     };
 
-    let page = 0;
-    let lastPage = [];
-    while (true) {
-      page += 1;
-      if (page > 1) await wait(PAGE_DELAY_MS);
-      lastPage = await fetchPage(page);
-      if (!add(lastPage)) break;
-      result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
-      result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
+    // Primera página disparada ya: corre en paralelo con /stats.
+    const firstPagePromise = fetchPage(1).catch((err) => {
+      errors.push(`historial: ${err.message}`);
+      return [];
+    });
 
+    try {
+      applyStats(await statsPromise);
+    } catch (err) {
+      errors.push(`stats: ${err.message}`);
+    }
+
+    let page = 1;
+    let lastPage = await firstPagePromise;
+    const historyStartedAt = Date.now();
+    add(lastPage);
+    result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
+    result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
+    // Con la primera página ya se pintan las últimas civs, el mapa y el
+    // winrate: es el aviso que hace que el panel tenga datos al instante.
+    sendPartial();
+
+    // El mapa '—' (TG antes de arrancar) no filtra nada: recorrer más páginas
+    // no agrega información útil, solo retrasa.
+    const mapKnown = Boolean(mapName) && mapName !== '—';
+    while (true) {
       // Se corta al juntar TODAS las partidas del mapa que declara /stats, al
       // terminar el historial o al llegar al tope de seguridad. El filtro de
       // modo ya está en parseMapStats.
       if (lastPage.length < MAP_PAGE_SIZE) break;
-      if (!mapName) break;
+      if (!mapKnown) break;
       if (result.mapStats && result.mapStats.sampleGames >= targetMapGames) break;
       if (page >= maxPages) break;
+      if (Date.now() - historyStartedAt > HISTORY_BUDGET_MS) {
+        log(
+          `historial del rival #${id}: tope de ${HISTORY_BUDGET_MS / 1000}s ` +
+            `con ${matches.length} partidas leídas (${page} páginas)`,
+        );
+        break;
+      }
+      await wait(PAGE_DELAY_MS);
+      page += 1;
+      lastPage = await fetchPage(page);
+      if (!add(lastPage)) break;
+      result.history = parseRivalHistory(matches, id, currentMatchId, { mode });
+      result.mapStats = parseMapStats(matches, id, currentMatchId, { mode, mapName });
     }
   } catch (err) {
     errors.push(`historial: ${err.message}`);
@@ -482,12 +534,9 @@ async function buildRivalInsights(options = {}) {
     result.mapStats = { ...result.currentMap, civ: null, sampleGames: 0 };
   }
 
-  // Primer aviso: histórico de civs / mapa actual ya están listos (~0.3s).
-  // AoE2Insights puede tardar ~9s en calcular la consulta, así que el panel
-  // pinta las civs AHORA y agrega las aperturas cuando llegan.
-  if (typeof onPartial === 'function' && includeOpenings) {
-    onPartial({ ...base, ...result, ladder, openings: null, pendingOpenings: true, fromCache: false });
-  }
+  // Si por algún motivo no se avisó dentro del recorrido (0 páginas, caché a
+  // medias), el aviso sale igual: civs y mapa listos, aperturas en camino.
+  if (!partialSent) sendPartial();
 
   // Aperturas REALES del MISMO modo de juego (la ladder va como segundo
   // `filter` a AoE2Insights). Tienen su propia cache (30 min) porque
@@ -511,7 +560,9 @@ async function buildRivalInsights(options = {}) {
   }
 
   result.error = errors.length ? errors.join(' · ') : null;
-  if (cache) cache.set(key, { ts: now, data: result });
+  // Un fallo de red NO se cachea: si quedara guardado, el reintento de la
+  // pre-partida devolvería el mismo resultado vacío durante 10 minutos.
+  if (cache && !result.error) cache.set(key, { ts: now, data: result });
   if (result.error) log(`datos del rival #${id} incompletos: ${result.error}`);
 
   return { ...base, ...result, fromCache: false };

@@ -1688,27 +1688,205 @@ body[data-theme='pergamino'] {
   gap: 0.22rem;
 }
 
-.scout-line {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  min-width: 0;
-  font-size: 0.86rem;
-  line-height: 1.45;
-  color: var(--text);
+/* =====================================================================
+   CONSEJO PRE-PARTIDA
+   Cada bloque lleva su etiqueta ARRIBA y el contenido comparte el mismo
+   margen izquierdo. Antes la etiqueta iba en la misma fila que la frase, así
+   que cada línea arrancaba en una x distinta y el texto se apretaba y se
+   cortaba con '…'.
+   ===================================================================== */
+.scout-sec + .scout-sec {
+  margin-top: 0.7rem;
 }
 
-.scout-line .rival-sub {
-  flex: none;
+.scout-key {
+  display: flex;
+  align-items: center;
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.07em;
+  text-transform: uppercase;
   color: var(--accent);
+  opacity: 0.9;
+  margin-bottom: 0.3rem;
 }
 
-.scout-line > span:last-child {
+.scout-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.scout-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--head-border);
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.12);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.scout-chip .rival-shield {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.scout-chip-name {
+  font-weight: 600;
+}
+
+.scout-chip-value {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.scout-chip-value.bad {
+  color: var(--bad);
+}
+
+.scout-chip i {
+  font-style: normal;
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+.scout-note {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.scout-note b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Tira del winrate: etiqueta + muestra a la izquierda, número a la derecha. */
+.scout-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--head-border);
+  border-radius: calc(var(--radius) * 0.5);
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.scout-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.06rem;
   min-width: 0;
+}
+
+.scout-hero-text .scout-key {
+  margin-bottom: 0;
+}
+
+.scout-hero-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.scout-hero-value {
+  flex: none;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Civ recomendada: fila con rank, escudo, civ y DOS columnas de dato
+   alineadas a la derecha (vos / le cuesta). */
+.rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rec-item {
+  display: grid;
+  grid-template-columns: 1.1rem 1.1rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: calc(var(--radius) * 0.45);
+  background: rgba(127, 127, 127, 0.07);
+}
+
+.rec-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: rgba(127, 127, 127, 0.18);
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-civ {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--strong);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rec-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 3.1rem;
+  line-height: 1.15;
+}
+
+.rec-stat em {
+  font-style: normal;
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.rec-stat b {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-stat b.bad {
+  color: var(--bad);
+}
+
+.rec-stat i {
+  font-style: normal;
+  font-size: 0.58rem;
+  color: var(--muted);
+  /* Sin esto "6 pj · modo" envolvía y las filas quedaban desalineadas. */
+  white-space: nowrap;
+}
+
+/* La nº1 se destaca sin agregar un borde más. */
+.rec-item:first-child {
+  background: rgba(127, 127, 127, 0.13);
 }
 
 /* =====================================================================

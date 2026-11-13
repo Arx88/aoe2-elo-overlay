@@ -735,69 +735,124 @@ function renderRivalInfo() {
  * Cada línea muestra su muestra ("pierde 80% · 5 pj"): nunca un número solo.
  * ---------------------------------------------------------------------- */
 
-function scoutLine(text, sub) {
+/**
+ * Bloque con etiqueta ARRIBA y contenido debajo.
+ *
+ * Antes cada línea era `etiqueta + frase` en la misma fila: como cada etiqueta
+ * mide distinto, cada frase arrancaba en una x diferente (borde izquierdo en
+ * zigzag) y el texto quedaba apretado contra el borde y cortado con '…'. Con
+ * la etiqueta como encabezado, todo el contenido comparte el mismo margen.
+ */
+function scoutSection(ico, label, body, extraClass = '') {
   return (
-    `<div class="scout-line">` +
-    (sub ? `<span class="rival-sub">${escapeHtml(sub)}</span>` : '') +
-    `<span>${escapeHtml(text)}</span></div>`
+    `<div class="scout-sec${extraClass ? ` ${extraClass}` : ''}">` +
+    `<span class="scout-key">${icon(ico)}${escapeHtml(label)}</span>` +
+    body +
+    '</div>'
   );
 }
 
-function scoutTipLines(tip) {
-  if (!tip) return ['<div class="rival-empty">Sin datos.</div>'];
+/** Chip de dato del consejo: escudo opcional, nombre, cifra y muestra. */
+function scoutChip(civ, label, value, sample, tone = '') {
+  return (
+    '<span class="scout-chip">' +
+    (civ ? rivalShield(civ, 'rival-shield xs') : '') +
+    `<span class="scout-chip-name">${escapeHtml(label)}</span>` +
+    (value != null ? `<b class="scout-chip-value${tone ? ` ${tone}` : ''}">${fmtNumber(value)} %</b>` : '') +
+    (sample != null ? `<i>${escapeHtml(sample)}</i>` : '') +
+    '</span>'
+  );
+}
+
+function scoutTipSections(tip) {
+  if (!tip) return '<div class="rival-empty">Sin datos.</div>';
   if (tip.loading) {
-    return [`<div class="rival-empty">Analizando replays del rival…</div>`];
+    return '<div class="rival-empty">Analizando replays del rival…</div>';
   }
   if (tip.modeUnavailable) {
-    return ['<div class="rival-empty">Solo en partidas ranked: en custom no se mezclan modos.</div>'];
+    return '<div class="rival-empty">Solo en partidas ranked: en custom no se mezclan modos.</div>';
   }
-  if (tip.error) return ['<div class="rival-empty">Replays no disponibles ahora mismo.</div>'];
+  if (tip.error) return '<div class="rival-empty">Replays no disponibles ahora mismo.</div>';
   if (!tip.sample) {
-    return [
-      `<div class="rival-empty">Sin replays analizados de este rival` +
-        `${tip.mode ? ` en ${escapeHtml(tip.mode.label)}` : ''}.</div>`,
-    ];
+    return (
+      '<div class="rival-empty">Sin replays analizados de este rival' +
+      `${tip.mode ? ` en ${escapeHtml(tip.mode.label)}` : ''}.</div>`
+    );
   }
 
-  const lines = [];
-  const where = tip.scopeLabel || '';
+  const sections = [];
+
+  // 1) Dato base: su winrate. Número grande, como el resto del informe.
   if (tip.winRate != null) {
-    lines.push(scoutLine(`Gana el ${fmtNumber(tip.winRate)}%${where ? ` ${where}` : ''}`, `${fmtNumber(tip.sample)} PJ`));
+    const scope = String(tip.scopeLabel || 'en este mapa').replace(/^en\s+/i, '');
+    // Tira horizontal en vez de tile de ancho completo: el número manda pero
+    // no se come una fila entera de la tarjeta.
+    sections.push(
+      '<div class="scout-hero">' +
+        '<div class="scout-hero-text">' +
+        `<span class="scout-key">${icon('mapa')}${escapeHtml(scope)}</span>` +
+        `<span class="scout-hero-sub">${escapeHtml(gamesText(tip.sample))} · gana</span>` +
+        '</div>' +
+        `<b class="scout-hero-value">${fmtNumber(tip.winRate)} %</b>` +
+        '</div>',
+    );
   }
+
+  // 2) Civs que le cuestan: chips con escudo, cifra y muestra.
   if (tip.weakAgainst && tip.weakAgainst.length) {
-    const civs = tip.weakAgainst
-      .map((row) => `${row.civ} (pierde ${fmtNumber(row.lossRate)}% · ${fmtNumber(row.games)} pj)`)
-      .join(' · ');
-    lines.push(scoutLine(civs, 'LE CUESTAN'));
+    const chips = tip.weakAgainst
+      .map((row) => scoutChip(row.civ, row.civ || '?', row.lossRate, `${fmtNumber(row.games)} pj`, 'bad'))
+      .join('');
+    sections.push(scoutSection('alerta', 'Le cuestan', `<div class="scout-chips">${chips}</div>`));
   }
+
+  // 3) Aperturas que le duelen.
   if (tip.openingsAgainst && tip.openingsAgainst.length) {
-    const scope = tip.openingsAgainst[0].scope === 'modo' ? ' · todo el modo' : '';
-    const openings = tip.openingsAgainst
-      .map((row) => `${row.short || row.name} ${fmtNumber(row.lossRate)}% (${fmtNumber(row.games)} pj)`)
-      .join(' · ');
-    lines.push(scoutLine(`${openings}${scope}`, 'APERTURAS QUE LE DUELEN'));
+    const allMode = tip.openingsAgainst[0].scope === 'modo';
+    const chips = tip.openingsAgainst
+      .map((row) =>
+        scoutChip('', row.short || row.name || '?', row.lossRate, `${fmtNumber(row.games)} pj`, 'bad'),
+      )
+      .join('');
+    sections.push(
+      scoutSection(
+        'espadas',
+        'Aperturas que le duelen',
+        `<div class="scout-chips">${chips}</div>` +
+          (allMode ? '<p class="scout-note">Datos de todo el modo, no solo de este mapa.</p>' : ''),
+      ),
+    );
   }
+
+  // 4) Ritmo: una frase corta con las dos cifras en negrita.
   if (tip.tempo) {
     const diff = tip.tempo.longWinRate - tip.tempo.shortWinRate;
     if (diff >= 10) {
-      lines.push(
-        scoutLine(
-          `Le salen mejor las largas: ${fmtNumber(tip.tempo.longWinRate)}% si pasa de 25 min ` +
-            `(${fmtNumber(tip.tempo.shortWinRate)}% en cortas)`,
-          'RITMO',
+      sections.push(
+        scoutSection(
+          'reloj',
+          'Ritmo',
+          '<p class="scout-note">Le salen mejor las largas: ' +
+            `<b>${fmtNumber(tip.tempo.longWinRate)} %</b> si pasa de 25 min · ` +
+            `<b>${fmtNumber(tip.tempo.shortWinRate)} %</b> en cortas.</p>`,
         ),
       );
     } else if (diff <= -10) {
-      lines.push(
-        scoutLine(
-          `Le cuestan las largas: ${fmtNumber(tip.tempo.shortWinRate)}% antes de 15 min ` +
-            `(${fmtNumber(tip.tempo.longWinRate)}% si se alarga)`,
-          'RITMO',
+      sections.push(
+        scoutSection(
+          'reloj',
+          'Ritmo',
+          '<p class="scout-note">Le cuestan las largas: ' +
+            `<b>${fmtNumber(tip.tempo.shortWinRate)} %</b> antes de 15 min · ` +
+            `<b>${fmtNumber(tip.tempo.longWinRate)} %</b> si se alarga.</p>`,
         ),
       );
     }
   }
-  return lines.length ? lines : ['<div class="rival-empty">Sin punto débil claro en su historial.</div>'];
+
+  return sections.length
+    ? sections.join('')
+    : '<div class="rival-empty">Sin punto débil claro en su historial.</div>';
 }
 
 function scoutCard(tip) {
@@ -806,7 +861,7 @@ function scoutCard(tip) {
   // payload y tarjeta: cada bloque se muestra solo con su opción encendida.
   const blocks = [];
   if (smartTipsEnabled) {
-    blocks.push(`<div class="rival-block tips">${scoutTipLines(tip).join('')}</div>`);
+    blocks.push(`<div class="rival-block tips">${scoutTipSections(tip)}</div>`);
   }
   const recommend = scoutRecommendBlock(tip);
   if (recommend) blocks.push(recommend);
@@ -840,36 +895,76 @@ function scoutRecommendBlock(tip) {
   if (!recs.length) {
     return '<div class="rival-block tips"><div class="rival-empty">Sin muestra suficiente para recomendar una civ.</div></div>';
   }
-  const lines = recs.map((row, index) => {
-    const parts = [];
-    if (row.mine && row.mine.winRate != null) {
-      // La cascada de alcance: si mi winrate viene del modo completo (no del
-      // mapa exacto), se declara — nunca se disfraza de dato del mapa.
-      const scopeTag = row.mine.scope === 'mode' ? ' · todo el modo' : '';
-      parts.push(`vos ${fmtNumber(row.mine.winRate)}% (${fmtNumber(row.mine.games)} pj${scopeTag})`);
-    }
-    if (row.vsRival && row.vsRival.lossRate != null) {
-      parts.push(`le cuesta ${fmtNumber(row.vsRival.lossRate)}% (${fmtNumber(row.vsRival.games)} pj)`);
-    }
-    const text = `${index + 1}. ${row.civ || '?'}` + (parts.length ? ` · ${parts.join(' · ')}` : '');
-    return scoutLine(text, index === 0 ? 'CIV RECOMENDADA' : '');
-  });
-  return `<div class="rival-block tips">${lines.join('')}</div>`;
+  // Filas: número + escudo + nombre, y las DOS evidencias abajo alineadas.
+  // Antes todo iba en una frase ('1. Gurjaras · vos 67% (9 pj) · le cuesta…')
+  // y las tres recomendaciones se leían como un párrafo.
+  const rows = recs
+    .map((row, index) => {
+      // Dos columnas de dato alineadas a la derecha: VOS y LO QUE LE CUESTA.
+      // Así los números quedan en columna entre filas y no hay que leer una
+      // frase con puntos medios para separar las evidencias.
+      let mineStat;
+      if (row.mine && row.mine.winRate != null) {
+        // La cascada de alcance: si mi winrate viene del modo completo (no del
+        // mapa exacto), se declara — nunca se disfraza de dato del mapa.
+        // "modo" en vez de "todo el modo": la etiqueta no debe envolver y
+        // desalinear la fila. El detalle completo va en el tooltip.
+        const scopeTag = row.mine.scope === 'mode' ? ' · modo' : '';
+        const scopeTip =
+          row.mine.scope === 'mode' ? 'Winrate de todo el modo, no solo de este mapa' : '';
+        mineStat =
+          `<span class="rec-stat"${scopeTip ? ` title="${scopeTip}"` : ''}>` +
+          '<em>vos</em>' +
+          `<b>${fmtNumber(row.mine.winRate)} %</b>` +
+          `<i>${fmtNumber(row.mine.games)} pj${scopeTag}</i></span>`;
+      } else {
+        mineStat =
+          '<span class="rec-stat"><em>vos</em><b>—</b><i>sin muestra</i></span>';
+      }
+      const rivalStat =
+        row.vsRival && row.vsRival.lossRate != null
+          ? '<span class="rec-stat">' +
+            '<em>le cuesta</em>' +
+            `<b class="bad">${fmtNumber(row.vsRival.lossRate)} %</b>` +
+            `<i>${fmtNumber(row.vsRival.games)} pj</i></span>`
+          : '';
+      return (
+        '<li class="rec-item">' +
+        `<span class="rec-rank">${index + 1}</span>` +
+        rivalShield(row.civ, 'rival-shield xs') +
+        `<span class="rec-civ">${escapeHtml(row.civ || '?')}</span>` +
+        mineStat +
+        rivalStat +
+        '</li>'
+      );
+    })
+    .join('');
+  return (
+    '<div class="rival-block tips">' +
+    `<div class="rival-key">${icon('estrella')}Civ recomendada</div>` +
+    `<ol class="rec-list">${rows}</ol>` +
+    '</div>'
+  );
 }
 
 function renderScoutInfo() {
   if (!scoutInfoEl) return;
+  const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
+  // El consejo es de ESTA partida (viaja el matchId en el payload): se sigue
+  // viendo aunque el REST avise que ya arrancó, en vez de desaparecer en 0:00.
+  const sameMatch =
+    Boolean(lastState && lastState.match && scoutPayload) &&
+    String(scoutPayload.matchId ?? '') === String(lastState.match.matchId ?? '');
   const active =
     (smartTipsEnabled || civRecommenderEnabled) &&
     lastState &&
     lastState.status === 'ongoing' &&
-    lastState.phase === 'lobby' &&
-    !moving;
+    !moving &&
+    (lastState.phase === 'lobby' || (sameMatch && tips.length > 0));
   if (!active) {
     scoutInfoEl.hidden = true;
     return;
   }
-  const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
   scoutInfoEl.classList.toggle('single', tips.length <= 1);
   scoutGrid.innerHTML = tips.length
     ? tips.map(scoutCard).join('')

@@ -952,8 +952,12 @@ function fakeLobby(leaderboardId, leaderboardName) {
     const noOpenings = await buildRivalInsights({
       ...opts, profileId: 4243, includeOpenings: false, onPartial: (p) => partials.push(p),
     });
-    check('opción desactivada: NO consulta AoE2Insights ni publica parcial',
-      calls.openings === 1 && noOpenings.openings === null && partials.length === 1 &&
+    // Con las aperturas apagadas YA no se consulta AoE2Insights, pero sí se
+    // avisa antes: ese parcial NO puede anunciar aperturas en camino.
+    const noOpeningsPartials = partials.filter((p) => p.profileId === 4243);
+    check('opción desactivada: NO consulta AoE2Insights y el aviso no promete aperturas',
+      calls.openings === 1 && noOpenings.openings === null &&
+        noOpeningsPartials.every((p) => p.openings === null && p.pendingOpenings === false) &&
         noOpenings.ladder === 'rm_team');
 
     const broken = await buildRivalInsights({
@@ -973,6 +977,14 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('regresión: no queda ninguna inferencia de apertura por civilización',
       !/openingForCiv|require\(['"]\.\/openings['"]\)/.test(rivalSrc) &&
         !fs.existsSync(path.join(__dirname, '..', 'src', 'openings.js')));
+    // PRE-PARTIDA: hay ~60s para leer al rival. El primer dato no puede esperar
+    // a que termine todo el recorrido.
+    check('dato al instante: /stats y la primera página del historial van en paralelo',
+      rivalSrc.indexOf('const firstPagePromise = fetchPage(1)') > 0 &&
+        rivalSrc.indexOf('const firstPagePromise = fetchPage(1)') <
+          rivalSrc.indexOf('applyStats(await statsPromise)'));
+    check('dato al instante: tope de tiempo para las páginas y NUNCA se cachea un fallo',
+      /HISTORY_BUDGET_MS/.test(rivalSrc) && /if \(cache && !result\.error\) cache\.set/.test(rivalSrc));
   }
 
   console.log('\n--- 15) cableado del informe opcional (chequeo estático) ---');
@@ -998,6 +1010,13 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /send\('overlay:state', state\)[\s\S]{0,400}refreshRivalReports/.test(main));
     check('main.js usa opponentsOf() de src/rival (excluye aliados en TG)',
       /opponentsOf\(state, RIVAL_LIMIT\)/.test(main) && !/function opponentsOf\(/.test(main));
+    check('pre-partida a prueba de fallos: reintento del informe y rivales en paralelo',
+      /function scheduleRivalRetry/.test(main) && /RIVAL_RETRY_MAX = 2/.test(main) &&
+        /scheduleRivalRetry\(reports, rivals\)/.test(main) &&
+        /await Promise\.all\(rivals\.map/.test(main));
+    check('el consejo viaja atado al matchId y sobrevive al arranque de la partida',
+      /String\(scoutPayload\.matchId/.test(main) &&
+        /scoutPayload\.matchId/.test(renderer) && /sameMatch && tips\.length > 0/.test(renderer));
     check('preloads exponen onRival y rivalOption',
       /onRival/.test(preload) && /rivalOption/.test(settingsPreload));
     check('renderer pinta #rivalInfo y respeta eloHidden',
@@ -1169,11 +1188,19 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /function rivalH2HBlock/.test(rendererSrc) && /Cara a cara/.test(rendererSrc) &&
         /Como aliados/.test(rendererSrc) && /Number\(h2h\.games\) >= 3/.test(rendererSrc));
     check('renderer: la civ recomendada muestra la muestra de cada línea',
-      /CIV RECOMENDADA/.test(rendererSrc) && /le cuesta /.test(rendererSrc) &&
+      /Civ recomendada/.test(rendererSrc) && /row\.mine\.games/.test(rendererSrc) &&
+        /row\.vsRival\.games/.test(rendererSrc) &&
         /Sin muestra suficiente para recomendar una civ\./.test(rendererSrc));
     check('renderer: la tarjeta scout muestra cada bloque con su opción',
-      /if \(smartTipsEnabled\) \{[\s\S]{0,120}scoutTipLines/.test(rendererSrc) &&
+      /if \(smartTipsEnabled\) \{[\s\S]{0,140}scoutTipSections/.test(rendererSrc) &&
         /\(smartTipsEnabled \|\| civRecommenderEnabled\)/.test(rendererSrc));
+    // Regresión de diseño: la etiqueta va ARRIBA del contenido. Con la etiqueta
+    // en la misma fila cada frase arrancaba en una x distinta (zigzag) y el
+    // texto se cortaba con '…'.
+    check('renderer: el consejo usa bloques etiquetados, sin frases con la etiqueta adelante',
+      /function scoutSection/.test(rendererSrc) && /scout-key/.test(rendererSrc) &&
+        /scout-chip/.test(rendererSrc) && /rec-item/.test(rendererSrc) &&
+        !/scout-line/.test(rendererSrc));
     check('renderer: h2h muestra los últimos enfrentamientos y declara dónde buscó',
       /h2h\.recent/.test(rendererSrc) && /rival-civ-list/.test(rendererSrc) &&
         /tus últimas \$\{fmtNumber\(scanned\)\} partidas/.test(rendererSrc) &&
@@ -1183,7 +1210,8 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /length >= 2/.test(rendererSrc) && /de \$\{fmtNumber\(min\)\} a \$\{fmtNumber\(max\)\}/.test(rendererSrc) &&
         /parcial/.test(rendererSrc) && /balanceEl\.hidden/.test(rendererSrc));
     check('renderer: la civ recomendada declara si su winrate viene del modo completo',
-      /scope === 'mode' \? ' · todo el modo'/.test(rendererSrc));
+      /scope === 'mode' \? ' · modo'/.test(rendererSrc) &&
+        /no solo de este mapa/.test(rendererSrc));
     check('overlay y estilos: la línea de balance existe y se oculta sola',
       /id="balance"/.test(htmlSrc) && /#balance \{/.test(cssSrc) && /#balance\[hidden\]/.test(cssSrc));
     check('configuración: los 3 toggles nuevos cableados',

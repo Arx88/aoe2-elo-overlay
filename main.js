@@ -354,6 +354,14 @@ let scoutQueuedSig = null;
 let rivalSig = '';
 let rivalFetching = false;
 let rivalQueuedSig = null;
+// Reintento del informe: si el primer intento vuelve vacío (red caída, 502,
+// timeout) se repite mientras siga la pre-partida. La pre-partida son ~60s:
+// nunca se puede quedar sin datos por un fallo puntual.
+let rivalRetryTimer = null;
+let rivalRetryKey = '';
+let rivalRetryCount = 0;
+const RIVAL_RETRY_MS = 2500;
+const RIVAL_RETRY_MAX = 2;
 // Head-to-head: resultado por rival para la partida ACTUAL. Vive aparte del
 // informe porque el informe se reconstruye por partes (onPartial) y pisaría
 // el campo: sendRival() lo inyecta al publicar cada payload.
@@ -590,6 +598,10 @@ function decorateH2H(report) {
 function clearRivalReports() {
   rivalSig = '';
   rivalQueuedSig = null;
+  clearTimeout(rivalRetryTimer);
+  rivalRetryTimer = null;
+  rivalRetryKey = '';
+  rivalRetryCount = 0;
   h2hSig = '';
   h2hQueuedSig = null;
   h2hByRival.clear();
@@ -701,6 +713,40 @@ function demoRivalReports(state) {
 }
 
 /**
+ * Reintento del informe DENTRO de la pre-partida.
+ *
+ * Si un rival vuelve sin civs (red caída, 502, timeout de la API) el panel
+ * quedaría mostrando un bloque vacío justo en los ~60s que hay para leerlo.
+ * Se reintenta hasta 2 veces, sin pasar de la fase `lobby` y sin repetir la
+ * consulta cuando ya hay datos.
+ */
+function scheduleRivalRetry(reports, rivals) {
+  if (!preStartState(lastGood)) return;
+  const matchId = String((lastGood.match && lastGood.match.matchId) ?? '');
+  if (rivalRetryKey !== matchId) {
+    rivalRetryKey = matchId;
+    rivalRetryCount = 0;
+  }
+  if (rivalRetryCount >= RIVAL_RETRY_MAX) return;
+  const missing = rivals.some((rival) => {
+    const report = reports.find((item) => Number(item.profileId) === Number(rival.profileId));
+    return !report || report.error || !Array.isArray(report.history) || !report.history.length;
+  });
+  if (!missing) return;
+  clearTimeout(rivalRetryTimer);
+  rivalRetryTimer = setTimeout(() => {
+    rivalRetryTimer = null;
+    if (!preStartState(lastGood)) return;
+    rivalRetryCount += 1;
+    log(`informe del rival incompleto: reintento ${rivalRetryCount}/${RIVAL_RETRY_MAX}`);
+    // La caché no guarda resultados con error: este intento sí puede traer datos.
+    rivalSig = '';
+    rivalQueuedSig = null;
+    refreshRivalReports(lastGood, { force: true }).catch(() => {});
+  }, RIVAL_RETRY_MS);
+}
+
+/**
  * Consulta y publica el informe. Idempotente por partida+opciones, y encola
  * un solo refresh si cambia el roster mientras una consulta está en vuelo.
  */
@@ -764,35 +810,54 @@ async function refreshRivalReports(state, options = {}) {
     const mapName = state.match && state.match.mapName;
     const currentMatchId = state.match && state.match.matchId;
 
-    for (const [rivalIndex, rival] of rivals.entries()) {
+    // En PARALELO: en TG dos informes en serie tardaban 30-40 s y la partida
+    // arrancaba antes de que llegara el segundo (la pre-partida se iba sin
+    // datos). Cada uno publica su parte apenas la tiene.
+    let pendingCount = rivals.length;
+    await Promise.all(rivals.map(async (rival) => {
       const decorated = (data) => ({ ...data, name: rival.name, civ: rival.civ });
-      const report = await buildRivalInsights({
-        profileId: rival.profileId,
-        name: rival.name,
-        civ: rival.civ,
-        leaderboardId,
-        mapName,
-        currentMatchId,
-        cache: statsCache,
-        cacheTtlMs: Number(config.statsCacheMinutes || 15) * 60 * 1000,
-        includeOpenings: Boolean(view.rivalOpenings),
-        // AoE2Insights contesta 202 y tarda ~9s: las civs se pintan YA.
-        onPartial: (partial) => publish(decorated(partial), true, true),
-        log,
-      });
-      publish(decorated(report), false, rivalIndex < rivals.length - 1);
-      log(
-        `informe del rival ${rival.name} (#${rival.profileId}) listo en ` +
-          `${Date.now() - startedAt}ms · ${report.history.length} civs` +
-          `${report.mode ? ` en ${report.mode.label}` : ''} · ` +
-          `${report.mapStats ? `${report.mapStats.name}: ${report.mapStats.civ ? report.mapStats.civ.name : 'sin civ'}` : 'sin mapa'} · ` +
-          `${report.openings ? report.openings.analyzed : 0} aperturas reales`,
-      );
-    }
+      try {
+        const report = await buildRivalInsights({
+          profileId: rival.profileId,
+          name: rival.name,
+          civ: rival.civ,
+          leaderboardId,
+          mapName,
+          currentMatchId,
+          cache: statsCache,
+          cacheTtlMs: Number(config.statsCacheMinutes || 15) * 60 * 1000,
+          includeOpenings: Boolean(view.rivalOpenings),
+          // AoE2Insights contesta 202 y tarda ~9s: las civs se pintan YA.
+          onPartial: (partial) => publish(decorated(partial), true, true),
+          log,
+        });
+        pendingCount -= 1;
+        publish(
+          decorated(report),
+          pendingCount > 0 && Boolean(view.rivalOpenings),
+          pendingCount > 0,
+        );
+        log(
+          `informe del rival ${rival.name} (#${rival.profileId}) listo en ` +
+            `${Date.now() - startedAt}ms · ${report.history.length} civs` +
+            `${report.mode ? ` en ${report.mode.label}` : ''} · ` +
+            `${report.mapStats ? `${report.mapStats.name}: ${report.mapStats.civ ? report.mapStats.civ.name : 'sin civ'}` : 'sin mapa'} · ` +
+            `${report.openings ? report.openings.analyzed : 0} aperturas reales`,
+        );
+      } catch (err) {
+        // Un rival que falla no puede dejar la barra trabada ni silenciar al otro.
+        pendingCount -= 1;
+        log(`no pude armar el informe de ${rival.name}: ${err.message}`);
+      }
+    }));
   } catch (err) {
     log(`no pude armar el informe del rival: ${err.message}`);
   } finally {
     rivalFetching = false;
+    // Va en el finally a propósito: si algo lanzó antes de publicar, el panel no
+    // puede quedarse con el bloque vacío. Se reintenta mientras siga la
+    // pre-partida y haya datos faltantes.
+    scheduleRivalRetry(reports, rivals);
     if (rivalQueuedSig && rivalQueuedSig !== rivalSig) {
       rivalQueuedSig = null;
       rivalSig = '';
@@ -820,8 +885,13 @@ function preStartState(state) {
 }
 
 function sendScout(payload) {
-  scoutPayload = payload;
-  send('overlay:scout', payload);
+  // La partida a la que pertenece el consejo viaja en el payload: el renderer
+  // lo mantiene visible mientras sea el MISMO match, aunque el REST avise que
+  // la partida ya arrancó. Antes se borraba en 0:00 justo cuando llegaba.
+  const matchId = lastGood && lastGood.match ? lastGood.match.matchId : null;
+  const stamped = payload ? { ...payload, matchId: matchId ?? null } : payload;
+  scoutPayload = stamped;
+  send('overlay:scout', stamped);
 }
 
 function clearScoutTips() {
@@ -919,7 +989,19 @@ async function refreshScoutTips(state, options = {}) {
   }
   // smartTips (consejo) y civRecommender (civ recomendada) comparten la misma
   // consulta de replays: cualquiera de las dos enciende el flujo pre-partida.
-  if ((!view.smartTips && !view.civRecommender) || !preStartState(state)) {
+  const ongoing = Boolean(state && state.status === 'ongoing');
+  const sameMatch =
+    ongoing &&
+    Boolean(scoutPayload) &&
+    String(scoutPayload.matchId ?? '') === String((state.match && state.match.matchId) ?? '');
+  if ((!view.smartTips && !view.civRecommender) || !ongoing) {
+    clearScoutTips();
+    return;
+  }
+  // La partida arrancó: no se lanzan consultas nuevas, pero lo ya calculado
+  // para ESTA partida se queda en pantalla (es dato válido de la partida).
+  if (!preStartState(state) && sameMatch) return;
+  if (!preStartState(state)) {
     clearScoutTips();
     return;
   }
@@ -958,12 +1040,15 @@ async function refreshScoutTips(state, options = {}) {
 
   scoutFetching = true;
   const startedAt = Date.now();
-  const tips = [];
+  // Un hueco por rival: en TG se consultan en paralelo y cada uno publica su
+  // consejo apenas está, sin esperar al anterior.
+  const tips = new Array(rivals.length).fill(null);
   const publish = () => {
+    const ready = tips.filter(Boolean);
     sendScout({
       ts: Date.now(),
-      pending: tips.length < rivals.length,
-      tips: tips.map((item) => ({ ...item })),
+      pending: ready.length < rivals.length,
+      tips: ready.map((item) => ({ ...item })),
     });
   };
   try {
@@ -972,8 +1057,10 @@ async function refreshScoutTips(state, options = {}) {
       pending: true,
       tips: rivals.map((rival) => ({ profileId: rival.profileId, name: rival.name, loading: true })),
     });
-    for (const rival of rivals) {
-      const tip = await buildScoutTips({
+    await Promise.all(rivals.map(async (rival, index) => {
+      let tip;
+      try {
+        tip = await buildScoutTips({
         profileId: rival.profileId,
         name: rival.name,
         mode,
@@ -994,17 +1081,22 @@ async function refreshScoutTips(state, options = {}) {
               log,
             })
           : null,
-        log,
-      });
-      const index = tips.findIndex((item) => item.profileId === tip.profileId);
-      if (index >= 0) tips[index] = tip;
-      else tips.push(tip);
+          log,
+        });
+      } catch (err) {
+        // Un rival que falla no puede trabar la barra ni tapar al otro.
+        log(`no pude armar el consejo de ${rival.name}: ${err.message}`);
+        tips[index] = { profileId: rival.profileId, name: rival.name, error: err.message };
+        publish();
+        return;
+      }
+      tips[index] = tip;
       publish();
       log(
         `consejo pre-partida de ${rival.name} listo en ${Date.now() - startedAt}ms · ` +
           `${tip.totalMatches} replays del modo`,
       );
-    }
+    }));
   } catch (err) {
     log(`no pude armar el consejo pre-partida: ${err.message}`);
   } finally {
