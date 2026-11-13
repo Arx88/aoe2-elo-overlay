@@ -1,3 +1,18 @@
+## v0.1.23 · Señales tácticas en la pre-partida
+
+La pre-partida deja de contar cosas del rival y pasa a responder tres preguntas que cambian una decisión **dentro** de la partida: ¿viene agresivo o boomea?, ¿qué le duele?, ¿alargo o cierro temprano?
+
+- **Tres señales con números grandes y sin texto apilado.** `ESTILO` (distribución agresivo / boom con su barra y su muestra), `LE DUELE` (la apertura que le gana, con la fracción de derrotas) y `CERRÁ TEMPRANO` / `ALARGÁ LA PARTIDA` (su winrate en el tramo que te conviene forzar). Rojo = amenaza a preparar, verde = ventaja explotable.
+- **Coste cero.** Todo sale de columnas que el overlay ya descargó y cacheó (`strategy`, `strategy_opponent`, `match_duration`): ni una request nueva, ni un endpoint nuevo, ni parseo de replays. `tempoProfile()` ya se calculaba y nunca se había pintado; `openingsAgainst()` estaba escondido en una línea chica.
+- **Racha: fuera. Smurf: dentro.** La racha no cambia ninguna decisión y no aparece. En su lugar, `POSIBLE SMURF` con el pico histórico de ELO cuando está muy por encima del ELO actual. Se construye con `peak` / `rating`, que ya viajan en el roster: es una etiqueta con su evidencia, no un porcentaje con decimales que aparente precisión.
+- **Honestidad de muestra más estricta.** Porcentaje solo con `n >= 20`; con 5–19 se publica la fracción `8/11` y con `n < 5` ningún número. «Le duele» ahora exige perder **más de la mitad** (un 39 % de derrotas era exactamente lo contrario de un consejo). El consejo de ritmo exige un diferencial de 15 pp y al menos 8 partidas en **ambos** extremos.
+- **Sin falsas certezas.** Si el reparto de aperturas no tiene una dominancia del 60 %, se declara `MIXTO` y se muestra el reparto (`25:9`) en vez de colapsarlo en una etiqueta. Se declara también cuántos `Drush → FC` quedaron fuera por ser híbridos y si el dato viene del mapa o de todo el modo.
+- **Menos redundancia.** Con las recomendaciones activas ya no se repite «Arranca con Scouts…» en el informe: la distribución responde mejor y con más muestra. Las fracciones llevan leyenda «derrotas / partidas» para que `8/11` no se lea como victorias.
+- **Sin datos inventados.** Se descartaron `linkedProfiles` y `maxRating` (no documentados en la API de AoE2 Companion) y una etiqueta `Fast Imperial` que no existe en el endpoint: el boom se mide con `Fast castle` + duración de partida.
+- Selftest: 8 comprobaciones nuevas sobre la distribución, los umbrales de muestra, la ausencia de racha y el smurf.
+
+---
+
 ## v0.1.22 · El informe del rival, en palabras
 
 El informe deja de ser un tablero de números: cada cifra ahora se lee como una frase, siempre con su muestra real.

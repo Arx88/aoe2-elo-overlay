@@ -74,6 +74,35 @@ const LONG_S = 25 * 60; // partida "larga": >= 25 min
 
 const WEAK_MIN_LOSS_RATE = 55; // "le cuesta" = pierde más de la mitad
 
+/**
+ * ESTILO DE JUEGO: agresión feudal vs boom. Coste CERO: `strategy` ya se
+ * parsea replay por replay en parseScoutRows(), así que no hay request nueva
+ * ni endpoint nuevo: son columnas que el overlay Ya descargó y cacheó.
+ *
+ * La taxonomía es la REAL del endpoint (SHORT_LABELS en src/insights.js):
+ * Scout rush, Archer rush, Drush, Drush fast castle, Man at arms rush y
+ * Fast castle. NO existe una etiqueta de "Imperial rápido": el boom se mide
+ * con Fast castle + match_duration, que es lo que ya usa tempoProfile().
+ *
+ * `Drush fast castle` se cuenta aparte como HÍBRIDO (presión en Dark Age para
+ * llegar a Castillos): meterlo en agresivo o en boom haría mentir el reparto.
+ * Un rival 45/40/15 no se puede leer como "es de scouts": por eso acá se
+ * devuelve la DISTRIBUCIÓN y no la moda de summarizeOpeningsByMap().
+ */
+const STYLE_KINDS = {
+  'Scout rush': 'agresivo',
+  'Archer rush': 'agresivo',
+  Drush: 'agresivo',
+  'Man at arms rush': 'agresivo',
+  'Fast castle': 'boom',
+  'Drush fast castle': 'hibrido',
+};
+const MIN_STYLE_GAMES = 6; // por debajo, el reparto es ruido
+// Un 53/47 no es un estilo: etiquetarlo "AGRESIVO 53%" sería exactamente la
+// falsa certeza que la distribución venía a corregir. Sin dominancia clara
+// se declara MIXTO y se muestra el reparto en vez de una etiqueta.
+const STYLE_MIN_DOMINANCE = 60;
+
 /** "Won" | "Not Won" | true | false | "true" | "false" → booleano. */
 function isWin(value) {
   const raw = String(value == null ? '' : value).toLowerCase();
@@ -244,11 +273,71 @@ function openingsAgainst(rows, allRows) {
         lossRate: pct(entry.losses, entry.games),
         scope,
       }))
+      // "Le duele" exige una debilidad REAL: un 39 % de derrotas significa
+      // que gana el 61 % y no es un consejo, es exactamente lo contrario.
+      .filter((entry) => entry.lossRate != null && entry.lossRate >= WEAK_MIN_LOSS_RATE)
       .sort((a, b) => b.lossRate - a.lossRate || b.games - a.games)
       .slice(0, 3);
   };
   const scoped = collect(rows, 'recorte', MIN_CIV_GAMES);
   return scoped.length ? scoped : collect(allRows, 'modo', MIN_OPENING_GAMES);
+}
+
+/** Cuenta agresivo / boom / híbrido sobre replays ya parseados. */
+function styleDistribution(rows) {
+  let aggressive = 0;
+  let boom = 0;
+  let hybrid = 0;
+  const counts = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const kind = row && row.strategy ? STYLE_KINDS[row.strategy] : null;
+    if (!kind) continue;
+    if (kind === 'agresivo') aggressive += 1;
+    else if (kind === 'boom') boom += 1;
+    else hybrid += 1;
+    counts.set(row.strategy, (counts.get(row.strategy) || 0) + 1);
+  }
+  return { aggressive, boom, hybrid, classified: aggressive + boom, counts };
+}
+
+/**
+ * Reparto AGRESIVO vs BOOM: la señal que reemplaza a la MODA.
+ *
+ * summarizeOpeningsByMap() devuelve solo la apertura más frecuente: un rival
+ * 45 % scouts / 40 % FC / 15 % MAA se pintaba como "Arranca con Scouts", que
+ * sugiere una certeza que los datos no tienen. La distribución responde a la
+ * decisión real antes del minuto 1: walling + counter preventivo, o eco.
+ *
+ * Se usa el recorte (mapa -> tipo de mapa -> modo) si tiene muestra y, si no,
+ * el modo completo; `scope` viaja al panel para que nunca se disfrace de dato
+ * del mapa. Agrupar mapas distintos miente: Arena no se juega como Arabia.
+ */
+function styleProfile(scopedRows, allRows) {
+  let dist = styleDistribution(scopedRows);
+  let scope = 'recorte';
+  if (dist.classified < MIN_STYLE_GAMES) {
+    dist = styleDistribution(allRows);
+    scope = 'modo';
+  }
+  if (dist.classified < MIN_STYLE_GAMES) return null;
+  const leading = dist.aggressive >= dist.boom ? 'agresivo' : 'boom';
+  const part = leading === 'agresivo' ? dist.aggressive : dist.boom;
+  const share = pct(part, dist.classified);
+  const mixed = share == null || share < STYLE_MIN_DOMINANCE;
+  const top = mixed ? null : [...dist.counts.entries()]
+    .filter(([name]) => STYLE_KINDS[name] === leading)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  return {
+    scope,
+    analyzed: dist.classified,
+    aggressive: dist.aggressive,
+    boom: dist.boom,
+    hybrid: dist.hybrid,
+    aggressiveShare: pct(dist.aggressive, dist.classified),
+    dominant: mixed ? 'mixto' : leading,
+    share: mixed ? null : share,
+    top: top ? { name: top[0], short: openingShort(top[0]) || top[0], games: top[1] } : null,
+  };
 }
 
 /**
@@ -283,6 +372,7 @@ function computeTips(matches, options = {}) {
     winRate: pct(wins, scoped.rows.length),
     weakAgainst: weakAgainst(scoped.rows),
     openingsAgainst: openingsAgainst(scoped.rows, matches),
+    style: styleProfile(scoped.rows, matches),
     tempo: tempoProfile(matches),
   };
 }
@@ -305,6 +395,7 @@ function emptyTips(profileId, name, now, options = {}) {
     winRate: null,
     weakAgainst: [],
     openingsAgainst: [],
+    style: null,
     tempo: null,
     recommend: null,
     recommendError: null,
@@ -424,6 +515,7 @@ async function buildScoutTips(options = {}) {
     `scout #${id} [${resolved.label}]: ${rows.length} partidas · recorte ${result.scopeLabel} ` +
       `(${result.sample} pj, ${result.winRate == null ? '—' : `${result.winRate}%`}) · ` +
       `${result.weakAgainst.length} civs difíciles · ${result.openingsAgainst.length} aperturas que le duelen` +
+      (result.style ? ` · estilo ${result.style.dominant}${result.style.share == null ? '' : ` ${result.style.share}%`} de ${result.style.analyzed} replays` : '') +
       (result.recommend ? ` · ${result.recommend.length} civs recomendadas` : ''),
   );
   return result;
@@ -447,6 +539,11 @@ module.exports = {
   computeTips,
   weakAgainst,
   openingsAgainst,
+  STYLE_KINDS,
+  MIN_STYLE_GAMES,
+  STYLE_MIN_DOMINANCE,
+  styleDistribution,
+  styleProfile,
   tempoProfile,
   emptyTips,
   buildScoutTips,

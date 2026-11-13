@@ -1252,10 +1252,13 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('renderer: cara a cara con tono solo con muestra y aliados en el subtítulo',
       /function rivalH2HBlock/.test(rendererSrc) && /Cara a cara/.test(rendererSrc) &&
         /de aliados/.test(rendererSrc) && /Number\(h2h\.games\) >= 3/.test(rendererSrc));
-    check('renderer: la civ recomendada muestra la muestra de cada línea',
+    // v0.1.23-ui: con menos de 5 partidas el porcentaje es ruido (Wilson
+    // ~44-100 % con n=3). La fila se omite entera en vez de publicar un
+    // "— sin muestra" que no ayuda a decidir en la pantalla de carga.
+    check('renderer: la civ recomendada solo publica filas con muestra real',
       /Civ recomendada/.test(rendererSrc) && /row\.mine\.games/.test(rendererSrc) &&
         /row\.vsRival\.games/.test(rendererSrc) &&
-        /Sin muestra suficiente para recomendar una civ\./.test(rendererSrc));
+        /mineN >= 5 \|\| rivalN >= 5/.test(rendererSrc));
     check('renderer: la tarjeta scout muestra cada bloque con su opción',
       /if \(smartTipsEnabled\) \{[\s\S]{0,140}scoutTipSections/.test(rendererSrc) &&
         /\(smartTipsEnabled \|\| civRecommenderEnabled\)/.test(rendererSrc));
@@ -1284,6 +1287,28 @@ function fakeLobby(leaderboardId, leaderboardName) {
         settingsHtmlSrc.includes(`id="${key}"`) && settingsJsSrc.includes(key)));
     check('scout: la recomendación falla SOFT, sin tirar el consejo',
       /recommendError = err\.message/.test(scoutSrc) && /buildCivRecommendation/.test(scoutSrc));
+    // v0.1.23-tactics: señales que cambian una decisión dentro de la partida.
+    check('scout: distribución agresivo/boom sobre replays ya cargados (coste cero)',
+      /STYLE_KINDS/.test(scoutSrc) && /function styleProfile/.test(scoutSrc) &&
+        /style: styleProfile\(/.test(scoutSrc) && /'Fast castle': 'boom'/.test(scoutSrc) &&
+        !/Fast imperial/.test(scoutSrc));
+    check('scout: "le duele" exige una derrota real, no un 39 %',
+      /entry\.lossRate >= WEAK_MIN_LOSS_RATE/.test(scoutSrc));
+    check('renderer: tira táctica con estilo, counter y ritmo',
+      /class="tac-strip"/.test(rendererSrc) && /tip\.style/.test(rendererSrc) &&
+        /tip\.tempo/.test(rendererSrc) && /LE DUELE/.test(rendererSrc));
+    check('renderer: porcentaje solo con muestra real; si no, fracción',
+      /TAC_MIN_PCT_GAMES = 20/.test(rendererSrc) && /function tacBig/.test(rendererSrc));
+    check('renderer: smurf heurístico desde peak/rating, sin score inventado',
+      /function smurfSignal/.test(rendererSrc) && /player\.peak/.test(rendererSrc) &&
+        /POSIBLE SMURF/.test(rendererSrc));
+    check('renderer: la racha no aparece como señal pre-partida',
+      !/racha de resultados/.test(rendererSrc));
+    check('scout: sin dominancia clara se declara MIXTO, no una falsa etiqueta',
+      /STYLE_MIN_DOMINANCE/.test(scoutSrc) && /mixed \? 'mixto'/.test(scoutSrc));
+    check('renderer: 8/11 declara qué significa y el consejo de ritmo exige muestra',
+      /derrotas \/ partidas/.test(rendererSrc) &&
+        /TAC_MIN_TEMPO_BUCKET/.test(rendererSrc) && /enoughTempo/.test(rendererSrc));
     check('ajustes: el head-to-head aclara que solo cuenta el mismo modo de juego',
       /Tu V-D contra este rival · del mismo modo de juego/.test(settingsHtmlSrc));
   }

@@ -12,6 +12,7 @@ const civHelpClock = document.getElementById('civhelpClock');
 const civHelpBar = document.getElementById('civhelpBar');
 const rivalInfoEl = document.getElementById('rivalInfo');
 const rivalGrid = document.getElementById('rivalGrid');
+const rivalFootnoteEl = document.getElementById('rivalFootnote');
 const scoutInfoEl = document.getElementById('scoutInfo');
 const scoutGrid = document.getElementById('scoutGrid');
 const updateToastEl = document.getElementById('updateToast');
@@ -610,8 +611,8 @@ function rivalH2HBlock(report) {
   // Los últimos 3 enfrentamientos: mi civ, resultado y mapa. El mismo
   // lenguaje visual que las ÚLTIMAS 5 del informe.
   // Con UN solo enfrentamiento el escudo suelto quedaba huérfano debajo del
-  // número (y no agrega nada que el subtítulo no diga). Desde 2, sí: se ve la
-  // racha de resultados.
+  // número (y no agrega nada que el subtítulo no diga). Desde 2 se ven los
+  // últimos enfrentamientos, cada uno con su civ y su resultado.
   const meetings = Number(h2h.games) >= 2 && Array.isArray(h2h.recent)
     ? h2h.recent.slice(0, 3)
     : [];
@@ -679,32 +680,17 @@ function rivalOpeningsBlock(report, pending) {
   const scope = civName
     ? `con ${civName} en ${mapName || 'este mapa'}`
     : `en ${mapName || 'este mapa'}`;
-  // Frase, no tablero: "Abre con FC en 3 de 7 replays de Fortress". Un 43 %
-  // suelto obliga a deducir sobre cuántos replays, y con muestra de 1 no dice
-  // nada. La muestra chica se avisa en vez de disfrazarse de tendencia.
-  const sampleNote = baseCount < 5
-    ? '<p class="rival-small">Muestra chica: es una pista, no una tendencia.</p>'
-    : '';
+  // UNA línea: apertura en grande + su muestra real. Los chips de últimas
+  // aperturas repetían el mismo dato y el badge "1 replay" duplicaba el
+  // denominador. El aviso de muestra chica va una sola vez al pie de la
+  // sección (renderRivalInfo), no por cada tarjeta.
   const top =
-    `<p class="rival-lead" title="${escapeHtml(`Apertura ${scope}`)}">` +
-    `Abre con <b>${escapeHtml(best.short || best.name)}</b> ` +
+    `<div class="opening-line" title="${escapeHtml(`Apertura ${scope}`)}">` +
+    `<b>${escapeHtml(best.short || best.name)}</b>` +
     `<i>en ${escapeHtml(fmtNumber(best.count))} de ${escapeHtml(fmtNumber(baseCount))} ` +
-    `replay${baseCount === 1 ? '' : 's'} de ${escapeHtml(mapName || 'este mapa')}</i>.</p>` +
-    sampleNote;
-  const chips = (Array.isArray(openings.recent) ? openings.recent : [])
-    .slice(0, 5)
-    .map((item) => {
-      const tip = `${item.name || item.short || ''}${item.civ ? ` · ${item.civ}` : ''}${item.map ? ` · ${item.map}` : ''}${item.ladder ? ` · ${item.ladder}` : ''}`;
-      return `<span class="rival-chip" title="${escapeHtml(tip)}">${escapeHtml(item.short || item.name)}</span>`;
-    })
-    .join('');
-  const recent = chips ? `<div class="rival-chip-list">${chips}</div>` : '';
-  return rivalBlock(
-    title,
-    top + recent,
-    'openings',
-    `${fmtNumber(openings.mapCivAnalyzed)} replay${Number(openings.mapCivAnalyzed) === 1 ? '' : 's'}`,
-  );
+    `replay${baseCount === 1 ? '' : 's'} de ${escapeHtml(mapName || 'este mapa')}</i>` +
+    '</div>';
+  return rivalBlock(title, top, 'openings');
 }
 
 /**
@@ -725,16 +711,26 @@ function rivalPredStrip(report) {
   const civ = map.civ;
   if (civ && civ.name && Number(civ.games) > 0) {
     const share = Math.round((Number(civ.games) / total) * 100);
+    // HERO de la tarjeta. La señal más predictiva en pre-partida no es el
+    // winrate (con 10-30 partidas tiene ±18 pp de error) sino QUÉ civ juega
+    // acá y cada cuánto: escudo grande + número grande + una línea de contexto.
     items.push(
-      predRow(
-        rivalShield(civ.name, 'rival-shield xs'),
-        `<b>${escapeHtml(civ.name)}</b> en <b>${escapeHtml(fmtNumber(share))}\u00a0%</b> ` +
-          `<i>de sus ${escapeHtml(gamesText(total))} acá</i>`,
-      ),
+      '<div class="pick-hero">' +
+        rivalShield(civ.name, 'rival-shield pick-shield') +
+        '<div class="pick-copy">' +
+          '<span class="pick-label">Suele jugar</span>' +
+          `<b class="pick-name">${escapeHtml(civ.name)}</b>` +
+          `<i class="pick-sub">de sus ${escapeHtml(gamesText(total))} acá</i>` +
+        '</div>' +
+        `<b class="pick-value">${escapeHtml(fmtNumber(share))}\u00a0%</b>` +
+      '</div>',
     );
   }
 
-  if (rivalOptions.rivalOpenings) {
+  // Con smartTips la tira táctica ya responde "cómo arranca" con la
+  // DISTRIBUCIÓN completa y su muestra. Repetir acá la moda (a veces de 2
+  // replays) era el mismo dato dos veces y con la muestra más débil.
+  if (rivalOptions.rivalOpenings && !smartTipsEnabled) {
     const openings = report.openings;
     const best = openings && openings.mapCivFavorite ? openings.mapCivFavorite : null;
     const base = openings ? Number(openings.mapCivAnalyzed) || 0 : 0;
@@ -795,15 +791,9 @@ function rivalCard(report) {
   // Cara a cara: el dato "ustedes dos" va pegado al dato "él en este mapa".
   if (rivalOptions.rivalH2H) blocks.push(rivalH2HBlock(report));
   if (rivalOptions.rivalCivs) blocks.push(rivalHistoryBlock(report));
-  if (rivalOptions.rivalOpenings) {
-    blocks.push(
-      rivalOpeningsBlock(
-        report,
-        Boolean(report.openingsPending) ||
-          Boolean(rivalPayload && rivalPayload.pendingOpenings),
-      ),
-    );
-  }
+  // La apertura YA está en la franja "Arranca con FC en X de Y replays acá".
+  // rivalOpeningsBlock() repetía el mismo dato con otro título, otra frase,
+  // chips y un badge: cuatro capas para una sola conclusión. Queda la franja.
   return (
     '<article class="rival-card">' +
     '<div class="rival-card-head">' +
@@ -827,6 +817,19 @@ function renderRivalInfo() {
   rivalGrid.innerHTML = reports.length
     ? reports.map(rivalCard).join('')
     : `<div class="rival-empty">Buscando los datos del rival…</div>`;
+  // Con 1-4 replays un porcentaje parece certeza. Se dice UNA vez por
+  // sección: antes cada tarjeta repetía el mismo aviso y ocupaba dos líneas.
+  const smallSample = reports.some((r) => {
+    const o = r && r.openings;
+    const n = o ? Number(o.mapCivAnalyzed) || 0 : 0;
+    return Boolean(o && o.mapCivFavorite) && n > 0 && n < 5;
+  });
+  if (rivalFootnoteEl) {
+    rivalFootnoteEl.hidden = !smallSample;
+    rivalFootnoteEl.textContent = smallSample
+      ? 'Muestra chica: es una pista, no una tendencia.'
+      : '';
+  }
   applyVisibility();
 }
 
@@ -890,6 +893,58 @@ function scoutChip(civ, label, value, sample, tone = '') {
   );
 }
 
+/**
+ * TIRA TÁCTICA (pre-partida). Presupuesto: TRES bloques y ~10 s de lectura.
+ *
+ *   1. ESTILO   -> AGRESIVO / BOOM   : walling + counter preventivo, o eco.
+ *   2. LE DUELE -> ARCHER RUSH      : la orden de producción en Feudal.
+ *   3. RITMO    -> CERRÁ TEMPRANO   : alargar o forzar el choque.
+ *
+ * Son las tres preguntas que cambian una decisión DENTRO de la partida. La
+ * racha NO está: saber si el rival viene de ganar o perder no cambia ninguna
+ * decisión. El winrate general tampoco se repite: ya está en el informe.
+ *
+ * Honestidad de muestra: con n < 20 NO se publica porcentaje (con n=10 el
+ * intervalo de Wilson al 95 % vale aprox. +-26 pp). Se publica la FRACCIÓN
+ * "8/11", que sigue siendo un número grande sin fingir precisión; con n < 5
+ * se degrada a guion + "muestra chica". Cada tile declara su denominador.
+ */
+const TAC_MIN_PCT_GAMES = 20;
+// El CONSEJO de ritmo se fía solo con muestra en AMBOS extremos. No basta con
+// esconder el %: una frase como "cerrá temprano" derivada de 3 partidas cortas
+// también es una inferencia sin sustento.
+const TAC_MIN_TEMPO_BUCKET = 8;
+const TAC_MIN_TEMPO_GAP = 15;
+
+function tacBig(part, games) {
+  const n = Number(games) || 0;
+  const hits = Number(part) || 0;
+  if (n >= TAC_MIN_PCT_GAMES) {
+    return {
+      big: `${fmtNumber(Math.round((hits / n) * 100))}<small>%</small>`,
+      note: `de ${fmtNumber(n)}`,
+    };
+  }
+  if (n >= 5) {
+    return {
+      big: `${fmtNumber(hits)}<small>/${fmtNumber(n)}</small>`,
+      note: `de ${fmtNumber(n)}`,
+    };
+  }
+  return { big: '—', note: `solo ${fmtNumber(n)} · muestra chica` };
+}
+
+/** Tile: etiqueta arriba, número dominante, denominador abajo. Sin párrafos. */
+function tacTile({ label = '', value = '', sub = '', tone = '', ico = '', hero = false } = {}) {
+  return (
+    `<div class="tac-tile${hero ? ' hero' : ''}">` +
+    `<span class="tac-label">${ico ? icon(ico) : ''}${escapeHtml(label)}</span>` +
+    `<b class="tac-value${tone ? ` ${tone}` : ''}">${value}</b>` +
+    `<span class="tac-sub">${sub}</span>` +
+    '</div>'
+  );
+}
+
 function scoutTipSections(tip) {
   if (!tip) return '<div class="rival-empty">Sin datos.</div>';
   if (tip.loading) {
@@ -906,87 +961,100 @@ function scoutTipSections(tip) {
     );
   }
 
-  const sections = [];
+  const tiles = [];
 
-  // 1) Dato base: su winrate. Número grande, como el resto del informe.
-  if (tip.winRate != null) {
-    const scope = String(tip.scopeLabel || 'en este mapa').replace(/^en\s+/i, '');
-    // La cifra chica ya no repite "partidas · gana": dice el hecho completo.
-    const won = Math.round((Number(tip.sample) * Number(tip.winRate)) / 100);
-    const heroSub = `gana ${fmtNumber(won)} de sus ${gamesText(tip.sample)}`;
-    // Tira horizontal en vez de tile de ancho completo: el número manda pero
-    // no se come una fila entera de la tarjeta.
-    sections.push(
-      statRow({
-        iconName: 'mapa',
-        label: scope,
-        sub: escapeHtml(heroSub),
-        value: `${fmtNumber(tip.winRate)}\u00a0%`,
-      }),
-    );
+  // 1) ESTILO. Distribución agresivo/boom, no la moda de una sola apertura.
+  const style = tip.style;
+  if (style && style.analyzed >= 5) {
+    // Sin dominancia clara NO se publica una etiqueta: se publica el reparto.
+    // Un 45/40/15 es mixto, no "scouts" ni "boom".
+    const mixed = style.dominant === 'mixto';
+    const big = mixed
+      ? { big: `${fmtNumber(style.aggressive)}<small>:${fmtNumber(style.boom)}</small>`, note: `de ${fmtNumber(style.analyzed)}` }
+      : tacBig(style.dominant === 'agresivo' ? style.aggressive : style.boom, style.analyzed);
+    const label = mixed ? 'MIXTO' : style.dominant === 'agresivo' ? 'AGRESIVO' : 'BOOM';
+    const top = !mixed && style.top ? ` · ${escapeHtml(style.top.short)}` : '';
+    const hybrids = Number(style.hybrid) ? ` · ${fmtNumber(style.hybrid)} híbridos` : '';
+    const scope = style.scope === 'modo' ? ' · todo el modo' : '';
+    tiles.push(tacTile({
+      label: mixed ? 'ESTILO · MIXTO' : 'ESTILO',
+      ico: style.dominant === 'agresivo' ? 'espadas' : 'estrella',
+      value: big.big,
+      sub: `${label}${top}${hybrids} · ${escapeHtml(big.note)} replays${scope}`,
+      // Rojo = amenaza a preparar, verde = ventaja explotable, neutro = mixto.
+      tone: mixed ? '' : style.dominant === 'agresivo' ? 'bad' : 'good',
+      hero: true,
+    }));
   }
 
-  // 2) Civs que le cuestan: chips con escudo, cifra y muestra.
-  if (tip.weakAgainst && tip.weakAgainst.length) {
-    const chips = tip.weakAgainst
-      .map((row) => scoutChip(row.civ, row.civ || '?', row.lossRate, `${fmtNumber(row.games)} pj`, 'bad'))
-      .join('');
-    sections.push(scoutSection('alerta', 'Le cuestan', `<div class="scout-chips">${chips}</div>`));
+  // 2) LE DUELE. strategy_opponent = la apertura que le ganó. Es la orden
+  //    de producción concreta (arqueros, piqueros, muros), no una civ.
+  const weak = tip.openingsAgainst && tip.openingsAgainst[0];
+  const hard = tip.weakAgainst && tip.weakAgainst[0];
+  if (weak) {
+    const big = tacBig(weak.losses, Number(weak.games) || 0);
+    tiles.push(tacTile({
+      label: 'LE DUELE',
+      ico: 'espadas',
+      value: big.big,
+      // Leyenda explícita: sin esto "8/11" se lee como victorias.
+      sub: `${escapeHtml(weak.short || weak.name || '?')} · derrotas / partidas`,
+      tone: 'good',
+    }));
+  } else if (hard) {
+    const big = tacBig(hard.losses, Number(hard.games) || 0);
+    tiles.push(tacTile({
+      label: 'LE CUESTA',
+      ico: 'estrella',
+      value: big.big,
+      sub: `${escapeHtml(hard.civ || '?')} · derrotas / partidas`,
+      tone: 'good',
+    }));
   }
 
-  // 3) Aperturas contra las que pierde, en frase: "Cuando le arrancan con FC
-  // pierde 46 % de 13 partidas". El chip suelto obligaba a armar la oración.
-  if (tip.openingsAgainst && tip.openingsAgainst.length) {
-    const allMode = tip.openingsAgainst[0].scope === 'modo';
-    const lines = tip.openingsAgainst
-      .map((row) => {
-        const label = row.short || row.name || '?';
-        return (
-          '<p class="scout-note">Cuando le arrancan con ' +
-          `<b>${escapeHtml(label)}</b> pierde ` +
-          `<b>${fmtNumber(row.lossRate)}\u00a0%</b> ` +
-          `<i>de ${escapeHtml(gamesText(row.games))}</i>.</p>`
-        );
-      })
-      .join('');
-    sections.push(
-      scoutSection(
-        'espadas',
-        'Pierde contra',
-        lines + (allMode ? '<p class="scout-note">Datos de todo el modo, no solo de este mapa.</p>' : ''),
-      ),
-    );
-  }
-
-  // 4) Ritmo: una frase corta con las dos cifras en negrita.
-  if (tip.tempo) {
-    const diff = tip.tempo.longWinRate - tip.tempo.shortWinRate;
-    if (diff >= 10) {
-      sections.push(
-        scoutSection(
-          'reloj',
-          'Ritmo',
-          '<p class="scout-note">Le salen mejor las largas: ' +
-            `<b>${fmtNumber(tip.tempo.longWinRate)} %</b> si pasa de 25 min · ` +
-            `<b>${fmtNumber(tip.tempo.shortWinRate)} %</b> en cortas.</p>`,
-        ),
-      );
-    } else if (diff <= -10) {
-      sections.push(
-        scoutSection(
-          'reloj',
-          'Ritmo',
-          '<p class="scout-note">Le cuestan las largas: ' +
-            `<b>${fmtNumber(tip.tempo.shortWinRate)} %</b> antes de 15 min · ` +
-            `<b>${fmtNumber(tip.tempo.longWinRate)} %</b> si se alarga.</p>`,
-        ),
-      );
+  // 3) RITMO. La etiqueta ES el consejo; el número es SU winrate en el tramo
+  //    que te conviene forzar. Solo si el diferencial es real (>= 12 pp).
+  const tempo = tip.tempo;
+  if (tempo && Number.isFinite(tempo.shortWinRate) && Number.isFinite(tempo.longWinRate)) {
+    const gap = tempo.longWinRate - tempo.shortWinRate;
+    const shortGames = Number(tempo.shortGames) || 0;
+    const longGames = Number(tempo.longGames) || 0;
+    const enoughTempo = shortGames >= TAC_MIN_TEMPO_BUCKET && longGames >= TAC_MIN_TEMPO_BUCKET;
+    if (Math.abs(gap) >= TAC_MIN_TEMPO_GAP && enoughTempo) {
+      const forceShort = gap > 0;
+      const games = forceShort ? shortGames : longGames;
+      const wins = Math.round(((forceShort ? tempo.shortWinRate : tempo.longWinRate) * games) / 100);
+      const big = tacBig(wins, games);
+      tiles.push(tacTile({
+        label: forceShort ? 'CERRÁ TEMPRANO' : 'ALARGÁ LA PARTIDA',
+        ico: 'foco',
+        value: big.big,
+        sub: `gana en ${forceShort ? 'cortas' : 'largas'} · ${escapeHtml(big.note)}`,
+        tone: 'good',
+      }));
     }
   }
 
-  return sections.length
-    ? sections.join('')
-    : '<div class="rival-empty">Sin punto débil claro en su historial.</div>';
+  if (!tiles.length) return '<div class="rival-empty">Sin punto débil claro en su historial.</div>';
+  return `<div class="tac-strip">${tiles.join('')}</div>`;
+}
+
+/**
+ * SMURF con COSTE CERO. `peak` (highestrating de RM 1v1) y `rating` ya viajan
+ * en cada fila del roster (src/aoe.js -> composeRows); el renderer incluso
+ * pinta el pico en la columna de ELO. Un pico histórico muy por encima del
+ * ELO actual es la señal más limpia de cuenta alternativa o de un jugador
+ * mucho más fuerte volviendo a subir. Es HEURÍSTICO: se muestra la evidencia
+ * (pico y ELO actual), nunca un score con decimales que aparente precisión.
+ */
+function smurfSignal(tip) {
+  const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
+  const player = players.find((p) => Number(p && p.profileId) === Number(tip && tip.profileId));
+  if (!player || player.peak == null || player.rating == null) return null;
+  const peak = Number(player.peak);
+  const rating = Number(player.rating);
+  if (!(peak >= 1400 && peak - rating >= 300)) return null;
+  return { peak, rating };
 }
 
 function scoutCard(tip) {
@@ -999,10 +1067,16 @@ function scoutCard(tip) {
   }
   const recommend = scoutRecommendBlock(tip);
   if (recommend) blocks.push(recommend);
+  const smurf = smurfSignal(tip);
+  const badge = smurf
+    ? `<span class="smurf-tag" title="Pico histórico ${fmtNumber(smurf.peak)} de ELO en RM 1v1, ahora ${fmtNumber(smurf.rating)}. Posible cuenta alternativa: respetá el primer push.">` +
+      `${icon('foco')}POSIBLE SMURF <b>${fmtNumber(smurf.peak)}</b></span>`
+    : '';
   return (
     '<article class="rival-card">' +
     '<div class="rival-card-head">' +
     `<span class="rival-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>` +
+    badge +
     '</div>' +
     blocks.join('') +
     '</article>'
@@ -1025,10 +1099,18 @@ function scoutRecommendBlock(tip) {
   if (tip.recommendError) {
     return '<div class="rival-block tips"><div class="rival-empty">No pude cruzar con tu historial ahora mismo.</div></div>';
   }
-  const recs = Array.isArray(tip.recommend) ? tip.recommend : [];
-  if (!recs.length) {
-    return '<div class="rival-block tips"><div class="rival-empty">Sin muestra suficiente para recomendar una civ.</div></div>';
-  }
+  // Solo la nº 1 y solo si alguna de sus dos evidencias tiene muestra real.
+  // Tres filas con dos porcentajes cada una eran 6 cifras compitiendo con el
+  // hero; una fila con "— sin muestra" es ruido directamente, se omite entera.
+  const all = Array.isArray(tip.recommend) ? tip.recommend : [];
+  const recs = all
+    .filter((row) => {
+      const mineN = row.mine ? Number(row.mine.games) || 0 : 0;
+      const rivalN = row.vsRival ? Number(row.vsRival.games) || 0 : 0;
+      return mineN >= 5 || rivalN >= 5;
+    })
+    .slice(0, 1);
+  if (!recs.length) return '';
   // Filas: número + escudo + nombre, y las DOS evidencias abajo alineadas.
   // Antes todo iba en una frase ('1. Gurjaras · vos 67% (9 pj) · le cuesta…')
   // y las tres recomendaciones se leían como un párrafo.
@@ -1037,12 +1119,13 @@ function scoutRecommendBlock(tip) {
       // Dos columnas de dato alineadas a la derecha: VOS y LO QUE LE CUESTA.
       // Así los números quedan en columna entre filas y no hay que leer una
       // frase con puntos medios para separar las evidencias.
+      // Con menos de 5 partidas NO se publica el porcentaje: un 100 % de 3
+      // partidas parece certeza y no lo es (Wilson: ~44-100 % al 95 %).
+      const mineN = row.mine ? Number(row.mine.games) || 0 : 0;
       let mineStat;
-      if (row.mine && row.mine.winRate != null) {
+      if (row.mine && row.mine.winRate != null && mineN >= 5) {
         // La cascada de alcance: si mi winrate viene del modo completo (no del
         // mapa exacto), se declara — nunca se disfraza de dato del mapa.
-        // "modo" en vez de "todo el modo": la etiqueta no debe envolver y
-        // desalinear la fila. El detalle completo va en el tooltip.
         const scopeTag = row.mine.scope === 'mode' ? ' · modo' : '';
         const scopeTip =
           row.mine.scope === 'mode' ? 'Winrate de todo el modo, no solo de este mapa' : '';
@@ -1050,17 +1133,18 @@ function scoutRecommendBlock(tip) {
           `<span class="rec-stat"${scopeTip ? ` title="${scopeTip}"` : ''}>` +
           '<em>vos</em>' +
           `<b>${fmtNumber(row.mine.winRate)} %</b>` +
-          `<i>${fmtNumber(row.mine.games)} pj${scopeTag}</i></span>`;
+          `<i>${fmtNumber(mineN)} pj${scopeTag}</i></span>`;
       } else {
         mineStat =
           '<span class="rec-stat"><em>vos</em><b>—</b><i>sin muestra</i></span>';
       }
+      const rivalN = row.vsRival ? Number(row.vsRival.games) || 0 : 0;
       const rivalStat =
-        row.vsRival && row.vsRival.lossRate != null
+        row.vsRival && row.vsRival.lossRate != null && rivalN >= 5
           ? '<span class="rec-stat">' +
             '<em>le cuesta</em>' +
             `<b class="bad">${fmtNumber(row.vsRival.lossRate)} %</b>` +
-            `<i>${fmtNumber(row.vsRival.games)} pj</i></span>`
+            `<i>${fmtNumber(rivalN)} pj</i></span>`
           : '';
       return (
         '<li class="rec-item">' +

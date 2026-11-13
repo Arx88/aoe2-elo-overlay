@@ -203,7 +203,7 @@ const DEMO_STATES = {
       demoPlayer('Aliado Uno', { id: 2, civ: 'Vikings', team: 1, hex: '#35d05a', extra: { isYou: false, color: 3, rating: 1083, peak: 1120, rank: 18244, hasStats: true } }),
       demoPlayer('Aliado Dos', { id: 3, civ: 'Wu', team: 1, hex: '#ffd60a', extra: { isYou: false, color: 4, rating: 1171, peak: 1230, rank: 15102, hasStats: true } }),
       demoPlayer('Rival Uno', { id: 4, civ: 'Burgundians', team: 2, hex: '#ff4d4d', extra: { isYou: false, color: 2, rating: 1439, peak: 1502, rank: 9871, hasStats: true } }),
-      demoPlayer('Rival Dos', { id: 5, civ: 'Poles', team: 2, hex: '#22d3ee', extra: { isYou: false, color: 5, rating: 1386, peak: 1440, rank: 11020, hasStats: true } }),
+      demoPlayer('Rival Dos', { id: 5, civ: 'Poles', team: 2, hex: '#22d3ee', extra: { isYou: false, color: 5, rating: 1386, peak: 1912, rank: 11020, hasStats: true } }),
       demoPlayer('Rival Tres', { id: 6, civ: 'Jurchens', team: 2, hex: '#c084fc', extra: { isYou: false, color: 6, rating: 1433, peak: 1495, rank: 10004, hasStats: true } }),
     ],
   },
@@ -973,9 +973,14 @@ function demoScoutTips(state) {
         { civ: 'Teutons', games: 7, losses: 4, lossRate: 57 },
       ],
       openingsAgainst: [
-        { name: 'Scout rush', short: 'Scouts', games: 31, losses: 12, lossRate: 39, scope: 'recorte' },
-        { name: 'Archer rush', short: 'Archer rush', games: 18, losses: 7, lossRate: 39, scope: 'recorte' },
+        { name: 'Archer rush', short: 'Archer rush', games: 11, losses: 8, lossRate: 73, scope: 'recorte' },
+        { name: 'Scout rush', short: 'Scouts', games: 14, losses: 8, lossRate: 57, scope: 'recorte' },
       ],
+      style: {
+        scope: 'recorte', analyzed: 34, aggressive: 25, boom: 9, hybrid: 6,
+        aggressiveShare: 74, dominant: 'agresivo', share: 74,
+        top: { name: 'Scout rush', short: 'Scouts', games: 16 },
+      },
       tempo: { shortGames: 9, shortWinRate: 33, longGames: 22, longWinRate: 64 },
       recommend: [
         {
