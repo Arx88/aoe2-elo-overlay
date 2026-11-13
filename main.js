@@ -346,6 +346,10 @@ let lastClockSent = null;
 let rivalReports = null;
 // Última partida publicada: sirve para descartar el informe de la anterior.
 let lastOngoingMatchId = null;
+// Última vez que hubo una partida en pantalla. Con esto un `idle` del REST no
+// borra el panel si esa partida todavía no figura como terminada.
+let lastOngoingAt = 0;
+const ONGOING_HOLD_MS = 3 * 60 * 1000;
 // Recomendaciones inteligentes (pre-partida): payload actual del consejo.
 let scoutPayload = null;
 let scoutSig = '';
@@ -2541,6 +2545,7 @@ function emit(state) {
     state && state.status === 'ongoing' && state.match
       ? String(state.match.matchId ?? '')
       : null;
+  if (ongoingId) lastOngoingAt = Date.now();
   if (ongoingId && ongoingId !== lastOngoingMatchId) {
     lastOngoingMatchId = ongoingId;
     clearRivalReports();
@@ -2694,10 +2699,27 @@ async function poll() {
     const showingLive = Boolean(
       lastGood && lastGood.status === 'ongoing' && lastGood.phase !== 'lobby',
     );
+    // Una partida EN PANTALLA no se borra por un `idle` del REST salvo que ese
+    // mismo matchId ya figure como último jugado (fin real). El REST tarda en
+    // listar la partida y el feed de cola la suelta al arrancar: antes eso
+    // hacía parpadear "Sin partida" en medio de una partida real.
+    const matchFinished = Boolean(
+      lastGood &&
+        lastGood.status === 'ongoing' &&
+        lastGood.match &&
+        snapshot.lastMatch &&
+        String(snapshot.lastMatch.matchId ?? '') === String(lastGood.match.matchId ?? ''),
+    );
+    const holdingOngoing = Boolean(
+      lastGood &&
+        lastGood.status === 'ongoing' &&
+        !matchFinished &&
+        Date.now() - lastOngoingAt < ONGOING_HOLD_MS,
+    );
     if (
       snapshot.status === 'idle' &&
       !showingLive &&
-      (lobbyActive() || Date.now() < preMatchGraceUntil)
+      (lobbyActive() || Date.now() < preMatchGraceUntil || holdingOngoing)
     ) {
       // Todavía en la pantalla de carga: el REST no la lista pero el panel ya
       // tiene el roster. No lo reemplazamos por "Sin partida".

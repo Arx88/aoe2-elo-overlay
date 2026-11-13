@@ -101,6 +101,9 @@ function introView(intro, config, now) {
   const civHelpVisible = Boolean(
     active && config && config.civHelp && elapsed >= SHOW_AT_MS && elapsed < hideAt,
   );
+  // El ocultado es por tiempo de PARTIDA: si la app se enganchó tarde, el
+  // panel nace ya oculto (no se muestra un frame y desaparece, porque la
+  // primera vista que se manda ya trae el estado correcto).
   const eloHidden = Boolean(
     active && config && config.hideEloAt20 && elapsed >= hideAt,
   );

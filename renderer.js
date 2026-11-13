@@ -64,7 +64,7 @@ function hideUpdateToast() {
   }
   if (!updateToastEl || updateToastEl.hidden) return;
   updateToastEl.hidden = true;
-  requestAnimationFrame(reportHeight);
+  scheduleHeight();
 }
 
 function showUpdateToast(payload) {
@@ -73,7 +73,8 @@ function showUpdateToast(payload) {
     hideUpdateToast();
     return;
   }
-  if (lastState && lastState.status === 'ongoing') {
+  // En partida o con el panel oculto por el reloj, el chip no se muestra.
+  if ((lastState && lastState.status === 'ongoing') || civView.eloHidden || moving) {
     hideUpdateToast();
     return;
   }
@@ -82,7 +83,7 @@ function showUpdateToast(payload) {
     ? `Actualización v${version} lista · se instala al salir`
     : `Actualización v${version} disponible · abrí Updater en la configuración`;
   updateToastEl.hidden = false;
-  requestAnimationFrame(reportHeight);
+  scheduleHeight();
   if (updateToastTimer) clearTimeout(updateToastTimer);
   updateToastTimer = setTimeout(hideUpdateToast, UPDATE_TOAST_MS);
 }
@@ -254,7 +255,7 @@ function civCard(civ) {
 function renderCivHelp() {
   if (!civHelpEl) return;
   if (!civView.civHelpVisible || !lastState || lastState.status !== 'ongoing' || moving) {
-    civHelpEl.hidden = true;
+    applyVisibility();
     return;
   }
 
@@ -278,8 +279,7 @@ function renderCivHelp() {
   civHelpGrid.innerHTML = civs.some((civ) => civ.slug)
     ? civs.map(civCard).join('')
     : '<div class="civhelp-empty">Esperando las civilizaciones de la partida…</div>';
-  civHelpEl.hidden = false;
-  requestAnimationFrame(reportHeight);
+  applyVisibility();
 }
 
 /* -------------------------------------------------------------------------
@@ -322,6 +322,8 @@ const ANALYSIS_LABELS = {
 /** Qué etapa está pendiente (o null si ya está todo). */
 function analysisStage() {
   if (!lastState || lastState.status !== 'ongoing' || moving) return null;
+  // Con el panel oculto no queda nada animado en pantalla.
+  if (civView.eloHidden) return null;
   // 1) El roster ya está en pantalla y faltan los números de ELO.
   if (lastState.pending) return 'elo';
   // 2) Informe del rival: primero civs/favoritos, después las aperturas.
@@ -340,21 +342,70 @@ function analysisStage() {
   return null;
 }
 
+/* -------------------------------------------------------------------------
+ * VISIBILIDAD · UNA SOLA FUENTE DE VERDAD
+ *
+ * Antes cada bloque decidía su `hidden` por su cuenta (y con condiciones
+ * distintas: uno miraba `eloHidden`, otro no; la barrita vivía dentro del
+ * panel), y encima había reglas CSS por id como segundo mecanismo. Eso dejó
+ * bloques que se quedaban abiertos, bloques que aparecían tarde y ventanas de
+ * altura rara. Ahora TODO se resuelve acá y se re-evalúa en cada entrada:
+ * estado, vista (reloj), payloads, configuración y modo mover.
+ * ---------------------------------------------------------------------- */
+
+/** Tips del consejo + si pertenecen a la partida que está en pantalla. */
+function tipsForCurrentMatch() {
+  const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
+  const sameMatch =
+    Boolean(lastState && lastState.match && scoutPayload) &&
+    String(scoutPayload.matchId ?? '') === String(lastState.match.matchId ?? '');
+  return { tips, sameMatch };
+}
+
+/** ¿Hay que mostrar el bloque de recomendaciones en este instante? */
+function scoutVisible() {
+  if (!(smartTipsEnabled || civRecommenderEnabled)) return false;
+  if (!lastState || lastState.status !== 'ongoing') return false;
+  if (moving || civView.eloHidden) return false;
+  if (lastState.phase === 'lobby') return true;
+  const { tips, sameMatch } = tipsForCurrentMatch();
+  return sameMatch && tips.length > 0;
+}
+
+/** Aplica visibilidad de TODOS los bloques y pide una sola medición de alto. */
+function applyVisibility() {
+  const ongoing = Boolean(lastState && lastState.status === 'ongoing');
+  const hidden = Boolean(civView.eloHidden) || moving;
+
+  panel.classList.toggle('elo-hidden', Boolean(civView.eloHidden));
+  document.body.classList.toggle('elo-hidden', Boolean(civView.eloHidden));
+  document.body.classList.toggle('moving', moving);
+
+  civHelpEl.hidden = !(ongoing && civView.civHelpVisible && !moving);
+  rivalInfoEl.hidden = !(ongoing && rivalEnabled() && !hidden);
+  scoutInfoEl.hidden = !scoutVisible();
+  analysisEl.hidden = analysisStage() == null;
+
+  scheduleHeight();
+}
+
+// Una sola medición por frame: con 4 bloques se pedían 4 alturas seguidas y la
+// ventana saltaba de tamaño mientras se acomodaba.
+let heightScheduled = false;
+function scheduleHeight() {
+  if (heightScheduled) return;
+  heightScheduled = true;
+  requestAnimationFrame(() => {
+    heightScheduled = false;
+    reportHeight();
+  });
+}
+
 function renderAnalysis() {
   if (!analysisEl) return;
   const stage = analysisStage();
-  if (!stage) {
-    if (!analysisEl.hidden) {
-      analysisEl.hidden = true;
-      requestAnimationFrame(reportHeight);
-    }
-    return;
-  }
-  if (analysisLabel) analysisLabel.textContent = ANALYSIS_LABELS[stage] || 'Analizando…';
-  if (analysisEl.hidden) {
-    analysisEl.hidden = false;
-    requestAnimationFrame(reportHeight);
-  }
+  if (stage && analysisLabel) analysisLabel.textContent = ANALYSIS_LABELS[stage] || 'Analizando…';
+  applyVisibility();
 }
 
 function rivalShield(civ, className) {
@@ -704,25 +755,13 @@ function rivalCard(report) {
 
 function renderRivalInfo() {
   if (!rivalInfoEl) return;
-  const active =
-    rivalEnabled() &&
-    lastState &&
-    lastState.status === 'ongoing' &&
-    !moving &&
-    !civView.eloHidden;
-  if (!active) {
-    rivalInfoEl.hidden = true;
-    return;
-  }
-
+  // La visibilidad la decide applyVisibility(): acá solo se pinta el contenido.
   const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
   rivalInfoEl.classList.toggle('single', reports.length <= 1);
   rivalGrid.innerHTML = reports.length
     ? reports.map(rivalCard).join('')
     : `<div class="rival-empty">Buscando los datos del rival…</div>`;
-  rivalInfoEl.hidden = false;
-  renderAnalysis();
-  requestAnimationFrame(reportHeight);
+  applyVisibility();
 }
 
 /* -------------------------------------------------------------------------
@@ -949,29 +988,14 @@ function scoutRecommendBlock(tip) {
 
 function renderScoutInfo() {
   if (!scoutInfoEl) return;
-  const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
-  // El consejo es de ESTA partida (viaja el matchId en el payload): se sigue
-  // viendo aunque el REST avise que ya arrancó, en vez de desaparecer en 0:00.
-  const sameMatch =
-    Boolean(lastState && lastState.match && scoutPayload) &&
-    String(scoutPayload.matchId ?? '') === String(lastState.match.matchId ?? '');
-  const active =
-    (smartTipsEnabled || civRecommenderEnabled) &&
-    lastState &&
-    lastState.status === 'ongoing' &&
-    !moving &&
-    (lastState.phase === 'lobby' || (sameMatch && tips.length > 0));
-  if (!active) {
-    scoutInfoEl.hidden = true;
-    return;
-  }
+  // La visibilidad la decide applyVisibility(); el `matchId` del payload hace
+  // que el consejo sobreviva al arranque de la partida.
+  const { tips } = tipsForCurrentMatch();
   scoutInfoEl.classList.toggle('single', tips.length <= 1);
   scoutGrid.innerHTML = tips.length
     ? tips.map(scoutCard).join('')
     : `<div class="rival-empty">Preparando el consejo del rival…</div>`;
-  scoutInfoEl.hidden = false;
-  renderAnalysis();
-  requestAnimationFrame(reportHeight);
+  applyVisibility();
 }
 
 /* -------------------------------------------------------------------------
@@ -1015,8 +1039,7 @@ function applyView(payload) {
     eloHidden: Boolean(next.eloHidden),
     civHelpVisible: Boolean(next.civHelpVisible),
   };
-  panel.classList.toggle('elo-hidden', civView.eloHidden);
-  document.body.classList.toggle('elo-hidden', civView.eloHidden);
+  // Las clases las aplica applyVisibility() (fuente única).
   if (civView.eloHidden) hideUpdateToast();
 
   const now = Date.now();
@@ -1034,10 +1057,11 @@ function applyView(payload) {
   stopCountdown();
   if (civView.civHelpVisible) startCountdown();
   renderCivHelp();
-  // El informe del rival se oculta junto con el ELO a 0:20.
+  // El informe del rival y el consejo se ocultan junto con el ELO a 0:20.
   renderRivalInfo();
+  renderScoutInfo();
   renderAnalysis();
-  requestAnimationFrame(reportHeight);
+  applyVisibility();
 }
 
 function reportHeight() {
@@ -1271,11 +1295,10 @@ function render(state) {
   // Las civs pueden llegar en un poll posterior: refrescá la tarjeta también.
   renderCivHelp();
   renderRivalInfo();
-  // El consejo pre-partida se reevalúa con CADA estado: cuando la fase deja
-  // de ser `lobby` (la partida arrancó), el bloque desaparece acá mismo.
   renderScoutInfo();
   renderAnalysis();
-  requestAnimationFrame(reportHeight);
+  // Un solo pase de visibilidad con TODAS las condiciones juntas.
+  applyVisibility();
 }
 
 function applyTheme(theme) {
@@ -1299,6 +1322,7 @@ function setMoving(on) {
   renderCivHelp();
   renderRivalInfo();
   renderScoutInfo();
+  applyVisibility();
 }
 
 window.overlay.onConfig((config) => {
@@ -1322,7 +1346,7 @@ window.overlay.onConfig((config) => {
   renderScoutInfo();
   renderAnalysis();
   if (lastState) render(lastState);
-  requestAnimationFrame(reportHeight);
+  applyVisibility();
 });
 
 window.overlay.onState(render);
@@ -1333,14 +1357,14 @@ if (window.overlay.onRival) {
   window.overlay.onRival((payload) => {
     rivalPayload = payload;
     renderRivalInfo();
-    requestAnimationFrame(reportHeight);
+    applyVisibility();
   });
 }
 if (window.overlay.onScout) {
   window.overlay.onScout((payload) => {
     scoutPayload = payload;
     renderScoutInfo();
-    requestAnimationFrame(reportHeight);
+    applyVisibility();
   });
 }
 

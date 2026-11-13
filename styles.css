@@ -1272,7 +1272,13 @@ body.elo-hidden #stage {
    Informe OPCIONAL del rival: últimas 5 civs, favoritos y aperturas REALES.
    Mismo lenguaje visual que la ayuda de civ, variables del tema activo.
    ===================================================================== */
-body.elo-hidden #rivalInfo {
+/* A 0:20 se oculta TODO el contenido de la columna menos el panel de ELO, que
+   tiene su propia clase. La regla es por ESTRUCTURA (hijos de #stage) y no por
+   id: así un bloque nuevo no puede quedarse abierto por olvido — pasó con
+   #scoutInfo en v0.1.20. */
+body.elo-hidden #panel,
+body.elo-hidden #stage > section,
+body.elo-hidden #analysis {
   display: none !important;
 }
 

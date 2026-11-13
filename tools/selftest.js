@@ -1010,6 +1010,9 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /send\('overlay:state', state\)[\s\S]{0,400}refreshRivalReports/.test(main));
     check('main.js usa opponentsOf() de src/rival (excluye aliados en TG)',
       /opponentsOf\(state, RIVAL_LIMIT\)/.test(main) && !/function opponentsOf\(/.test(main));
+    check('anti-parpadeo: un idle del REST no borra la partida que está en pantalla',
+      /let lastOngoingAt = 0/.test(main) && /ONGOING_HOLD_MS/.test(main) &&
+        /matchFinished/.test(main) && /holdingOngoing/.test(main));
     check('pre-partida a prueba de fallos: reintento del informe y rivales en paralelo',
       /function scheduleRivalRetry/.test(main) && /RIVAL_RETRY_MAX = 2/.test(main) &&
         /scheduleRivalRetry\(reports, rivals\)/.test(main) &&
@@ -1017,10 +1020,27 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('el consejo viaja atado al matchId y sobrevive al arranque de la partida',
       /String\(scoutPayload\.matchId/.test(main) &&
         /scoutPayload\.matchId/.test(renderer) && /sameMatch && tips\.length > 0/.test(renderer));
+    // Regresión v0.1.20: el bloque de consejos no tenía regla de ocultado y
+    // quedaba abierto (con su texto de "sin datos") toda la partida.
+    check('a 0:20 se oculta TODO el contenido del stage, no solo el informe',
+      /body\.elo-hidden #panel/.test(css) && /body\.elo-hidden #stage > section/.test(css) &&
+        /body\.elo-hidden #analysis/.test(css) &&
+        /function applyVisibility\(\)/.test(renderer) &&
+        /civHelpEl\.hidden = !\(ongoing/.test(renderer) &&
+        /rivalInfoEl\.hidden = !\(ongoing/.test(renderer) &&
+        /scoutInfoEl\.hidden = !scoutVisible\(\)/.test(renderer) &&
+        /if \(civView\.eloHidden\) return null;/.test(renderer));
+    check('un solo pase de visibilidad: nada decide su hidden por su cuenta',
+      /function applyVisibility\(\)/.test(renderer) &&
+        !/rivalInfoEl\.hidden = false/.test(renderer) &&
+        !/scoutInfoEl\.hidden = false/.test(renderer) &&
+        !/civHelpEl\.hidden = false/.test(renderer) &&
+        /let heightScheduled = false/.test(renderer));
     check('preloads exponen onRival y rivalOption',
       /onRival/.test(preload) && /rivalOption/.test(settingsPreload));
     check('renderer pinta #rivalInfo y respeta eloHidden',
-      /renderRivalInfo/.test(renderer) && /!civView\.eloHidden/.test(renderer) &&
+      /renderRivalInfo/.test(renderer) &&
+        /const hidden = Boolean\(civView\.eloHidden\) \|\| moving;/.test(renderer) &&
         /rivalOpeningsBlock/.test(renderer));
     check('index.html y styles.css tienen la tarjeta y sus estilos de tema',
       /id="rivalInfo"/.test(html) && /#rivalInfo/.test(css) && /--panel-bg/.test(css));
