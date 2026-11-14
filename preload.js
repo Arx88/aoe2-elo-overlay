@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('overlay', {
   // Aviso de actualización: el overlay es click-through, así que es solo visual.
   onUpdate: (callback) => ipcRenderer.on('overlay:update', (_event, payload) => callback(payload)),
   moveDone: () => ipcRenderer.send('overlay:move-done'),
+  // Cierra el informe postmatch y devuelve el overlay a click-through.
+  dismissPostMatch: () => ipcRenderer.send('postmatch:dismiss'),
   reportHeight: (height) => ipcRenderer.send('overlay:height', height),
   // El renderer avisa cuando ya tiene los listeners puestos: main reenvía el
   // estado actual, así ningún estado temprano se pierde.

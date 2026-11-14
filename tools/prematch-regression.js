@@ -15,7 +15,8 @@ const { getJson, adaptMatchedToLobby, buildSnapshotFromLobby, normalizeMatch } =
 
 async function main() {
   const stub = () => ({ hidden: false, textContent: '', innerHTML: '', dataset: {}, style: {},
-    classList: { toggle() {}, add() {}, remove() {} }, querySelectorAll: () => [], appendChild() {} });
+    classList: { toggle() {}, add() {}, remove() {} }, querySelectorAll: () => [], appendChild() {},
+    addEventListener() {} });
   const context = {
     document: { getElementById: stub, addEventListener() {}, body: stub(), documentElement: { style: { setProperty() {} } } },
     window: { overlay: { onState() {}, onConfig() {}, onUpdate() {}, onMovable() {}, onView() {},

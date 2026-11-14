@@ -1,3 +1,14 @@
+## v2.1.1 · El informe postmatch se cierra
+
+- **Ya no queda fijo.** El informe tiene una **X** arriba a la derecha y se cierra sola a los 60 segundos de terminar el análisis (o a los 3 minutos si la descarga se queda esperando).
+- **Se puede clickear.** Mientras el informe está abierto, el overlay recibe mouse solo para esa tarjeta; al cerrarlo vuelve inmediatamente a ser click-through y no le roba clicks al juego.
+- **No reaparece encima de la partida siguiente.** Al empezar otra partida se oculta, y el próximo resultado abre un informe nuevo.
+- **El último informe no se pierde.** Cerrar la tarjeta no borra el resultado: sigue disponible en **Ajustes → Postmatch**, desde donde se puede actualizar.
+
+Verificación: captura del informe real de `#521076025` con la X visible, cierre por IPC y retorno al modo click-through, tests de postmatch/producto/contexto/prematch/selftest y empaquetado Windows.
+
+---
+
 ## v2.1.0 · Postmatch automático: descarga y analiza el replay solo
 
 - **El análisis dejó de ser manual.** Al terminar una partida que la app vio en vivo, el overlay vuelve y muestra **“Descargando partida”** → **“Analizando partida”** → resultados. No hay que buscar el `.aoe2record` ni importar un JSON.

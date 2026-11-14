@@ -1952,7 +1952,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
     const stub = () => ({
       hidden: false, textContent: '', innerHTML: '', dataset: {}, style: {},
       classList: { toggle() {}, add() {}, remove() {} },
-      querySelectorAll: () => [], appendChild() {},
+      querySelectorAll: () => [], appendChild() {}, addEventListener() {},
     });
     const sandbox = {
       document: {

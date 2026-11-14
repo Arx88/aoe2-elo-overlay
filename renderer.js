@@ -2076,6 +2076,18 @@ window.overlay.onState(render);
 window.overlay.onUpdate(showUpdateToast);
 window.overlay.onMovable(setMoving);
 if (window.overlay.onPostMatch) window.overlay.onPostMatch(renderPostMatch);
+// La X vive dentro del informe. El main habilita el mouse solo mientras el
+// informe está abierto; al cerrarlo vuelve el click-through del overlay.
+if (postMatchEl) {
+  postMatchEl.addEventListener('click', (event) => {
+    const target = event.target && event.target.closest
+      ? event.target.closest('[data-postmatch-close]')
+      : null;
+    if (!target) return;
+    event.preventDefault();
+    if (window.overlay.dismissPostMatch) window.overlay.dismissPostMatch();
+  });
+}
 if (window.overlay.onView) window.overlay.onView(applyView);
 // F2: el main posee el estado (el renderer se puede recargar en caliente).
 if (window.overlay.onDetail) window.overlay.onDetail((payload) => setDetail(payload && payload.detail));

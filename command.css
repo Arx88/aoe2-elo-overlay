@@ -107,6 +107,8 @@ body { -webkit-font-smoothing: antialiased; }
 .review-header p { color: var(--muted); }
 .review-result { font-size: 26px; font-weight: 600; }
 .review-result small { font-size: 10px; display: block; color: var(--muted); font-weight: 400; }
+.review-close { flex: 0 0 auto; align-self: flex-start; width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--head-border); border-radius: 50%; background: #00000018; color: var(--muted); font: 18px/1 'Segoe UI', sans-serif; cursor: pointer; }
+.review-close:hover, .review-close:focus-visible { color: var(--text); border-color: var(--accent); background: #c9ad7518; outline: none; }
 .review-map { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-block: 1px solid var(--head-border); padding: 12px 0; }
 .review-map span, .review-map small { display: block; color: var(--muted); font-size: 11px; }
 .review-map b { display: block; font-size: 19px; font-weight: 600; margin: 2px 0; }

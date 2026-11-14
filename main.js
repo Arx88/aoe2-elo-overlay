@@ -507,6 +507,13 @@ let productCacheKey = '';
 let postMatchReport = null;
 let postMatchMatch = null;
 let postMatchLastId = null;
+// El informe postmatch tiene cierre explícito y auto-cierre: no puede quedar
+// fijo sobre el juego. Mientras está abierto recibe mouse (para la X); al
+// cerrarse vuelve el click-through normal del overlay.
+const POSTMATCH_AUTO_HIDE_MS = 60 * 1000;
+const POSTMATCH_LOADING_MAX_MS = 3 * 60 * 1000;
+let postMatchOverlayDismissed = false;
+let postMatchHideTimer = null;
 
 /** Claves públicas de licencia, si esta distribución las incluye. */
 function loadProductPublicKeys() {
@@ -2435,6 +2442,8 @@ function stopExample() {
 }
 
 function registerIpc() {
+  ipcMain.on('postmatch:dismiss', () => dismissPostMatch('cerrado desde el overlay'));
+
   ipcMain.on('overlay:height', (_event, height) => {
     if (config.debug) log(`altura medida del panel: ${Math.round(height)}px`);
     else if (!heightLogged) {
@@ -2864,8 +2873,9 @@ function registerIpc() {
     sendView(true);
     sendDetail();
     // El renderer se puede recargar: el informe ya calculado se reenvía una vez
-    // que sus listeners están puestos.
-    if (postMatchReport) send('postmatch:update', postMatchPayload());
+    // que sus listeners están puestos (null si ya se había cerrado).
+    send('postmatch:update', overlayPostMatchPayload());
+    syncReviewInteraction();
     // Y también el informe del rival que ya estaba calculado.
     if (rivalReports) send('overlay:rival', rivalReports);
     // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
@@ -2957,8 +2967,7 @@ function setMovable(enabled) {
     config.x = x;
     config.y = y;
     persistConfig({ position: 'custom', x, y });
-    win.setFocusable(false);
-    win.setIgnoreMouseEvents(true, { forward: true });
+    syncReviewInteraction();
     log(`posición guardada: x=${x} y=${y} (queda fija ahí, sin molestar en partida)`);
   }
 
@@ -3024,12 +3033,62 @@ function postMatchPayload() {
     : null;
 }
 
+function reviewVisible() {
+  if (!postMatchReport || postMatchOverlayDismissed) return false;
+  if (!viewConfig().postMatch) return false;
+  // Durante una partida el panel normal manda; el informe de la anterior no.
+  return !(lastGood && lastGood.status === 'ongoing');
+}
+
+function clearPostMatchHide() {
+  if (!postMatchHideTimer) return;
+  clearTimeout(postMatchHideTimer);
+  postMatchHideTimer = null;
+}
+
+/**
+ * Solo el informe abierto necesita mouse. El resto del tiempo la ventana sigue
+ * siendo click-through y no le roba clicks al juego.
+ */
+function syncReviewInteraction() {
+  if (!win || win.isDestroyed() || moving) return;
+  const open = reviewVisible();
+  win.setFocusable(open);
+  win.setIgnoreMouseEvents(!open, open ? {} : { forward: true });
+}
+
+function overlayPostMatchPayload() {
+  return reviewVisible() ? postMatchPayload() : null;
+}
+
+function schedulePostMatchHide(delayMs = POSTMATCH_AUTO_HIDE_MS) {
+  clearPostMatchHide();
+  if (!reviewVisible()) return;
+  postMatchHideTimer = setTimeout(() => {
+    postMatchHideTimer = null;
+    dismissPostMatch('tiempo de lectura terminado');
+  }, delayMs);
+}
+
+/** Cierra el informe sin borrar el último resultado del historial. */
+function dismissPostMatch(reason = 'cerrado') {
+  if (!postMatchReport || postMatchOverlayDismissed) return false;
+  postMatchOverlayDismissed = true;
+  clearPostMatchHide();
+  send('postmatch:update', null);
+  syncReviewInteraction();
+  log(`postmatch: informe cerrado (${reason})`);
+  return true;
+}
+
 function broadcastPostMatch() {
-  const payload = postMatchPayload();
-  send('postmatch:update', payload);
+  // El panel recibe null cuando el informe ya se cerró; Ajustes conserva el
+  // último informe para poder consultarlo o actualizarlo por separado.
+  send('postmatch:update', overlayPostMatchPayload());
   if (settingsWin && !settingsWin.isDestroyed()) {
-    settingsWin.webContents.send('postmatch:update', payload);
+    settingsWin.webContents.send('postmatch:update', postMatchPayload());
   }
+  syncReviewInteraction();
 }
 
 function latestStoredMatch() {
@@ -3064,6 +3123,10 @@ async function publishPostMatch(match, options = {}) {
   }
   postMatchLastId = id;
   postMatchMatch = match;
+  // Un resultado nuevo vuelve a abrir el informe, aunque el anterior se haya
+  // cerrado a mano o por tiempo.
+  postMatchOverlayDismissed = false;
+  clearPostMatchHide();
 
   let telemetry = options.telemetry || (saved && saved.telemetry) || null;
   const replayAllowed = Boolean(viewConfig().postMatch) && postMatchAccess().replay;
@@ -3098,6 +3161,7 @@ async function publishPostMatch(match, options = {}) {
     broadcastPostMatch();
   };
   paint(telemetry, analysis);
+  schedulePostMatchHide(POSTMATCH_LOADING_MAX_MS);
 
   let error = null;
   if (!telemetry && replayAllowed && options.autoReplay !== false) {
@@ -3133,6 +3197,7 @@ async function publishPostMatch(match, options = {}) {
     analysis,
   });
   broadcastPostMatch();
+  schedulePostMatchHide();
   const result = postMatchReport && postMatchReport.result;
   log(
     `postmatch: ${match.mapName || '—'} · ${result ? result.label : 'sin resultado'} · ` +
@@ -3157,6 +3222,10 @@ function emit(state) {
   const finished = completedMatchTransition(previous, state, profileId);
   if (finished) {
     publishPostMatch(finished).catch((err) => log(`postmatch falló: ${err.message}`));
+  }
+  // Al empezar otra partida, el informe anterior no puede quedar encima.
+  if (state && state.status === 'ongoing' && postMatchReport) {
+    dismissPostMatch('partida en curso');
   }
 
   // Partida nueva ⇒ el informe del rival y el consejo son los de la ANTERIOR.
