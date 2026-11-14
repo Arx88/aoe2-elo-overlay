@@ -60,6 +60,12 @@ Claims obligatorios:
 
 El backend debe emitir credenciales de duración acotada después de validar la cuenta y la suscripción con su proveedor de cobro. Cancelaciones y reembolsos deben reflejarse en la siguiente renovación; para revocación inmediata de una credencial todavía vigente hace falta consulta online al backend. Este módulo no implementa un proveedor de pagos, autenticación o webhooks ni afirma que esos servicios estén desplegados.
 
+## Clave de acceso temporal
+
+Mientras no exista el servicio de suscripciones, la sección **Plan y acceso** ofrece una clave compartida que habilita Pro en esa instalación. La clave se valida en el proceso principal contra un hash SHA-256 incluido en el build; no viaja al renderer ni se guarda en texto plano. Al activarla se persiste `accessKeyGrant` (el hash) en `config.json` y el plan resuelto pasa a Pro con `accessSource: 'access-key'` y `subscriptionVerified: false`.
+
+Es una medida de transición, no una licencia comercial: cualquiera que conozca la clave puede activarla, no hay cuentas ni revocación online, y el cliente de escritorio sigue siendo modificable. Para retirarla alcanza con eliminar el handler `settings:activate-access-key`, la constante del hash, el campo de la interfaz y la propiedad `accessKeyGrant` del estado del producto. Las preferencias Pro guardadas se conservan y vuelven a quedar bloqueadas si se retira el acceso.
+
 ## Contratación y gestión
 
 Configuración principal: `{checkoutUrl, accountUrl, allowedHosts}`. Ambos enlaces deben ser HTTPS, sin credenciales de URL, con puerto estándar y hostname exacto de la lista de confianza. No se crean URLs ficticias ni se adjunta el token de acceso como parámetro. Sin configuración, `commerce.checkout.enabled` es `false` y la interfaz informa **La contratación todavía no está habilitada**. Un enlace configurado es solo navegación; no activa Pro. El retorno debe recuperar una credencial firmada desde una sesión autenticada.

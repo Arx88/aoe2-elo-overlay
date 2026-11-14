@@ -39,6 +39,14 @@ assert.equal(beta.entitlement.valid, false);
 assert.ok(FEATURES.every((feature) => allowsFeature(beta, feature.key)));
 assert.equal(getProductState({ ...options, betaAccess: 'true' }).plan, 'free');
 
+const keyed = getProductState({ ...options, accessKeyGranted: true });
+assert.equal(keyed.plan, 'pro');
+assert.equal(keyed.accessSource, 'access-key');
+assert.equal(keyed.accessKeyGranted, true);
+assert.equal(keyed.subscriptionVerified, false);
+assert.ok(FEATURES.every((feature) => allowsFeature(keyed, feature.key)));
+assert.equal(getProductState({ ...options, accessKeyGranted: 'true' }).plan, 'free');
+
 const entitlementToken = sign(claims);
 const pro = getProductState({ ...options, entitlementToken });
 assert.equal(pro.plan, 'pro');
@@ -113,4 +121,4 @@ assert.equal(getProductState({ ...options, billing: { checkoutUrl: 'https://bill
 assert.equal(Object.keys(pro).includes('entitlementToken'), false);
 assert.ok(!JSON.stringify(pro).includes(entitlementToken), 'renderer state never carries the signed token');
 
-console.log('PRODUCT ACCESS OK: Free/Pro/beta, firmas, vencimiento, preferencias, disponibilidad y enlaces.');
+console.log('PRODUCT ACCESS OK: Free/Pro/beta/clave temporal, firmas, vencimiento, preferencias, disponibilidad y enlaces.');

@@ -138,21 +138,25 @@ function validateCommerceUrl(raw, allowedHosts = []) {
 function getProductState(options = {}) {
   const entitlement = verifyEntitlement(options.entitlementToken, options);
   const beta = options.betaAccess === true;
-  const plan = entitlement.valid ? 'pro' : (beta ? 'beta' : 'free');
+  const accessKey = options.accessKeyGranted === true;
+  const plan = entitlement.valid ? 'pro' : (accessKey ? 'pro' : (beta ? 'beta' : 'free'));
   const permitsPro = plan === 'pro' || plan === 'beta';
   const billing = options.billing && typeof options.billing === 'object' ? options.billing : {};
   const checkout = validateCommerceUrl(billing.checkoutUrl, billing.allowedHosts);
   const account = validateCommerceUrl(billing.accountUrl, billing.allowedHosts);
   const features = FEATURES.map((feature) => ({ ...feature,
     allowed: feature.plan === 'free' || permitsPro,
-    accessReason: feature.plan === 'free' ? 'included-free' : (permitsPro ? (plan === 'beta' ? 'beta-access' : 'verified-entitlement') : 'requires-pro'),
+    accessReason: feature.plan === 'free' ? 'included-free' :
+      (permitsPro ? (entitlement.valid ? 'verified-entitlement' : (accessKey ? 'access-key' : 'beta-access')) : 'requires-pro'),
   }));
   return {
     schema: 1,
     plan,
     label: plan === 'beta' ? 'Acceso beta' : (plan === 'pro' ? 'Pro' : 'Free'),
-    accessSource: entitlement.valid ? 'verified-entitlement' : (beta ? 'beta-access' : 'free'),
+    accessSource: entitlement.valid ? 'verified-entitlement' :
+      (accessKey ? 'access-key' : (beta ? 'beta-access' : 'free')),
     subscriptionVerified: entitlement.valid,
+    accessKeyGranted: accessKey,
     entitlement,
     features,
     featureAccess: Object.fromEntries(features.map((feature) => [feature.key, feature.allowed])),

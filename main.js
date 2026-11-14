@@ -15,6 +15,7 @@ const {
 } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 const {
   buildSnapshot,
@@ -123,6 +124,8 @@ const DEFAULT_CONFIG = {
   postMatch: true,
   postMatchComparison: false,
   postMatchReplay: false,
+  // Clave temporal de acceso Pro. Se guarda el hash, nunca la clave.
+  accessKeyGrant: null,
   debug: false,
 };
 
@@ -144,6 +147,20 @@ const ARGV = process.argv.slice(1);
 // Beta explícita de desarrollo. Nunca la decide el renderer ni un selector de
 // plan: sin este argumento y sin credencial firmada, el producto es Free.
 const BETA_ACCESS = ARGV.includes('--beta');
+// Acceso Pro temporal por clave compartida. Es una medida de transición:
+// cuando exista la suscripción real, se elimina este bloque y su handler.
+const ACCESS_KEY_HASH = '42e50ac2e6a98e6a2a7b7a1047da204365e666b81af65d70931349e0936ff2cf';
+function normalizeAccessKey(raw) {
+  return String(raw || '').trim().toUpperCase();
+}
+function accessKeyMatches(raw) {
+  const digest = crypto.createHash('sha256').update(normalizeAccessKey(raw)).digest();
+  const expected = Buffer.from(ACCESS_KEY_HASH, 'hex');
+  return digest.length === expected.length && crypto.timingSafeEqual(digest, expected);
+}
+function hasAccessKeyGrant() {
+  return String(config.accessKeyGrant || '') === ACCESS_KEY_HASH;
+}
 const DEMO_ARG = ARGV.find((arg) => arg === '--demo' || arg.startsWith('--demo='));
 const DEMO = Boolean(DEMO_ARG);
 const DEMO_MODE = DEMO_ARG && DEMO_ARG.includes('=') ? DEMO_ARG.split('=')[1] : 'rm1v1';
@@ -512,6 +529,7 @@ const PRODUCT_PUBLIC_KEYS = loadProductPublicKeys();
 function productState() {
   const key = [
     BETA_ACCESS,
+    hasAccessKeyGrant(),
     productSession.accountId || '',
     productSession.entitlementToken || '',
     profileId || '',
@@ -520,6 +538,7 @@ function productState() {
   if (productCache && productCacheKey === key) return productCache;
   productCache = getProductState({
     betaAccess: BETA_ACCESS,
+    accessKeyGranted: hasAccessKeyGrant(),
     entitlementToken: productSession.entitlementToken,
     accountId: productSession.accountId,
     profileId,
@@ -2752,6 +2771,22 @@ function registerIpc() {
       log(`importación de telemetría falló: ${err.message}`);
       return { ok: false, error: `No se pudo leer el informe: ${err.message}` };
     }
+  });
+
+  // Clave temporal de acceso Pro. La validación ocurre en main y solo se
+  // persiste el hash de la clave; el renderer nunca decide el plan.
+  ipcMain.handle('settings:activate-access-key', (_event, rawKey) => {
+    if (!normalizeAccessKey(rawKey)) {
+      return { ok: false, error: 'Ingresá la clave de acceso.', product: productState() };
+    }
+    if (!accessKeyMatches(rawKey)) {
+      return { ok: false, error: 'La clave de acceso no es válida.', product: productState() };
+    }
+    persistConfig({ accessKeyGrant: ACCESS_KEY_HASH });
+    send('overlay:config', overlayConfig());
+    broadcastPostMatch();
+    log('acceso Pro temporal activado con clave');
+    return { ok: true, product: productState() };
   });
 
   ipcMain.handle('settings:activate-license', (_event, rawAccount, rawToken) => {

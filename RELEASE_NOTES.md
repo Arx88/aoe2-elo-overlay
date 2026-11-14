@@ -1,3 +1,14 @@
+## v2.0.1 · Icono nuevo y acceso Pro por clave
+
+- **Icono de la app corregido.** El ejecutable, la barra de tareas, la bandeja y las notificaciones ahora usan el emblema de doble H nuevo. Antes se generaban desde un arte anterior, aunque la interfaz ya mostrara el logo nuevo.
+- **Acceso Pro temporal.** En **Plan y acceso** hay un campo para ingresar una clave compartida. La clave se valida en el proceso principal, no en la interfaz, y solo se guarda su hash en la configuración. Al activarla, el plan pasa a Pro con `subscriptionVerified: false` y las funciones Pro quedan disponibles según las preferencias de cada usuario.
+- **No es una suscripción.** Este acceso no tiene cuentas, cobro ni revocación online. Es una medida de transición para probar el producto completo; se puede retirar en una versión futura sin borrar las preferencias guardadas.
+- **Alcance honesto.** Las funciones Pro siguen dependiendo de que existan datos: replays, historial propio, muestra suficiente o telemetría importada. La clave habilita la función, no inventa resultados.
+
+Verificación: activación con clave válida e inválida desde la interfaz real de Electron, persistencia después de reiniciar, tests de producto/selftest y empaquetado Windows con el icono nuevo dentro del ejecutable.
+
+---
+
 ## v2.0.0 · Centro de mando, postmatch y acceso Free/Pro
 
 Esta es una actualización mayor: cambia la configuración, suma el ciclo completo de preparación y revisión, y ordena el producto en Free y Pro.

@@ -79,6 +79,10 @@ const commerceTitle = el('commerceTitle');
 const commerceStatus = el('commerceStatus');
 const accountCommerce = el('accountCommerce');
 const checkoutCommerce = el('checkoutCommerce');
+const accessKeyForm = el('accessKeyForm');
+const accessKeyInput = el('accessKey');
+const accessKeyStatus = el('accessKeyStatus');
+const activateAccessKeyBtn = el('activateAccessKey');
 const licenseForm = el('licenseForm');
 const licenseAccount = el('licenseAccount');
 const licenseToken = el('licenseToken');
@@ -183,7 +187,9 @@ function renderProduct(product) {
 
   railPlanLabel.textContent = product.label || 'Free';
   planName.textContent = product.label || 'Free';
-  if (product.plan === 'pro') {
+  if (product.plan === 'pro' && product.accessSource === 'access-key') {
+    planDescription.textContent = 'Acceso Pro temporal por clave. No es una suscripción verificada.';
+  } else if (product.plan === 'pro') {
     planDescription.textContent = 'Suscripción verificada. Incluye las funciones de análisis avanzado.';
   } else if (product.plan === 'beta') {
     planDescription.textContent = 'Acceso beta explícito de esta versión. No es una suscripción activa.';
@@ -193,6 +199,8 @@ function renderProduct(product) {
   if (product.subscriptionVerified && product.entitlement && product.entitlement.expiresAt) {
     const expires = new Date(product.entitlement.expiresAt);
     planExpiry.textContent = `Vence el ${expires.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  } else if (product.plan === 'pro' && product.accessSource === 'access-key') {
+    planExpiry.textContent = 'Acceso por clave · sin suscripción';
   } else if (product.plan === 'beta') {
     planExpiry.textContent = 'Acceso beta · sin suscripción verificada';
   } else {
@@ -479,6 +487,28 @@ accountCommerce.addEventListener('click', async () => {
 checkoutCommerce.addEventListener('click', async () => {
   const response = await window.settings.openCommerce('checkout');
   if (!response.ok) setStatus(response.error || 'No se pudo abrir la contratación', true);
+});
+
+accessKeyForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  activateAccessKeyBtn.disabled = true;
+  accessKeyStatus.textContent = 'Verificando clave…';
+  accessKeyStatus.classList.remove('error');
+  try {
+    const response = await window.settings.activateAccessKey(accessKeyInput.value);
+    if (!response.ok) {
+      accessKeyStatus.textContent = response.error || 'No se pudo activar la clave.';
+      accessKeyStatus.classList.add('error');
+      if (response.product) renderProduct(response.product);
+      return;
+    }
+    accessKeyInput.value = '';
+    accessKeyStatus.textContent = 'Pro activado. Ya podés prender las opciones Pro en Ajustes.';
+    if (response.product) renderProduct(response.product);
+    await loadCurrent();
+  } finally {
+    activateAccessKeyBtn.disabled = false;
+  }
 });
 
 licenseForm.addEventListener('submit', async (event) => {

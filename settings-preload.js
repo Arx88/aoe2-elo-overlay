@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('settings', {
   postmatchGet: () => ipcRenderer.invoke('postmatch:get'),
   postmatchRefresh: () => ipcRenderer.invoke('postmatch:refresh'),
   importTelemetry: () => ipcRenderer.invoke('postmatch:import'),
+  activateAccessKey: (key) => ipcRenderer.invoke('settings:activate-access-key', key),
   activateLicense: (account, token) => ipcRenderer.invoke('settings:activate-license', account, token),
   openCommerce: (kind) => ipcRenderer.invoke('settings:open-commerce', kind),
   autoUpdate: (on) => ipcRenderer.invoke('settings:autoUpdate', on),
