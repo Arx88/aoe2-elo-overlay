@@ -369,9 +369,10 @@ async function buildSnapshot({ profileId, cache, cacheTtlMs = 15 * 60 * 1000, on
   if (!match || !match.ongoing) {
     return {
       status: 'idle',
-      lastMatch: match
-        ? { mapName: match.mapName, leaderboardName: match.leaderboardName }
-        : null,
+      // La partida completa permite confirmar el resultado (won/finishedAt),
+      // el matchId y el roster. Sin eso, el postmatch no puede distinguir el
+      // final real de la partida que se acaba de ver en vivo.
+      lastMatch: match || null,
     };
   }
 

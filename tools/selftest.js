@@ -1041,6 +1041,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
     const renderer = read('renderer.js');
     const html = read('index.html');
     const css = read('styles.css');
+    const tacticalUi = read('ui/tactical-ui.js');
     const builder = read('electron-builder.json');
 
     check('las 3 opciones nuevas arrancan APAGADAS en DEFAULT_CONFIG',
@@ -1070,7 +1071,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /body\.elo-hidden #analysis/.test(css) &&
         /function applyVisibility\(\)/.test(renderer) &&
         /civHelpEl\.hidden = !\(ongoing/.test(renderer) &&
-        /!hidden && !detailMode/.test(renderer) &&
+        /scoutingEl\.hidden = !\(ongoing && compactAvailable\(\) && !hidden\)/.test(renderer) &&
         /if \(civView\.eloHidden\) return null;/.test(renderer));
     /* ---- v0.1.24 · SCOUTING UNIFICADO -------------------------------- */
     check('scouting unificado: UNA sección compacta y UNA tarjeta por rival',
@@ -1079,13 +1080,14 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /scoutCompactCard\(entry, wide\)/.test(renderer) &&
         /function scoutUniverse\(\)/.test(renderer));
     check('compacto y detalle son excluyentes: nunca las tres secciones juntas',
-      /scoutingEl\.hidden = !\(scoutF2Enabled && ongoing && compactAvailable\(\) && !hidden && !detailMode\)/.test(renderer) &&
-        /rivalInfoEl\.hidden = !\(detail && ongoing/.test(renderer) &&
-        /scoutInfoEl\.hidden = !\(detail && scoutVisible\(\)\)/.test(renderer) &&
+      /scoutingEl\.hidden = !\(ongoing && compactAvailable\(\) && !hidden\)/.test(renderer) &&
+        /rivalInfoEl\.hidden = true;/.test(renderer) &&
+        /scoutInfoEl\.hidden = true;/.test(renderer) &&
         /const detail = !scoutF2Enabled \|\| detailMode;/.test(renderer));
     check('tarjeta compacta: UN hero, una barra, UNA acción y proveniencia al pie',
       /class="scout-hero"/.test(renderer) && /class="scout-bar"/.test(renderer) &&
-        /class="scout-action/.test(renderer) && /scoutFootnoteEl\.textContent/.test(renderer) &&
+        /class="scout-action/.test(renderer) && /scoutFootnoteEl\.hidden = true/.test(renderer) &&
+        /intel-source/.test(tacticalUi) &&
         /function scoutHero\(/.test(renderer) && /function scoutAction\(/.test(renderer));
     check('sin dominancia clara la tarjeta compacta dice MIXTO, no AGRESIVO 53%',
       /style\.dominant === 'mixto'/.test(renderer) &&
@@ -1557,7 +1559,9 @@ function fakeLobby(leaderboardId, leaderboardName) {
       /const EXAMPLE_ALL_ON = \{[\s\S]*?civHelp: true[\s\S]*?hideEloAt20: true[\s\S]*?rivalCivs: true[\s\S]*?rivalFavorites: true[\s\S]*?rivalOpenings: true/.test(main) &&
       // El flag de desarrollo `--example-real-config` solo salta el forzado
       // para sacar capturas con la config real; por defecto sigue forzando.
-      /function viewConfig\(\) \{[\s\S]{0,200}!exampleActive[\s\S]{0,200}return \{ \.\.\.config, \.\.\.EXAMPLE_ALL_ON \};/.test(main));
+      /const base = !exampleActive \|\| EXAMPLE_REAL_CONFIG/.test(main) &&
+      /\.\.\.EXAMPLE_ALL_ON/.test(main) &&
+      /return effectivePreferences\(base, productState\(\)\);/.test(main));
     check('el ejemplo NO guarda nada en config.json ni toca la cuenta',
       exampleBlock.length > 1000 && !/persistConfig\s*\(|writeFileSync|chooseProfile/.test(exampleBlock));
     check('emit() bloquea el estado real mientras el ejemplo está activo',
@@ -1605,9 +1609,9 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('renderer: badge EJEMPLO, pie con partida real y cuenta regresiva congelada',
       /example-badge/.test(renderer) && /partida real #/.test(renderer) &&
       /civFrozenElapsed/.test(renderer) && /classList\.toggle\('example'/.test(renderer));
-    check('estilos del ejemplo en styles.css y settings.css',
+    check('estilos del ejemplo y del centro de mando',
       /\.example-badge/.test(css) && /#panel\.example/.test(css) &&
-      /\.example-meta/.test(settingsCss) && /\.example-status/.test(settingsCss));
+      /\.postmatch-report/.test(settingsCss) && /\.plan-card/.test(settingsCss));
     check('flags CLI de verificación y --isolated',
       ['--example=', '--example-clock=', '--example-settings-shot', '--example-cycle', '--isolated']
         .every((flag) => main.includes(flag)));

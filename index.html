@@ -9,6 +9,7 @@
     <title>AoE2 ELO Overlay</title>
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="command.css" />
   </head>
   <body>
     <div id="stage">
@@ -66,7 +67,7 @@
       -->
       <section id="scouting" hidden aria-live="polite">
         <div class="scout-head">
-          <span class="scout-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/></svg>Scouting</span>
+          <span class="scout-title"><img src="assets/brand/watchtower-v1.png" width="26" height="26" alt=""/>Lectura de partida</span>
           <span class="scout-context" id="scoutContext"></span>
           <!-- El overlay es click-through: el chip es SOLO la pista del atajo. -->
           <span class="scout-toggle" id="scoutToggle">F2 · Ver todo</span>
@@ -75,6 +76,7 @@
         <!-- Honestidad de muestra y alcance: UNA vez por sección. -->
         <p class="scout-footnote" id="scoutFootnote" hidden></p>
       </section>
+      <section id="postMatch" hidden aria-live="polite"></section>
 
       <!--
         VISTA DE DETALLE (F2). Informe OPCIONAL del rival: últimas 5 civs,
@@ -106,6 +108,7 @@
         <div class="rival-grid" id="scoutGrid"></div>
       </section>
     </div>
+    <script src="ui/tactical-ui.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

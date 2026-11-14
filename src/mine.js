@@ -267,7 +267,8 @@ function computeH2H(rows, rivalProfileId) {
  * Devuelve una entrada por civ (la mejor evidencia que tenga), ordenadas por
  * partidas; el cruce final lo hace buildCivRecommendation.
  */
-function computeMyMapCivs(rows, mapName) {
+function computeMyMapCivs(rows, mapName, options = {}) {
+  const { allowModeFallback = true, modeLabel = 'este modo', scope = null } = options;
   const wanted = mapKey(mapName);
   const byCiv = new Map();
   for (const row of Array.isArray(rows) ? rows : []) {
@@ -286,7 +287,7 @@ function computeMyMapCivs(rows, mapName) {
   }
   const out = [];
   for (const entry of byCiv.values()) {
-    if (wanted && entry.mapGames >= MIN_MY_CIV_GAMES) {
+    if (scope !== 'mode' && wanted && entry.mapGames >= MIN_MY_CIV_GAMES) {
       out.push({
         civ: entry.civ,
         slug: entry.slug,
@@ -294,8 +295,9 @@ function computeMyMapCivs(rows, mapName) {
         wins: entry.mapWins,
         winRate: pct(entry.mapWins, entry.mapGames),
         scope: 'map',
+        scopeLabel: `en ${mapName}`,
       });
-    } else if (entry.modeGames >= MIN_MY_CIV_GAMES) {
+    } else if (allowModeFallback && entry.modeGames >= MIN_MY_CIV_GAMES) {
       out.push({
         civ: entry.civ,
         slug: entry.slug,
@@ -303,6 +305,7 @@ function computeMyMapCivs(rows, mapName) {
         wins: entry.modeWins,
         winRate: pct(entry.modeWins, entry.modeGames),
         scope: 'mode',
+        scopeLabel: `en ${modeLabel}`,
       });
     }
   }
@@ -321,7 +324,8 @@ function computeMyMapCivs(rows, mapName) {
  * entra. Cada entrada conserva sus muestras: el panel las muestra tal cual y
  * nunca inventa un número.
  */
-function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3 } = {}) {
+function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3,
+  rivalContext = null, mapName = null, modeLabel = 'este modo' } = {}) {
   const candidates = new Map();
 
   for (const entry of Array.isArray(weakAgainst) ? weakAgainst : []) {
@@ -331,7 +335,9 @@ function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3 } = {
       civ: entry.civ,
       slug,
       mine: null,
-      vsRival: { games: entry.games, losses: entry.losses, lossRate: entry.lossRate },
+      vsRival: { games: entry.games, losses: entry.losses, lossRate: entry.lossRate,
+        scope: rivalContext && rivalContext.scope || entry.scope || null,
+        scopeLabel: rivalContext && rivalContext.scopeLabel || entry.scopeLabel || `en ${modeLabel}` },
     });
   }
 
@@ -340,7 +346,9 @@ function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3 } = {
     if (!slug) continue;
     if (!Number.isFinite(Number(entry.games)) || Number(entry.games) < MIN_MY_CIV_GAMES) continue;
     const existing = candidates.get(slug);
-    const mine = { games: entry.games, wins: entry.wins, winRate: entry.winRate, scope: entry.scope || 'map' };
+    const mineScope = entry.scope || 'map';
+    const mine = { games: entry.games, wins: entry.wins, winRate: entry.winRate, scope: mineScope,
+      scopeLabel: entry.scopeLabel || (mineScope === 'map' && mapName ? `en ${mapName}` : `en ${modeLabel}`) };
     if (existing) {
       // El nombre canónico es el de mi historial (Companion); el de las
       // replays a veces trae variantes del mismo juego.
@@ -362,11 +370,23 @@ function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3 } = {
       score = entry.vsRival.lossRate;
     }
     if (score == null) continue;
-    scored.push({ ...entry, score });
+    const basis = entry.mine && entry.vsRival ? 'combined' : entry.mine ? 'own-history' : 'rival-history';
+    const evidence = [];
+    if (entry.mine) evidence.push({ label: 'Tus victorias', part: entry.mine.wins, total: entry.mine.games,
+      value: `${entry.mine.wins}/${entry.mine.games}`, scopeLabel: entry.mine.scopeLabel, source: 'AoE2 Companion · tu historial' });
+    if (entry.vsRival) evidence.push({ label: rivalContext && rivalContext.teamGame ? 'Derrotas de su equipo' : 'Derrotas del rival',
+      part: entry.vsRival.losses, total: entry.vsRival.games,
+      value: `${entry.vsRival.losses}/${entry.vsRival.games}`, scopeLabel: entry.vsRival.scopeLabel,
+      source: 'AoE2Insights · replays analizados' });
+    scored.push({ ...entry, score, scoreKind: 'ranking-only', basis,
+      basisLabel: basis === 'combined' ? 'Tu repertorio + su historial' : basis === 'own-history'
+        ? 'Tu experiencia; sin cruce suficiente con el rival' : 'Su historial; tu dominio de esta civ no está comprobado',
+      evidence, crossScope: Boolean(entry.mine && entry.vsRival && entry.mine.scope !== entry.vsRival.scope),
+      caveat: 'Índice de ordenación interno; no representa probabilidad de victoria.' });
   }
 
   return scored
-    .sort((a, b) => b.score - a.score ||
+    .sort((a, b) => Number(b.basis === 'combined') - Number(a.basis === 'combined') || b.score - a.score ||
       ((b.mine && b.mine.games) || 0) - ((a.mine && a.mine.games) || 0))
     .slice(0, Math.max(1, Number(limit) || 3));
 }

@@ -13,6 +13,8 @@
     "index.html",
     "styles.css",
     "theme.css",
+    "command.css",
+    "ui/**/*",
     "settings.html",
     "settings.css",
     "settings.js",

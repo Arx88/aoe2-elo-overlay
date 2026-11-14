@@ -11,6 +11,7 @@ const {
   Tray,
   Notification,
   nativeImage,
+  dialog,
 } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -42,10 +43,22 @@ const { progressiveScout } = require('./src/scout');
 const { fetchMyHistory, computeH2H } = require('./src/mine');
 const { initAutoUpdate } = require('./src/updater');
 const { ReplayCache } = require('./src/replay-cache');
+const {
+  PerformanceStore,
+  buildPostMatchReport,
+  completedMatchTransition,
+  normalizeTelemetry,
+} = require('./src/postmatch');
+const { getProductState, effectivePreferences } = require('./src/product');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
 // van a %APPDATA%\AoE2 ELO Overlay\. En desarrollo quedan junto al código.
 const ISOLATED = process.argv.includes('--isolated');
+// El modo aislado también separa el userData de Electron: así se puede probar
+// el arranque sin chocar con la instancia real que el usuario tenga abierta.
+if (ISOLATED) {
+  app.setPath('userData', path.join(app.getPath('temp'), 'aoe2-elo-overlay-dev-userdata'));
+}
 const DATA_DIR = ISOLATED ? path.join(app.getPath('temp'), 'aoe2-elo-overlay-dev')
   : app.isPackaged ? path.join(app.getPath('appData'), 'AoE2 ELO Overlay') : __dirname;
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
@@ -105,6 +118,11 @@ const DEFAULT_CONFIG = {
   // nueva, la descarga e instala sola (nunca en media partida). Apagada de
   // fábrica: se activa desde la pestaña Updater.
   autoUpdate: false,
+  // Postmatch: el resumen de resultado es Free. Las comparaciones y las
+  // métricas de replay son Pro y se resuelven en el proceso principal.
+  postMatch: true,
+  postMatchComparison: false,
+  postMatchReplay: false,
   debug: false,
 };
 
@@ -123,6 +141,9 @@ const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'riva
 // --civ-help (con --demo) simula una partida a 0:03 para capturar la tarjeta;
 // --civ-help=late simula 0:21; --hide-elo fuerza la opción de ocultar a 0:20.
 const ARGV = process.argv.slice(1);
+// Beta explícita de desarrollo. Nunca la decide el renderer ni un selector de
+// plan: sin este argumento y sin credencial firmada, el producto es Free.
+const BETA_ACCESS = ARGV.includes('--beta');
 const DEMO_ARG = ARGV.find((arg) => arg === '--demo' || arg.startsWith('--demo='));
 const DEMO = Boolean(DEMO_ARG);
 const DEMO_MODE = DEMO_ARG && DEMO_ARG.includes('=') ? DEMO_ARG.split('=')[1] : 'rm1v1';
@@ -432,12 +453,19 @@ const EXAMPLE_ALL_ON = {
   rivalH2H: true,
   civRecommender: true,
   tgBalance: true,
+  postMatch: true,
+  postMatchComparison: true,
+  postMatchReplay: true,
 };
 
 /** Config usada para dibujar. Nunca se persiste. */
 function viewConfig() {
-  if (!exampleActive || EXAMPLE_REAL_CONFIG) return config;
-  return { ...config, ...EXAMPLE_ALL_ON };
+  const base = !exampleActive || EXAMPLE_REAL_CONFIG
+    ? config
+    : { ...config, ...EXAMPLE_ALL_ON };
+  // Las preferencias Pro guardadas se conservan, pero el flujo de consultas
+  // solo las ve si el plan resuelto en main las permite. El renderer no decide.
+  return effectivePreferences(base, productState());
 }
 
 /** Reloj usado por la intro: congelado en el ejemplo, real en partida. */
@@ -448,6 +476,59 @@ function clockNow() {
 const EXAMPLE_CLOCK_OFFSETS = { 3: 3000, 21: 21000, live: 3000 };
 
 const statsCache = new ReplayCache(path.join(DATA_DIR, 'replay-cache.json'), (...args) => log(...args));
+// Historial local de rendimiento: solo resultados confirmados por la fuente.
+const performanceStore = new PerformanceStore({
+  filePath: path.join(DATA_DIR, 'performance-history.json'),
+  log,
+});
+// El token y la cuenta viven en memoria durante la sesión. El renderer nunca
+// recibe la credencial; solo el estado serializado del producto.
+let productSession = { accountId: null, entitlementToken: null };
+let productCache = null;
+let productCacheKey = '';
+let postMatchReport = null;
+let postMatchMatch = null;
+let postMatchLastId = null;
+
+/** Claves públicas de licencia, si esta distribución las incluye. */
+function loadProductPublicKeys() {
+  const candidates = [
+    process.env.AOE2_PRODUCT_KEYS_PATH,
+    path.join(DATA_DIR, 'product-public-keys.json'),
+    path.join(__dirname, 'product-public-keys.json'),
+  ].filter(Boolean);
+  for (const file of candidates) {
+    try {
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (data && typeof data === 'object' && !Array.isArray(data)) return data;
+    } catch {
+      /* sin claves: las licencias no se pueden verificar en esta versión */
+    }
+  }
+  return null;
+}
+const PRODUCT_PUBLIC_KEYS = loadProductPublicKeys();
+
+function productState() {
+  const key = [
+    BETA_ACCESS,
+    productSession.accountId || '',
+    productSession.entitlementToken || '',
+    profileId || '',
+    JSON.stringify(config.commerce || {}),
+  ].join('|');
+  if (productCache && productCacheKey === key) return productCache;
+  productCache = getProductState({
+    betaAccess: BETA_ACCESS,
+    entitlementToken: productSession.entitlementToken,
+    accountId: productSession.accountId,
+    profileId,
+    publicKeys: PRODUCT_PUBLIC_KEYS,
+    billing: config.commerce || {},
+  });
+  productCacheKey = key;
+  return productCache;
+}
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -526,6 +607,11 @@ function overlayConfig() {
     // Vista resumida de scouting con F2 (opción "Resumen con F2").
     scoutF2: Boolean(view.scoutF2),
     tgBalance: Boolean(view.tgBalance),
+    // Postmatch resuelto: Free ve el resultado; Pro ve comparación y replay.
+    postMatch: Boolean(view.postMatch),
+    postMatchComparison: Boolean(view.postMatchComparison),
+    postMatchReplay: Boolean(view.postMatchReplay),
+    product: productState(),
     example: Boolean(exampleActive && exampleInfo),
     moving,
   };
@@ -1567,9 +1653,9 @@ function createWindow() {
       setTimeout(async () => {
         try {
           const dotColor = await win.webContents.executeJavaScript(
-            "getComputedStyle(document.querySelector('.dot')).backgroundColor",
+            "(() => { const dot = document.querySelector('.dot'); return dot ? getComputedStyle(dot).backgroundColor : null; })()",
           );
-          log(`color computado del punto de equipo: ${dotColor}`);
+          if (dotColor) log(`color computado del punto de equipo: ${dotColor}`);
           const image = await win.webContents.capturePage();
           fs.writeFileSync(SHOT_PATH, image.toPNG());
           const size = image.getSize();
@@ -1787,6 +1873,12 @@ function setRuntimeProfile(nextProfileId, alias) {
   profileId = Number(nextProfileId);
   playerAlias = alias || null;
   statsCache.clear();
+  // El informe visible pertenece al perfil anterior; el historial local queda
+  // separado por perfil y se puede volver a consultar.
+  postMatchReport = null;
+  postMatchMatch = null;
+  postMatchLastId = null;
+  broadcastPostMatch();
   lastSent = '';
   lastGood = null;
   clearRivalReports();
@@ -2231,6 +2323,44 @@ async function startExample(rawQuery, clockMode = '3') {
       snapshot.match = { ...snapshot.match, startedAt: null };
     }
 
+    // Vista de postmatch con la MISMA partida real. No se guarda en el
+    // historial local ni se simula telemetría: las etapas sin replay quedan
+    // pendientes, que es exactamente lo que vería el jugador.
+    if (EXAMPLE_PHASE === 'postmatch') {
+      const match = explicitMatch || exampleMatch;
+      let history = { rows: [], error: null };
+      try {
+        history = await fetchMyHistory({
+          profileId: resolved.profileId,
+          leaderboardId: match.leaderboardId,
+          currentMatchId: match.matchId,
+          cache: statsCache,
+          cacheTtlMs: EXAMPLE_CACHE_TTL(),
+          log,
+        });
+      } catch (err) {
+        history = { rows: [], error: err.message };
+      }
+      postMatchMatch = match;
+      postMatchLastId = String(match.matchId);
+      postMatchReport = buildPostMatchReport({
+        match,
+        profileId: resolved.profileId,
+        records: performanceStore.list(resolved.profileId),
+        historyRows: history.rows,
+        historyError: history.error,
+      });
+      // El overlay vuelve al estado idle (panel normal oculto) para que se vea
+      // la sección de revisión, igual que después de terminar una partida.
+      snapshot.status = 'idle';
+      snapshot.lastMatch = match;
+      delete snapshot.match;
+      delete snapshot.players;
+      delete snapshot.ladder;
+      delete snapshot.eloLadder;
+      delete snapshot.pending;
+    }
+
     // Partida nueva ⇒ reloj e informe del rival nuevos.
     intro = null;
     lastSent = '';
@@ -2239,13 +2369,14 @@ async function startExample(rawQuery, clockMode = '3') {
     clearRivalReports();
     send('overlay:config', overlayConfig()); // enciende todas las opciones (memoria)
     emit(snapshot);
+    if (EXAMPLE_PHASE === 'postmatch') broadcastPostMatch();
     sendView(true);
     broadcastExample();
 
     log(
       `MODO EJEMPLO · ${resolved.name} (#${resolved.profileId}) · partida REAL ` +
-        `#${snapshot.match.matchId} · ${snapshot.match.mapName} · ${snapshot.ladder.label} · ` +
-        `${snapshot.players.length} jugadores · reloj ${clockModeLabel(mode)} · ` +
+        `#${exampleInfo.matchId} · ${exampleInfo.mapName} · ${exampleInfo.leaderboardName} · ` +
+        `${exampleInfo.players} jugadores · reloj ${clockModeLabel(mode)} · ` +
         `${Date.now() - began}ms · el informe del rival sigue en segundo plano`,
     );
     return { ok: true, example: exampleStatus() };
@@ -2333,6 +2464,12 @@ function registerIpc() {
     civRecommender: Boolean(config.civRecommender),
     tgBalance: Boolean(config.tgBalance),
     autoUpdate: Boolean(config.autoUpdate),
+    postMatch: config.postMatch !== false,
+    postMatchComparison: Boolean(config.postMatchComparison),
+    postMatchReplay: Boolean(config.postMatchReplay),
+    shields: CIV_SLUGS,
+    civAliases: CIV_ALIASES,
+    product: productState(),
     matchStartedAt: intro && intro.engaged ? intro.startedAt : null,
     exampleClockElapsedMs:
       exampleFrozenAt != null && intro && intro.engaged
@@ -2524,6 +2661,143 @@ function registerIpc() {
     return { ok: true, scoutF2: enabled };
   });
 
+  // Postmatch: el resumen es Free; comparación y métricas se resuelven con el
+  // mismo estado de producto que usa viewConfig(). Activar una opción Pro sin
+  // acceso se rechaza también acá, no solo deshabilitando el control.
+  ipcMain.handle('settings:postMatchOption', (_event, rawKey, rawValue) => {
+    const key = String(rawKey || '');
+    if (!['postMatch', 'postMatchComparison', 'postMatchReplay'].includes(key)) {
+      return { ok: false, error: 'Esa opción de postmatch no existe.' };
+    }
+    const enabled = Boolean(rawValue);
+    if (enabled && !productState().featureAccess[key]) {
+      return { ok: false, error: 'Esa función está incluida en Pro.' };
+    }
+    persistConfig({ [key]: enabled });
+    send('overlay:config', overlayConfig());
+    broadcastPostMatch();
+    log(`postmatch · ${key}: ${enabled ? 'activado' : 'desactivado'}`);
+    return { ok: true, key, enabled };
+  });
+
+  ipcMain.handle('postmatch:get', () => {
+    const payload = postMatchPayload() || { report: null, access: postMatchAccess() };
+    return { ok: true, ...payload, product: productState() };
+  });
+
+  ipcMain.handle('postmatch:refresh', async () => {
+    const match = latestStoredMatch();
+    if (!match) {
+      return { ok: false, error: 'Todavía no hay una partida terminada para analizar.' };
+    }
+    const report = await publishPostMatch(match, { force: true });
+    if (!report) return { ok: false, error: 'No se pudo reconstruir el informe.' };
+    return { ok: true, ...(postMatchPayload() || {}), product: productState() };
+  });
+
+  // Importación de telemetría ya normalizada. El parser directo de
+  // .aoe2record todavía no está integrado, así que se acepta JSON compatible y
+  // se rechaza cualquier archivo que no corresponda a esta partida/jugador.
+  ipcMain.handle('postmatch:import', async () => {
+    const match = latestStoredMatch();
+    if (!match) {
+      return { ok: false, error: 'Primero necesitás una partida terminada y registrada.' };
+    }
+    const owner = settingsWin && !settingsWin.isDestroyed()
+      ? settingsWin
+      : (win && !win.isDestroyed() ? win : null);
+    const options = {
+      title: 'Importar informe de telemetría',
+      properties: ['openFile'],
+      filters: [{ name: 'Informe JSON compatible', extensions: ['json'] }],
+    };
+    const picked = owner
+      ? await dialog.showOpenDialog(owner, options)
+      : await dialog.showOpenDialog(options);
+    if (picked.canceled || !picked.filePaths || !picked.filePaths[0]) {
+      return { ok: false, canceled: true };
+    }
+    const file = picked.filePaths[0];
+    try {
+      if (fs.statSync(file).size > 5 * 1024 * 1024) {
+        return { ok: false, error: 'El informe supera el límite de 5 MB.' };
+      }
+      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const self = (match.players || []).find((p) => String(p.profileId) === String(profileId));
+      const normalized = normalizeTelemetry(raw, {
+        matchId: match.matchId,
+        profileId,
+        mapName: match.mapName,
+        leaderboardId: match.leaderboardId,
+        civ: self && self.civ,
+      });
+      if (normalized.status !== 'ready') {
+        return {
+          ok: false,
+          error: normalized.warnings[0] || 'El informe no corresponde a esta partida y jugador.',
+        };
+      }
+      const report = await publishPostMatch(match, {
+        force: true,
+        telemetry: normalized.data,
+      });
+      if (!report) return { ok: false, error: 'No se pudo guardar la telemetría.' };
+      return {
+        ok: true,
+        ...(postMatchPayload() || {}),
+        product: productState(),
+        warnings: normalized.warnings,
+      };
+    } catch (err) {
+      log(`importación de telemetría falló: ${err.message}`);
+      return { ok: false, error: `No se pudo leer el informe: ${err.message}` };
+    }
+  });
+
+  ipcMain.handle('settings:activate-license', (_event, rawAccount, rawToken) => {
+    const accountId = String(rawAccount || '').trim();
+    const token = String(rawToken || '').trim();
+    if (!accountId || !token) {
+      return { ok: false, error: 'Ingresá la cuenta y la credencial firmada.', product: productState() };
+    }
+    productSession = { accountId, entitlementToken: token };
+    const product = productState();
+    if (!product.subscriptionVerified) {
+      const reason = product.entitlement && product.entitlement.reason;
+      const messages = {
+        'no-entitlement': 'Ingresá una credencial.',
+        malformed: 'La credencial no tiene el formato esperado.',
+        'untrusted-key': 'Esta versión no incluye claves públicas de licencia; no se puede verificar la credencial.',
+        'invalid-signature': 'La firma de la credencial no es válida.',
+        expired: 'La credencial está vencida.',
+        'not-yet-valid': 'La credencial todavía no es válida.',
+        'account-mismatch': 'La credencial no corresponde a esa cuenta.',
+        'profile-mismatch': 'La credencial está asociada a otro perfil de AoE2.',
+        'invalid-claims': 'La credencial tiene datos inválidos.',
+      };
+      productSession = { accountId: null, entitlementToken: null };
+      return { ok: false, error: messages[reason] || 'No se pudo verificar la credencial.', product: productState() };
+    }
+    log(`licencia Pro verificada para la sesión · cuenta ${accountId}`);
+    send('overlay:config', overlayConfig());
+    broadcastPostMatch();
+    return { ok: true, product };
+  });
+
+  ipcMain.handle('settings:open-commerce', async (_event, rawKind) => {
+    const product = productState();
+    const link = rawKind === 'account' ? product.commerce.account : product.commerce.checkout;
+    if (!link || !link.enabled) {
+      return { ok: false, error: product.commerce.message };
+    }
+    try {
+      await shell.openExternal(link.url);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: `No se pudo abrir el enlace: ${err.message}` };
+    }
+  });
+
   // Actualizaciones automáticas (pestaña Updater). Al activarlas se consulta
   // enseguida: si ya hay una versión nueva, se descarga e instala sola. Nunca
   // en media partida: el updater lo pospone hasta que termines.
@@ -2571,6 +2845,9 @@ function registerIpc() {
     // y el modo de scouting (F2) que estuviera puesto antes de la recarga.
     sendView(true);
     sendDetail();
+    // El renderer se puede recargar: el informe ya calculado se reenvía una vez
+    // que sus listeners están puestos.
+    if (postMatchReport) send('postmatch:update', postMatchPayload());
     // Y también el informe del rival que ya estaba calculado.
     if (rivalReports) send('overlay:rival', rivalReports);
     // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
@@ -2679,6 +2956,113 @@ function signatureOf(state) {
   return JSON.stringify(stable);
 }
 
+/** Acceso efectivo al postmatch. Nunca se deduce del reporte ya calculado. */
+function postMatchAccess() {
+  const view = viewConfig();
+  const product = productState();
+  return {
+    comparison: Boolean(view.postMatchComparison),
+    replay: Boolean(view.postMatchReplay),
+    comparisonReason: product.featureAccess.postMatchComparison ? 'disabled' : 'pro',
+    replayReason: product.featureAccess.postMatchReplay ? 'disabled' : 'pro',
+  };
+}
+
+/** Recorta el reporte antes de cruzar el IPC: Free no recibe datos Pro. */
+function visiblePostMatchReport() {
+  if (!postMatchReport) return null;
+  const access = postMatchAccess();
+  const report = JSON.parse(JSON.stringify(postMatchReport));
+  if (!access.comparison) {
+    report.mapBenchmark = {
+      status: 'locked', games: 0, wins: 0, losses: 0, unknownResults: 0,
+      winRate: null, afterWinRate: null, recent: [], sampleSize: 0,
+      summary: 'La comparación con tu historial está incluida en Pro.',
+    };
+  }
+  if (!access.replay) {
+    report.stages = [];
+    report.metrics = {};
+    report.improvements = [];
+    report.data = {
+      ...(report.data || {}),
+      hasTelemetry: false,
+      telemetryStatus: 'locked',
+      sourceLabel: 'AoE2 Companion · resultados',
+      warnings: [],
+      telemetryNote: 'APM y ejecución por etapas están incluidos en Pro.',
+    };
+  }
+  return report;
+}
+
+function postMatchPayload() {
+  return postMatchReport
+    ? { report: visiblePostMatchReport(), access: postMatchAccess() }
+    : null;
+}
+
+function broadcastPostMatch() {
+  const payload = postMatchPayload();
+  send('postmatch:update', payload);
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.webContents.send('postmatch:update', payload);
+  }
+}
+
+function latestStoredMatch() {
+  if (postMatchMatch) return postMatchMatch;
+  if (!profileId) return null;
+  const record = performanceStore.list(profileId)[0];
+  return record && record.match ? record.match : null;
+}
+
+/**
+ * Registra el resultado confirmado, cruza el historial público y publica el
+ * informe. Se llama solo desde una transición en vivo (o desde una importación
+ * explícita de telemetría), nunca al arrancar con una partida histórica.
+ */
+async function publishPostMatch(match, options = {}) {
+  const id = String(match.matchId);
+  if (!options.force && postMatchLastId === id) return postMatchReport;
+  postMatchLastId = id;
+  postMatchMatch = match;
+  const saved = options.telemetry
+    ? performanceStore.recordMatch(match, profileId, options.telemetry)
+    : performanceStore.recordMatch(match, profileId);
+  if (!saved) {
+    log(`postmatch: la partida ${id} no se pudo registrar`);
+    return null;
+  }
+  let history = { rows: [], error: null };
+  try {
+    history = await fetchMyHistory({
+      profileId,
+      leaderboardId: match.leaderboardId,
+      currentMatchId: match.matchId,
+      cache: statsCache,
+      cacheTtlMs: 30 * 60 * 1000,
+      log,
+    });
+  } catch (err) {
+    history = { rows: [], error: err.message };
+  }
+  postMatchReport = buildPostMatchReport({
+    match,
+    profileId,
+    records: performanceStore.list(profileId),
+    historyRows: history.rows,
+    historyError: history.error,
+  });
+  broadcastPostMatch();
+  const result = postMatchReport && postMatchReport.result;
+  log(
+    `postmatch: ${match.mapName || '—'} · ${result ? result.label : 'sin resultado'} · ` +
+      `${history.rows.length} partidas de historial${history.error ? ` · error: ${history.error}` : ''}`,
+  );
+  return postMatchReport;
+}
+
 function emit(state) {
   // Mientras el ejemplo está abierto, el panel le pertenece a esa partida de
   // prueba: ni el polling ni los sockets pueden reemplazarla por la partida
@@ -2687,7 +3071,14 @@ function emit(state) {
   const signature = signatureOf(state);
   if (signature === lastSent) return false;
   lastSent = signature;
+  const previous = lastGood;
   lastGood = state;
+  // Solo una partida que vimos EN VIVO y que termina con el mismo matchId
+  // confirmado por la fuente puede generar un postmatch.
+  const finished = completedMatchTransition(previous, state, profileId);
+  if (finished) {
+    publishPostMatch(finished).catch((err) => log(`postmatch falló: ${err.message}`));
+  }
 
   // Partida nueva ⇒ el informe del rival y el consejo son los de la ANTERIOR.
   // Se borran acá, no cuando llegue la consulta nueva: si la partida es de
@@ -3198,6 +3589,7 @@ if (!gotLock) {
 
   app.on('will-quit', () => {
     statsCache.flush();
+    performanceStore.flush();
     globalShortcut.unregisterAll();
     clearInterval(timer);
     clearInterval(heartbeatTimer);

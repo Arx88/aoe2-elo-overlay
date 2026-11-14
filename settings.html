@@ -3,15 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'" />
-    <title>Aoe2 Helper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AoE2 Helper · Centro de mando</title>
     <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="command.css" />
     <link rel="stylesheet" href="settings.css" />
   </head>
   <body>
+    <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="ic-account" viewBox="0 0 24 24"><path d="M8 3h8l2 5-6 4-6-4 2-5Z"/><path d="M4 21v-5l8-4 8 4v5H4Z"/></symbol>
+      <symbol id="ic-compass" viewBox="0 0 24 24"><path d="m12 2 8 4v12l-8 4-8-4V6l8-4Z"/><path d="m16 7-2 7-6 3 2-7 6-3Z"/></symbol>
+      <symbol id="ic-chart" viewBox="0 0 24 24"><path d="M4 3v18h17M8 17v-4h3v4M13 17V9h3v8M18 17V5h3v12"/></symbol>
+      <symbol id="ic-appearance" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+      <symbol id="ic-access" viewBox="0 0 24 24"><path d="M12 2 4 6v7l8 9 8-9V6l-8-4Z"/><path d="m8 12 3 3 5-6"/></symbol>
+      <symbol id="ic-update" viewBox="0 0 24 24"><path d="M20 8a9 9 0 1 0 0 8M20 3v6h-6M12 7v5l3 2"/></symbol>
+      <symbol id="ic-tower" viewBox="0 0 24 24"><path d="M5 3h3v3h3V3h3v3h3V3h2v7l-2 2v8h3v2H3v-2h3v-8l-1-2V3Z"/><path d="M10 20v-5h4v5"/></symbol>
+    </svg>
     <header class="winbar">
       <div class="winbar-brand">
-        <img class="winbar-mark" src="assets/app-icon.png" alt="" draggable="false" />
-        <span class="winbar-title">Aoe2 Helper</span>
+        <img class="winbar-mark" src="assets/brand/double-h-v1.png" alt="" width="20" height="20" draggable="false" />
+        <span class="winbar-title">AoE2 Helper <span class="winbar-context">/ Centro de mando</span></span>
       </div>
       <div class="winbar-controls">
         <button id="winMin" class="winbtn" type="button" aria-label="Minimizar" title="Minimizar">
@@ -30,40 +41,44 @@
     <div class="shell">
       <aside class="rail">
         <div class="rail-brand">
-          <img class="rail-mark" src="assets/app-icon.png" alt="" draggable="false" />
+          <img class="rail-mark" src="assets/brand/double-h-v1.png" alt="" width="68" height="68" draggable="false" />
           <div>
-            <div class="rail-name">Aoe2 Helper</div>
+            <div class="rail-name">AoE2 Helper</div>
+            <div class="rail-caption">Inteligencia de partida</div>
           </div>
         </div>
 
         <nav class="rail-nav" aria-label="Secciones">
           <button class="nav-item active" data-page="player" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="8" r="3.4" /><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6" /></svg>
-            <span>Player Detection</span>
+            <svg aria-hidden="true"><use href="#ic-account" /></svg>
+            <span>Cuenta</span><span class="nav-index">01</span>
           </button>
           <button class="nav-item" data-page="overlay" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5ZM3 13l9 5 9-5M3 17l9 5 9-5" /></svg>
-            <span>Overlay</span>
+            <svg aria-hidden="true"><use href="#ic-compass" /></svg>
+            <span>Prematch</span><span class="nav-index">02</span>
           </button>
+          <button class="nav-item" data-page="postmatch" type="button"><svg aria-hidden="true"><use href="#ic-chart" /></svg><span>Postmatch</span><span class="nav-index">03</span></button>
           <button class="nav-item" data-page="skins" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M14 4l6 6-9 9-6-6 9-9Z" /><path d="m5 19-2 2M12 7l5 5" /></svg>
-            <span>Skins</span>
+            <svg aria-hidden="true"><use href="#ic-appearance" /></svg>
+            <span>Apariencia</span><span class="nav-index">04</span>
           </button>
+          <button class="nav-item" data-page="plans" type="button"><svg aria-hidden="true"><use href="#ic-access" /></svg><span>Plan y acceso</span><span class="nav-index">05</span></button>
           <button class="nav-item" data-page="updater" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.1M20 5v6h-6" /></svg>
-            <span>Updater</span>
+            <svg aria-hidden="true"><use href="#ic-update" /></svg>
+            <span>Actualizaciones</span><span class="nav-index">06</span>
           </button>
         </nav>
 
         <div class="rail-foot">
-          <span id="version" class="rail-version"></span>
-          <span>By acido</span>
+          <button id="railPlan" class="rail-plan" data-goto="plans" type="button"><span class="plan-dot" aria-hidden="true"></span><span id="railPlanLabel">Cargando acceso</span><span aria-hidden="true">↗</span></button>
+          <div class="rail-build"><span id="version" class="rail-version"></span><span>By acido</span></div>
         </div>
       </aside>
 
       <main class="content">
         <header class="content-head">
-          <h2 id="pageTitle">Player Detection</h2>
+          <div class="page-eyebrow"><span id="pageIndex">01 / CUENTA</span><span class="session-badge" id="sessionBadge">CONFIGURACIÓN</span></div>
+          <h1 id="pageTitle">Tu punto de partida.</h1>
           <p id="pageSub">Tu cuenta en el juego y cómo cambiarla.</p>
           <div class="rule"></div>
         </header>
@@ -71,6 +86,7 @@
         <div class="pages">
           <!-- ============ PLAYER DETECTION ============ -->
           <section class="page active" data-page="player">
+            <div class="welcome-panel"><div><span class="eyebrow">PREPARÁ · JUGÁ · MEJORÁ</span><h2>Cada partida empieza<br />con una mejor lectura.</h2><p>Conocé a tu rival antes de entrar.<br />Entendé tu rendimiento al terminar.</p></div><img src="assets/brand/watchtower-v1.png" alt="Emblema de la torre de exploración" width="150" height="150" draggable="false" /></div>
             <div class="group-head"><span>Cuenta activa</span><i></i></div>
             <div class="block">
               <div class="account-hero">
@@ -93,7 +109,7 @@
             <div class="block">
               <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
-                <input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" autocomplete="off" spellcheck="false" />
+                <label class="sr-only" for="search">Nombre en el juego o profile ID</label><input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" autocomplete="off" spellcheck="false" />
                 <span id="searchState" class="search-state"></span>
               </div>
               <div id="results" class="results" role="listbox" aria-label="Resultados"></div>
@@ -116,6 +132,8 @@
 
           <!-- ============ OVERLAY ============ -->
           <section class="page" data-page="overlay">
+            <div class="workflow"><div><span>01</span><strong>Leé al rival</strong><small>Mapa · civs · aperturas</small></div><i aria-hidden="true"></i><div><span>02</span><strong>Elegí un plan</strong><small>Evidencia del mismo contexto</small></div><i aria-hidden="true"></i><div><span>03</span><strong>Entrá a jugar</strong><small>El overlay se aparta</small></div></div>
+            <p class="section-intro">Elegí qué información querés ver. Cada dato indica su muestra y cada consejo explica qué observación lo respalda.</p>
             <div class="group-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><i></i><em>2</em></div>
             <div class="block">
               <label class="row tog" for="civHelp" title="Tarjeta clara con los escudos de ambas civilizaciones y un resumen corto de bonos, unidades y debilidades. Aparece a 0:01 y se oculta al tiempo elegido.">
@@ -185,8 +203,8 @@
               <label class="row tog" for="smartTips" title="Consejos pre-partida calculados con replays analizados: en el mapa actual, qué civilizaciones y qué aperturas le cuestan al rival, y su perfil de ritmo. Solo se ven en la ventana de preparación (antes de que arranque la partida) y desaparecen solos al iniciar.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 7v5c0 4 3 7 8 9 5-2 8-5 8-9V7l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg></span>
                 <span class="tcopy">
-                  <span class="rname">Recomendaciones inteligentes</span>
-                  <span class="rdesc">Consejo por rival · solo antes de iniciar · datos reales</span>
+                  <span class="rname">Plan de partida</span>
+                  <span class="rdesc">Qué vigilar y cómo prepararte, conectado con el análisis del rival</span>
                 </span>
                 <input id="smartTips" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
@@ -206,7 +224,7 @@
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.2"/></svg></span>
                 <span class="tcopy">
                   <span class="rname">Civ recomendada</span>
-                  <span class="rdesc">Su debilidad × tu winrate en el mapa · con muestra</span>
+                  <span class="rdesc">Tu experiencia en este mapa y sus antecedentes, con muestras separadas</span>
                 </span>
                 <input id="civRecommender" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
@@ -216,7 +234,7 @@
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><path d="M7 10h2.5M7 14h2.5"/></svg></span>
                 <span class="tcopy">
                   <span class="rname">Resumen con F2</span>
-                  <span class="rdesc">Off: informe completo · on: resumen y F2 alterna</span>
+                  <span class="rdesc">Alterná resumen y detalle con F2 · al activarlo se reserva la tecla global</span>
                 </span>
                 <input id="scoutF2" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
@@ -237,6 +255,30 @@
             </div>
           </section>
 
+          <!-- ============ POSTMATCH ============ -->
+          <section class="page" data-page="postmatch">
+            <div class="section-banner"><img src="assets/brand/opening-v1.png" alt="" width="76" height="76" draggable="false" /><div><span class="eyebrow">TU PRÓXIMA MEJORA</span><h2>Terminá con una lectura clara.</h2><p>El resultado es el inicio del análisis. Las notas por etapa necesitan datos medidos del replay.</p></div></div>
+            <div class="group-head"><span>Al terminar la partida</span><i></i></div>
+            <div class="block">
+              <label class="row tog" for="postMatch"><span class="ric"><svg aria-hidden="true"><use href="#ic-chart" /></svg></span><span class="tcopy"><span class="rname">Resumen postmatch</span><span class="rdesc">El overlay vuelve con el resultado confirmado y el resumen de la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              <label class="row tog" for="postMatchComparison"><span class="ric"><svg aria-hidden="true"><use href="#ic-compass" /></svg></span><span class="tcopy"><span class="rname">Comparar mi evolución</span><span class="rdesc">Esta partida frente a tus anteriores en el mismo mapa y modo</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              <label class="row tog" for="postMatchReplay"><span class="ric"><svg aria-hidden="true"><use href="#ic-tower" /></svg></span><span class="tcopy"><span class="rname">Calificación por etapa y APM</span><span class="rdesc">Apertura, Feudal y Castillos según ejecución económica medida</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+            </div>
+            <div class="group-head"><span>Último informe</span><i></i><button id="refreshPostMatch" class="link-btn" type="button">Actualizar</button></div>
+            <div id="postMatchReport" class="postmatch-report" aria-live="polite"><div class="empty-report"><svg aria-hidden="true"><use href="#ic-chart" /></svg><h3>Tu próxima partida marca el comienzo.</h3><p>Al terminar, el informe aparecerá acá y en el overlay.</p></div></div>
+            <div class="replay-import"><div><strong>Datos del replay</strong><p id="telemetryImportHelp">Importá un informe JSON compatible con esta partida. El análisis directo de .aoe2record todavía no está integrado; las métricas disponibles se muestran con su fuente.</p></div><button id="importTelemetry" class="btn" type="button">Importar informe</button></div>
+            <p id="telemetryImportStatus" class="inline-status" role="status"></p>
+          </section>
+
+          <!-- ============ PLAN Y ACCESO ============ -->
+          <section class="page" data-page="plans">
+            <div class="access-summary"><div><span class="eyebrow">TU ACCESO ACTUAL</span><h2 id="planName">Cargando…</h2><p id="planDescription">Consultando las funciones disponibles de esta versión.</p><span id="planExpiry" class="access-expiry"></span></div><svg aria-hidden="true"><use href="#ic-access" /></svg></div>
+            <div class="plans-grid"><article class="plan-card"><span class="eyebrow">LA BASE PARA COMPETIR</span><h3>Free</h3><p>Conocé la partida y a sus jugadores.</p><ul id="freeFeatures" class="plan-feature-list"></ul></article><article class="plan-card pro"><span class="eyebrow">PREPARACIÓN Y EVOLUCIÓN</span><h3>Pro</h3><p>Profundizá el análisis y aprendé de tus partidas.</p><ul id="proFeatures" class="plan-feature-list"></ul><span class="includes-free">Incluye todas las funciones Free.</span></article></div>
+            <div class="commerce-actions"><div><strong id="commerceTitle">Suscripciones</strong><p id="commerceStatus">La contratación todavía no está habilitada.</p></div><div class="button-group"><button id="accountCommerce" class="btn" type="button" disabled>Gestionar cuenta</button><button id="checkoutCommerce" class="btn gold" type="button" disabled>Obtener Pro</button></div></div>
+            <details class="license-details"><summary>Activar una licencia existente</summary><form id="licenseForm" class="license-form"><p>Ingresá la cuenta y la credencial firmada que recibiste del servicio del producto.</p><label for="licenseAccount">Cuenta del producto</label><input id="licenseAccount" class="field" type="text" autocomplete="username" spellcheck="false" /><label for="licenseToken">Credencial de acceso</label><textarea id="licenseToken" class="field" rows="3" autocomplete="off" spellcheck="false" placeholder="v1.…"></textarea><div class="license-actions"><span id="licenseStatus" class="inline-status" role="status"></span><button id="activateLicense" class="btn" type="submit">Verificar acceso</button></div></form></details>
+            <p class="product-footnote">El plan habilita funciones. La disponibilidad de los datos depende de la muestra, el modo de juego y los replays analizados.</p>
+          </section>
+
           <!-- ============ SKINS ============ -->
           <section class="page" data-page="skins">
             <div class="group-head"><span>Diseño del panel</span><i></i><em>11</em></div>
@@ -254,7 +296,7 @@
                 <button class="theme" type="button" data-theme="pergamino" title="Papel estilo AoE2, claro y temático"><span class="swatch" data-theme="pergamino"></span><span class="tname">Pergamino</span></button>
                 <button class="theme" type="button" data-theme="sakura" title="Ciruela oscuro con rosa"><span class="swatch" data-theme="sakura"></span><span class="tname">Sakura</span></button>
               </div>
-              <p class="mini">Se aplica al instante en el panel del juego.</p>
+              <p class="mini">Se aplica al instante al overlay. El centro de mando conserva su identidad para que encuentres todo en el mismo lugar.</p>
             </div>
 
             <div class="group-head"><span>Opacidad</span><i></i></div>
@@ -327,7 +369,7 @@
           </section>
         </div>
 
-        <div class="status-bar"><span id="status" class="status"></span></div>
+        <div class="status-bar"><span class="status-light" aria-hidden="true"></span><span id="status" class="status" role="status" aria-live="polite">Listo para preparar tu próxima partida.</span><span class="status-end">AOE II · DE</span></div>
       </main>
     </div>
 
@@ -345,6 +387,7 @@
       </div>
     </div>
 
+    <script src="ui/tactical-ui.js"></script>
     <script src="settings.js"></script>
   </body>
 </html>

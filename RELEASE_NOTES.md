@@ -1,3 +1,20 @@
+## v2.0.0 · Centro de mando, postmatch y acceso Free/Pro
+
+Esta es una actualización mayor: cambia la configuración, suma el ciclo completo de preparación y revisión, y ordena el producto en Free y Pro.
+
+- **Nuevo Centro de mando.** La configuración pasa a tener navegación por Cuenta, Prematch, Postmatch, Apariencia, Plan y acceso y Actualizaciones, con una identidad visual nueva y el emblema de doble H.
+- **Postmatch real.** Cuando termina una partida que la app vio en vivo, el overlay vuelve con el resultado confirmado, la duración y la comparación por mapa y modo. Una partida histórica no dispara el informe al arrancar.
+- **Comparación honesta.** Solo se comparan partidas anteriores del mismo perfil, mapa y modo; los resultados desconocidos no cuentan como derrotas y la muestra se declara. Sin telemetría de replay no se inventan APM ni notas por etapa.
+- **Free y Pro.** Free incluye ELO y roster, historial del rival, guía de civilización, balance de equipos, F2 y resumen postmatch. Pro agrupa aperturas, plan contextual, cara a cara, elección de civilización, comparación postmatch y rendimiento por etapa. Sin backend, checkout ni credenciales configuradas, la app queda en Free y la sección Plan lo informa.
+- **Acceso resuelto en el proceso principal.** Las preferencias Pro se conservan, pero la vista y los handlers usan el plan resuelto por el main. El renderer no puede habilitarse funciones por sí solo.
+- **Importación de telemetría compatible.** Se valida un JSON contra la partida y el perfil antes de asociarlo. El análisis directo de `.aoe2record` todavía no está integrado, así que no se promete.
+- **Escudos junto a cada civilización.** Los nombres del prematch, recomendaciones, historial y postmatch muestran su badge pequeño sin cambiar el espaciado ni la jerarquía del diseño.
+- **Actualización mayor.** El updater detecta 2.0.0, descarga el paquete y lo instala al salir; nunca durante una partida.
+
+Verificación: tests de producto, postmatch y consejo contextual; selftest completo; regresión prematch; `node --check`; empaquetado `--win --dir` y capturas de Electron con datos reales. La sección Pro queda como catálogo y control de acceso: esta versión no incluye un servicio de cobro ni un backend de licencias.
+
+---
+
 ## v0.1.26 · Prematch más rápido, datos más honestos y F2 opcional
 
 - **Menos 429 y menos espera.** Una cola coordina las consultas de historial, comparte las que ya están en vuelo y guarda los replays analizados en una caché persistente. El scouting muestra primero una muestra rápida y completa el análisis en segundo plano.

@@ -21,6 +21,10 @@ const scoutingEl = document.getElementById('scouting');
 const scoutCardsEl = document.getElementById('scoutCards');
 const scoutContextEl = document.getElementById('scoutContext');
 const scoutFootnoteEl = document.getElementById('scoutFootnote');
+const postMatchEl = document.getElementById('postMatch');
+let postMatchPayload = null;
+let postMatchEnabled = false;
+let postMatchAccess = { comparison: true, replay: true };
 const updateToastEl = document.getElementById('updateToast');
 const updateToastText = document.getElementById('updateToastText');
 
@@ -425,9 +429,12 @@ function applyVisibility() {
   const detail = !scoutF2Enabled || detailMode;
   document.body.classList.toggle('scout-f2', scoutF2Enabled);
   document.body.classList.toggle('scout-detail', detail);
-  scoutingEl.hidden = !(scoutF2Enabled && ongoing && compactAvailable() && !hidden && !detailMode);
-  rivalInfoEl.hidden = !(detail && ongoing && rivalEnabled() && !hidden);
-  scoutInfoEl.hidden = !(detail && scoutVisible());
+  scoutingEl.hidden = !(ongoing && compactAvailable() && !hidden);
+  rivalInfoEl.hidden = true;
+  scoutInfoEl.hidden = true;
+  const reviewing = Boolean(postMatchEnabled && postMatchPayload && !ongoing && !moving);
+  if (postMatchEl) postMatchEl.hidden = !reviewing;
+  panel.classList.toggle('reviewing', reviewing);
   analysisEl.hidden = analysisStage() == null;
 
   scheduleHeight();
@@ -1626,7 +1633,9 @@ function renderScouting() {
   }
   const wide = entries.length <= 1;
   scoutCardsEl.innerHTML = entries.length
-    ? entries.map((entry) => scoutCompactCard(entry, wide)).join('')
+    ? entries.map((entry) => typeof TacticalUI === 'object' ? TacticalUI.renderRival({ entry, state: lastState,
+        options: { ...rivalOptions, smartTips: smartTipsEnabled, civRecommender: civRecommenderEnabled },
+        detail: !scoutF2Enabled || detailMode }) : scoutCompactCard(entry, wide)).join('')
     : '<div class="rival-empty">Buscando los datos del rival…</div>';
   // Los anchos de barra se aplican por CSSOM (CSP sin unsafe-inline).
   scoutCardsEl.querySelectorAll('[data-w]').forEach((bar) => {
@@ -1652,8 +1661,7 @@ function renderScouting() {
   }
   if (smallSample) foot.push('muestra chica: es una pista, no una tendencia');
   if (scoutFootnoteEl) {
-    scoutFootnoteEl.hidden = false;
-    scoutFootnoteEl.textContent = foot.join(' · ');
+    scoutFootnoteEl.hidden = true;
   }
 }
 
@@ -1996,6 +2004,14 @@ function render(state) {
   applyVisibility();
 }
 
+function renderPostMatch(payload) {
+  postMatchPayload = payload && payload.report ? payload.report : payload;
+  if (postMatchEl && typeof TacticalUI === 'object') {
+    postMatchEl.innerHTML = postMatchPayload ? TacticalUI.renderPostMatch(postMatchPayload, postMatchAccess) : '';
+  }
+  applyVisibility();
+}
+
 function applyTheme(theme) {
   document.body.dataset.theme = theme || 'clasico';
 }
@@ -2025,6 +2041,9 @@ window.overlay.onConfig((config) => {
   if (Array.isArray(config.shields)) shieldSlugs = new Set(config.shields);
   if (config.civAliases) civAliases = config.civAliases;
   if (config.civGuide) civGuide = config.civGuide;
+  if (typeof TacticalUI === 'object' && TacticalUI.configure) {
+    TacticalUI.configure({ slugs: config.shields, aliases: config.civAliases });
+  }
   if (config.theme) applyTheme(config.theme);
   for (const key of Object.keys(rivalOptions)) {
     if (config[key] !== undefined) rivalOptions[key] = Boolean(config[key]);
@@ -2033,6 +2052,14 @@ window.overlay.onConfig((config) => {
   if (config.civRecommender !== undefined) civRecommenderEnabled = Boolean(config.civRecommender);
   if (config.scoutF2 !== undefined) scoutF2Enabled = Boolean(config.scoutF2);
   if (config.tgBalance !== undefined) balanceEnabled = Boolean(config.tgBalance);
+  if (config.postMatch !== undefined) postMatchEnabled = Boolean(config.postMatch);
+  if (config.product) postMatchAccess = {
+    comparison: Boolean(config.product.featureAccess.postMatchComparison && config.postMatchComparison),
+    replay: Boolean(config.product.featureAccess.postMatchReplay && config.postMatchReplay),
+    comparisonReason: config.product.featureAccess.postMatchComparison ? 'disabled' : 'pro',
+    replayReason: config.product.featureAccess.postMatchReplay ? 'disabled' : 'pro',
+  };
+  if (postMatchPayload) renderPostMatch(postMatchPayload);
   if (config.moving !== undefined) setMoving(config.moving);
   document.documentElement.style.setProperty('--scale', String(config.scale || 1));
 
@@ -2048,6 +2075,7 @@ window.overlay.onConfig((config) => {
 window.overlay.onState(render);
 window.overlay.onUpdate(showUpdateToast);
 window.overlay.onMovable(setMoving);
+if (window.overlay.onPostMatch) window.overlay.onPostMatch(renderPostMatch);
 if (window.overlay.onView) window.overlay.onView(applyView);
 // F2: el main posee el estado (el renderer se puede recargar en caliente).
 if (window.overlay.onDetail) window.overlay.onDetail((payload) => setDetail(payload && payload.detail));

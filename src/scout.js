@@ -40,6 +40,7 @@ const {
   fetchOpeningRows,
   resolveMode,
   openingShort,
+  sameMode,
   DEFAULT_TTL_MS,
   DEFAULT_FIELDS,
 } = require('./insights');
@@ -132,6 +133,7 @@ function parseScoutRows(payload) {
   const oppStrategies = col('strategy_opponent');
   const durations = col('match_duration');
   const started = col('started_time');
+  const ladders = col('ladder');
 
   const seen = new Map();
   const out = [];
@@ -159,6 +161,7 @@ function parseScoutRows(payload) {
       opponents: opponent.oppCiv || opponent.oppStrategy ? [opponent] : [],
       duration: Number.isFinite(duration) && duration > 0 ? duration : null,
       startedAt: started[i] || null,
+      ladder: ladders[i] || null,
     };
     seen.set(key, match);
     out.push(match);
@@ -198,10 +201,11 @@ function opennessLabel(value) {
 function pickScope(matches, mapName, mode) {
   const all = Array.isArray(matches) ? matches : [];
   const wanted = mapKey(mapName);
+  const onMap = wanted ? all.filter((row) => mapKey(row.map) === wanted) : [];
+  const metadata = { mapSample: onMap.length, totalSample: all.length, mapName: wanted ? mapName : null };
   if (wanted) {
-    const onMap = all.filter((row) => mapKey(row.map) === wanted);
     if (onMap.length >= MIN_SCOPE_GAMES) {
-      return { rows: onMap, scope: 'map', scopeLabel: `en ${mapName}` };
+      return { ...metadata, rows: onMap, scope: 'map', scopeLabel: `en ${mapName}`, fallbackReason: null };
     }
     // Tipo de mapa del mapa actual (si alguna fila lo declara).
     const openness = (onMap.find((row) => row.openness) || {}).openness || null;
@@ -209,15 +213,20 @@ function pickScope(matches, mapName, mode) {
       const sameKind = all.filter((row) => row.openness === openness);
       if (sameKind.length >= MIN_SCOPE_GAMES) {
         return {
+          ...metadata,
           rows: sameKind,
           scope: 'openness',
           scopeLabel: `en mapas ${opennessLabel(openness)}`,
+          fallbackReason: `Solo ${onMap.length} replays en ${mapName}; se usa el mismo tipo de mapa.`,
         };
       }
     }
   }
   const modeLabel = mode && mode.label ? mode.label : 'este modo';
-  return { rows: all, scope: 'mode', scopeLabel: `en ${modeLabel}` };
+  return { ...metadata, rows: all, scope: 'mode', scopeLabel: `en ${modeLabel}`,
+    fallbackReason: wanted
+      ? `Solo ${onMap.length} replays en ${mapName}; el análisis describe el modo, no este mapa.`
+      : 'Mapa sin confirmar; el análisis describe el modo completo.' };
 }
 
 /** % entero o null si no hay denominador. */
@@ -254,10 +263,10 @@ function weakAgainst(rows) {
 
 /**
  * Aperturas que le hacen daño al rival (strategy_opponent = lo que le jugaron).
- * Primero en el recorte; si ahí no hay muestra, en el modo completo. Cada
- * entrada declara su alcance para que el panel no mienta.
+ * Solo el recorte elegido. No se amplía la muestra de una señal aislada:
+ * mostrar una apertura de Arabia junto a consejos de Arena es engañoso.
  */
-function openingsAgainst(rows, allRows) {
+function openingsAgainst(rows) {
   const collect = (list, scope, minGames) => {
     const byOpening = new Map();
     for (const row of list) {
@@ -285,8 +294,7 @@ function openingsAgainst(rows, allRows) {
       .sort((a, b) => b.lossRate - a.lossRate || b.games - a.games)
       .slice(0, 3);
   };
-  const scoped = collect(rows, 'recorte', MIN_CIV_GAMES);
-  return scoped.length ? scoped : collect(allRows, 'modo', MIN_OPENING_GAMES);
+  return collect(rows, 'recorte', MIN_CIV_GAMES);
 }
 
 /** Cuenta agresivo / boom / híbrido sobre replays ya parseados. */
@@ -303,7 +311,7 @@ function styleDistribution(rows) {
     else hybrid += 1;
     counts.set(row.strategy, (counts.get(row.strategy) || 0) + 1);
   }
-  return { aggressive, boom, hybrid, classified: aggressive + boom, counts };
+  return { aggressive, boom, hybrid, classified: aggressive + boom + hybrid, counts };
 }
 
 /**
@@ -314,20 +322,18 @@ function styleDistribution(rows) {
  * sugiere una certeza que los datos no tienen. La distribución responde a la
  * decisión real antes del minuto 1: walling + counter preventivo, o eco.
  *
- * Se usa el recorte (mapa -> tipo de mapa -> modo) si tiene muestra y, si no,
- * el modo completo; `scope` viaja al panel para que nunca se disfrace de dato
- * del mapa. Agrupar mapas distintos miente: Arena no se juega como Arabia.
+ * Se usa exclusivamente el recorte compartido (mapa -> tipo de mapa -> modo).
+ * Si ese recorte no alcanza para esta señal, no se publica estilo. No se
+ * reemplaza silenciosamente por partidas de otros mapas.
  */
-function styleProfile(scopedRows, allRows) {
-  let dist = styleDistribution(scopedRows);
-  let scope = 'recorte';
-  if (dist.classified < MIN_STYLE_GAMES) {
-    dist = styleDistribution(allRows);
-    scope = 'modo';
-  }
+function styleProfile(scopedRows) {
+  const dist = styleDistribution(scopedRows);
+  const scope = 'recorte';
   if (dist.classified < MIN_STYLE_GAMES) return null;
-  const leading = dist.aggressive >= dist.boom ? 'agresivo' : 'boom';
-  const part = leading === 'agresivo' ? dist.aggressive : dist.boom;
+  const ranking = [['agresivo', dist.aggressive], ['boom', dist.boom], ['hibrido', dist.hybrid]]
+    .sort((a, b) => b[1] - a[1]);
+  const leading = ranking[0][0];
+  const part = ranking[0][1];
   const share = pct(part, dist.classified);
   const mixed = share == null || share < STYLE_MIN_DOMINANCE;
   const top = mixed ? null : [...dist.counts.entries()]
@@ -341,15 +347,16 @@ function styleProfile(scopedRows, allRows) {
     hybrid: dist.hybrid,
     aggressiveShare: pct(dist.aggressive, dist.classified),
     dominant: mixed ? 'mixto' : leading,
+    label: mixed ? 'Mixto' : { agresivo: 'Presión temprana', boom: 'Castillos rápido', hibrido: 'Drush + Castillos' }[leading],
     share: mixed ? null : share,
     top: top ? { name: top[0], short: openingShort(top[0]) || top[0], games: top[1] } : null,
   };
 }
 
 /**
- * Perfil de ritmo sobre TODAS las partidas del modo (muestra máxima):
- * winrate en partidas cortas vs largas. Sirve para el consejo "cerralo
- * temprano" / "alargá la partida", siempre con los números al lado.
+ * Resultado histórico según duración, dentro del recorte elegido por quien
+ * llama. La duración final no identifica por sí sola una debilidad de early
+ * o late game ni prueba que alargar o acortar una partida cause una victoria.
  */
 function tempoProfile(allRows) {
   const timed = allRows.filter((row) => row.duration != null && typeof row.won === 'boolean');
@@ -369,23 +376,133 @@ function tempoProfile(allRows) {
   };
 }
 
+/** Calidad de muestra, nunca probabilidad de que una predicción se cumpla. */
+function sampleConfidence(sample) {
+  if (sample < MIN_SCOPE_GAMES) return 'insuficiente';
+  if (sample < 20) return 'limitada';
+  if (sample < 50) return 'media';
+  return 'alta';
+}
+
+/** Frecuencias observadas, con denominador de filas que contienen el dato. */
+function historicalChoices(rows, field) {
+  const known = (Array.isArray(rows) ? rows : []).filter((row) =>
+    field === 'strategy' ? validStrategy(row[field]) : validCiv(row[field]));
+  const counts = new Map();
+  for (const row of known) counts.set(row[field], (counts.get(row[field]) || 0) + 1);
+  return [...counts.entries()].map(([name, games]) => ({
+    name, games, sample: known.length, share: pct(games, known.length),
+    short: field === 'strategy' ? openingShort(name) || name : name,
+    kind: 'historical-frequency',
+  })).sort((a, b) => b.games - a.games || a.name.localeCompare(b.name)).slice(0, 3);
+}
+
+const OPENING_ACTIONS = {
+  'Scout rush': { title: 'Confirmá el establo y cubrí tus accesos',
+    response: 'Si ves caballería, protegé los recursos expuestos con lanzas y cierres cortos.' },
+  'Archer rush': { title: 'Revisá el rango y protegé tus maderas',
+    response: 'Si confirma arqueros, prepará una respuesta a distancia antes de que junte masa.' },
+  'Man at arms rush': { title: 'Buscá su infantería y cerrá los recursos',
+    response: 'Confirmá la salida de infantería y evitá que entre gratis a tu economía.' },
+  Drush: { title: 'Revisá la salida de milicias',
+    response: 'Protegé los recursos expuestos y confirmá su transición antes de invertir de más en defensa.' },
+  'Drush fast castle': { title: 'Vigilá la transición después del drush',
+    response: 'Su presión inicial puede acompañar una subida a Castillos; confirmá si continúa produciendo ejército.' },
+  'Fast castle': { title: 'Confirmá si prioriza la subida a Castillos',
+    response: 'Revisá su producción militar antes de comprometerte a presión o economía. FC por sí solo no confirma boom.' },
+};
+
+/**
+ * El plan comparte exactamente el recorte de las estadísticas visibles.
+ * La asociación histórica sirve para preparar una decisión condicional;
+ * no demuestra la causa de una derrota ni predice el próximo pick.
+ * Referencias de juego: ageofempires.com/learn-to-play/military-and-economy-aoe2/
+ * y forgottenempires.net/strategy/age-of-empires-ii-strategy-center/feudal-rushing
+ */
+function buildTacticalPlan(tip) {
+  const context = tip.context || null;
+  const actions = [];
+  const evidence = (label, part, total, scopeLabel, source = SOURCE) => ({
+    label, part, total, value: `${part}/${total}`, scopeLabel, source,
+  });
+  const add = (action, sample) => actions.push({ ...action,
+    scope: context && context.scope, scopeLabel: context && context.scopeLabel,
+    sample, confidence: sampleConfidence(sample),
+  });
+  if (context && context.sample >= MIN_SCOPE_GAMES) {
+    const opening = (tip.likelyOpenings || [])[0];
+    if (opening && opening.games >= 4 && opening.sample >= MIN_STYLE_GAMES && opening.share >= 45) {
+      const response = OPENING_ACTIONS[opening.name];
+      if (response) add({ id: 'prepare-opening', icon: 'scout', title: response.title,
+        reason: `${opening.short} aparece en ${opening.games} de ${opening.sample} aperturas conocidas ${context.scopeLabel}. ${response.response}`,
+        evidence: [evidence(`Abrió ${opening.short}`, opening.games, opening.sample, context.scopeLabel)],
+      }, opening.sample);
+    }
+    const best = (tip.recommend || []).find((entry) => entry.basis === 'combined' &&
+      entry.mine.games >= 5 && entry.vsRival.games >= 5);
+    if (best) add({ id: 'civ-fit', icon: 'civ', title: `Considerá ${best.civ} dentro de tu repertorio`,
+      reason: `Coinciden tu experiencia y sus resultados históricos contra esa civ. El cruce orienta la elección; no estima tu probabilidad de ganar.`,
+      evidence: best.evidence || [], civ: best.civ,
+    }, Math.min(best.mine.games, best.vsRival.games));
+    const weak = (tip.openingsAgainst || []).find((entry) => entry.games >= 8 && entry.lossRate >= 60);
+    if (weak) add({ id: 'pressure-window', icon: 'swords', title: `Evaluá ${weak.short} si encaja con tu plan`,
+      reason: `${context.teamGame ? 'Su equipo perdió' : 'Perdió'} ${weak.losses} de ${weak.games} partidas enfrentando ${weak.short} ${context.scopeLabel}. Es una asociación del historial, no una garantía de counter.`,
+      evidence: [evidence(context.teamGame ? `Derrotas de equipo ante ${weak.short}` : `Derrotas ante ${weak.short}`,
+        weak.losses, weak.games, context.scopeLabel)],
+    }, weak.games);
+  }
+  return {
+    context, actions: actions.slice(0, 3), coverage: tip.coverage || null,
+    recommendation: (tip.recommend || [])[0] || null,
+    emptyReason: actions.length ? null : context && context.sample < MIN_SCOPE_GAMES
+      ? 'Muestra insuficiente para sugerir un plan contra este rival.'
+      : 'No aparece una señal suficientemente clara en este recorte; confirmá su plan explorando.',
+    caveat: context && context.teamGame
+      ? 'Resultados de equipo: no atribuyen la derrota individualmente a una civ o apertura.'
+      : 'Frecuencias y asociaciones históricas; confirmá la partida con exploración.',
+  };
+}
+
 /** Recorte completo de un rival a partir de sus partidas ya parseadas. */
 function computeTips(matches, options = {}) {
   const { mapName = null, mode = null } = options;
-  const scoped = pickScope(matches, mapName, mode);
+  // Las filas antiguas en caché no incluían ladder. Se conoce su modo por la
+  // clave. Cuando sí está presente, la comprobación evita mezclar RM y EW.
+  const modeRows = (Array.isArray(matches) ? matches : [])
+    .filter((row) => !mode || !row.ladder || sameMode(row.ladder, mode));
+  const scoped = pickScope(modeRows, mapName, mode);
   const results = scoped.rows.filter((row) => typeof row.won === 'boolean');
   const wins = results.filter((row) => row.won).length;
-  return {
+  const context = {
+    scope: scoped.scope, scopeLabel: scoped.scopeLabel, mapName: scoped.mapName,
+    modeLabel: mode && mode.label || null, sample: scoped.rows.length,
+    resultGames: results.length, mapSample: scoped.mapSample,
+    totalSample: modeRows.length, fallbackReason: scoped.fallbackReason,
+    confidence: sampleConfidence(scoped.rows.length), teamGame: Boolean(mode && mode.size === 'team'),
+  };
+  const result = {
     scope: scoped.scope,
     scopeLabel: scoped.scopeLabel,
     sample: scoped.rows.length,
+    resultGames: results.length,
     wins,
     winRate: pct(wins, results.length),
     weakAgainst: weakAgainst(scoped.rows),
-    openingsAgainst: openingsAgainst(scoped.rows, matches),
-    style: styleProfile(scoped.rows, matches),
-    tempo: tempoProfile(matches),
+    openingsAgainst: openingsAgainst(scoped.rows),
+    style: styleProfile(scoped.rows),
+    tempo: tempoProfile(scoped.rows),
+    likelyCivs: historicalChoices(scoped.rows, 'civ'),
+    likelyOpenings: historicalChoices(scoped.rows, 'strategy'),
+    context,
+    coverage: {
+      total: modeRows.length, scoped: scoped.rows.length, results: results.length,
+      withOpening: scoped.rows.filter((row) => validStrategy(row.strategy)).length,
+      withCiv: scoped.rows.filter((row) => validCiv(row.civ)).length,
+      discardedOtherModes: (Array.isArray(matches) ? matches.length : 0) - modeRows.length,
+    },
   };
+  result.tacticalPlan = buildTacticalPlan(result);
+  return result;
 }
 
 function emptyTips(profileId, name, now, options = {}) {
@@ -410,6 +527,10 @@ function emptyTips(profileId, name, now, options = {}) {
     tempo: null,
     recommend: null,
     recommendError: null,
+    context: null,
+    tacticalPlan: null,
+    likelyCivs: [],
+    likelyOpenings: [],
     fetchedAt: now,
     fromCache: false,
   };
@@ -531,7 +652,13 @@ async function buildScoutTips(options = {}) {
         if (mine.error) throw new Error(mine.error);
         result.recommend = buildCivRecommendation({
           weakAgainst: tips.weakAgainst,
-          myCivs: computeMyMapCivs(mine.rows, mapName),
+          myCivs: computeMyMapCivs(mine.rows, mapName, {
+            allowModeFallback: tips.scope !== 'map', modeLabel: resolved.label,
+            scope: tips.scope === 'mode' ? 'mode' : null,
+          }),
+          rivalContext: tips.context,
+          mapName,
+          modeLabel: resolved.label,
         });
       } catch (err) {
         result.recommendError = err.message;
@@ -541,6 +668,8 @@ async function buildScoutTips(options = {}) {
       result.recommendError = 'sin historial propio';
     }
   }
+
+  result.tacticalPlan = buildTacticalPlan(result);
 
   log(
     `scout #${id} [${resolved.label}]: ${rows.length} partidas · recorte ${result.scopeLabel} ` +
@@ -605,6 +734,9 @@ module.exports = {
   parseScoutRows,
   pickScope,
   computeTips,
+  sampleConfidence,
+  historicalChoices,
+  buildTacticalPlan,
   weakAgainst,
   openingsAgainst,
   STYLE_KINDS,

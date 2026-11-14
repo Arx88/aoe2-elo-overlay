@@ -62,6 +62,29 @@ const tgBalanceInput = el('tgBalance');
 // fábrica: sin permiso explícito no se captura una tecla global y el
 // informe se ve completo.
 const scoutF2Input = el('scoutF2');
+const postMatchInput = el('postMatch');
+const postMatchComparisonInput = el('postMatchComparison');
+const postMatchReplayInput = el('postMatchReplay');
+const postMatchReportEl = el('postMatchReport');
+const refreshPostMatchBtn = el('refreshPostMatch');
+const importTelemetryBtn = el('importTelemetry');
+const telemetryImportStatus = el('telemetryImportStatus');
+const railPlanLabel = el('railPlanLabel');
+const planName = el('planName');
+const planDescription = el('planDescription');
+const planExpiry = el('planExpiry');
+const freeFeatures = el('freeFeatures');
+const proFeatures = el('proFeatures');
+const commerceTitle = el('commerceTitle');
+const commerceStatus = el('commerceStatus');
+const accountCommerce = el('accountCommerce');
+const checkoutCommerce = el('checkoutCommerce');
+const licenseForm = el('licenseForm');
+const licenseAccount = el('licenseAccount');
+const licenseToken = el('licenseToken');
+const licenseStatus = el('licenseStatus');
+const activateLicenseBtn = el('activateLicense');
+const pageIndex = el('pageIndex');
 const themeButtons = [...document.querySelectorAll('.theme')];
 const navButtons = [...document.querySelectorAll('.nav-item')];
 const pageSections = [...document.querySelectorAll('.page')];
@@ -84,6 +107,9 @@ let moving = false;
 let positionCustom = false;
 let matchStartedAt = null;
 let currentProfileId = null;
+let currentProduct = null;
+let postMatchAccess = { comparison: false, replay: false };
+let postMatchBusy = false;
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -129,6 +155,90 @@ function paintOpacity(value) {
   const percent = Math.round(value * 100);
   opacityValue.textContent = `${percent}%`;
   opacityInput.style.setProperty('--fill', `${percent}%`);
+}
+
+/* ---------- plan y postmatch ---------- */
+function renderFeatureList(target, features) {
+  if (!target) return;
+  target.replaceChildren();
+  for (const feature of features) {
+    const item = document.createElement('li');
+    if (!feature.allowed) item.classList.add('locked');
+    const name = document.createElement('b');
+    name.textContent = feature.title;
+    const description = document.createElement('span');
+    description.className = 'feature-desc';
+    description.textContent = feature.description;
+    item.append(name, description);
+    target.append(item);
+  }
+}
+
+function renderProduct(product) {
+  if (!product) return;
+  currentProduct = product;
+  const features = Array.isArray(product.features) ? product.features : [];
+  const proAccess = Boolean(product.featureAccess && product.featureAccess.postMatchComparison);
+  const replayAccess = Boolean(product.featureAccess && product.featureAccess.postMatchReplay);
+
+  railPlanLabel.textContent = product.label || 'Free';
+  planName.textContent = product.label || 'Free';
+  if (product.plan === 'pro') {
+    planDescription.textContent = 'Suscripción verificada. Incluye las funciones de análisis avanzado.';
+  } else if (product.plan === 'beta') {
+    planDescription.textContent = 'Acceso beta explícito de esta versión. No es una suscripción activa.';
+  } else {
+    planDescription.textContent = 'Las funciones esenciales para conocer la partida y a sus jugadores.';
+  }
+  if (product.subscriptionVerified && product.entitlement && product.entitlement.expiresAt) {
+    const expires = new Date(product.entitlement.expiresAt);
+    planExpiry.textContent = `Vence el ${expires.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  } else if (product.plan === 'beta') {
+    planExpiry.textContent = 'Acceso beta · sin suscripción verificada';
+  } else {
+    planExpiry.textContent = 'Sin suscripción verificada';
+  }
+
+  renderFeatureList(freeFeatures, features.filter((feature) => feature.plan === 'free'));
+  renderFeatureList(proFeatures, features.filter((feature) => feature.plan === 'pro'));
+
+  postMatchInput.disabled = false;
+  postMatchComparisonInput.disabled = !proAccess;
+  postMatchReplayInput.disabled = !replayAccess;
+  postMatchComparisonInput.title = proAccess ? '' : 'Disponible con Pro.';
+  postMatchReplayInput.title = replayAccess ? '' : 'Disponible con Pro.';
+
+  const commerce = product.commerce || {};
+  commerceStatus.textContent = commerce.message || 'La contratación todavía no está habilitada.';
+  commerceTitle.textContent = 'Suscripciones';
+  accountCommerce.disabled = !(commerce.account && commerce.account.enabled);
+  checkoutCommerce.disabled = !(commerce.checkout && commerce.checkout.enabled);
+}
+
+const EMPTY_POSTMATCH = '<div class="empty-report"><svg aria-hidden="true"><use href="#ic-chart" /></svg><h3>Tu próxima partida marca el comienzo.</h3><p>Al terminar, el informe aparecerá acá y en el overlay.</p></div>';
+
+function paintPostMatch(payload) {
+  const report = payload && payload.report ? payload.report : payload;
+  if (payload && payload.access) postMatchAccess = payload.access;
+  if (payload && payload.product) renderProduct(payload.product);
+  if (!postMatchReportEl) return;
+  if (!report) {
+    postMatchReportEl.innerHTML = EMPTY_POSTMATCH;
+    return;
+  }
+  if (typeof TacticalUI !== 'object') {
+    postMatchReportEl.textContent = 'No se pudo dibujar el informe.';
+    return;
+  }
+  postMatchReportEl.innerHTML = TacticalUI.renderPostMatch(report, postMatchAccess);
+}
+
+async function loadPostMatch() {
+  try {
+    paintPostMatch(await window.settings.postmatchGet());
+  } catch {
+    postMatchReportEl.innerHTML = EMPTY_POSTMATCH;
+  }
 }
 
 /* ---------- diseño ---------- */
@@ -304,6 +414,95 @@ scoutF2Input.addEventListener('change', () =>
   applyToggle(scoutF2Input, (on) => window.settings.scoutF2(on), 'Resumen con F2'),
 );
 
+// Postmatch: resultado Free; comparación y replay se validan en main.
+for (const [key, input, label] of [
+  ['postMatch', postMatchInput, 'Resumen postmatch'],
+  ['postMatchComparison', postMatchComparisonInput, 'Comparar mi evolución'],
+  ['postMatchReplay', postMatchReplayInput, 'Calificación por etapa y APM'],
+]) {
+  input.addEventListener('change', () =>
+    applyToggle(input, (on) => window.settings.postMatchOption(key, on), label),
+  );
+}
+
+refreshPostMatchBtn.addEventListener('click', async () => {
+  if (postMatchBusy) return;
+  postMatchBusy = true;
+  refreshPostMatchBtn.disabled = true;
+  try {
+    const response = await window.settings.postmatchRefresh();
+    if (!response.ok) {
+      setStatus(response.error || 'No se pudo actualizar el informe', true);
+      return;
+    }
+    paintPostMatch(response);
+    setStatus('Informe postmatch actualizado.');
+  } finally {
+    postMatchBusy = false;
+    refreshPostMatchBtn.disabled = false;
+  }
+});
+
+importTelemetryBtn.addEventListener('click', async () => {
+  if (postMatchBusy) return;
+  postMatchBusy = true;
+  importTelemetryBtn.disabled = true;
+  telemetryImportStatus.textContent = 'Abriendo el informe…';
+  telemetryImportStatus.classList.remove('error');
+  try {
+    const response = await window.settings.importTelemetry();
+    if (response.canceled) {
+      telemetryImportStatus.textContent = '';
+      return;
+    }
+    if (!response.ok) {
+      telemetryImportStatus.textContent = response.error || 'No se pudo importar el informe.';
+      telemetryImportStatus.classList.add('error');
+      return;
+    }
+    paintPostMatch(response);
+    telemetryImportStatus.textContent = 'Telemetría validada y asociada a la partida.';
+    setStatus('Datos del replay importados.');
+  } finally {
+    postMatchBusy = false;
+    importTelemetryBtn.disabled = false;
+  }
+});
+
+window.settings.onPostMatch((payload) => paintPostMatch(payload));
+
+accountCommerce.addEventListener('click', async () => {
+  const response = await window.settings.openCommerce('account');
+  if (!response.ok) setStatus(response.error || 'No se pudo abrir la gestión de cuenta', true);
+});
+
+checkoutCommerce.addEventListener('click', async () => {
+  const response = await window.settings.openCommerce('checkout');
+  if (!response.ok) setStatus(response.error || 'No se pudo abrir la contratación', true);
+});
+
+licenseForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  activateLicenseBtn.disabled = true;
+  licenseStatus.textContent = 'Verificando credencial…';
+  licenseStatus.classList.remove('error');
+  try {
+    const response = await window.settings.activateLicense(licenseAccount.value, licenseToken.value);
+    if (!response.ok) {
+      licenseStatus.textContent = response.error || 'No se pudo verificar la credencial.';
+      licenseStatus.classList.add('error');
+      if (response.product) renderProduct(response.product);
+      return;
+    }
+    licenseToken.value = '';
+    licenseStatus.textContent = 'Acceso Pro verificado.';
+    if (response.product) renderProduct(response.product);
+    await loadCurrent();
+  } finally {
+    activateLicenseBtn.disabled = false;
+  }
+});
+
 // Pestaña Updater: consulta cada 30 min y aplica sola lo que encuentra.
 autoUpdateInput.addEventListener('change', () =>
   applyToggle(
@@ -359,6 +558,14 @@ async function loadCurrent() {
   for (const [key, input] of Object.entries(rivalInputs)) input.checked = Boolean(info[key]);
   scoutF2Input.checked = Boolean(info.scoutF2);
   tgBalanceInput.checked = Boolean(info.tgBalance);
+  postMatchInput.checked = info.postMatch !== false;
+  postMatchComparisonInput.checked = Boolean(info.postMatchComparison);
+  postMatchReplayInput.checked = Boolean(info.postMatchReplay);
+  if (typeof TacticalUI === 'object' && TacticalUI.configure) {
+    TacticalUI.configure({ slugs: info.shields, aliases: info.civAliases });
+  }
+  if (info.product) renderProduct(info.product);
+  await loadPostMatch();
   autoUpdateInput.checked = Boolean(info.autoUpdate);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt
@@ -570,12 +777,14 @@ document.addEventListener('keydown', (event) => {
 /* ============================================================
    Navegación del wizard: solo el rail, sin botones de pie.
    ============================================================ */
-const PAGE_ORDER = ['player', 'overlay', 'skins', 'updater'];
+const PAGE_ORDER = ['player', 'overlay', 'postmatch', 'skins', 'plans', 'updater'];
 const PAGE_META = {
-  player: { title: 'Player Detection', sub: 'Tu cuenta en el juego y cómo cambiarla.' },
-  overlay: { title: 'Overlay', sub: 'Qué se ve en COLA y al entrar a la partida.' },
-  skins: { title: 'Skins', sub: 'Cómo se ve el panel sobre el juego.' },
-  updater: { title: 'Updater', sub: 'Mantené la app al día.' },
+  player: { index: '01 / CUENTA', title: 'Tu punto de partida.', sub: 'Tu cuenta en el juego y cómo cambiarla.' },
+  overlay: { index: '02 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida.' },
+  postmatch: { index: '03 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'El resultado y tu evolución cuando termina.' },
+  skins: { index: '04 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
+  plans: { index: '05 / PLAN Y ACCESO', title: 'Elegí cuánto ver.', sub: 'Free para competir; Pro para preparar y evolucionar.' },
+  updater: { index: '06 / ACTUALIZACIONES', title: 'Mantené la app al día.', sub: 'Actualizaciones seguras, también en plena temporada.' },
 };
 
 let activePage = 'player';
@@ -587,6 +796,8 @@ function goTo(page) {
   for (const section of pageSections) section.classList.toggle('active', section.dataset.page === page);
   pageTitle.textContent = PAGE_META[page].title;
   pageSub.textContent = PAGE_META[page].sub;
+  pageIndex.textContent = PAGE_META[page].index;
+  if (page === 'postmatch') loadPostMatch();
   if (pagesEl) pagesEl.scrollTop = 0;
 }
 
