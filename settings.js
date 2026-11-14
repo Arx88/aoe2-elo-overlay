@@ -58,6 +58,10 @@ const RIVAL_LABELS = {
   civRecommender: 'Civ recomendada',
 };
 const tgBalanceInput = el('tgBalance');
+// "Resumen con F2": vista resumida del scouting con su atajo. Apagada de
+// fábrica: sin permiso explícito no se captura una tecla global y el
+// informe se ve completo.
+const scoutF2Input = el('scoutF2');
 const themeButtons = [...document.querySelectorAll('.theme')];
 const navButtons = [...document.querySelectorAll('.nav-item')];
 const pageSections = [...document.querySelectorAll('.page')];
@@ -294,6 +298,12 @@ tgBalanceInput.addEventListener('change', () =>
   applyToggle(tgBalanceInput, (on) => window.settings.tgBalance(on), 'Balance de equipos'),
 );
 
+// Resumen con F2: el atajo y la vista compacta son opt-in. Al apagarlo se
+// libera la tecla (deja de ser global) y el panel vuelve al informe completo.
+scoutF2Input.addEventListener('change', () =>
+  applyToggle(scoutF2Input, (on) => window.settings.scoutF2(on), 'Resumen con F2'),
+);
+
 // Pestaña Updater: consulta cada 30 min y aplica sola lo que encuentra.
 autoUpdateInput.addEventListener('change', () =>
   applyToggle(
@@ -347,6 +357,7 @@ async function loadCurrent() {
   hideEloInput.checked = Boolean(info.hideEloAt20);
   paintHideAt(Number(info.hideAtSeconds) || 20);
   for (const [key, input] of Object.entries(rivalInputs)) input.checked = Boolean(info[key]);
+  scoutF2Input.checked = Boolean(info.scoutF2);
   tgBalanceInput.checked = Boolean(info.tgBalance);
   autoUpdateInput.checked = Boolean(info.autoUpdate);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0

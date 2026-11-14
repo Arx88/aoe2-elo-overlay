@@ -37,14 +37,17 @@ const {
   nextIntroTick,
 } = require('./src/intro');
 const { LobbyWatcher, QueueWatcher, FastLane } = require('./src/live');
-const { buildRivalInsights, opponentsOf, resolveMode, mapKey } = require('./src/rival');
-const { buildScoutTips } = require('./src/scout');
+const { buildRivalInsights, opponentsOf, needsRivalHistory, mergeRivalReport, resolveMode, mapKey } = require('./src/rival');
+const { progressiveScout } = require('./src/scout');
 const { fetchMyHistory, computeH2H } = require('./src/mine');
 const { initAutoUpdate } = require('./src/updater');
+const { ReplayCache } = require('./src/replay-cache');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
 // van a %APPDATA%\AoE2 ELO Overlay\. En desarrollo quedan junto al código.
-const DATA_DIR = app.isPackaged ? path.join(app.getPath('appData'), 'AoE2 ELO Overlay') : __dirname;
+const ISOLATED = process.argv.includes('--isolated');
+const DATA_DIR = ISOLATED ? path.join(app.getPath('temp'), 'aoe2-elo-overlay-dev')
+  : app.isPackaged ? path.join(app.getPath('appData'), 'AoE2 ELO Overlay') : __dirname;
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const LOG_PATH = path.join(DATA_DIR, 'overlay.log');
 // Emblema dorado (recortado y normalizado por tools/make-icon.py) es el icono oficial:
@@ -91,6 +94,11 @@ const DEFAULT_CONFIG = {
   // Civ recomendada contra este rival: su debilidad × tu winrate con cada
   // civ en el mapa. Solo pre-partida, como smartTips.
   civRecommender: false,
+  // "Resumen con F2": APAGADA de fábrica. Sin esto el informe del rival se
+  // muestra COMPLETO y la tecla F2 queda libre para el resto del sistema.
+  // Al activarla, el panel arranca en resumen y F2 alterna (atajo global:
+  // captura la tecla en todo Windows mientras el overlay corre).
+  scoutF2: false,
   // Balance de equipos: promedio de ELO RM 1v1 por equipo en team games.
   tgBalance: false,
   // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
@@ -172,7 +180,6 @@ const EXAMPLE_CYCLE = ARGV.includes('--example-cycle');
 // sigue abierto. requestSingleInstanceLock() comparte el userData, así que sin
 // esto un demo en desarrollo choca con el .exe instalado/portable en uso.
 // Es solo una herramienta de desarrollo: no cambia config.json ni el log.
-const ISOLATED = ARGV.includes('--isolated');
 if (ISOLATED) {
   app.setPath('userData', path.join(app.getPath('temp'), 'aoe2-elo-overlay-dev'));
 }
@@ -311,6 +318,9 @@ if (RIVAL_DEMO) {
   config.rivalH2H = true;
   config.civRecommender = true;
   config.tgBalance = true;
+  // El resumen compacto también es parte del demo (con F2 para alternar):
+  // así las capturas muestran la vista por defecto de la opción encendida.
+  config.scoutF2 = true;
 }
 
 let win = null;
@@ -339,6 +349,8 @@ let moving = false;
 // F2: compacto (una tarjeta de scouting por rival) <-> detalle completo.
 // Vive en el main: si el renderer se recarga, se le reenvía en overlay:ready.
 let detailMode = DETAIL_DEMO;
+// El atajo F2 solo existe si el usuario lo pidió (opción "Resumen con F2").
+let f2Registered = false;
 let moveSaveTimer = null;
 let liveWatcher = null; // salas personalizadas (handler=lobbies)
 let queueWatcher = null; // matchmaking ranked (handler=queueing) ← el importante
@@ -435,7 +447,7 @@ function clockNow() {
 
 const EXAMPLE_CLOCK_OFFSETS = { 3: 3000, 21: 21000, live: 3000 };
 
-const statsCache = new Map();
+const statsCache = new ReplayCache(path.join(DATA_DIR, 'replay-cache.json'), (...args) => log(...args));
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -511,6 +523,8 @@ function overlayConfig() {
     smartTips: Boolean(view.smartTips),
     rivalH2H: Boolean(view.rivalH2H),
     civRecommender: Boolean(view.civRecommender),
+    // Vista resumida de scouting con F2 (opción "Resumen con F2").
+    scoutF2: Boolean(view.scoutF2),
     tgBalance: Boolean(view.tgBalance),
     example: Boolean(exampleActive && exampleInfo),
     moving,
@@ -762,10 +776,9 @@ function scheduleRivalRetry(reports, rivals) {
   const missing = rivals.some((rival) => {
     const report = reports.find((item) => Number(item.profileId) === Number(rival.profileId));
     if (!report) reason = `sin informe de ${rival.name}`;
+    else if (report.modeUnavailable) return false;
     else if (report.error) reason = `error de ${rival.name}: ${report.error}`;
-    else if (!Array.isArray(report.history) || !report.history.length) {
-      reason = `sin historial de ${rival.name}`;
-    }
+    // Un historial vacío sin error es un resultado válido, no un fallo de red.
     return Boolean(reason);
   });
   if (!missing) return;
@@ -813,19 +826,25 @@ async function refreshRivalReports(state, options = {}) {
     return;
   }
 
+  if (!needsRivalHistory(view)) {
+    // Solo H2H: el historial necesario es el propio, no el del rival.
+    sendRival({ ts: Date.now(), pendingOpenings: false, reports: rivals.map((rival) => ({
+      profileId: rival.profileId, name: rival.name, civ: rival.civ,
+    })) });
+    return;
+  }
+
   rivalFetching = true;
   const startedAt = Date.now();
-  const reports = [];
-  const publish = (report, pendingOpenings, partial) => {
-    const index = reports.findIndex((item) => item.profileId === report.profileId);
-    if (index >= 0) reports[index] = report;
-    else reports.push(report);
-    sendRival({
-      ts: Date.now(),
-      pendingOpenings,
-      partial,
-      reports: reports.map((item) => ({ ...item })),
-    });
+  let reports = rivals.map((rival) => ({ profileId: rival.profileId, name: rival.name, civ: rival.civ, loading: true }));
+  const publish = (report) => {
+    // Una respuesta tardía no puede publicar datos de una sala anterior,
+    // un mapa anterior ni de una combinación de opciones ya modificada.
+    if (!lastGood || lastGood.status !== 'ongoing' || !rivalOptionsOn() ||
+        rivalSignature(lastGood, opponentsOf(lastGood, RIVAL_LIMIT)) !== sig) return;
+    const updated = mergeRivalReport(reports, report, view.rivalOpenings);
+    reports = updated.reports;
+    sendRival({ ts: Date.now(), ...updated });
   };
 
   try {
@@ -834,12 +853,7 @@ async function refreshRivalReports(state, options = {}) {
       ts: Date.now(),
       pendingOpenings: Boolean(view.rivalOpenings),
       partial: true,
-      reports: rivals.map((rival) => ({
-        profileId: rival.profileId,
-        name: rival.name,
-        civ: rival.civ,
-        loading: true,
-      })),
+      reports: reports.map((item) => ({ ...item })),
     });
 
     const leaderboardId = leaderboardOf(state);
@@ -849,7 +863,6 @@ async function refreshRivalReports(state, options = {}) {
     // En PARALELO: en TG dos informes en serie tardaban 30-40 s y la partida
     // arrancaba antes de que llegara el segundo (la pre-partida se iba sin
     // datos). Cada uno publica su parte apenas la tiene.
-    let pendingCount = rivals.length;
     await Promise.all(rivals.map(async (rival) => {
       const decorated = (data) => ({ ...data, name: rival.name, civ: rival.civ });
       try {
@@ -864,7 +877,7 @@ async function refreshRivalReports(state, options = {}) {
           cacheTtlMs: Number(config.statsCacheMinutes || 15) * 60 * 1000,
           includeOpenings: Boolean(view.rivalOpenings),
           // AoE2Insights contesta 202 y tarda ~9s: las civs se pintan YA.
-          onPartial: (partial) => publish(decorated(partial), true, true),
+          onPartial: (partial) => publish(decorated({ ...partial, openingsPending: Boolean(view.rivalOpenings) })),
           // Con el historial completo las aperturas pueden tardar ~20 s en
           // frío. El informe ya se publicó sin ellas; cuando llegan, se
           // repinta SOLO esa tarjeta (mismo `publish`, por profileId).
@@ -874,27 +887,24 @@ async function refreshRivalReports(state, options = {}) {
                 `${full.openings ? full.openings.analyzed : 0} replays al ` +
                 `${Date.now() - startedAt}ms`,
             );
-            publish(decorated({ ...full, openingsPending: false }), false, false);
+            publish(decorated({ ...full, openingsPending: false }));
           },
           log,
         });
-        pendingCount -= 1;
-        publish(
-          decorated(report),
-          (pendingCount > 0 || report.openingsPending) && Boolean(view.rivalOpenings),
-          pendingCount > 0,
-        );
+        publish(decorated(report));
         log(
           `informe del rival ${rival.name} (#${rival.profileId}) listo en ` +
             `${Date.now() - startedAt}ms · ${report.history.length} civs` +
             `${report.mode ? ` en ${report.mode.label}` : ''} · ` +
             `${report.mapStats ? `${report.mapStats.name}: ${report.mapStats.civ ? report.mapStats.civ.name : 'sin civ'}` : 'sin mapa'} · ` +
-            `${report.openings ? report.openings.analyzed : 0} aperturas reales`,
+            `${report.openings ? Number(report.openings.analyzed) || 0 : 0} aperturas reales`,
         );
       } catch (err) {
         // Un rival que falla no puede dejar la barra trabada ni silenciar al otro.
-        pendingCount -= 1;
         log(`no pude armar el informe de ${rival.name}: ${err.message}`);
+        publish(decorated({ profileId: rival.profileId, history: [], loading: false,
+          error: `historial: ${err.message} · stats: ${err.message}`,
+          openingError: err.message, openingsPending: false }));
       }
     }));
   } catch (err) {
@@ -1112,6 +1122,7 @@ async function refreshScoutTips(state, options = {}) {
         profileId: rival.profileId,
         name: rival.name,
         modeUnavailable: true,
+        modePending: leaderboardOf(state) == null,
       })),
     });
     return;
@@ -1121,12 +1132,18 @@ async function refreshScoutTips(state, options = {}) {
   const startedAt = Date.now();
   // Un hueco por rival: en TG se consultan en paralelo y cada uno publica su
   // consejo apenas está, sin esperar al anterior.
-  const tips = new Array(rivals.length).fill(null);
+  const tips = rivals.map((rival) => ({ profileId: rival.profileId, name: rival.name, loading: true }));
   const publish = () => {
+    const current = lastGood;
+    const currentMode = resolveMode(leaderboardOf(current));
+    const currentSig = `${(current && current.match && current.match.matchId) || 'sin-id'}:${mapKey(current && current.match && current.match.mapName)}:${currentMode ? currentMode.id : 'sin-modo'}:${opponentsOf(current, RIVAL_LIMIT).map((rival) => rival.profileId).join(',')}`;
+    const currentView = viewConfig();
+    if (!current || current.status !== 'ongoing' || currentSig !== sig ||
+        (!currentView.smartTips && !currentView.civRecommender)) return;
     const ready = tips.filter(Boolean);
     sendScout({
       ts: Date.now(),
-      pending: ready.length < rivals.length,
+      pending: ready.some((item) => item.loading || item.provisional),
       tips: ready.map((item) => ({ ...item })),
     });
   };
@@ -1139,7 +1156,7 @@ async function refreshScoutTips(state, options = {}) {
     await Promise.all(rivals.map(async (rival, index) => {
       let tip;
       try {
-        tip = await buildScoutTips({
+        const scoutOptions = {
         profileId: rival.profileId,
         name: rival.name,
         mode,
@@ -1161,6 +1178,12 @@ async function refreshScoutTips(state, options = {}) {
             })
           : null,
           log,
+        };
+        // Primera lectura pequeña y análisis completo en paralelo. Nunca se
+        // reemplaza el análisis completo con una respuesta corta tardía.
+        tip = await progressiveScout(scoutOptions, (initial) => {
+          tips[index] = initial;
+          publish();
         });
       } catch (err) {
         // Un rival que falla no puede trabar la barra ni tapar al otro.
@@ -1222,6 +1245,11 @@ async function refreshH2H(state, options = {}) {
 
   const matchId = (state.match && state.match.matchId) || 'sin-id';
   const mode = resolveMode(leaderboardOf(state));
+  if (!mode) {
+    for (const rival of rivals) h2hByRival.set(rival.profileId, { modeUnavailable: true, modePending: leaderboardOf(state) == null });
+    sendRival(rivalReports);
+    return;
+  }
   const sig = `${matchId}:${mode ? mode.id : 'sin-modo'}:${rivals
     .map((rival) => rival.profileId)
     .join(',')}`;
@@ -1250,11 +1278,16 @@ async function refreshH2H(state, options = {}) {
       cacheTtlMs: 30 * 60 * 1000,
       log,
     });
+    const current = lastGood;
+    const currentMode = resolveMode(leaderboardOf(current));
+    const currentSig = `${(current && current.match && current.match.matchId) || 'sin-id'}:${currentMode ? currentMode.id : 'sin-modo'}:${opponentsOf(current, RIVAL_LIMIT).map((rival) => rival.profileId).join(',')}`;
+    if (!current || current.status !== 'ongoing' || !viewConfig().rivalH2H ||
+        runtimeProfileId() !== myId || currentSig !== sig) return;
     for (const rival of rivals) {
       // Siempre se publica, incluso sin enfrentamientos: `scanned` le dice al
       // panel en cuántas partidas se buscó, para que "no apareció" no se lea
       // como "nunca jugaron" a secas.
-      const h2h = computeH2H(mine.rows, rival.profileId);
+      const h2h = mine.error ? { error: mine.error } : computeH2H(mine.rows, rival.profileId);
       h2h.scanned = mine.rows.length;
       h2hByRival.set(rival.profileId, h2h);
       h2hPendingIds.delete(rival.profileId);
@@ -1818,12 +1851,20 @@ function startLive() {
       if (fastLane) fastLane.resume();
       poll();
     },
-    onSearching: (active) => {
+    onSearching: (active, queueItem) => {
       searching = active;
       log(active ? 'estás buscando partida (cola detectada) · polling acelerado' : 'cola finalizada');
       // Volviste a la cola: si el carril quedó pausado (aviso de fin perdido),
       // se reactiva sin esperar a que se reinicie la app.
       if (active && fastLane) fastLane.resume();
+      // Cuando la cola informa una ladder conocida, precalentar el historial
+      // propio mientras se busca rival. No adivinar el modo si no está.
+      const mode = active && queueItem ? resolveMode(queueItem.leaderboard ?? queueItem.leaderboardId) : null;
+      if (mode && ['rm_1v1', 'rm_team', 'ew_1v1', 'ew_team', 'dm_1v1', 'dm_team'].includes(mode.key) &&
+          (viewConfig().rivalH2H || viewConfig().civRecommender)) {
+        fetchMyHistory({ profileId, leaderboardId: mode.id, cache: statsCache,
+          cacheTtlMs: 30 * 60 * 1000, log }).catch((err) => log(`precarga de historial: ${err.message}`));
+      }
       if (active) scheduleNext('idle');
     },
   });
@@ -2461,6 +2502,28 @@ function registerIpc() {
     return { ok: true, tgBalance: enabled };
   });
 
+  // "Resumen con F2": la vista compacta y SU atajo son opt-in. Apagado (por
+  // defecto): informe completo siempre, F2 libre para el sistema, sin chip.
+  // Encendido: resumen por defecto y F2 alterna. Apagarlo en caliente libera
+  // la tecla y devuelve el panel al informe completo.
+  ipcMain.handle('settings:scoutF2', (_event, raw) => {
+    const enabled = Boolean(raw);
+    persistConfig({ scoutF2: enabled });
+    if (!enabled) {
+      // Coherencia: sin opción no hay "detalle" que recordar.
+      detailMode = false;
+      sendDetail();
+    }
+    if (!syncDetailShortcut()) {
+      persistConfig({ scoutF2: false });
+      send('overlay:config', overlayConfig());
+      return { ok: false, error: 'F2 ya está en uso. Se mantiene el informe completo.' };
+    }
+    send('overlay:config', overlayConfig());
+    log(`resumen con F2: ${enabled ? 'activado (F2 alterna resumen/detalle)' : 'desactivado (informe completo, F2 libre)'}`);
+    return { ok: true, scoutF2: enabled };
+  });
+
   // Actualizaciones automáticas (pestaña Updater). Al activarlas se consulta
   // enseguida: si ya hay una versión nueva, se descarga e instala sola. Nunca
   // en media partida: el updater lo pospone hasta que termines.
@@ -2677,6 +2740,38 @@ function panelMaxHeight() {
 /** Reenvía el modo de scouting activo (compacto / detalle) al renderer. */
 function sendDetail() {
   send('overlay:detail', { detail: detailMode });
+}
+
+/*
+ * El atajo F2 es una OPCIÓN, no una imposición: `globalShortcut` captura la
+ * tecla en TODO Windows mientras el overlay corre (renombrar en el
+ * Explorador, Excel, lo que sea). De fábrica (scoutF2 apagado) F2 queda
+ * libre y el informe del rival se muestra completo. Encendido, arranca en
+ * resumen y F2 alterna resumen <-> detalle.
+ */
+function syncDetailShortcut() {
+  const wanted = Boolean(viewConfig().scoutF2);
+  // Las capturas aisladas no deben reservar F2 en el escritorio del usuario.
+  if (SHOT && DEMO) { f2Registered = wanted; return true; }
+  if (wanted === f2Registered) return true;
+  if (!wanted) {
+    globalShortcut.unregister('F2');
+    f2Registered = false;
+    return true;
+  }
+  f2Registered = globalShortcut.register('F2', () => {
+    detailMode = !detailMode;
+    sendDetail();
+    log(`scouting: ${detailMode ? 'detalle (F2 para resumen)' : 'resumen (F2 para detalle)'}`);
+  });
+  if (!f2Registered) {
+    log('no pude registrar F2: otro proceso ya usa ese atajo; se muestra el informe completo');
+    config.scoutF2 = false;
+    detailMode = false;
+    send('overlay:config', overlayConfig());
+    return false;
+  }
+  return true;
 }
 
 function sendView(force = false) {
@@ -3084,15 +3179,11 @@ if (!gotLock) {
       quitApp('hotkey Ctrl+Alt+Q');
     });
 
-    // F2: tarjeta única de scouting <-> informe + recomendaciones completos.
-    // El overlay es click-through, así que el atajo es la ÚNICA forma de
-    // abrir el detalle. No se persiste: es un gesto del momento.
-    const detailRegistered = globalShortcut.register('F2', () => {
-      detailMode = !detailMode;
-      sendDetail();
-      log(`scouting: ${detailMode ? 'detalle (F2 para resumen)' : 'resumen (F2 para detalle)'}`);
-    });
-    if (!detailRegistered) log('no pude registrar F2: otro proceso ya usa ese atajo');
+    // F2: resumen <-> detalle. SOLO si la opción "Resumen con F2" está
+    // encendida (de fábrica no: sin permiso explícito no se captura una
+    // tecla global). El overlay es click-through, así que con la opción
+    // activa el atajo es la única forma de abrir el detalle.
+    syncDetailShortcut();
   });
 
   app.on('second-instance', () => {
@@ -3106,6 +3197,7 @@ if (!gotLock) {
   });
 
   app.on('will-quit', () => {
+    statsCache.flush();
     globalShortcut.unregisterAll();
     clearInterval(timer);
     clearInterval(heartbeatTimer);

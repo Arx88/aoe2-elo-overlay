@@ -183,6 +183,11 @@ const DEFAULT_FIELDS = [
   'map',
   'ladder',
   'player_name',
+  'won',
+  'map_openness',
+  'civilization_opponent',
+  'strategy_opponent',
+  'match_duration',
 ];
 
 /** URL exacta de la consulta. Expuesta para el selftest. */
@@ -230,7 +235,37 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * Consulta el endpoint y devuelve el JSON crudo. Maneja el 202 asíncrono con
  * reintentos acotados; `fetchImpl` / `sleep` se inyectan en los tests.
  */
+// El informe y el consejo necesitan las mismas filas. Una única consulta en
+// vuelo alimenta ambos y conserva temporalmente la respuesta sin repetirla.
+const replayRequests = new Map();
+const REPLAY_RAW_TTL_MS = 5 * 60 * 1000;
 async function fetchOpeningRows(profileId, options = {}) {
+  const production = !options.fetchImpl && !options.sleep && options.attempts == null &&
+    options.retryMs == null && options.timeoutMs == null;
+  if (!production) return fetchOpeningRowsImpl(profileId, options);
+  const key = buildMatchUpsUrl(profileId, options.limit ?? ROW_LIMIT, options.mode ?? null,
+    options.fields || DEFAULT_FIELDS);
+  const existing = replayRequests.get(key);
+  if (existing && (existing.pending || Date.now() - existing.at < REPLAY_RAW_TTL_MS)) return existing.promise;
+  const entry = { at: Date.now(), pending: true, promise: null };
+  entry.promise = fetchOpeningRowsImpl(profileId, options).then((payload) => {
+    entry.pending = false;
+    entry.at = Date.now();
+    return payload;
+  }, (error) => {
+    if (replayRequests.get(key) === entry) replayRequests.delete(key);
+    throw error;
+  });
+  replayRequests.set(key, entry);
+  if (replayRequests.size > 32) {
+    for (const [oldKey, old] of replayRequests) {
+      if (!old.pending && oldKey !== key) { replayRequests.delete(oldKey); break; }
+    }
+  }
+  return entry.promise;
+}
+
+async function fetchOpeningRowsImpl(profileId, options = {}) {
   const {
     limit = ROW_LIMIT,
     mode = null,

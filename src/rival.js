@@ -53,11 +53,10 @@ const NUMERIC_LADDERS = {
 const FALLBACK_LADDER = 'rm_1v1';
 const HISTORY_SIZE = 5;
 const HISTORY_PAGE = 25;
-// Para el mapa actual se recorre TODO el historial de ese mapa en el modo
-// exacto. Una muestra de 20 puede caer en una racha reciente y no representar
-// la civ habitual; el tope de páginas es solo una red de seguridad.
+// Priorizar una muestra reciente para el prematch: paginar miles de partidas
+// genera ráfagas y 429. La interfaz declara cuántas partidas se analizaron.
 const MAP_PAGE_SIZE = 100;
-const MAP_MAX_PAGES = 100;
+const MAP_MAX_PAGES = 5;
 // Tope de tiempo para recorrer páginas del historial. Con MAP_PAGE_SIZE=100 y
 // una cuenta de miles de partidas el recorrido llegaba a 100 páginas (~40 s):
 // la pre-partida se pasaba mostrando "cargando…" y en TG ni llegaba a verse.
@@ -68,7 +67,7 @@ const HISTORY_BUDGET_MS = 6000;
 // dejaría la tarjeta "analizando replays…" media pre-partida. Si no llega a
 // tiempo, el informe sale igual y `onOpenings` repinta cuando están listas.
 const OPENINGS_WAIT_MS = 1200;
-const PAGE_DELAY_MS = 120; // evita ráfagas que terminan en HTTP 429
+const PAGE_DELAY_MS = 400; // espacia las páginas de cada rival
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
 const SOURCES = {
@@ -90,9 +89,29 @@ function opponentsOf(state, limit = 2) {
   const candidates = players.filter((p) => p && !p.isYou && Number(p.profileId) > 0);
   const you = players.find((p) => p && p.isYou);
   const myTeam = you && you.team != null ? Number(you.team) : NaN;
-  if (!Number.isFinite(myTeam)) return candidates.slice(0, limit);
-  const enemies = candidates.filter((p) => Number(p.team) !== myTeam);
-  return (enemies.length ? enemies : candidates).slice(0, limit);
+  if (!Number.isFinite(myTeam)) return players.length <= 2 ? candidates.slice(0, limit) : [];
+  const enemies = candidates.filter((p) => p.team != null && Number.isFinite(Number(p.team)) && Number(p.team) !== myTeam);
+  if (enemies.length) return enemies.slice(0, limit);
+  // Si el roster parcial solo contiene aliados conocidos, esperá al rival.
+  // Solo usar jugadores sin equipo cuando su pertenencia aún se desconoce.
+  return players.length <= 2
+    ? candidates.filter((p) => p.team == null || p.team === '' || !Number.isFinite(Number(p.team))).slice(0, limit)
+    : [];
+}
+
+/** H2H usa el historial propio y no necesita descargar el del rival. */
+function needsRivalHistory(view = {}) {
+  return Boolean(view.rivalCivs || view.rivalFavorites || view.rivalOpenings);
+}
+
+/** Actualiza una tarjeta conservando el estado de los demás rivales. */
+function mergeRivalReport(reports, report, includeOpenings) {
+  const next = reports.map((item) => Number(item.profileId) === Number(report.profileId) ? report : item);
+  return {
+    reports: next.map((item) => ({ ...item })),
+    partial: next.some((item) => item.loading),
+    pendingOpenings: Boolean(includeOpenings) && next.some((item) => item.loading || item.openingsPending),
+  };
 }
 
 /** La API de stats solo acepta enums; en unranked/custom caemos a RM 1v1. */
@@ -188,7 +207,7 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     rows.push({
       civ: String(player.civ),
       slug: civSlug(player.civ),
-      won: player.won === true,
+      won: typeof player.won === 'boolean' ? player.won : null,
       startedAt: Number(match.startedAt) || 0,
     });
   }
@@ -198,12 +217,15 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
   rows.sort((a, b) => b.startedAt - a.startedAt);
   const civs = new Map();
   let wins = 0;
+  let resultGames = 0;
   for (const row of rows) {
-    if (row.won) wins += 1;
+    if (typeof row.won === 'boolean') resultGames += 1;
+    if (row.won === true) wins += 1;
     const key = row.slug || row.civ;
-    const entry = civs.get(key) || { name: row.civ, slug: row.slug, games: 0, wins: 0 };
+    const entry = civs.get(key) || { name: row.civ, slug: row.slug, games: 0, wins: 0, resultGames: 0 };
     entry.games += 1;
-    if (row.won) entry.wins += 1;
+    if (typeof row.won === 'boolean') entry.resultGames += 1;
+    if (row.won === true) entry.wins += 1;
     civs.set(key, entry);
   }
   const games = rows.length;
@@ -211,7 +233,7 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     .map((entry) => ({
       ...entry,
       share: pct(entry.games, games),
-      winRate: pct(entry.wins, entry.games),
+      winRate: pct(entry.wins, entry.resultGames),
     }))
     .sort((a, b) => b.games - a.games || b.wins - a.wins);
 
@@ -219,7 +241,8 @@ function parseMapStats(matches, profileId, currentMatchId, options = {}) {
     name: mapName,
     games,
     wins,
-    winRate: pct(wins, games),
+    resultGames,
+    winRate: pct(wins, resultGames),
     civ: ranked[0] || null,
     civs: ranked.slice(0, 3),
     sampleGames: games,
@@ -286,8 +309,8 @@ function normalizeProfileStats(raw, mapName = null) {
       slug: civSlug(entry.civ) || String(entry.civ || ''),
       name: String(entry.civName || entry.civ || '—'),
       games: n(entry.games),
-      wins: n(entry.wins),
-      losses: n(entry.losses),
+      wins: entry.wins == null ? null : n(entry.wins),
+      losses: entry.losses == null ? null : n(entry.losses),
     }))
     .filter((entry) => entry.games > 0)
     .sort((a, b) => b.games - a.games);
@@ -296,7 +319,7 @@ function normalizeProfileStats(raw, mapName = null) {
     .map((entry) => ({
       name: String(entry.mapName || entry.map || '—'),
       games: n(entry.games),
-      wins: n(entry.wins),
+      wins: entry.wins == null ? null : n(entry.wins),
     }))
     .filter((entry) => entry.games > 0)
     .sort((a, b) => b.games - a.games);
@@ -367,6 +390,11 @@ async function buildRivalInsights(options = {}) {
   // El MODO de la partida (RM 1v1, EW 1v1…) decide qué replays y qué
   // partidas del historial cuentan. `null` = partida sin ladder rankeada.
   const mode = resolveMode(leaderboardId);
+  if (!mode) {
+    return { ...base, modeUnavailable: true, modePending: leaderboardId == null, history: [], mapStats: null,
+      openings: includeOpenings ? { ok: true, modeUnavailable: true } : null,
+      openingsPending: false };
+  }
   const modeId = mode ? mode.id : 'sin-modo';
   // El historial se pide filtrado por el ladder EXACTO cuando la partida es
   // rankeada: RM no se mezcla con EW/DM. Sin modo (unranked) no se fuerza RM.
@@ -408,6 +436,7 @@ async function buildRivalInsights(options = {}) {
     onPartial({
       ...base,
       ...result,
+      error: errors.length ? errors.join(' · ') : null,
       ladder,
       openings: null,
       pendingOpenings: Boolean(includeOpenings),
@@ -482,6 +511,13 @@ async function buildRivalInsights(options = {}) {
     const firstPagePromise = fetchPage(1).catch((err) => {
       errors.push(`historial: ${err.message}`);
       return [];
+    }).then((page) => {
+      // La primera página no debe esperar a /stats para mostrar las civs.
+      // El resultado final añade después las cifras completas del mapa.
+      result.history = parseRivalHistory(page, id, currentMatchId, { mode });
+      result.mapStats = parseMapStats(page, id, currentMatchId, { mode, mapName });
+      sendPartial();
+      return page;
     });
 
     try {
@@ -538,6 +574,7 @@ async function buildRivalInsights(options = {}) {
       games: result.currentMap.games,
       wins: result.currentMap.wins,
       winRate: result.currentMap.winRate,
+      resultGames: result.currentMap.winRate == null ? 0 : result.currentMap.games,
       share: result.currentMap.share,
       sampleGames: result.mapStats.games,
     };
@@ -635,6 +672,8 @@ module.exports = {
   DEFAULT_TTL_MS,
   OPENINGS_TTL_MS,
   opponentsOf,
+  needsRivalHistory,
+  mergeRivalReport,
   statsLadder,
   resolveMode,
   pct,

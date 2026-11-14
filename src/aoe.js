@@ -1,5 +1,8 @@
 'use strict';
 
+const { RequestScheduler } = require('./request-scheduler');
+const matchHistoryScheduler = new RequestScheduler();
+
 /**
  * Capa de datos del overlay.
  *
@@ -79,7 +82,17 @@ async function getJson(url, timeoutMs = 12000) {
       headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} en ${new URL(url).pathname}`);
+    if (!res.ok) {
+      const error = new Error(`HTTP ${res.status} en ${new URL(url).pathname}`);
+      error.status = res.status;
+      const retryAfter = res.headers && res.headers.get ? res.headers.get('retry-after') : null;
+      if (retryAfter) {
+        const seconds = Number(retryAfter);
+        const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - Date.now();
+        if (Number.isFinite(delay) && delay >= 0) error.retryAfterMs = delay;
+      }
+      throw error;
+    }
     return await res.json();
   } finally {
     clearTimeout(timer);
@@ -87,6 +100,7 @@ async function getJson(url, timeoutMs = 12000) {
 }
 
 function numOrNull(value) {
+  if (value == null || (typeof value === 'string' && !value.trim())) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -96,12 +110,13 @@ function numOrNull(value) {
  * Companion, ej. `rm_1v1`) filtra el historial al MISMO modo; sin ladder se
  * mantiene el comportamiento anterior (todas las ladders).
  */
-async function fetchMatches(profileId, perPage = 20, page = 1, ladder = null) {
+async function fetchMatches(profileId, perPage = 20, page = 1, ladder = null, options = {}) {
   const url =
     `${COMPANION_BASE}/api/matches?profile_ids=${encodeURIComponent(profileId)}` +
     `&use_enums=true&page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}` +
     (ladder ? `&leaderboard_ids=${encodeURIComponent(ladder)}` : '');
-  const data = await getJson(url);
+  const priority = Number(page) === 1 ? 2 : options.priority === 'own' ? 1 : 0;
+  const data = await matchHistoryScheduler.run(() => getJson(url), priority);
   const list = Array.isArray(data) ? data : (data && data.matches) || [];
   return list.map(normalizeMatch);
 }
@@ -477,13 +492,11 @@ async function buildExampleSnapshot({
 async function buildSnapshotFromLobby(lobby, { profileId, cache, cacheTtlMs = 15 * 60 * 1000, onPartial }) {
   const rawPlayers = (lobby.players || []).filter(Boolean);
 
-  // Si la sala no informa equipos (pasa en algunas colas), se reparten por
-  // slot como hace el juego en automatch: mitad y mitad. Es solo hasta que
-  // arranca la partida y el REST trae los equipos reales.
-  const anyTeam = rawPlayers.some((p) => p.team != null);
+  // Solo en 1v1 se puede identificar al otro jugador sin conocer los equipos.
+  // En TG el orden de slots no demuestra quién es aliado o rival.
+  const inferSoloTeams = rawPlayers.length === 2 && rawPlayers.every((p) => p.team == null || p.team === '') &&
+    rawPlayers.some((p) => Number(p.profileId) === Number(profileId));
   const sorted = [...rawPlayers].sort((a, b) => Number(a.slot ?? 0) - Number(b.slot ?? 0));
-  const half = Math.ceil(sorted.length / 2);
-  const fallbackTeam = new Map(sorted.map((p, i) => [Number(p.profileId), i < half ? 1 : 2]));
 
   const players = sorted.map((p) => ({
     profileId: Number(p.profileId),
@@ -491,7 +504,8 @@ async function buildSnapshotFromLobby(lobby, { profileId, cache, cacheTtlMs = 15
     civ: p.civName || null,
     colorHex: p.colorHex || null,
     color: p.color != null ? p.color : null,
-    team: anyTeam ? (p.team != null ? p.team : fallbackTeam.get(Number(p.profileId))) : fallbackTeam.get(Number(p.profileId)),
+    team: p.team != null && p.team !== '' && Number.isFinite(Number(p.team)) ? p.team
+      : inferSoloTeams ? (Number(p.profileId) === Number(profileId) ? 1 : 2) : null,
     slot: p.slot,
     // ELO del MODO (TG/EW/custom), solo informativo: composeRows no lo muestra.
     modeRating: numOrNull(p.rating),
@@ -558,19 +572,17 @@ async function buildSnapshotFromLobby(lobby, { profileId, cache, cacheTtlMs = 15
  */
 function adaptMatchedToLobby(item, profileId) {
   const raw = (item.players || []).filter(Boolean);
-  const teams = new Set(raw.map((p) => Number(p.team)).filter(Number.isFinite));
+  const teams = new Set(raw.filter((p) => p.team != null && p.team !== '').map((p) => Number(p.team)).filter(Number.isFinite));
   const hasRealTeams = teams.size >= 2;
 
   // En queueing los equipos son 0/1 arbitrarios: el tuyo no es necesariamente
   // el 0. Se re-etiquetan a 1 (vos + aliados) y 2 (rivales) para que tu equipo
   // quede arriba, igual que en el REST ya iniciado.
   const me = raw.find((p) => Number(p.profileId) === Number(profileId));
-  const myTeam = me ? Number(me.team) : null;
+  const myTeam = me && me.team != null && me.team !== '' && Number.isFinite(Number(me.team)) ? Number(me.team) : null;
 
-  // `leaderboard` suele estar desde el primer evento. Si el backend todavía no
-  // lo publicó, se estima por tamaño del roster para poder mostrar ELO igual.
-  const leaderboard =
-    item.leaderboard || (raw.length === 2 ? 'rm_1v1' : raw.length > 2 ? 'rm_team' : null);
+  // Sin ladder confirmada, no mezclar RM, EW y DM por tamaño del roster.
+  const leaderboard = item.leaderboard ?? item.leaderboardId ?? null;
 
   return {
     matchId: item.matchId,
@@ -584,7 +596,7 @@ function adaptMatchedToLobby(item, profileId) {
       colorHex: null,
       color: (index % 8) + 1,
       slot: index,
-      team: hasRealTeams && Number.isFinite(Number(p.team))
+      team: hasRealTeams && p.team != null && p.team !== '' && Number.isFinite(Number(p.team))
         ? (myTeam == null ? Number(p.team) : (Number(p.team) === myTeam ? 1 : 2))
         : null,
       rating: numOrNull(p.rating),

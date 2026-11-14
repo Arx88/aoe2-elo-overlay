@@ -603,6 +603,7 @@ class QueueWatcher {
     this.matchedId = null;
     this.lastMatchedJson = '';
     this.wasSearching = false;
+    this.searchMode = '';
     this.sawDelta = false;
     this.socket = null;
     // ids de MIS búsquedas (q_xxx). El servidor las borra con reason:'matched'
@@ -736,12 +737,13 @@ class QueueWatcher {
     }
 
     // Diagnóstico: confirma que el socket ve la cola, no solo que conectó.
-    const searching = !mine && all.some(
-      (item) => item.status === 'queueing' && includesMe(item),
-    );
-    if (searching !== this.wasSearching) {
+    const queueItem = !mine && all.find((item) => item.status === 'queueing' && includesMe(item));
+    const searching = Boolean(queueItem);
+    const queueMode = queueItem ? String(queueItem.leaderboard ?? queueItem.leaderboardId ?? '') : '';
+    if (searching !== this.wasSearching || (searching && queueMode && queueMode !== this.searchMode)) {
       this.wasSearching = searching;
-      this.onSearching(searching);
+      this.searchMode = queueMode;
+      this.onSearching(searching, queueItem || null);
     }
 
     if (mine) {

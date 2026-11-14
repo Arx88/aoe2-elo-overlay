@@ -1,3 +1,13 @@
+## v0.1.26 · Prematch más rápido, datos más honestos y F2 opcional
+
+- **Menos 429 y menos espera.** Una cola coordina las consultas de historial, comparte las que ya están en vuelo y guarda los replays analizados en una caché persistente. El scouting muestra primero una muestra rápida y completa el análisis en segundo plano.
+- **Datos que no se inventan.** En TG no se muestran rivales si los equipos no están confirmados; los resultados desconocidos no cuentan como derrotas; el modo no se adivina por la cantidad de jugadores. Las tarjetas declaran la muestra y evitan etiquetas como «POSIBLE SMURF» o «Jugá X».
+- **F2 es opcional.** El informe completo es la vista por defecto y F2 queda libre para Windows. «Resumen con F2» se activa en Ajustes; si la tecla ya está ocupada, la opción no se activa y se avisa.
+- **El mapa declara su muestra.** Para responder antes de que empiece la partida, el historial del mapa se limita a una muestra reciente acotada (hasta 500 partidas totales). La tarjeta indica cuántas se analizaron y no lo presenta como historial completo.
+- **Más pruebas.** Se agregan pruebas deterministas del contrato del prematch, además del selftest existente.
+
+---
+
 ## v0.1.25 · El "0 %" del pick de civ: una sola fuente de verdad
 
 Reporte del usuario: *"analiza 4000 partidas y dice 0 % cuando muestra la civ que jugó en ese mapa"*. No era cosmético: el porcentaje de la civ del rival se calculaba dividiendo **dos fuentes distintas** — `mapStats.civ.games` (las partidas del mapa que se leyeron del historial) sobre `mapStats.games` (el total histórico que declara `/stats`). Medido en vivo: un rival con 1748 partidas de Arabia y 32 de Huns publicaba `2 %` (0 % en casos peores). Peor aún: mientras cargaban los datos, el informe **parcial** usaba el sample leído y el **final** el total de `/stats`, así que el número cambiaba solo delante del usuario.

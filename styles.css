@@ -2404,7 +2404,9 @@ body.elo-hidden #updateToast {
   text-overflow: ellipsis;
 }
 
-/* Pista del atajo. El overlay no recibe clics: esto NO es un botón. */
+/* Pista del atajo. El overlay no recibe clics: esto NO es un botón.
+   Solo existe si la opción "Resumen con F2" está encendida: sin la opción
+   no hay atajo que anunciar (y anunciarlo sería una promesa rota). */
 .scout-toggle {
   flex: none;
   margin-left: auto;
@@ -2417,6 +2419,8 @@ body.elo-hidden #updateToast {
   color: var(--muted);
   white-space: nowrap;
 }
+
+body:not(.scout-f2) .scout-toggle { display: none; }
 
 .rival-head .scout-toggle { font-size: 0.7rem; }
 
@@ -2441,6 +2445,117 @@ body.elo-hidden #updateToast {
   padding-right: 0;
   border-left: 1px solid var(--sep-bg);
 }
+
+/* La recomendación debe leerse sin depender de un tooltip: el overlay no
+   recibe el ratón y en partidas por equipos las columnas son estrechas. */
+.scout-unit .rec-item {
+  grid-template-columns: 1.1rem minmax(0, 1fr) auto auto;
+  gap: 0.3rem;
+}
+.scout-unit .rec-rank { display: none; }
+.scout-unit .rec-civ {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+/* Lectura táctica: el marco conserva el tema del juego; datos y muestras usan
+   una tipografía funcional y una escala más contenida para el prematch. */
+#scouting .scout-grid,
+#scouting .scout-footnote {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  text-shadow: none;
+}
+#scouting .scout-unit-head { gap: 0.65rem; }
+#scouting .scout-shield { width: 2.35rem; height: 2.35rem; object-fit: contain; }
+#scouting .scout-name { font-size: 1.03rem; letter-spacing: 0; }
+#scouting .scout-meta { font-size: 0.76rem; }
+#scouting .scout-hero { margin-top: 0.75rem; gap: 0.2rem 0.55rem; }
+#scouting .scout-hero-value { font-size: 2.05rem; letter-spacing: -0.025em; }
+#scouting .scout-hero-label { font-size: 0.94rem; }
+#scouting .scout-bar { height: 0.32rem; margin-top: 0.45rem; }
+#scouting .scout-bar .agro { background: var(--accent); }
+#scouting .scout-bar .boom { background: var(--muted); }
+#scouting .scout-dist { margin-top: 0.35rem; font-size: 0.76rem; }
+#scouting .scout-action {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-left-width: 2px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.08);
+}
+#scouting .scout-action-title { font-size: 0.9rem; }
+#scouting .scout-action-sub { font-size: 0.76rem; }
+#scouting .scout-action-value { font-size: 1.4rem; }
+#scouting .scout-evidence {
+  margin: 0.4rem 0 0;
+  padding-left: 0.55rem;
+  border-left: 2px solid var(--sep-bg);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+#scouting .rival-pred,
+#scouting .rival-block {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--sep-bg);
+}
+#scouting .pick-hero { padding: 0; background: transparent; border-radius: 0; gap: 0.6rem; }
+#scouting .pick-shield { width: 2rem; height: 2rem; }
+#scouting .pick-name { font-size: 0.95rem; }
+#scouting .pick-value { font-size: 1.45rem; }
+#scouting .pick-sub { white-space: normal; }
+#scouting .rival-civ-list { gap: 0.45rem; }
+#scouting .rival-civ-item { width: 1.8rem; margin-bottom: 0; }
+#scouting .rival-civ-item .rival-shield { width: 1.75rem; height: 1.75rem; object-fit: contain; }
+#scouting .rival-wl { font-size: 0.68rem; }
+#scouting .scout-footnote { font-size: 0.7rem; line-height: 1.35; }
+
+/* El informe completo comparte el mismo lenguaje visual que el resumen. */
+#rivalInfo .rival-grid, #scoutInfo .rival-grid,
+#rivalInfo .rival-footnote { font-family: 'Segoe UI', system-ui, sans-serif; text-shadow: none; }
+:is(#rivalInfo, #scoutInfo) .rival-name { font-size: 1.03rem; letter-spacing: 0; }
+:is(#rivalInfo, #scoutInfo) .rival-block { margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid var(--sep-bg); }
+:is(#rivalInfo, #scoutInfo) .pick-hero { padding: 0; background: transparent; border-radius: 0; gap: 0.6rem; }
+:is(#rivalInfo, #scoutInfo) .pick-shield { width: 2rem; height: 2rem; }
+:is(#rivalInfo, #scoutInfo) .pick-name { font-size: 0.95rem; }
+:is(#rivalInfo, #scoutInfo) .pick-value { font-size: 1.45rem; }
+:is(#rivalInfo, #scoutInfo) .pick-sub { white-space: normal; }
+:is(#rivalInfo, #scoutInfo) .rival-civ-list { gap: 0.45rem; }
+:is(#rivalInfo, #scoutInfo) .rival-civ-item { width: 1.8rem; margin-bottom: 0; }
+:is(#rivalInfo, #scoutInfo) .rival-civ-item .rival-shield { width: 1.75rem; height: 1.75rem; object-fit: contain; }
+:is(#rivalInfo, #scoutInfo) .rival-wl { font-size: 0.68rem; }
+#scoutInfo .rec-item { grid-template-columns: 1.1rem minmax(0, 1fr) auto auto; gap: 0.3rem; }
+#scoutInfo .rec-rank { display: none; }
+#scoutInfo .rec-civ { white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.15; }
+
+/* Últimas civs: el overlay no acepta hover, por lo que mapa y nombre tienen
+   que estar visibles junto al escudo y el resultado. */
+:is(#scouting, #rivalInfo) .history-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.6rem;
+}
+:is(#scouting, #rivalInfo) .history-item {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  width: auto;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+}
+:is(#scouting, #rivalInfo) .history-item .rival-shield {
+  width: 1.45rem;
+  height: 1.45rem;
+  object-fit: contain;
+}
+.history-copy { min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.history-copy b, .history-copy small { overflow-wrap: anywhere; font-size: 0.7rem; }
+.history-copy b { color: var(--strong); font-weight: 650; }
+.history-copy small { color: var(--muted); }
 
 #scouting.single .scout-unit { padding: 0; border-left: 0; }
 

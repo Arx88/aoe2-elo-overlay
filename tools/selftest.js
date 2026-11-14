@@ -557,7 +557,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
   console.log('\n--- 13) aperturas REALES de AoE2Insights (sin red, backend simulado) ---');
   {
     const {
-      BASE, SOURCE, ROW_LIMIT, openingName, openingShort, buildMatchUpsUrl,
+      BASE, SOURCE, ROW_LIMIT, DEFAULT_FIELDS, openingName, openingShort, buildMatchUpsUrl,
       fetchOpeningRows, parseOpeningRows, emptyOpenings, buildRivalOpenings, hasCachedOpenings,
       resolveMode, ladderMode, sameMode, LADDER_MODES, openingsCacheKey,
     } = require('../src/insights');
@@ -568,7 +568,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check(
       'consulta /stats/api/match-ups/ filtrada por player_relic_id (mismo profileId)',
       url.startsWith(BASE) && parsed.pathname === '/stats/api/match-ups/' &&
-        parsed.searchParams.getAll('field').length === 7 &&
+        parsed.searchParams.getAll('field').join(',') === DEFAULT_FIELDS.join(',') &&
         filter.field === 'player_relic_id' && filter.operator === 'equals' &&
         filter.value === '25399083' && parsed.searchParams.get('order') === '-started_time' &&
         parsed.searchParams.get('limit') === String(ROW_LIMIT),
@@ -770,12 +770,12 @@ function fakeLobby(leaderboardId, leaderboardName) {
     };
     check('1v1: devuelve al único rival',
       opponentsOf(soloState).length === 1 && opponentsOf(soloState)[0].name === 'Rival');
-    check('sin equipos en el payload: cae a "todos menos vos", nunca vacío',
+    check('TG sin equipos confirmados: espera en lugar de inventar rivales',
       opponentsOf({ players: [
         { profileId: 1, name: 'Yo', isYou: true },
         { profileId: 2, name: 'Rival A' },
         { profileId: 3, name: 'Rival B' },
-      ] }).length === 2);
+      ] }).length === 0);
     check('sin isYou: no descarta al rival por error',
       opponentsOf({ players: [{ profileId: 2, name: 'Rival' }] }).length === 1);
     check('roster vacío (partida encontrada) no rompe',
@@ -936,7 +936,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('informe: NO existe el campo inventado "opening" por civ',
       report.opening === undefined && !('typicalOpening' in report));
     check('primer pintado parcial: civs listas antes de las aperturas lentas',
-      partials.length === 1 && partials[0].pendingOpenings === true &&
+      partials.length >= 1 && partials[0].pendingOpenings === true &&
         partials[0].openings === null && partials[0].history.length === 5);
     check('el informe no rompe el panel: error null y fuentes declaradas',
       report.error === null && report.sources === SOURCES);
@@ -1079,9 +1079,10 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /scoutCompactCard\(entry, wide\)/.test(renderer) &&
         /function scoutUniverse\(\)/.test(renderer));
     check('compacto y detalle son excluyentes: nunca las tres secciones juntas',
-      /scoutingEl\.hidden = !\(ongoing && compactAvailable\(\) && !hidden && !detailMode\)/.test(renderer) &&
-        /rivalInfoEl\.hidden = !\(detailMode && ongoing/.test(renderer) &&
-        /scoutInfoEl\.hidden = !\(detailMode && scoutVisible\(\)\)/.test(renderer));
+      /scoutingEl\.hidden = !\(scoutF2Enabled && ongoing && compactAvailable\(\) && !hidden && !detailMode\)/.test(renderer) &&
+        /rivalInfoEl\.hidden = !\(detail && ongoing/.test(renderer) &&
+        /scoutInfoEl\.hidden = !\(detail && scoutVisible\(\)\)/.test(renderer) &&
+        /const detail = !scoutF2Enabled \|\| detailMode;/.test(renderer));
     check('tarjeta compacta: UN hero, una barra, UNA acción y proveniencia al pie',
       /class="scout-hero"/.test(renderer) && /class="scout-bar"/.test(renderer) &&
         /class="scout-action/.test(renderer) && /scoutFootnoteEl\.textContent/.test(renderer) &&
@@ -1092,15 +1093,24 @@ function fakeLobby(leaderboardId, leaderboardName) {
     check('CSP: el ancho de la barra se aplica por CSSOM, nunca como style inline',
       /data-w=/.test(renderer) && /querySelectorAll\('\[data-w\]'\)/.test(renderer) &&
         /bar\.style\.width/.test(renderer) && !/style="/.test(renderer));
-    check('F2: canal, atajo global, estado en el main y reenvío al recargar',
+    check('F2: canal, atajo OPT-IN (solo se registra con la opción) y estado en el main',
       /onDetail/.test(preload) && /overlay:detail/.test(preload) &&
-        /globalShortcut\.register\('F2'/.test(main) &&
+        /function syncDetailShortcut\(\)/.test(main) &&
+        /globalShortcut\.unregister\('F2'\)/.test(main) &&
+        /settings:scoutF2/.test(main) &&
         /function sendDetail\(\)/.test(main) && /sendDetail\(\);/.test(main) &&
         /function setDetail\(/.test(renderer) && /onDetail/.test(renderer));
+    check('resumen con F2: apagado de fábrica, cableado en Ajustes y sin chip si no hay atajo',
+      /scoutF2: false/.test(main) &&
+        /scoutF2: Boolean\(view\.scoutF2\)/.test(main) &&
+        /id="scoutF2"/.test(settingsHtml) && settingsJs.includes('scoutF2') &&
+        /scoutF2/.test(settingsPreload) &&
+        /body:not\(\.scout-f2\) \.scout-toggle \{ display: none; \}/.test(css) &&
+        /if \(!scoutF2Enabled\) return;/.test(renderer));
     /* ---- v0.1.25 · PICK DE CIV SIN FUENTES MEZCLADAS -------------------- */
     check('pick de civ: una sola fuente de verdad y umbral de dominancia',
       /function scoutPickHero\(/.test(renderer) &&
-        /Number\(map\.sampleGames\)/.test(renderer) &&
+        /map\.sampleGames != null/.test(renderer) &&
         /PICK_MIN_GAMES = 5/.test(renderer) && /PICK_MIN_SHARE = 30/.test(renderer) &&
         !/civ\.games\) \/ total/.test(renderer) &&
         /Sin civ dominante/.test(renderer));
@@ -1330,9 +1340,9 @@ function fakeLobby(leaderboardId, leaderboardName) {
         /tip\.tempo/.test(rendererSrc) && /LE DUELE/.test(rendererSrc));
     check('renderer: porcentaje solo con muestra real; si no, fracción',
       /TAC_MIN_PCT_GAMES = 20/.test(rendererSrc) && /function tacBig/.test(rendererSrc));
-    check('renderer: smurf heurístico desde peak/rating, sin score inventado',
+    check('renderer: pico histórico sin etiquetar al rival como smurf',
       /function smurfSignal/.test(rendererSrc) && /player\.peak/.test(rendererSrc) &&
-        /POSIBLE SMURF/.test(rendererSrc));
+        !/POSIBLE SMURF/.test(rendererSrc));
     check('renderer: la racha no aparece como señal pre-partida',
       !/racha de resultados/.test(rendererSrc));
     check('scout: sin dominancia clara se declara MIXTO, no una falsa etiqueta',
@@ -1963,13 +1973,13 @@ function fakeLobby(leaderboardId, leaderboardName) {
 
     const agresivo = hero({ scope: 'recorte', analyzed: 34, aggressive: 25, boom: 9,
       hybrid: 6, dominant: 'agresivo', share: 74, top: { short: 'Scouts' } });
-    check('compacta: agresivo publica 74% en rojo y una barra 74/26',
-      agresivo.value.includes('74') && agresivo.tone === 'bad' &&
+    check('compacta: agresivo publica 74% sin atribuir ventaja y una barra 74/26',
+      agresivo.value.includes('74') && agresivo.tone === '' &&
         agresivo.bar.agro === 74 && agresivo.bar.boom === 26);
     const boom = hero({ scope: 'modo', analyzed: 22, aggressive: 7, boom: 15,
       hybrid: 3, dominant: 'boom', share: 68, top: { short: 'FC' } });
-    check('compacta: boom publica 68% en verde y declara el cambio de alcance',
-      boom.value.includes('68') && boom.tone === 'good' && boom.styleScope === true);
+    check('compacta: Fast Castle publica 68% y declara el cambio de alcance',
+      boom.value.includes('68') && boom.tone === '' && boom.styleScope === true);
     const mixto = hero({ scope: 'recorte', analyzed: 20, aggressive: 11, boom: 9,
       hybrid: 3, dominant: 'mixto', share: null, top: null });
     check('compacta: sin dominancia se publica el reparto, no una etiqueta falsa',
@@ -2008,8 +2018,8 @@ function fakeLobby(leaderboardId, leaderboardName) {
       })());
     const accion = sandbox.scoutAction({ openingsAgainst: [
       { name: 'Archer rush', short: 'Archer rush', games: 11, losses: 8 }] });
-    check('compacta: la apertura que le duele se convierte en orden de producción',
-      accion.title === 'Jugá arqueros' && accion.value.includes('8') &&
+    check('compacta: la apertura observada se ofrece como opción, con evidencia',
+      accion.title === 'Considerá: Archer rush' && accion.value.includes('8') &&
         accion.legend === 'derrotas / partidas');
     check('compacta: sin evidencia no se inventa un consejo',
       sandbox.scoutAction({ openingsAgainst: [], weakAgainst: [], tempo: null }).empty === true);

@@ -41,6 +41,7 @@ const {
   resolveMode,
   openingShort,
   DEFAULT_TTL_MS,
+  DEFAULT_FIELDS,
 } = require('./insights');
 const { mapKey } = require('./rival');
 const { buildCivRecommendation, computeMyMapCivs } = require('./mine');
@@ -50,18 +51,7 @@ const ROW_LIMIT = 500;
 
 // Campos de la consulta. `won` llega como label "Won"/"Not Won" (verificado
 // en vivo 2026-11-12), no como booleano: isWin() normaliza ambos.
-const FIELDS = [
-  'match_id',
-  'won',
-  'map',
-  'map_openness',
-  'civilization',
-  'civilization_opponent',
-  'strategy',
-  'strategy_opponent',
-  'match_duration',
-  'started_time',
-];
+const FIELDS = DEFAULT_FIELDS;
 
 // Mínimos de muestra: un 80% sobre 2 partidas no es un dato, es ruido.
 const MIN_SCOPE_GAMES = 6; // recorte (mapa / tipo de mapa) para fiar números
@@ -106,7 +96,9 @@ const STYLE_MIN_DOMINANCE = 60;
 /** "Won" | "Not Won" | true | false | "true" | "false" → booleano. */
 function isWin(value) {
   const raw = String(value == null ? '' : value).toLowerCase();
-  return value === true || raw === 'true' || raw === 'won';
+  if (value === true || raw === 'true' || raw === 'won') return true;
+  if (value === false || raw === 'false' || raw === 'not won') return false;
+  return null;
 }
 
 /** Civs sin dato o desconocidas no cuentan para el cruce. */
@@ -141,14 +133,21 @@ function parseScoutRows(payload) {
   const durations = col('match_duration');
   const started = col('started_time');
 
-  const seen = new Set();
+  const seen = new Map();
   const out = [];
   for (let i = 0; i < ids.length; i += 1) {
     const key = String(ids[i] ?? `row-${i}`);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const opponent = { oppCiv: validCiv(oppCivs[i]), oppStrategy: validStrategy(oppStrategies[i]) };
+    if (seen.has(key)) {
+      const existing = seen.get(key);
+      if ((opponent.oppCiv || opponent.oppStrategy) && !existing.opponents.some((item) =>
+        item.oppCiv === opponent.oppCiv && item.oppStrategy === opponent.oppStrategy)) {
+        existing.opponents.push(opponent);
+      }
+      continue;
+    }
     const duration = Number(durations[i]);
-    out.push({
+    const match = {
       matchId: ids[i] ?? null,
       won: isWin(won[i]),
       map: maps[i] || null,
@@ -157,9 +156,12 @@ function parseScoutRows(payload) {
       oppCiv: validCiv(oppCivs[i]),
       strategy: validStrategy(strategies[i]),
       oppStrategy: validStrategy(oppStrategies[i]),
+      opponents: opponent.oppCiv || opponent.oppStrategy ? [opponent] : [],
       duration: Number.isFinite(duration) && duration > 0 ? duration : null,
       startedAt: started[i] || null,
-    });
+    };
+    seen.set(key, match);
+    out.push(match);
   }
   return out;
 }
@@ -232,11 +234,15 @@ function pct(part, total) {
 function weakAgainst(rows) {
   const byCiv = new Map();
   for (const row of rows) {
-    if (!row.oppCiv) continue;
-    const entry = byCiv.get(row.oppCiv) || { civ: row.oppCiv, games: 0, losses: 0 };
-    entry.games += 1;
-    if (!row.won) entry.losses += 1;
-    byCiv.set(row.oppCiv, entry);
+    if (typeof row.won !== 'boolean') continue;
+    const opponents = Array.isArray(row.opponents) ? row.opponents : [row];
+    const civs = new Set(opponents.map((item) => item.oppCiv).filter(Boolean));
+    for (const civ of civs) {
+      const entry = byCiv.get(civ) || { civ, games: 0, losses: 0 };
+      entry.games += 1;
+      if (!row.won) entry.losses += 1;
+      byCiv.set(civ, entry);
+    }
   }
   return [...byCiv.values()]
     .filter((entry) => entry.games >= MIN_CIV_GAMES)
@@ -255,15 +261,15 @@ function openingsAgainst(rows, allRows) {
   const collect = (list, scope, minGames) => {
     const byOpening = new Map();
     for (const row of list) {
-      if (!row.oppStrategy) continue;
-      const entry = byOpening.get(row.oppStrategy) || {
-        name: row.oppStrategy,
-        games: 0,
-        losses: 0,
-      };
-      entry.games += 1;
-      if (!row.won) entry.losses += 1;
-      byOpening.set(row.oppStrategy, entry);
+      if (typeof row.won !== 'boolean') continue;
+      const opponents = Array.isArray(row.opponents) ? row.opponents : [row];
+      const openings = new Set(opponents.map((item) => item.oppStrategy).filter(Boolean));
+      for (const opening of openings) {
+        const entry = byOpening.get(opening) || { name: opening, games: 0, losses: 0 };
+        entry.games += 1;
+        if (!row.won) entry.losses += 1;
+        byOpening.set(opening, entry);
+      }
     }
     return [...byOpening.values()]
       .filter((entry) => entry.games >= minGames)
@@ -346,16 +352,20 @@ function styleProfile(scopedRows, allRows) {
  * temprano" / "alargá la partida", siempre con los números al lado.
  */
 function tempoProfile(allRows) {
-  const timed = allRows.filter((row) => row.duration != null);
+  const timed = allRows.filter((row) => row.duration != null && typeof row.won === 'boolean');
   const short = timed.filter((row) => row.duration < SHORT_S);
   const long = timed.filter((row) => row.duration >= LONG_S);
   if (timed.length < MIN_TEMPO_GAMES) return null;
   if (short.length < MIN_TEMPO_BUCKET || long.length < MIN_TEMPO_BUCKET) return null;
+  const shortWins = short.filter((row) => row.won).length;
+  const longWins = long.filter((row) => row.won).length;
   return {
     shortGames: short.length,
-    shortWinRate: pct(short.filter((row) => row.won).length, short.length),
+    shortWins,
+    shortWinRate: pct(shortWins, short.length),
     longGames: long.length,
-    longWinRate: pct(long.filter((row) => row.won).length, long.length),
+    longWins,
+    longWinRate: pct(longWins, long.length),
   };
 }
 
@@ -363,13 +373,14 @@ function tempoProfile(allRows) {
 function computeTips(matches, options = {}) {
   const { mapName = null, mode = null } = options;
   const scoped = pickScope(matches, mapName, mode);
-  const wins = scoped.rows.filter((row) => row.won).length;
+  const results = scoped.rows.filter((row) => typeof row.won === 'boolean');
+  const wins = results.filter((row) => row.won).length;
   return {
     scope: scoped.scope,
     scopeLabel: scoped.scopeLabel,
     sample: scoped.rows.length,
     wins,
-    winRate: pct(wins, scoped.rows.length),
+    winRate: pct(wins, results.length),
     weakAgainst: weakAgainst(scoped.rows),
     openingsAgainst: openingsAgainst(scoped.rows, matches),
     style: styleProfile(scoped.rows, matches),
@@ -430,6 +441,7 @@ async function buildScoutTips(options = {}) {
     sleep,
     attempts,
     retryMs,
+    onStale = null,
     log = () => {},
   } = options;
 
@@ -445,11 +457,24 @@ async function buildScoutTips(options = {}) {
     return { ...emptyTips(id, name, now), ok: true, modeUnavailable: true };
   }
 
-  const rowsKey = `scout:rows:${id}:${resolved.id}`;
+  const rowsKey = `scout:rows:v2:${id}:${resolved.id}:${limit}`;
+  // No esperar a los replays para empezar el historial propio. H2H comparte
+  // la petición en vuelo mediante fetchMyHistory.
+  const minePromise = recommend && typeof myHistoryImpl === 'function'
+    ? Promise.resolve().then(() => myHistoryImpl()).then((value) => ({ value }), (error) => ({ error }))
+    : null;
   const cached = cache && cache.get(rowsKey);
   let rows = null;
   let totalRows = 0;
   let fromCache = false;
+  let stale = false;
+
+  if (cached && now - cached.ts > cacheTtlMs && typeof onStale === 'function') {
+    const previous = computeTips(cached.rows, { mapName, mode: resolved });
+    onStale({ ...emptyTips(id, name, cached.ts, { mode: resolved }), ok: true,
+      totalMatches: cached.rows.length, totalRows: cached.totalRows, ...previous,
+      fromCache: true, stale: true, provisional: true, recommendPending: recommend });
+  }
 
   if (cached && now - cached.ts <= cacheTtlMs) {
     rows = cached.rows;
@@ -474,6 +499,7 @@ async function buildScoutTips(options = {}) {
         rows = cached.rows;
         totalRows = cached.totalRows;
         fromCache = true;
+        stale = true;
         log(`scout #${id} [${resolved.label}]: red caída, uso filas anteriores (${err.message})`);
       } else {
         log(`scout #${id} [${resolved.label}] no disponible: ${err.message}`);
@@ -490,6 +516,8 @@ async function buildScoutTips(options = {}) {
     totalRows,
     ...tips,
     fromCache,
+    stale,
+    fetchedAt: fromCache && cached ? cached.ts : now,
   };
 
   // Civ recomendada: cruza lo que le cuesta al rival (weakAgainst, arriba)
@@ -497,7 +525,10 @@ async function buildScoutTips(options = {}) {
   if (recommend) {
     if (typeof myHistoryImpl === 'function') {
       try {
-        const mine = await myHistoryImpl();
+        const outcome = await minePromise;
+        if (outcome.error) throw outcome.error;
+        const mine = outcome.value;
+        if (mine.error) throw new Error(mine.error);
         result.recommend = buildCivRecommendation({
           weakAgainst: tips.weakAgainst,
           myCivs: computeMyMapCivs(mine.rows, mapName),
@@ -518,6 +549,43 @@ async function buildScoutTips(options = {}) {
       (result.style ? ` · estilo ${result.style.dominant}${result.style.share == null ? '' : ` ${result.style.share}%`} de ${result.style.analyzed} replays` : '') +
       (result.recommend ? ` · ${result.recommend.length} civs recomendadas` : ''),
   );
+  return result;
+}
+
+/** Una primera muestra llega antes; la completa nunca es reemplazada por una
+ * respuesta corta tardía. Si la completa falla, conserva la muestra válida. */
+async function progressiveScout(options, onPartial, build = buildScoutTips) {
+  const mode = options.mode ? resolveMode(options.mode) : resolveMode(options.leaderboardId);
+  const key = `scout:rows:v2:${Number(options.profileId)}:${mode ? mode.id : 'sin-modo'}:${options.limit ?? ROW_LIMIT}`;
+  const cached = options.cache && options.cache.get(key);
+  const now = options.now ?? Date.now();
+  if (cached && now - cached.ts <= (options.cacheTtlMs ?? DEFAULT_TTL_MS)) return build(options);
+  let fullDone = false;
+  const full = build({ ...options, onStale: (initial) => {
+    if (!fullDone && typeof onPartial === 'function') onPartial(initial);
+  } });
+  const quick = build({ ...options, limit: 60, onStale: null }).then((initial) => {
+    if (!fullDone && initial && !initial.error && typeof onPartial === 'function') {
+      onPartial({ ...initial, provisional: true });
+    }
+    return initial;
+  }).catch(() => null);
+  let result;
+  try {
+    result = await full;
+  } catch (error) {
+    fullDone = true;
+    const initial = await quick;
+    if (initial && !initial.error) return { ...initial, provisional: false, limited: true };
+    throw error;
+  }
+  fullDone = true;
+  if (result && (result.error || result.stale)) {
+    const initial = await quick;
+    if (initial && !initial.error && (!result.stale || Number(initial.fetchedAt) > Number(result.fetchedAt))) {
+      return { ...initial, provisional: false, limited: true };
+    }
+  }
   return result;
 }
 
@@ -547,4 +615,5 @@ module.exports = {
   tempoProfile,
   emptyTips,
   buildScoutTips,
+  progressiveScout,
 };

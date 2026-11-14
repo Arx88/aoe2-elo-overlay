@@ -79,7 +79,35 @@ function parseMyHistory(matches, myId, currentMatchId) {
  * con EW). Cache de filas ya parseadas; el corte de páginas es solo una red
  * de seguridad igual que en el informe del rival.
  */
+// Comparte también la petición en vuelo: H2H y la recomendación pueden
+// arrancar a la vez, antes de que exista una entrada en la caché.
+const historyInFlight = new WeakMap();
 async function fetchMyHistory(options = {}) {
+  const cache = options.cache;
+  const withoutCurrent = (result) => {
+    if (options.currentMatchId == null || !Array.isArray(result.rows)) return result;
+    return { ...result, rows: result.rows.filter((row) => String(row.matchId) !== String(options.currentMatchId)) };
+  };
+  if (!cache || (typeof cache !== 'object' && typeof cache !== 'function')) {
+    return withoutCurrent(await fetchMyHistoryImpl(options));
+  }
+  let pending = historyInFlight.get(cache);
+  if (!pending) {
+    pending = new Map();
+    historyInFlight.set(cache, pending);
+  }
+  const key = mineCacheKey(Number(options.profileId), options.leaderboardId);
+  if (pending.has(key)) return withoutCurrent(await pending.get(key));
+  const request = fetchMyHistoryImpl(options);
+  pending.set(key, request);
+  try {
+    return withoutCurrent(await request);
+  } finally {
+    if (pending.get(key) === request) pending.delete(key);
+  }
+}
+
+async function fetchMyHistoryImpl(options = {}) {
   const {
     profileId,
     leaderboardId = null,
@@ -115,7 +143,7 @@ async function fetchMyHistory(options = {}) {
   const fetchPage = async (page) => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        return (await fetchMatchesImpl(id, PAGE_SIZE, page, ladder)) || [];
+        return (await fetchMatchesImpl(id, PAGE_SIZE, page, ladder, { priority: 'own' })) || [];
       } catch (err) {
         const retryable = /HTTP 429/.test(String(err && err.message));
         if (!retryable || attempt === 2) throw err;
@@ -149,7 +177,9 @@ async function fetchMyHistory(options = {}) {
       if (page >= maxPages) break;
     }
 
-    const rows = parseMyHistory(matches, id, currentMatchId);
+    // La exclusión de la partida actual es por consumidor, no por caché: así
+    // una precarga de cola puede compartirse con el informe del match.
+    const rows = parseMyHistory(matches, id, null);
     if (cache) cache.set(key, { ts: now, rows });
     log(`mi historial (#${id}): ${rows.length} partidas del modo en ${page} página(s)`);
     return { profileId: id, rows, fromCache: false, error: null };
@@ -172,14 +202,21 @@ function computeH2H(rows, rivalProfileId) {
   let wins = 0;
   let losses = 0;
   let asAllies = 0;
+  let unresolved = 0;
+  let unknownResult = 0;
   let lastMatch = null;
   const recent = [];
 
   for (const row of Array.isArray(rows) ? rows : []) {
     const rival = (row.players || []).find((p) => p.profileId === rivalId);
     if (!rival) continue;
-    const sameTeam =
-      row.myTeam != null && rival.team != null && row.myTeam === rival.team;
+    const teamsKnown = row.myTeam != null && rival.team != null &&
+      Number.isFinite(Number(row.myTeam)) && Number.isFinite(Number(rival.team));
+    if (!teamsKnown && (row.players || []).length !== 2) {
+      unresolved += 1;
+      continue;
+    }
+    const sameTeam = teamsKnown && Number(row.myTeam) === Number(rival.team);
     if (sameTeam) {
       asAllies += 1;
       continue;
@@ -187,6 +224,7 @@ function computeH2H(rows, rivalProfileId) {
     games += 1;
     if (row.won === true) wins += 1;
     else if (row.won === false) losses += 1;
+    else unknownResult += 1;
     if (!lastMatch) {
       lastMatch = {
         mapName: row.mapName,
@@ -210,6 +248,8 @@ function computeH2H(rows, rivalProfileId) {
     wins,
     losses,
     asAllies,
+    unresolved,
+    unknownResult,
     lastMatch,
     recent,
   };
@@ -231,7 +271,7 @@ function computeMyMapCivs(rows, mapName) {
   const wanted = mapKey(mapName);
   const byCiv = new Map();
   for (const row of Array.isArray(rows) ? rows : []) {
-    if (!row.civ) continue;
+    if (!row.civ || typeof row.won !== 'boolean') continue;
     const key = row.slug || row.civ;
     const entry =
       byCiv.get(key) ||

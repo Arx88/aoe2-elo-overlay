@@ -142,6 +142,10 @@ let civRecommenderEnabled = false;
 // las dos secciones completas de siempre. Lo alterna F2 desde el main; no se
 // persiste en config: es un gesto del momento, no una preferencia.
 let detailMode = false;
+// "Resumen con F2" (opción de Ajustes, APAGADA de fábrica): el resumen y su
+// atajo son opt-in. Sin la opción, el informe se muestra COMPLETO siempre y
+// ni el main registra la tecla.
+let scoutF2Enabled = false;
 // Balance de equipos (TG): puro pintado sobre el estado, sin datos extra.
 let balanceEnabled = false;
 
@@ -389,10 +393,13 @@ function compactAvailable() {
 }
 
 /**
- * F2: compacto <-> detalle. No se persiste en config: es un gesto del
- * momento (querés mirar el H2H un segundo y volver), no una preferencia.
+ * F2: compacto <-> detalle. Solo existe con la opción "Resumen con F2"
+ * encendida (sin ella el main ni registra la tecla). No se persiste en
+ * config: es un gesto del momento (querés mirar el H2H un segundo y volver),
+ * no una preferencia.
  */
 function setDetail(on) {
+  if (!scoutF2Enabled) return;
   const next = Boolean(on);
   if (next === detailMode) return;
   detailMode = next;
@@ -408,16 +415,19 @@ function applyVisibility() {
   panel.classList.toggle('elo-hidden', Boolean(civView.eloHidden));
   document.body.classList.toggle('elo-hidden', Boolean(civView.eloHidden));
   document.body.classList.toggle('moving', moving);
-  document.body.classList.toggle('scout-detail', detailMode);
 
   civHelpEl.hidden = !(ongoing && civView.civHelpVisible && !moving);
   // UNA SOLA FUENTE DE VERDAD y una sola sección visible a la vez:
-  //   compacto -> #scouting (una tarjeta por rival)
-  //   detalle  -> #rivalInfo + #scoutInfo (todo el dato crudo)
+  //   opción apagada (fábrica) -> SIEMPRE el informe completo (#rivalInfo +
+  //   #scoutInfo), sin atajo y sin chips de F2
+  //   opción encendida          -> resumen (#scouting) y F2 alterna
   // Nunca las tres juntas: era exactamente la duplicación a eliminar.
-  scoutingEl.hidden = !(ongoing && compactAvailable() && !hidden && !detailMode);
-  rivalInfoEl.hidden = !(detailMode && ongoing && rivalEnabled() && !hidden);
-  scoutInfoEl.hidden = !(detailMode && scoutVisible());
+  const detail = !scoutF2Enabled || detailMode;
+  document.body.classList.toggle('scout-f2', scoutF2Enabled);
+  document.body.classList.toggle('scout-detail', detail);
+  scoutingEl.hidden = !(scoutF2Enabled && ongoing && compactAvailable() && !hidden && !detailMode);
+  rivalInfoEl.hidden = !(detail && ongoing && rivalEnabled() && !hidden);
+  scoutInfoEl.hidden = !(detail && scoutVisible());
   analysisEl.hidden = analysisStage() == null;
 
   scheduleHeight();
@@ -484,6 +494,8 @@ function rivalBlock(label, body, extraClass = '', badge = '') {
 
 function rivalHistoryBlock(report) {
   const rows = Array.isArray(report.history) ? report.history : [];
+  if (report.modePending) return rivalBlock('ÚLTIMAS CIVS', '<div class="rival-empty">Esperando el modo de la partida…</div>');
+  if (report.modeUnavailable) return rivalBlock('ÚLTIMAS CIVS', '<div class="rival-empty">Historial del modo no disponible en esta partida.</div>');
   if (report.loading) {
     return rivalBlock(
       'ASÍ JUGÓ SUS ÚLTIMAS 5',
@@ -491,7 +503,9 @@ function rivalHistoryBlock(report) {
     );
   }
   if (!rows.length) {
-    const msg = report.mode && report.mode.label
+    const msg = report.error && report.error.includes('historial:')
+      ? 'No se pudo consultar el historial del rival.'
+      : report.mode && report.mode.label
       ? `Sin partidas públicas recientes en ${report.mode.label}.`
       : 'Sin historial público reciente.';
     return rivalBlock('ASÍ JUGÓ SUS ÚLTIMAS 5', `<div class="rival-empty">${escapeHtml(msg)}</div>`);
@@ -503,8 +517,10 @@ function rivalHistoryBlock(report) {
       const cls = row.won === true ? 'win' : row.won === false ? 'loss' : '';
       const tip = `${row.civ || '?'} · ${result} · ${row.mapName || '—'}`;
       return (
-        `<span class="rival-civ-item ${cls}" title="${escapeHtml(tip)}">` +
+        `<span class="rival-civ-item history-item ${cls}" title="${escapeHtml(tip)}">` +
         rivalShield(row.civ, 'rival-shield') +
+        `<span class="history-copy"><b>${escapeHtml(row.civ || 'Civ desconocida')}</b>` +
+        `<small>${escapeHtml(row.mapName || 'Mapa desconocido')}</small></span>` +
         `<i class="rival-wl">${result}</i>` +
         '</span>'
       );
@@ -512,7 +528,7 @@ function rivalHistoryBlock(report) {
     .join('');
   return rivalBlock(
     'ASÍ JUGÓ SUS ÚLTIMAS 5',
-    `<div class="rival-civ-list">${items}</div>`,
+    `<div class="rival-civ-list history-list">${items}</div>`,
     'civs',
   );
 }
@@ -524,6 +540,8 @@ function rivalHistoryBlock(report) {
  */
 function rivalMapBlock(report) {
   const map = report.mapStats;
+  if (report.modePending) return rivalBlock('', '<div class="rival-empty">Esperando el modo para consultar el mapa…</div>', 'favs');
+  if (report.modeUnavailable) return rivalBlock('', '<div class="rival-empty">Estadísticas del mapa no disponibles para este modo.</div>', 'favs');
   if (report.loading) {
     return rivalBlock(
       '',
@@ -544,6 +562,9 @@ function rivalMapBlock(report) {
   }
   const games = map && Number(map.games) > 0 ? Number(map.games) : 0;
   if (!games) {
+    if (report.error && report.error.includes('stats:')) {
+      return rivalBlock('', '<div class="rival-empty">No se pudieron consultar las estadísticas del mapa.</div>', 'favs');
+    }
     return rivalBlock(
       '',
       `<div class="rival-empty">Sin partidas públicas en ${escapeHtml(mapName)}.</div>`,
@@ -556,13 +577,15 @@ function rivalMapBlock(report) {
   // para saber cómo le va había que leerla completa. El color del número y la
   // etiqueta corta lo dicen de un vistazo.
   const rate = map.winRate != null ? Number(map.winRate) : null;
-  const tone = rate == null ? '' : rate < 40 ? 'bad' : rate >= 60 ? 'good' : '';
-  const toneText = rate == null ? '' : rate < 40 ? 'le va mal' : rate >= 60 ? 'le va bien' : 'parejo';
   const total = Number(games) || 0;
+  const resultGames = map.resultGames != null ? Number(map.resultGames) : total;
+  const reliable = resultGames >= 20;
+  const tone = rate == null || !reliable ? '' : rate < 40 ? 'bad' : rate >= 60 ? 'good' : '';
+  const toneText = rate == null ? '' : !reliable ? 'muestra limitada' : rate < 40 ? 'le va mal' : rate >= 60 ? 'le va bien' : 'parejo';
   const won = Number.isFinite(Number(map.wins))
     ? Number(map.wins)
     : Math.round((total * (rate || 0)) / 100);
-  const lost = Math.max(0, total - won);
+  const lost = Math.max(0, resultGames - won);
 
   // Un solo componente para el dato grande (acá, cara a cara y en el consejo):
   // etiqueta arriba, contexto abajo, número a la derecha. Antes el mapa eran
@@ -571,12 +594,14 @@ function rivalMapBlock(report) {
   const hero = statRow({
     iconName: 'mapa',
     label: mapName,
-    sub:
-      `gana ${escapeHtml(fmtNumber(won))} de sus ${escapeHtml(gamesText(total))}` +
-      `${toneText ? ` · <span class="rstat-tag ${tone}">${escapeHtml(toneText)}</span>` : ''}`,
-    value: rate != null ? `${fmtNumber(rate)}\u00a0%` : '—',
+    sub: rate == null
+      ? `${escapeHtml(gamesText(total))} · sin resultados suficientes`
+      : `gana ${escapeHtml(fmtNumber(won))} de sus ${escapeHtml(gamesText(resultGames))}` +
+        (resultGames < total ? ` con resultado conocido · ${escapeHtml(gamesText(total))} analizadas` : '') +
+        `${toneText ? ` · <span class="rstat-tag ${tone}">${escapeHtml(toneText)}</span>` : ''}`,
+    value: rate == null ? '—' : resultGames < 5 ? `${fmtNumber(won)}/${fmtNumber(resultGames)}` : `${fmtNumber(rate)}\u00a0%`,
     tone,
-    title: `${won}-${lost} en ${mapName}`,
+    title: rate == null ? '' : `${won}-${lost} en ${mapName}`,
   });
 
   return rivalBlock('', hero, 'favs');
@@ -596,16 +621,21 @@ function rivalH2HBlock(report) {
     );
   }
   const h2h = report.h2h;
-  if (!h2h) return '';
+  if (!h2h) return rivalBlock('', '<div class="rival-empty">Cara a cara todavía no disponible.</div>', 'h2h');
+  if (h2h.modePending) return rivalBlock('', '<div class="rival-empty">Esperando el modo para consultar el cara a cara…</div>', 'h2h');
+  if (h2h.modeUnavailable) return rivalBlock('', '<div class="rival-empty">Cara a cara no disponible para este modo.</div>', 'h2h');
+  if (h2h.error) return rivalBlock('', '<div class="rival-empty">No se pudo consultar tu historial para el cara a cara.</div>', 'h2h');
   const neverFaced = !Number(h2h.games);
   if (neverFaced && !Number(h2h.asAllies)) {
     // Decir DÓNDE se buscó: "nunca" sin ventana es una media verdad (el
     // historial se recorre hasta ~600 partidas del modo).
     const scanned = Number(h2h.scanned) || 0;
     const msg = scanned
-      ? `Sin enfrentamientos en tus últimas ${fmtNumber(scanned)} partidas del modo.`
+      ? `Sin enfrentamientos confirmados en tus últimas ${fmtNumber(scanned)} partidas del modo.`
       : 'Sin historial público reciente en este modo.';
-    return rivalBlock('', `<div class="rival-empty">${escapeHtml(msg)}</div>`, 'h2h');
+    const caveat = Number(h2h.unresolved) > 0
+      ? ` ${fmtNumber(h2h.unresolved)} partidas compartidas sin equipos confirmados.` : '';
+    return rivalBlock('', `<div class="rival-empty">${escapeHtml(msg + caveat)}</div>`, 'h2h');
   }
 
   if (neverFaced) {
@@ -615,7 +645,8 @@ function rivalH2HBlock(report) {
       statRow({
         iconName: 'espadas',
         label: 'Cara a cara',
-        sub: `nunca como rivales · ${escapeHtml(gamesText(h2h.asAllies))} de aliados`,
+        sub: `sin rivales confirmados · ${escapeHtml(gamesText(h2h.asAllies))} de aliados` +
+          (h2h.unresolved ? ` · ${fmtNumber(h2h.unresolved)} sin equipos` : ''),
         value: '0-0',
       }),
       'h2h',
@@ -634,6 +665,8 @@ function rivalH2HBlock(report) {
   // Las veces que jugaron como ALIADOS no son enfrentamientos, pero dan
   // contexto (y explican por qué el V-D no suma todas las partidas compartidas).
   if (Number(h2h.asAllies)) subParts.push(`${fmtNumber(h2h.asAllies)} de aliados`);
+  if (Number(h2h.unresolved)) subParts.push(`${fmtNumber(h2h.unresolved)} sin equipos`);
+  if (Number(h2h.unknownResult)) subParts.push(`${fmtNumber(h2h.unknownResult)} sin resultado`);
   const tile = statRow({
     iconName: 'espadas',
     label: 'Cara a cara',
@@ -734,13 +767,17 @@ function rivalOpeningsBlock(report, pending) {
  * Un porcentaje sin denominador no se muestra: siempre "X de Y".
  */
 function rivalPredStrip(report) {
-  if (!report || report.loading) return '';
+  if (!report) return '';
+  if (report.loading) {
+    return rivalOptions.rivalOpenings
+      ? rivalBlock('APERTURAS', '<div class="rival-empty">Buscando sus aperturas…</div>', 'openings')
+      : '';
+  }
   const map = report.mapStats;
-  const mapName = (map && map.name) || null;
-  if (!mapName || mapName === '—' || !(Number(map.games) > 0)) return '';
+  const mapName = (map && map.name) || (lastState && lastState.match && lastState.match.mapName) || 'este mapa';
   const items = [];
 
-  const pick = scoutPickHero(report);
+  const pick = rivalOptions.rivalFavorites ? scoutPickHero(report) : null;
   if (pick && !pick.none) {
     // HERO de la tarjeta. La señal más predictiva en pre-partida no es el
     // winrate (con 10-30 partidas tiene ±18 pp de error) sino QUÉ civ juega
@@ -765,7 +802,7 @@ function rivalPredStrip(report) {
   // Con smartTips la tira táctica ya responde "cómo arranca" con la
   // DISTRIBUCIÓN completa y su muestra. Repetir acá la moda (a veces de 2
   // replays) era el mismo dato dos veces y con la muestra más débil.
-  if (rivalOptions.rivalOpenings && !smartTipsEnabled) {
+  if (rivalOptions.rivalOpenings) {
     const openings = report.openings;
     const best = openings && openings.mapCivFavorite ? openings.mapCivFavorite : null;
     const base = openings ? Number(openings.mapCivAnalyzed) || 0 : 0;
@@ -775,7 +812,7 @@ function rivalPredStrip(report) {
       items.push(
         predRow(
           icon('espadas'),
-          `<b>Arranca con ${escapeHtml(best.short || best.name)}</b> ` +
+          `<b>En replays: ${escapeHtml(best.short || best.name)}</b> ` +
             `<i>en ${escapeHtml(fmtNumber(best.count))} de ${escapeHtml(fmtNumber(base))} ` +
             `replay${base === 1 ? '' : 's'} acá</i>`,
         ),
@@ -784,16 +821,28 @@ function rivalPredStrip(report) {
       items.push(
         predRow(icon('espadas'), '<i>Analizando sus replays para ver cómo arranca…</i>'),
       );
+    } else if (report.modePending) {
+      items.push(predRow(icon('espadas'), '<i>Esperando el modo para consultar aperturas…</i>'));
+    } else if (report.openingError || (openings && openings.ok === false)) {
+      items.push(predRow(icon('espadas'), '<i>No se pudieron consultar sus aperturas.</i>'));
+    } else if (openings && openings.modeUnavailable) {
+      items.push(predRow(icon('espadas'), '<i>Aperturas disponibles solo en modos ranked compatibles.</i>'));
     } else if (openings) {
       // Hay que distinguir "no hay replays del mapa" de "hay replays del mapa,
       // pero ninguno con SU civ": decir lo primero con lo segundo en la mano
       // era una media verdad (123456 tenía 3 replays de Fortress, de otras civs).
       const mapSaw = Number(openings.mapAnalyzed) || 0;
-      const civName = map.civ && map.civ.name ? map.civ.name : null;
-      const why = mapSaw > 0 && civName
-        ? `Sin replays de ${civName} acá (${fmtNumber(mapSaw)} de otras civs)`
-        : `Sin replays de ${mapName} para saber cómo arranca`;
+      const civName = map && map.civ && map.civ.name ? map.civ.name : null;
+      const why = !mapName || mapName === '—' || mapName === 'este mapa'
+        ? 'Esperando el mapa para analizar aperturas.'
+        : mapSaw > 0 && civName
+          ? `Sin replays de ${civName} acá (${fmtNumber(mapSaw)} de otras civs)`
+          : mapSaw > 0
+            ? `Hay ${fmtNumber(mapSaw)} replays del mapa, pero falta identificar su civ más usada.`
+            : `Sin replays de ${mapName} para saber cómo arranca`;
       items.push(predRow(icon('espadas'), `<i>${escapeHtml(why)}</i>`));
+    } else {
+      items.push(predRow(icon('espadas'), '<i>Sin datos de aperturas disponibles.</i>'));
     }
   }
 
@@ -844,6 +893,16 @@ function rivalCard(report) {
   );
 }
 
+/** Cuenta solo rivales cuyo equipo se conoce; no inventa el total en FFA. */
+function knownOpponentCount() {
+  const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
+  const me = players.find((player) => player && player.isYou);
+  const team = me && me.team != null ? Number(me.team) : NaN;
+  if (!Number.isFinite(team)) return 0;
+  return players.filter((player) => player && !player.isYou && player.team != null &&
+    Number.isFinite(Number(player.team)) && Number(player.team) !== team).length;
+}
+
 function renderRivalInfo() {
   if (!rivalInfoEl) return;
   // La visibilidad la decide applyVisibility(): acá solo se pinta el contenido.
@@ -860,10 +919,12 @@ function renderRivalInfo() {
     return Boolean(o && o.mapCivFavorite) && n > 0 && n < 5;
   });
   if (rivalFootnoteEl) {
-    rivalFootnoteEl.hidden = !smallSample;
-    rivalFootnoteEl.textContent = smallSample
-      ? 'Muestra chica: es una pista, no una tendencia.'
-      : '';
+    const total = knownOpponentCount();
+    const notes = [];
+    if (reports.length && total > reports.length) notes.push(`Análisis de ${reports.length} de ${total} rivales.`);
+    if (smallSample) notes.push('Muestra chica: es una pista, no una tendencia.');
+    rivalFootnoteEl.hidden = !notes.length;
+    rivalFootnoteEl.textContent = notes.join(' ');
   }
   renderScouting();
   applyVisibility();
@@ -985,7 +1046,9 @@ function tempoAdvice(tempo) {
   if (Math.abs(gap) < TAC_MIN_TEMPO_GAP || !enoughTempo) return null;
   const forceShort = gap > 0;
   const games = forceShort ? shortGames : longGames;
-  const wins = Math.round(((forceShort ? tempo.shortWinRate : tempo.longWinRate) * games) / 100);
+  const exactWins = forceShort ? tempo.shortWins : tempo.longWins;
+  const wins = Number.isInteger(exactWins) && exactWins >= 0 && exactWins <= games
+    ? exactWins : Math.round(((forceShort ? tempo.shortWinRate : tempo.longWinRate) * games) / 100);
   return { forceShort, games, wins };
 }
 
@@ -1002,6 +1065,7 @@ function tacTile({ label = '', value = '', sub = '', tone = '', ico = '', hero =
 
 function scoutTipSections(tip) {
   if (!tip) return '<div class="rival-empty">Sin datos.</div>';
+  if (tip.modePending) return '<div class="rival-empty">Esperando el modo para analizar replays…</div>';
   if (tip.loading) {
     return '<div class="rival-empty">Analizando replays del rival…</div>';
   }
@@ -1027,7 +1091,7 @@ function scoutTipSections(tip) {
     const big = mixed
       ? { big: `${fmtNumber(style.aggressive)}<small>:${fmtNumber(style.boom)}</small>`, note: `de ${fmtNumber(style.analyzed)}` }
       : tacBig(style.dominant === 'agresivo' ? style.aggressive : style.boom, style.analyzed);
-    const label = mixed ? 'MIXTO' : style.dominant === 'agresivo' ? 'AGRESIVO' : 'BOOM';
+    const label = mixed ? 'MIXTO' : style.dominant === 'agresivo' ? 'AGRESIVAS' : 'FAST CASTLE';
     const top = !mixed && style.top ? ` · ${escapeHtml(style.top.short)}` : '';
     const hybrids = Number(style.hybrid) ? ` · ${fmtNumber(style.hybrid)} híbridos` : '';
     const scope = style.scope === 'modo' ? ' · todo el modo' : '';
@@ -1037,7 +1101,7 @@ function scoutTipSections(tip) {
       value: big.big,
       sub: `${label}${top}${hybrids} · ${escapeHtml(big.note)} replays${scope}`,
       // Rojo = amenaza a preparar, verde = ventaja explotable, neutro = mixto.
-      tone: mixed ? '' : style.dominant === 'agresivo' ? 'bad' : 'good',
+      tone: '', // Una apertura frecuente no es por sí sola ventaja ni amenaza.
       hero: true,
     }));
   }
@@ -1046,6 +1110,7 @@ function scoutTipSections(tip) {
   //    de producción concreta (arqueros, piqueros, muros), no una civ.
   const weak = tip.openingsAgainst && tip.openingsAgainst[0];
   const hard = tip.weakAgainst && tip.weakAgainst[0];
+  const outcomeLabel = tip.mode && tip.mode.size === 'team' ? 'derrotas del equipo / partidas' : 'derrotas / partidas';
   if (weak) {
     const big = tacBig(weak.losses, Number(weak.games) || 0);
     tiles.push(tacTile({
@@ -1053,16 +1118,17 @@ function scoutTipSections(tip) {
       ico: 'espadas',
       value: big.big,
       // Leyenda explícita: sin esto "8/11" se lee como victorias.
-      sub: `${escapeHtml(weak.short || weak.name || '?')} · derrotas / partidas`,
+      sub: `${escapeHtml(weak.short || weak.name || '?')} · ${outcomeLabel} · ${escapeHtml(weak.scope === 'modo' ? 'todo el modo' : (tip.scopeLabel || 'muestra disponible'))}`,
       tone: 'good',
     }));
-  } else if (hard) {
+  }
+  if (hard) {
     const big = tacBig(hard.losses, Number(hard.games) || 0);
     tiles.push(tacTile({
       label: 'LE CUESTA',
       ico: 'estrella',
       value: big.big,
-      sub: `${escapeHtml(hard.civ || '?')} · derrotas / partidas`,
+      sub: `${escapeHtml(hard.civ || '?')} · ${outcomeLabel} · ${escapeHtml(tip.scopeLabel || 'muestra disponible')}`,
       tone: 'good',
     }));
   }
@@ -1074,10 +1140,10 @@ function scoutTipSections(tip) {
   if (advice) {
     const big = tacBig(advice.wins, advice.games);
     tiles.push(tacTile({
-      label: advice.forceShort ? 'CERRÁ TEMPRANO' : 'ALARGÁ LA PARTIDA',
+      label: advice.forceShort ? 'PARTIDAS CORTAS' : 'PARTIDAS LARGAS',
       ico: 'foco',
       value: big.big,
-      sub: `gana en ${advice.forceShort ? 'cortas' : 'largas'} · ${escapeHtml(big.note)}`,
+      sub: `${tip.mode && tip.mode.size === 'team' ? 'su equipo gana' : 'gana'} en ${advice.forceShort ? 'cortas' : 'largas'} · ${escapeHtml(big.note)}`,
       tone: 'good',
     }));
   }
@@ -1109,6 +1175,8 @@ function scoutCard(tip) {
   // El consejo (smartTips) y la civ recomendada (civRecommender) comparten
   // payload y tarjeta: cada bloque se muestra solo con su opción encendida.
   const blocks = [];
+  if (tip.stale) blocks.push('<div class="rival-empty">Datos guardados anteriormente · pueden estar desactualizados</div>');
+  else if (tip.provisional || tip.limited) blocks.push(`<div class="rival-empty">${tip.provisional ? 'Muestra inicial · ampliando análisis…' : 'Muestra inicial · análisis completo no disponible'}</div>`);
   if (smartTipsEnabled) {
     blocks.push(`<div class="rival-block tips">${scoutTipSections(tip)}</div>`);
   }
@@ -1116,8 +1184,8 @@ function scoutCard(tip) {
   if (recommend) blocks.push(recommend);
   const smurf = smurfSignal(tip);
   const badge = smurf
-    ? `<span class="smurf-tag" title="Pico histórico ${fmtNumber(smurf.peak)} de ELO en RM 1v1, ahora ${fmtNumber(smurf.rating)}. Posible cuenta alternativa: respetá el primer push.">` +
-      `${icon('foco')}POSIBLE SMURF <b>${fmtNumber(smurf.peak)}</b></span>`
+    ? `<span class="smurf-tag" title="Pico histórico de ELO RM 1v1; ELO actual ${fmtNumber(smurf.rating)}.">` +
+      `${icon('foco')}PICO <b>${fmtNumber(smurf.peak)}</b></span>`
     : '';
   return (
     '<article class="rival-card">' +
@@ -1137,11 +1205,15 @@ function scoutCard(tip) {
  */
 function scoutRecommendBlock(tip) {
   if (!civRecommenderEnabled) return '';
-  if (!tip || tip.loading) {
+  if (tip && tip.modePending) return '<div class="rival-block tips"><div class="rival-empty">Esperando el modo para recomendar una civ…</div></div>';
+  if (!tip || tip.loading || tip.recommendPending) {
     return '<div class="rival-block tips"><div class="rival-empty">Cruzando su debilidad con tu historial…</div></div>';
   }
   if (tip.modeUnavailable) {
     return '<div class="rival-block tips"><div class="rival-empty">Solo en partidas ranked: en custom no se mezclan modos.</div></div>';
+  }
+  if (tip.error) {
+    return '<div class="rival-block tips"><div class="rival-empty">No se pudieron consultar los replays para recomendar una civ.</div></div>';
   }
   if (tip.recommendError) {
     return '<div class="rival-block tips"><div class="rival-empty">No pude cruzar con tu historial ahora mismo.</div></div>';
@@ -1157,7 +1229,7 @@ function scoutRecommendBlock(tip) {
       return mineN >= 5 || rivalN >= 5;
     })
     .slice(0, 1);
-  if (!recs.length) return '';
+  if (!recs.length) return '<div class="rival-block tips"><div class="rival-empty">Sin muestra suficiente para recomendar una civ.</div></div>';
   // Filas: número + escudo + nombre, y las DOS evidencias abajo alineadas.
   // Antes todo iba en una frase ('1. Gurjaras · vos 67% (9 pj) · le cuesta…')
   // y las tres recomendaciones se leían como un párrafo.
@@ -1189,7 +1261,7 @@ function scoutRecommendBlock(tip) {
       const rivalStat =
         row.vsRival && row.vsRival.lossRate != null && rivalN >= 5
           ? '<span class="rec-stat">' +
-            '<em>le cuesta</em>' +
+            `<em>${tip.mode && tip.mode.size === 'team' ? 'pierde equipo' : 'le cuesta'}</em>` +
             `<b class="bad">${fmtNumber(row.vsRival.lossRate)} %</b>` +
             `<i>${fmtNumber(rivalN)} pj</i></span>`
           : '';
@@ -1277,8 +1349,8 @@ function scoutHero(tip, report) {
       value: big.big,
       label: mixed
         ? 'MIXTO · sin estilo dominante'
-        : style.dominant === 'agresivo' ? 'Agresivo en Feudal' : 'Boomea / Fast Castle',
-      tone: mixed ? '' : style.dominant === 'agresivo' ? 'bad' : 'good',
+        : style.dominant === 'agresivo' ? 'Aperturas agresivas' : 'Fast Castle frecuente',
+      tone: '', // La frecuencia no implica ventaja ni amenaza por sí sola.
       bar: {
         agro: Math.round((agro / total) * 100),
         boom: Math.round((boom / total) * 100),
@@ -1287,7 +1359,7 @@ function scoutHero(tip, report) {
       // una sola tarjeta desalinea las dos cajas de acción. El alcance
       // ("estilo de todo el modo") se declara UNA vez al pie de la sección.
       dist:
-        `${fmtNumber(agro)} agresivas · ${fmtNumber(boom)} boom de ${fmtNumber(total)}` +
+        `${fmtNumber(agro)} agresivas · ${fmtNumber(boom)} Fast Castle de ${fmtNumber(total)}` +
         (hybrid ? ` · ${fmtNumber(hybrid)} híbridos` : ''),
       styleScope: style.scope === 'modo',
     };
@@ -1320,7 +1392,9 @@ function scoutPickHero(report) {
   if (!civ || !civ.name) return null;
   const hits = Number(civ.games) || 0;
   if (hits <= 0) return null;
-  const sample = Math.max(Number(map.sampleGames) || 0, hits);
+  // La primera página llega antes de /stats: en ese parcial `games` todavía
+  // es el tamaño de la muestra y `sampleGames` aún no está definido.
+  const sample = Math.max(Number(map.sampleGames != null ? map.sampleGames : map.games) || 0, hits);
   const total = Number(map.games) || 0;
   const share = (hits / sample) * 100;
   // Si se leyó menos de lo que declara /stats, se dice "últimas": el recorrido
@@ -1353,15 +1427,16 @@ function scoutPickHero(report) {
 
 /** UNA acción: apertura que le duele > civ que le cuesta > ritmo. */
 function scoutAction(tip) {
+  const team = Boolean(tip && tip.mode && tip.mode.size === 'team');
   const weak = tip && tip.openingsAgainst && tip.openingsAgainst[0];
   if (weak) {
     const n = Number(weak.games) || 0;
     const losses = Number(weak.losses) || 0;
     return {
-      title: scoutActionFor(weak),
-      sub: `Le duele ${weak.short || weak.name || '?'}`,
+      title: `${team ? 'Apertura rival' : 'Considerá'}: ${weak.short || weak.name || 'esta apertura'}`,
+      sub: `${team ? 'Derrotas de su equipo' : 'Derrotas frente a esta apertura'} · ${weak.scope === 'modo' ? 'todo el modo' : (tip.scopeLabel || 'muestra disponible')}`,
       value: tacBig(losses, n).big,
-      legend: 'derrotas / partidas',
+      legend: team ? 'derrotas de equipo / partidas' : 'derrotas / partidas',
     };
   }
   const hard = tip && tip.weakAgainst && tip.weakAgainst[0];
@@ -1369,17 +1444,17 @@ function scoutAction(tip) {
     const n = Number(hard.games) || 0;
     const losses = Number(hard.losses) || 0;
     return {
-      title: `Jugale ${hard.civ || 'esa civ'}`,
-      sub: `Le cuesta ${hard.civ || '?'}`,
+      title: team ? `Contra equipos con ${hard.civ || 'esa civ'}` : `Considerá ${hard.civ || 'esa civ'}`,
+      sub: team ? 'Derrotas de su equipo' : `Le cuesta ${hard.civ || '?'}`,
       value: tacBig(losses, n).big,
-      legend: 'derrotas / partidas',
+      legend: team ? 'derrotas de equipo / partidas' : 'derrotas / partidas',
     };
   }
   const advice = tempoAdvice(tip && tip.tempo);
   if (advice) {
     return {
-      title: advice.forceShort ? 'Cerrá temprano' : 'Alargá la partida',
-      sub: `Forzá ${advice.forceShort ? 'partidas cortas' : 'partidas largas'} · ${fmtNumber(advice.games)} en el tramo`,
+      title: advice.forceShort ? 'Menor winrate en partidas cortas' : 'Menor winrate en partidas largas',
+      sub: `${fmtNumber(advice.games)} partidas en el tramo observado`,
       value: tacBig(advice.wins, advice.games).big,
       legend: 'victorias / partidas',
     };
@@ -1391,6 +1466,24 @@ function scoutAction(tip) {
     value: '—',
     legend: '',
   };
+}
+
+/** Conserva las otras señales activadas sin convertir correlación en certeza. */
+function scoutAdditionalEvidence(tip) {
+  if (!tip) return '';
+  const weak = tip.openingsAgainst && tip.openingsAgainst[0];
+  const hard = tip.weakAgainst && tip.weakAgainst[0];
+  const lines = [];
+  if (weak && hard) {
+    const subject = tip.mode && tip.mode.size === 'team' ? 'Su equipo perdió' : 'Perdió';
+    lines.push(`${subject} ${fmtNumber(hard.losses)} de ${fmtNumber(hard.games)} contra ${hard.civ || 'esa civ'} · ${tip.scopeLabel || 'muestra disponible'}`);
+  }
+  const tempo = tempoAdvice(tip.tempo);
+  if (tempo && (weak || hard)) {
+    const subject = tip.mode && tip.mode.size === 'team' ? 'su equipo ganó' : 'ganó';
+    lines.push(`En partidas ${tempo.forceShort ? 'cortas' : 'largas'} ${subject} ${fmtNumber(tempo.wins)} de ${fmtNumber(tempo.games)} · todo el modo`);
+  }
+  return lines.map((line) => `<p class="scout-evidence">${escapeHtml(line)}</p>`).join('');
 }
 
 /**
@@ -1412,8 +1505,12 @@ function scoutUniverse() {
   for (const tip of usableTips) push(tip && tip.profileId);
   if (!ids.length) {
     const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
+    const you = players.find((player) => player && player.isYou);
+    const myTeam = you && you.team != null ? Number(you.team) : NaN;
     for (const player of players) {
       if (!player || player.isYou) continue;
+      if (players.length > 2 && (!Number.isFinite(myTeam) || player.team == null || player.team === '')) continue;
+      if (Number.isFinite(myTeam) && player.team != null && Number(player.team) === myTeam) continue;
       push(player.profileId);
       if (ids.length >= 2) break;
     }
@@ -1436,7 +1533,6 @@ function scoutUniverse() {
 /** Una tarjeta por rival: identidad -> hero -> barra -> acción. Nada más. */
 function scoutCompactCard(entry, wide) {
   const { report, tip, player, name } = entry;
-  const loading = Boolean((tip && tip.loading) || (report && report.loading));
   const civ = (report && report.civ) || (player && player.civ) || null;
   const mapName = (lastState && lastState.match && lastState.match.mapName) || null;
   const modeLabel = (lastState && lastState.ladder && lastState.ladder.label) || null;
@@ -1445,8 +1541,8 @@ function scoutCompactCard(entry, wide) {
   // Va DENTRO de la línea de contexto, primero para que nunca se corte, y
   // sin su propia fila: así las dos tarjetas siguen alineadas.
   const smurfTag = smurf
-    ? `<b class="scout-smurf-inline" title="Pico histórico ${fmtNumber(smurf.peak)} de ELO en RM 1v1, ahora ${fmtNumber(smurf.rating)}. Posible cuenta alternativa: respetá el primer push.">` +
-      `POSIBLE SMURF ${fmtNumber(smurf.peak)}</b>`
+    ? `<b class="scout-smurf-inline" title="Pico histórico de ELO en RM 1v1; el ELO actual es ${fmtNumber(smurf.rating)}.">` +
+      `PICO ${fmtNumber(smurf.peak)}</b>`
     : '';
   // Mapa y modo ya están en la cabecera y al pie de la SECCIÓN: repetirlos
   // en cada tarjeta era ruido. Solo se agregan cuando hay una columna ancha.
@@ -1463,26 +1559,12 @@ function scoutCompactCard(entry, wide) {
     '</div>' +
     '</div>';
 
-  // Mientras llegan los datos se conserva la geometría final: sin esto el
-  // panel cambiaba de alto dos veces en los primeros segundos.
-  if (loading) {
-    return (
-      '<article class="scout-unit">' + head +
-      '<div class="scout-hero"><b class="scout-hero-value">—</b>' +
-      '<span class="scout-hero-label">Analizando…</span></div>' +
-      '<div class="scout-bar"><i class="flat" data-w="100"></i></div>' +
-      '<p class="scout-dist">Buscando sus aperturas en replays…</p>' +
-      '<div class="scout-action empty"><div class="scout-action-copy">' +
-      '<div class="scout-action-title">Todavía no hay una acción clara</div>' +
-      '<div class="scout-action-sub">Los datos llegan en segundo plano.</div>' +
-      '</div><div class="scout-action-stat"><b class="scout-action-value">—</b></div></div>' +
-      '</article>'
-    );
-  }
-
-  const hero = scoutHero(tip, report);
-  const action = scoutAction(tip);
+  const hero = smartTipsEnabled ? scoutHero(tip, rivalOptions.rivalFavorites ? report : null) : null;
+  const action = smartTipsEnabled ? scoutAction(tip) : null;
   let dist = hero ? hero.dist : 'Sin replays analizados ni civ del mapa con muestra.';
+  if (tip && tip.stale) dist += ' · datos guardados anteriormente';
+  else if (tip && tip.provisional) dist += ' · muestra inicial, ampliando';
+  else if (tip && tip.limited) dist += ' · muestra inicial, análisis completo no disponible';
   if (tip && tip.error) dist += ' · replays no disponibles ahora mismo';
   else if (tip && tip.modeUnavailable) dist += ' · solo partidas ranked';
 
@@ -1497,21 +1579,34 @@ function scoutCompactCard(entry, wide) {
       `<i class="boom" data-w="${hero.bar.boom}"></i></div>`
     : '<div class="scout-bar"><i class="flat" data-w="100"></i></div>';
 
+  // Cada opción mantiene su propio estado aunque otras consultas sigan en vuelo.
+  const rival = report || { loading: true };
+  const details = [];
+  if (rivalOptions.rivalFavorites || rivalOptions.rivalOpenings) {
+    details.push(rival.loading
+      ? '<div class="rival-empty">Buscando datos del mapa y aperturas…</div>'
+      : rivalPredStrip(rival));
+  }
+  if (rivalOptions.rivalFavorites) details.push(rivalMapBlock(rival));
+  if (rivalOptions.rivalH2H) details.push(rivalH2HBlock(rival));
+  if (rivalOptions.rivalCivs) details.push(rivalHistoryBlock(rival));
+  if (civRecommenderEnabled) details.push(scoutRecommendBlock(tip || { loading: true }));
+  const tactical = !smartTipsEnabled ? '' : tip && tip.modePending
+    ? '<div class="rival-empty">Esperando el modo para analizar replays…</div>'
+    : (!tip || tip.loading)
+    ? '<div class="rival-empty">Analizando replays del rival…</div>'
+    : `<div class="scout-hero">${heroMarkup}</div>${barMarkup}` +
+      `<p class="scout-dist">${escapeHtml(dist)}</p>` +
+      `<div class="scout-action${action.empty ? ' empty' : ''}">` +
+      '<div class="scout-action-copy">' +
+      `<div class="scout-action-title">${escapeHtml(action.title)}</div>` +
+      `<div class="scout-action-sub">${escapeHtml(action.sub)}</div></div>` +
+      `<div class="scout-action-stat"><b class="scout-action-value">${action.value}</b>` +
+      (action.legend ? `<span class="scout-action-legend">${escapeHtml(action.legend)}</span>` : '') +
+      '</div></div>' + scoutAdditionalEvidence(tip);
   return (
     '<article class="scout-unit">' + head +
-    `<div class="scout-hero">${heroMarkup}</div>` +
-    barMarkup +
-    `<p class="scout-dist">${escapeHtml(dist)}</p>` +
-    `<div class="scout-action${action.empty ? ' empty' : ''}">` +
-    '<div class="scout-action-copy">' +
-    `<div class="scout-action-title">${escapeHtml(action.title)}</div>` +
-    `<div class="scout-action-sub">${escapeHtml(action.sub)}</div>` +
-    '</div>' +
-    '<div class="scout-action-stat">' +
-    `<b class="scout-action-value">${action.value}</b>` +
-    (action.legend ? `<span class="scout-action-legend">${escapeHtml(action.legend)}</span>` : '') +
-    '</div>' +
-    '</div>' +
+    tactical + details.filter(Boolean).join('') +
     '</article>'
   );
 }
@@ -1523,8 +1618,9 @@ function renderScouting() {
   const mapName = (lastState && lastState.match && lastState.match.mapName) || null;
   scoutingEl.classList.toggle('single', entries.length <= 1);
   if (scoutContextEl) {
+    const total = knownOpponentCount();
     scoutContextEl.textContent = entries.length
-      ? `${fmtNumber(entries.length)} rival${entries.length === 1 ? '' : 'es'}` +
+      ? `${fmtNumber(entries.length)}${total > entries.length ? ` de ${fmtNumber(total)}` : ''} rival${entries.length === 1 && total <= 1 ? '' : 'es'}` +
         (mapName && mapName !== '—' ? ` · ${mapName}` : '')
       : '';
   }
@@ -1651,7 +1747,9 @@ function fitStage() {
   const usable = stageMaxHeight - HEIGHT_PADDING - 2;
   let scale = 1;
   if (usable > 0 && natural > usable) {
-    scale = Math.max(0.82, usable / natural);
+    // No recortar información: con muchas opciones en un monitor pequeño,
+    // el mínimo anterior de 0.82 dejaba la parte inferior fuera de pantalla.
+    scale = usable / natural;
   }
   if (Math.abs(scale - stageScale) > 0.002) {
     stageScale = scale;
@@ -1697,7 +1795,8 @@ function renderBalance(state) {
     const players = Array.isArray(state.players) ? state.players : [];
     const teams = new Map();
     for (const player of players) {
-      if (!player || !Number.isFinite(Number(player.rating))) continue;
+      if (!player || player.rating == null || player.rating === '' || !Number.isFinite(Number(player.rating))) continue;
+      if (player.team == null || player.team === '') continue;
       const team = Number(player.team);
       if (!Number.isFinite(team)) continue;
       const list = teams.get(team) || [];
@@ -1932,6 +2031,7 @@ window.overlay.onConfig((config) => {
   }
   if (config.smartTips !== undefined) smartTipsEnabled = Boolean(config.smartTips);
   if (config.civRecommender !== undefined) civRecommenderEnabled = Boolean(config.civRecommender);
+  if (config.scoutF2 !== undefined) scoutF2Enabled = Boolean(config.scoutF2);
   if (config.tgBalance !== undefined) balanceEnabled = Boolean(config.tgBalance);
   if (config.moving !== undefined) setMoving(config.moving);
   document.documentElement.style.setProperty('--scale', String(config.scale || 1));
