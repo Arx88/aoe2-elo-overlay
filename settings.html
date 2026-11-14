@@ -257,17 +257,15 @@
 
           <!-- ============ POSTMATCH ============ -->
           <section class="page" data-page="postmatch">
-            <div class="section-banner"><img src="assets/brand/opening-v1.png" alt="" width="76" height="76" draggable="false" /><div><span class="eyebrow">TU PRÓXIMA MEJORA</span><h2>Terminá con una lectura clara.</h2><p>El resultado es el inicio del análisis. Las notas por etapa necesitan datos medidos del replay.</p></div></div>
+            <div class="section-banner"><img src="assets/brand/opening-v1.png" alt="" width="76" height="76" draggable="false" /><div><span class="eyebrow">TU PRÓXIMA MEJORA</span><h2>Terminá con una lectura clara.</h2><p>Al volver al overlay, el replay se descarga y analiza automáticamente: resultado, apertura, llegada a edades y APM.</p></div></div>
             <div class="group-head"><span>Al terminar la partida</span><i></i></div>
             <div class="block">
               <label class="row tog" for="postMatch"><span class="ric"><svg aria-hidden="true"><use href="#ic-chart" /></svg></span><span class="tcopy"><span class="rname">Resumen postmatch</span><span class="rdesc">El overlay vuelve con el resultado confirmado y el resumen de la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
               <label class="row tog" for="postMatchComparison"><span class="ric"><svg aria-hidden="true"><use href="#ic-compass" /></svg></span><span class="tcopy"><span class="rname">Comparar mi evolución</span><span class="rdesc">Esta partida frente a tus anteriores en el mismo mapa y modo</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-              <label class="row tog" for="postMatchReplay"><span class="ric"><svg aria-hidden="true"><use href="#ic-tower" /></svg></span><span class="tcopy"><span class="rname">Calificación por etapa y APM</span><span class="rdesc">Apertura, Feudal y Castillos según ejecución económica medida</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              <label class="row tog" for="postMatchReplay"><span class="ric"><svg aria-hidden="true"><use href="#ic-tower" /></svg></span><span class="tcopy"><span class="rname">Análisis del replay y APM</span><span class="rdesc">Descarga automática del replay: apertura, llegadas a Feudal/Castillos y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
             </div>
             <div class="group-head"><span>Último informe</span><i></i><button id="refreshPostMatch" class="link-btn" type="button">Actualizar</button></div>
             <div id="postMatchReport" class="postmatch-report" aria-live="polite"><div class="empty-report"><svg aria-hidden="true"><use href="#ic-chart" /></svg><h3>Tu próxima partida marca el comienzo.</h3><p>Al terminar, el informe aparecerá acá y en el overlay.</p></div></div>
-            <div class="replay-import"><div><strong>Datos del replay</strong><p id="telemetryImportHelp">Importá un informe JSON compatible con esta partida. El análisis directo de .aoe2record todavía no está integrado; las métricas disponibles se muestran con su fuente.</p></div><button id="importTelemetry" class="btn" type="button">Importar informe</button></div>
-            <p id="telemetryImportStatus" class="inline-status" role="status"></p>
           </section>
 
           <!-- ============ PLAN Y ACCESO ============ -->

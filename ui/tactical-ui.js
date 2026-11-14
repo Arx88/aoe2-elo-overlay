@@ -129,14 +129,41 @@
   function renderPostMatch(report, access = {}) {
     if (!report) return '';
     const c = report.context || {}, result = report.result || {}, b = report.mapBenchmark || {};
-    const stage = (report.stages || []).map((s) => `<article class="review-stage ${s.status === 'ready' ? 'graded' : ''}"><img src="assets/brand/${s.id}-v1.png" width="50" height="50" alt=""/><div><span>${esc(s.label)}</span><b class="review-grade">${esc(s.grade || '—')}</b><small>${esc(s.status === 'needs_replay' ? 'Falta replay' : s.status === 'needs_baseline' ? 'Creando tu referencia' : s.status === 'not_reached' ? 'Edad no alcanzada' : `Tu referencia · ${s.sampleSize} partidas`)}</small></div></article>`).join('');
+    const analysis = report.analysis || {};
+    const scanning = analysis.status === 'downloading' || analysis.status === 'analyzing';
+    const stage = (report.stages || []).map((s) => {
+      const value = s.grade || (s.valueSeconds != null ? clock(s.valueSeconds) : s.valueLabel || '—');
+      const text = s.status === 'ready' ? `Tu referencia · ${s.sampleSize} partidas`
+        : s.status === 'measured' ? (s.detail || 'Medido en el replay')
+          : s.status === 'needs_baseline' ? 'Creando tu referencia'
+            : s.status === 'not_reached' ? 'Edad no alcanzada'
+              : s.status === 'incomplete' ? 'Sin dato en el replay'
+                : 'Falta replay';
+      const textValue = Boolean(s.valueLabel && !s.grade && s.valueSeconds == null);
+      return `<article class="review-stage ${s.status === 'ready' ? 'graded' : ''}${s.status === 'measured' ? 'measured' : ''}${textValue ? ' text' : ''}"><img src="assets/brand/${s.id}-v1.png" width="50" height="50" alt=""/><div><span>${esc(s.label)}</span><b class="review-grade">${esc(value)}</b><small>${esc(text)}</small></div></article>`;
+    }).join('');
     const metrics = report.metrics || {};
-    const metric = (key, label, time = false) => { const m = metrics[key] || {}; return `<div><span>${label}</span><b>${m.value == null ? '—' : time ? clock(m.value) : number(Math.round(m.value * 10) / 10)}</b><small>${m.value == null ? 'Requiere replay' : esc(m.unit || '')}</small></div>`; };
-    return `<header class="review-header"><img src="assets/brand/watchtower-v1.png" width="44" height="44" alt=""/><div><span class="intel-eyebrow">INFORME POSTMATCH</span><h2>${esc(result.label || 'Resultado pendiente')}</h2><p>${esc(c.mapName)} · ${civLabel(c.civ)}</p></div><strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff == null ? '' : `${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}`}<small>${result.ratingDiff == null ? 'Esperando resultado' : 'ELO del modo'}</small></strong></header>` +
-      (access.comparison !== false ? `<section class="review-map"><div><span>Tu referencia en ${esc(c.mapName)}</span><b>${b.games ? `${number(b.wins)} V — ${number(b.losses)} D` : 'Primera referencia'}</b><small>${number(b.games || 0)} partidas anteriores del mismo modo</small></div><div class="review-recent">${(b.recent || []).slice(0, 8).map((r) => `<span class="${r.won === true ? 'win' : r.won === false ? 'loss' : ''}">${r.won === true ? 'V' : r.won === false ? 'D' : '—'}</span>`).join('')}</div></section>` : `<p class="intel-muted">${access.comparisonReason === 'disabled' ? 'La comparación con tu historial está desactivada en tus preferencias.' : 'La evolución en este mapa está incluida en Pro.'}</p>`) +
-      (access.replay !== false ? `<div class="review-stages">${stage}</div><div class="review-metrics">${metric('apm', 'APM')}${metric('eapm', 'eAPM')}${metric('feudalSeconds', 'Llegada a Feudal', true)}${metric('castleSeconds', 'Llegada a Castillos', true)}</div>` : `<p class="intel-muted">${access.replayReason === 'disabled' ? 'Las métricas de replay están desactivadas en tus preferencias.' : 'Las métricas de replay y calificaciones están incluidas en Pro.'}</p>`) +
+    const metric = (key, label, time = false) => {
+      const m = metrics[key] || {};
+      const missing = m.status === 'unavailable' ? 'No disponible'
+        : m.status === 'needs_replay' ? 'Requiere replay' : 'Sin dato';
+      return `<div><span>${label}</span><b>${m.value == null ? '—' : time ? clock(m.value) : number(Math.round(m.value * 10) / 10)}</b><small>${m.value == null ? missing : esc(m.unit || '')}</small></div>`;
+    };
+    const scan = scanning ? `<div class="review-scan" role="status" aria-live="polite"><span class="review-scan-icon"><img src="assets/brand/watchtower-v1.png" width="34" height="34" alt=""/></span><div class="review-scan-copy"><span class="intel-eyebrow">POSTMATCH</span><b>${esc(analysis.label || 'Preparando el análisis')}</b><small>${esc(analysis.detail || '')}</small></div><span class="review-scan-track" aria-hidden="true"><i></i></span></div>` : '';
+    const warning = analysis.status === 'error' ? `<p class="review-warning">${esc(analysis.detail || 'No se pudo analizar el replay.')}</p>` : '';
+    const replayBody = access.replay !== false
+      ? (scan || `<div class="review-stages">${stage}</div><div class="review-metrics">${metric('apm', 'APM')}${metric('eapm', 'eAPM')}${metric('feudalSeconds', 'Llegada a Feudal', true)}${metric('castleSeconds', 'Llegada a Castillos', true)}</div>`)
+      : `<p class="intel-muted">${access.replayReason === 'disabled' ? 'Las métricas de replay están desactivadas en tus preferencias.' : 'Las métricas de replay y calificaciones están incluidas en Pro.'}</p>`;
+    const source = report.data && report.data.hasTelemetry
+      ? report.data.sourceLabel
+      : analysis.status === 'locked' ? 'El análisis del replay está incluido en Pro.'
+        : scanning ? 'El replay se descarga y analiza automáticamente. Esto puede tardar unos segundos.'
+          : 'Resultado confirmado. El replay se descarga y analiza automáticamente al terminar la partida.';
+    return `<header class="review-header"><img src="assets/brand/watchtower-v1.png" width="44" height="44" alt=""/><div><span class="intel-eyebrow">INFORME POSTMATCH</span><h2>${esc(result.label || 'Resultado pendiente')}</h2><p>${esc(c.mapName)} · ${civLabel(c.civ)}${c.openingLabel ? ` · ${esc(c.openingLabel)}` : ''}</p></div><strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff == null ? '' : `${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}`}<small>${result.ratingDiff == null ? 'Esperando resultado' : 'ELO del modo'}</small></strong></header>` +
+      (access.comparison !== false ? `<section class="review-map"><div><span>Tu referencia en ${esc(c.mapName)}</span><b>${b.games ? `${number(b.wins)} V — ${number(b.losses)} D` : scanning ? 'Cargando referencia' : 'Primera referencia'}</b><small>${b.games ? `${number(b.games)} partidas anteriores del mismo modo` : scanning ? 'Consultando tus partidas anteriores' : '0 partidas anteriores del mismo modo'}</small></div><div class="review-recent">${(b.recent || []).slice(0, 8).map((r) => `<span class="${r.won === true ? 'win' : r.won === false ? 'loss' : ''}">${r.won === true ? 'V' : r.won === false ? 'D' : '—'}</span>`).join('')}</div></section>` : `<p class="intel-muted">${access.comparisonReason === 'disabled' ? 'La comparación con tu historial está desactivada en tus preferencias.' : 'La evolución en este mapa está incluida en Pro.'}</p>`) +
+      replayBody + warning +
       ((report.improvements || []).length ? '<section class="review-insights">' + report.improvements.slice(0, 2).map((i) => `<div>${icon('check')}<p><b>${esc(i.title)}</b><span>${esc(i.detail)}</span></p></div>`).join('') + '</section>' : '') +
-      `<p class="review-data">${esc(report.data && report.data.hasTelemetry ? report.data.sourceLabel : 'Resultado e historial público disponibles. Importá el replay desde Postmatch para medir tu ejecución.')}</p><footer class="intel-source">Las notas comparan tu ejecución con tu historial comparable. Más APM no implica jugar mejor.</footer>`;
+      `<p class="review-data">${esc(source)}</p><footer class="intel-source">Las notas comparan tu ejecución con tu historial comparable. Más APM no implica jugar mejor.</footer>`;
   }
   const api = { renderRival, renderPostMatch, configure, civLabel, esc, icon };
   if (typeof module === 'object' && module.exports) module.exports = api;

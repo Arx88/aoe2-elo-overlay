@@ -50,6 +50,7 @@ const {
   completedMatchTransition,
   normalizeTelemetry,
 } = require('./src/postmatch');
+const { fetchReplayTelemetry } = require('./src/replay');
 const { getProductState, effectivePreferences } = require('./src/product');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
@@ -2342,33 +2343,15 @@ async function startExample(rawQuery, clockMode = '3') {
       snapshot.match = { ...snapshot.match, startedAt: null };
     }
 
-    // Vista de postmatch con la MISMA partida real. No se guarda en el
-    // historial local ni se simula telemetría: las etapas sin replay quedan
-    // pendientes, que es exactamente lo que vería el jugador.
+    // Vista de postmatch con la MISMA partida real: recorre el flujo completo
+    // (descarga + análisis) sin guardar nada en el historial local. La
+    // telemetría que se ve es la que produce el replay, no una maqueta.
     if (EXAMPLE_PHASE === 'postmatch') {
       const match = explicitMatch || exampleMatch;
-      let history = { rows: [], error: null };
-      try {
-        history = await fetchMyHistory({
-          profileId: resolved.profileId,
-          leaderboardId: match.leaderboardId,
-          currentMatchId: match.matchId,
-          cache: statsCache,
-          cacheTtlMs: EXAMPLE_CACHE_TTL(),
-          log,
-        });
-      } catch (err) {
-        history = { rows: [], error: err.message };
-      }
-      postMatchMatch = match;
-      postMatchLastId = String(match.matchId);
-      postMatchReport = buildPostMatchReport({
-        match,
-        profileId: resolved.profileId,
-        records: performanceStore.list(resolved.profileId),
-        historyRows: history.rows,
-        historyError: history.error,
-      });
+      // No guarda nada en el historial local: el modo ejemplo sirve para ver
+      // el flujo real completo, incluida la descarga automática del replay.
+      publishPostMatch(match, { force: true, persist: false, profileId: resolved.profileId })
+        .catch((err) => log(`postmatch de ejemplo: ${err.message}`));
       // El overlay vuelve al estado idle (panel normal oculto) para que se vea
       // la sección de revisión, igual que después de terminar una partida.
       snapshot.status = 'idle';
@@ -3019,6 +3002,10 @@ function visiblePostMatchReport() {
     report.stages = [];
     report.metrics = {};
     report.improvements = [];
+    report.analysis = {
+      status: 'locked', label: 'Análisis de replay',
+      detail: 'La descarga y el análisis del replay están incluidos en Pro.',
+    };
     report.data = {
       ...(report.data || {}),
       hasTelemetry: false,
@@ -3053,46 +3040,103 @@ function latestStoredMatch() {
 }
 
 /**
- * Registra el resultado confirmado, cruza el historial público y publica el
- * informe. Se llama solo desde una transición en vivo (o desde una importación
- * explícita de telemetría), nunca al arrancar con una partida histórica.
+ * Registra el resultado confirmado, descarga y analiza el replay, cruza el
+ * historial público y publica el informe.
+ *
+ * El resultado se emite ANTES de esperar la red: cuando el overlay vuelve a
+ * aparecer ya muestra "Descargando partida" y después "Analizando partida".
+ * El usuario no tiene que importar nada. Se llama solo desde una transición en
+ * vivo (o desde el modo ejemplo), nunca al arrancar con una partida histórica.
  */
 async function publishPostMatch(match, options = {}) {
   const id = String(match.matchId);
-  if (!options.force && postMatchLastId === id) return postMatchReport;
-  postMatchLastId = id;
-  postMatchMatch = match;
-  const saved = options.telemetry
-    ? performanceStore.recordMatch(match, profileId, options.telemetry)
-    : performanceStore.recordMatch(match, profileId);
-  if (!saved) {
+  if (!options.force && postMatchLastId === id && postMatchReport) return postMatchReport;
+  const persist = options.persist !== false;
+  const targetProfileId = Number(options.profileId || profileId);
+  const saved = persist
+    ? (options.telemetry
+      ? performanceStore.recordMatch(match, targetProfileId, options.telemetry)
+      : performanceStore.recordMatch(match, targetProfileId))
+    : null;
+  if (persist && !saved) {
     log(`postmatch: la partida ${id} no se pudo registrar`);
     return null;
   }
-  let history = { rows: [], error: null };
-  try {
-    history = await fetchMyHistory({
-      profileId,
-      leaderboardId: match.leaderboardId,
-      currentMatchId: match.matchId,
-      cache: statsCache,
-      cacheTtlMs: 30 * 60 * 1000,
-      log,
+  postMatchLastId = id;
+  postMatchMatch = match;
+
+  let telemetry = options.telemetry || (saved && saved.telemetry) || null;
+  const replayAllowed = Boolean(viewConfig().postMatch) && postMatchAccess().replay;
+  let analysis = telemetry
+    ? { status: 'ready', label: 'Análisis listo', detail: 'El replay ya estaba analizado.' }
+    : replayAllowed
+      ? {
+        status: 'downloading', label: 'Descargando partida',
+        detail: `Replay de #${id} desde Microsoft.`,
+      }
+      : { status: 'ready', label: 'Análisis de replay', detail: 'La opción está desactivada.' };
+
+  // El historial y el replay son dos redes distintas: arrancan juntos, pero el
+  // primer pintado no espera a ninguna de las dos.
+  const historyPromise = fetchMyHistory({
+    profileId: targetProfileId,
+    leaderboardId: match.leaderboardId,
+    currentMatchId: match.matchId,
+    cache: statsCache,
+    cacheTtlMs: 30 * 60 * 1000,
+    log,
+  }).catch((err) => ({ rows: [], error: err.message }));
+
+  const paint = (nextTelemetry, nextAnalysis) => {
+    postMatchReport = buildPostMatchReport({
+      match,
+      profileId: targetProfileId,
+      records: performanceStore.list(targetProfileId),
+      telemetry: nextTelemetry,
+      analysis: nextAnalysis,
     });
-  } catch (err) {
-    history = { rows: [], error: err.message };
+    broadcastPostMatch();
+  };
+  paint(telemetry, analysis);
+
+  let error = null;
+  if (!telemetry && replayAllowed && options.autoReplay !== false) {
+    try {
+      telemetry = await fetchReplayTelemetry(match, targetProfileId, {
+        onStatus: (next) => {
+          analysis = next;
+          paint(null, analysis);
+        },
+      });
+      analysis = { status: 'ready', label: 'Análisis listo', detail: 'Replay descargado y analizado.' };
+    } catch (err) {
+      error = err.message;
+      analysis = {
+        status: 'error', label: 'No se pudo analizar el replay',
+        detail: err.message,
+      };
+      log(`postmatch: replay de #${id} no analizado: ${err.message}`);
+    }
   }
+
+  if (telemetry && persist) {
+    performanceStore.recordMatch(match, targetProfileId, telemetry);
+  }
+  const history = await historyPromise;
   postMatchReport = buildPostMatchReport({
     match,
-    profileId,
-    records: performanceStore.list(profileId),
+    profileId: targetProfileId,
+    records: performanceStore.list(targetProfileId),
+    telemetry,
     historyRows: history.rows,
     historyError: history.error,
+    analysis,
   });
   broadcastPostMatch();
   const result = postMatchReport && postMatchReport.result;
   log(
     `postmatch: ${match.mapName || '—'} · ${result ? result.label : 'sin resultado'} · ` +
+      `${telemetry ? `replay listo (${telemetry.context.opening || 'apertura sin detectar'})` : `replay: ${error || 'no disponible'}`} · ` +
       `${history.rows.length} partidas de historial${history.error ? ` · error: ${history.error}` : ''}`,
   );
   return postMatchReport;

@@ -46,9 +46,9 @@ const FEATURES = Object.freeze([
   { key: 'postMatchComparison', title: 'Evolución en el mapa', plan: 'pro', preference: true,
     description: 'Compara esta partida con tu historial comparable en el mismo mapa.',
     dataNote: 'Solo usa partidas anteriores del mismo mapa y modo, con muestra declarada.' },
-  { key: 'postMatchReplay', title: 'Rendimiento por etapa', plan: 'pro', preference: true,
-    description: 'Calificaciones de apertura, Feudal y Castillos con métricas del replay.',
-    dataNote: 'APM y ejecución requieren telemetría del replay. Sin ella se muestran pendientes, sin nota inventada.' },
+  { key: 'postMatchReplay', title: 'Análisis del replay', plan: 'pro', preference: true,
+    description: 'Descarga automática del replay: apertura, llegada a Feudal/Castillos y APM.',
+    dataNote: 'El replay se analiza localmente. Las notas económicas requieren métricas y muestra; nunca se inventan.' },
 ].map((feature) => Object.freeze(feature)));
 
 const BY_KEY = new Map(FEATURES.map((feature) => [feature.key, feature]));

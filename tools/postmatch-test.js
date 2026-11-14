@@ -91,6 +91,23 @@ function main() {
   assert.equal(measured.result.durationSeconds, 2100);
   assert.ok(measured.improvements.length > 0);
 
+  // Telemetría del replay real: sin fases económicas, pero con apertura y
+  // edades. Se muestra como dato medido, nunca como nota inventada.
+  const replayOnly = telemetry(100, { phases: {} });
+  delete replayOnly.metrics.eapm;
+  const replayReport = report({ telemetry: replayOnly,
+    analysis: { status: 'analyzing', label: 'Analizando partida', detail: 'Leyendo el replay.' } });
+  assert.equal(replayReport.analysis.status, 'analyzing');
+  assert.equal(replayReport.context.opening, 'Scout rush');
+  assert.ok(replayReport.stages.every((phase) => phase.status === 'measured' && phase.grade === null));
+  assert.equal(replayReport.stages[1].valueSeconds, 620);
+  assert.equal(replayReport.metrics.eapm.status, 'unavailable',
+    'un replay sin eAPM no convierte la ausencia en cero');
+  assert.equal(replayReport.data.hasTelemetry, true);
+  const readyReport = report({ telemetry: replayOnly,
+    analysis: { status: 'ready', label: 'Análisis listo', detail: 'Listo.' } });
+  assert.equal(readyReport.analysis.status, 'ready');
+
   const insufficient = report({ telemetry: telemetry(), records: baseline(MIN_BASELINE - 1) });
   assert.ok(insufficient.stages.every((phase) => phase.grade === null && phase.status === 'needs_baseline'));
   assert.equal(insufficient.stages[0].sampleSize, MIN_BASELINE - 1);

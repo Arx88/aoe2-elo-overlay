@@ -1,6 +1,6 @@
 {
   "name": "aoe2-elo-overlay",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "private": true,
   "description": "Overlay de ELO para Age of Empires II: DE (elo actual + pico 1v1 RM de los jugadores de la partida en curso)",
   "author": "AoE2 ELO Overlay",
@@ -21,6 +21,8 @@
     "electron-builder": "^26.18.0"
   },
   "dependencies": {
+    "adm-zip": "^0.6.1",
+    "aoe2rec-js": "^0.1.25",
     "electron-updater": "^6.8.11"
   },
   "repository": {

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { resolveMode } = require('./insights');
 const { mapKey } = require('./rival');
+const { openingLabel, openingShort } = require('./replay-analysis');
 
 const STORE_VERSION = 1;
 const TELEMETRY_VERSION = 1;
@@ -446,15 +447,39 @@ function buildStage(phase, telemetry, baselines, telemetryStatus) {
   const base = { id: phase.id, label: phase.label, status: 'needs_replay',
     grade: null, score: null, sampleSize: 0, requiredBaseline: MIN_BASELINE,
     gradeLabel: 'Ejecución económica', metrics: [], missingMetrics: Object.keys(EXECUTION_METRICS),
+    valueLabel: null, valueSeconds: null, detail: null,
     summary: 'Requiere métricas del replay para evaluar esta etapa.' };
   if (!telemetry) {
     if (telemetryStatus === 'invalid') base.summary = 'La telemetría recibida no se pudo validar.';
     return base;
   }
+  // El replay sí aporta evidencia directa de apertura y llegada a edades.
+  // Se muestra como dato medido, no como nota: la nota económica necesita
+  // métricas que este replay no expone.
+  let measured = null;
+  if (phase.id === 'opening' && telemetry.context.opening) {
+    measured = {
+      valueLabel: openingShort(telemetry.context.opening),
+      detail: 'Apertura detectada en el replay.',
+    };
+  }
+  const ageMetric = phase.id === 'feudal' ? telemetry.metrics.feudalSeconds
+    : phase.id === 'castle' ? telemetry.metrics.castleSeconds : null;
+  if (ageMetric && ageMetric.value != null) {
+    measured = { valueSeconds: ageMetric.value, detail: 'Llegada medida en el replay.' };
+  }
+  const withEvidence = (value) => ({ ...base, ...value, status: 'measured',
+    summary: 'Dato medido del replay. La nota económica requiere más evidencia.' });
+
   const input = telemetry.phases[phase.id];
   if (input && input.reached === false) return { ...base, status: 'not_reached',
-    missingMetrics: [], summary: 'No se alcanzó esta etapa en la partida.' };
-  if (!input || input.reached !== true || !input.durationSeconds) return base;
+    missingMetrics: [], detail: 'La etapa no se alcanzó en la partida.',
+    summary: 'No se alcanzó esta etapa en la partida.' };
+  if (!input || input.reached !== true || !input.durationSeconds) {
+    if (measured) return withEvidence(measured);
+    return { ...base, status: 'incomplete', detail: 'Sin dato en el replay.',
+      summary: 'El replay no registró esta etapa.' };
+  }
   const entries = Object.entries(EXECUTION_METRICS).filter(([key]) => input.metrics[key]);
   const missingMetrics = Object.keys(EXECUTION_METRICS).filter((key) => !input.metrics[key]);
   const phases = baselines.map((other) => other.phases[phase.id]).filter((other) =>
@@ -467,9 +492,9 @@ function buildStage(phase, telemetry, baselines, telemetryStatus) {
       return comparison ? { ...comparison, median: rounded(comparison.median * 100),
         delta: rounded(comparison.delta * 100), deltaUnit: 'puntos porcentuales' } : null;
     })() }));
-  if (input.complete !== true) return { ...base, status: 'incomplete', metrics, missingMetrics,
+  if (input.complete !== true) return { ...base, ...(measured || {}), status: 'incomplete', metrics, missingMetrics,
     summary: 'La etapa no tiene una medición completa; no se asigna nota.' };
-  if (entries.length < 2) return { ...base, status: 'needs_replay', metrics, missingMetrics,
+  if (entries.length < 2) return { ...base, ...(measured || {}), status: 'measured', metrics, missingMetrics,
     summary: 'Se necesitan al menos dos indicadores económicos medidos para calificar.' };
   if (phases.length < MIN_BASELINE) return { ...base, status: 'needs_baseline', metrics,
     missingMetrics, sampleSize: phases.length,
@@ -510,7 +535,8 @@ function buildPostMatchReport(options = {}) {
     const metric = telemetry && telemetry.metrics[id];
     const comparison = metric ? metricComparison(metric, baselines.map((r) => r.metrics[id])) : null;
     metrics[id] = { id, label: spec.label, unit: spec.unit,
-      status: metric ? 'ready' : 'needs_replay', value: metric ? rounded(metric.value) : null,
+      status: metric ? 'ready' : telemetry ? 'unavailable' : 'needs_replay',
+      value: metric ? rounded(metric.value) : null,
       definition: metric ? metric.definition : null,
       comparison: comparison ? { ...comparison, median: rounded(comparison.median), delta: rounded(comparison.delta) } : null };
   }
@@ -531,20 +557,29 @@ function buildPostMatchReport(options = {}) {
     status: resultStatus === 'pending' ? 'pending' : 'ready',
     context: { mapName: current.mapName, mode: resolveMode(current.leaderboardId),
       civ: current.civ, playerName: current.playerName,
-      opening: telemetry ? telemetry.context.opening || null : null },
+      opening: telemetry ? telemetry.context.opening || null : null,
+      openingLabel: telemetry && telemetry.context.opening
+        ? openingLabel(telemetry.context.opening) : null },
     result: { status: resultStatus,
       label: resultStatus === 'won' ? 'Victoria' : resultStatus === 'lost' ? 'Derrota' : 'Confirmando resultado',
       ratingDiff: complete ? current.ratingDiff : null,
       elapsedSeconds: current.elapsedSeconds,
       durationSeconds: telemetry ? telemetry.durationSeconds : null },
     mapBenchmark: benchmark, stages, metrics, improvements: improvements.slice(0, 3),
+    analysis: {
+      status: ['downloading', 'analyzing', 'ready', 'error'].includes(options.analysis && options.analysis.status)
+        ? options.analysis.status : (telemetry ? 'ready' : 'idle'),
+      label: text(options.analysis && options.analysis.label, 80) ||
+        (telemetry ? 'Análisis listo' : 'Sin análisis de replay'),
+      detail: text(options.analysis && options.analysis.detail, 240) || '',
+    },
     data: { hasTelemetry: Boolean(telemetry), telemetryStatus: normalized.status,
       sourceLabel: telemetry ? telemetry.source.label : 'AoE2 Companion · resultados',
       warnings: normalized.warnings, gradingVersion: GRADING_VERSION,
       baselinePolicy: 'Mismo jugador, mapa, modo, civilización, apertura, velocidad, edad inicial, parche y definición de métricas. Solo partidas anteriores.',
       historyStatus: options.historyError ? 'error' : 'ready',
       telemetryNote: telemetry ? 'Las notas evalúan ejecución económica frente a tu propio historial; no atribuyen la causa de la victoria.' :
-        'APM y ejecución por etapas requieren analizar el replay. La API de resultados no incluye estas métricas.' },
+        'El replay se descarga y analiza automáticamente al terminar. Si Microsoft todavía no lo publicó, el informe queda con el resultado confirmado.' },
   };
 }
 

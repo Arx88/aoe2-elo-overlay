@@ -67,8 +67,6 @@ const postMatchComparisonInput = el('postMatchComparison');
 const postMatchReplayInput = el('postMatchReplay');
 const postMatchReportEl = el('postMatchReport');
 const refreshPostMatchBtn = el('refreshPostMatch');
-const importTelemetryBtn = el('importTelemetry');
-const telemetryImportStatus = el('telemetryImportStatus');
 const railPlanLabel = el('railPlanLabel');
 const planName = el('planName');
 const planDescription = el('planDescription');
@@ -448,32 +446,6 @@ refreshPostMatchBtn.addEventListener('click', async () => {
   } finally {
     postMatchBusy = false;
     refreshPostMatchBtn.disabled = false;
-  }
-});
-
-importTelemetryBtn.addEventListener('click', async () => {
-  if (postMatchBusy) return;
-  postMatchBusy = true;
-  importTelemetryBtn.disabled = true;
-  telemetryImportStatus.textContent = 'Abriendo el informe…';
-  telemetryImportStatus.classList.remove('error');
-  try {
-    const response = await window.settings.importTelemetry();
-    if (response.canceled) {
-      telemetryImportStatus.textContent = '';
-      return;
-    }
-    if (!response.ok) {
-      telemetryImportStatus.textContent = response.error || 'No se pudo importar el informe.';
-      telemetryImportStatus.classList.add('error');
-      return;
-    }
-    paintPostMatch(response);
-    telemetryImportStatus.textContent = 'Telemetría validada y asociada a la partida.';
-    setStatus('Datos del replay importados.');
-  } finally {
-    postMatchBusy = false;
-    importTelemetryBtn.disabled = false;
   }
 });
 

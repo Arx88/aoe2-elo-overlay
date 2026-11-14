@@ -1,3 +1,17 @@
+## v2.1.0 · Postmatch automático: descarga y analiza el replay solo
+
+- **El análisis dejó de ser manual.** Al terminar una partida que la app vio en vivo, el overlay vuelve y muestra **“Descargando partida”** → **“Analizando partida”** → resultados. No hay que buscar el `.aoe2record` ni importar un JSON.
+- **Descarga real desde Microsoft.** Se pide el replay con el `matchId` y tu `profileId`, se valida que sea un ZIP, se extrae únicamente el `.aoe2record` a un temporal y se borra al terminar. Si Microsoft todavía no lo publicó, el resultado queda visible y el error se informa sin inventar métricas.
+- **Lectura local del replay.** El parser WASM de `aoe2rec-js` calcula apertura, llegada a Feudal/Castillos, duración y APM. La clasificación de apertura replica las reglas de `aoe2-openings`. Se agregó `src/replay.js` y `src/replay-analysis.js`.
+- **Resultados medidos, no inventados.** Las etapas muestran el dato directo del replay (“Scouts”, “6:20”, “19:23”) sin asignar notas A–E cuando falta la muestra económica. El eAPM queda **“No disponible”**: este replay no expone una medición efectiva y no se rellena con APM.
+- **Sin romper la UI.** Se reutilizan las tarjetas `review-*` existentes; solo se suma una barra de estado y el estado medido por etapa. La comparación por mapa aparece como “Cargando referencia” mientras llega el historial, en vez de mostrar una primera referencia falsa.
+- **Free y preferencias respetadas.** El resumen postmatch sigue siendo Free; la descarga y el análisis del replay solo se ejecutan si la función Pro está habilitada y la preferencia está encendida. El bloque de importación manual salió de Ajustes.
+- **Empaquetado.** `aoe2rec-js` se desempaqueta del asar para que el parser funcione dentro del `.exe`; se verificó el build `--win --dir` con la partida real `#521076025`.
+
+Verificación: descarga y análisis reales de `#521076025` (Cristov vs DejNePoki13, Arabia, RM 1v1): Scout rush, Feudal 6:20, Castillos 19:23, APM 41,7, +18 ELO. `postmatch-test`, `product-test`, `contextual-advice-test`, `prematch-regression` y `selftest` en verde; `node --check`; `npm run pack` y arranque del build empaquetado confirmando `replay listo (Scout Rush)`. No se publicó una partida en vivo de principio a fin: el flujo visual se capturó con el modo ejemplo sobre la misma partida real y el mismo parser de producción.
+
+---
+
 ## v2.0.1 · Icono nuevo y acceso Pro por clave
 
 - **Icono de la app corregido.** El ejecutable, la barra de tareas, la bandeja y las notificaciones ahora usan el emblema de doble H nuevo. Antes se generaban desde un arte anterior, aunque la interfaz ya mostrara el logo nuevo.

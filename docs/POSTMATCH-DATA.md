@@ -1,6 +1,16 @@
 # Postmatch: contrato y evaluación personal
 
-El resultado y la comparación de resultados por mapa se pueden mostrar al finalizar la partida. Las métricas de ejecución se añaden cuando existe telemetría del replay que corresponde a esa partida y jugador. Una victoria, una apertura detectada o un tiempo de partida no permiten calificar la ejecución de Feudal o Castillos.
+El resultado y la comparación de resultados por mapa se pueden mostrar al finalizar la partida. Al confirmarse el final, el proceso principal descarga el replay de Microsoft, lo analiza localmente y completa la telemetría sin intervención del usuario. Una victoria, una apertura detectada o un tiempo de partida no permiten calificar la ejecución de Feudal o Castillos.
+
+## Pipeline automático
+
+1. `completedMatchTransition` confirma que la partida que se vio en vivo terminó con el mismo `matchId`.
+2. El informe se publica de inmediato con `analysis.status: 'downloading'`; el overlay vuelve a aparecer con el resultado ya confirmado.
+3. `src/replay.js` pide el ZIP a `GetMatchReplay` con `matchId` y el `profileId` del jugador, valida tamaño y tipo, y extrae únicamente el `.aoe2record` a un directorio temporal.
+4. `src/replay-analysis.js` instancia el parser WASM de `aoe2rec-js` y calcula apertura, llegada a Feudal/Castillos, duración y APM. No calcula eAPM, economía, bajas ni inactividad: si el replay no las expone, quedan ausentes.
+5. El estado pasa a `analysis.status: 'analyzing'` mientras se lee el archivo y, al terminar, a `'ready'`.
+6. Si la descarga o el análisis fallan, el resultado y la referencia por mapa siguen visibles; `analysis.status: 'error'` explica el motivo y el botón Actualizar reintenta. Nunca se rellenan métricas para tapar el fallo.
+7. El ZIP y el replay se borran al terminar. No se conserva el archivo del usuario ni se sube a un servidor.
 
 ## Integración
 
@@ -57,7 +67,7 @@ La comparación excluye la partida actual, partidas futuras, partidas sin fecha,
 
 AoE2Insights mantiene su resumen básico, build orders y APM gratuitos, según su [explicación oficial de Pro](https://www.aoe2insights.com/pro/). Las curvas económicas y de inactividad más profundas son una capa distinta. Esto no constituye un contrato público de API que esta aplicación pueda asumir; el adaptador debe obtener y validar métricas concretas o dejarlas pendientes. La aplicación no dispara compras ni análisis de pago en otra plataforma.
 
-El parser primario [aoc-mgz](https://github.com/happyleavesaoc/aoc-mgz) soporta `.aoe2record` y documenta que el archivo contiene un estado inicial y una secuencia de comandos. Su FAQ distingue estos comandos de los contadores de recursos o bajas que requieren reproducir el estado del juego. Por tanto, no calculamos TC inactivo, aldeanos inactivos, bajas ni eficiencia a partir de simples huecos entre órdenes. Los APM derivados de comandos deben identificarse con su propia definición, sin presentarse como el mismo eAPM de otra herramienta.
+El análisis local usa [aoe2rec-js](https://github.com/aoe2ct/aoe2rec) para leer `.aoe2record`. El archivo contiene un estado inicial y una secuencia de comandos; los contadores de recursos, bajas o inactividad requerirían reproducir el estado del juego. Por tanto, no calculamos TC inactivo, aldeanos inactivos, bajas ni eficiencia a partir de simples huecos entre órdenes. Los APM derivados de comandos se publican con la definición `game-command-count-v1`, sin presentarse como el mismo eAPM de otra herramienta. La clasificación de apertura replica las reglas de `aoe2-openings` sobre los comandos del replay.
 
 ## Telemetría normalizada: versión 1
 
@@ -147,6 +157,8 @@ APM, eAPM y tiempos de edades se presentan como información y diferencias contr
 ## Estados para UI
 
 `report.status` es `pending` cuando todavía no hay resultado confirmado y `ready` cuando existe victoria/derrota. La disponibilidad de ejecución es independiente.
+
+`report.analysis.status` describe el trabajo del replay: `downloading`, `analyzing`, `ready`, `error` (o `locked` para Free). La UI muestra una barra y el texto correspondiente sin ocultar el resultado ya confirmado. Una etapa con `status: 'measured'` tiene un dato directo del replay (apertura o tiempo de edad), pero no una nota: las notas A–E siguen requiriendo la muestra económica descrita abajo.
 
 Cada etapa tiene `grade: null` mientras no hay evidencia suficiente:
 

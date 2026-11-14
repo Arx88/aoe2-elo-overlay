@@ -117,7 +117,8 @@ body { -webkit-font-smoothing: antialiased; }
 .review-stage { display: flex; align-items: center; gap: 6px; padding: 7px; border-right: 1px solid var(--head-border); }
 .review-stage:last-child { border: 0; }
 .review-stage > img { width: 40px; height: 48px; object-fit: contain; opacity: .65; }
-.review-stage.graded > img { opacity: 1; }
+.review-stage.graded > img, .review-stage.measured > img { opacity: 1; }
+.review-stage.text .review-grade { font-size: 16px; line-height: 1.3; }
 .review-stage > div { flex: 1; }
 .review-stage span { font-size: 11px; color: var(--muted); }
 .review-grade { display: block; font-size: 28px; line-height: 1.2; font-weight: 600; }
@@ -132,4 +133,13 @@ body { -webkit-font-smoothing: antialiased; }
 .review-insights b { display: block; font-weight: 600; }
 .review-insights span { color: var(--muted); font-size: 11px; }
 .review-data { font-size: 11px; color: var(--muted); padding: 10px 0; }
+.review-scan { display: flex; align-items: center; gap: 10px; border-block: 1px solid var(--head-border); padding: 14px 0; margin: 13px 0; }
+.review-scan-icon { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--head-border); border-radius: 50%; }
+.review-scan-copy { flex: 1; min-width: 0; }
+.review-scan-copy b { display: block; font-size: 15px; font-weight: 600; margin: 2px 0; }
+.review-scan-copy small { display: block; font-size: 10px; color: var(--muted); line-height: 1.4; }
+.review-scan-track { display: block; width: 58px; height: 3px; background: var(--head-border); overflow: hidden; border-radius: 2px; }
+.review-scan-track i { display: block; width: 45%; height: 100%; background: var(--accent); animation: review-scan 1.2s ease-in-out infinite; }
+.review-warning { color: #d8a298; font-size: 11px; border-block: 1px solid var(--head-border); padding: 9px 0; margin: 10px 0 0; }
+@keyframes review-scan { 0% { transform: translateX(-120%); } 100% { transform: translateX(260%); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
