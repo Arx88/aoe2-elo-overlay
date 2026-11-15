@@ -2,6 +2,8 @@
 
 Base: `5b23a5c` · revisión del 15 de noviembre de 2026. Cambios en una rama local de trabajo. Este documento no afirma publicación, distribución ni instalación en Windows.
 
+La versión **2.2.0** está preparada en `package.json`, lockfile y notas de release. El workflow exige las diez suites offline antes de compilar. La publicación sigue pendiente: el acceso disponible al repositorio es de lectura y no hay una sesión de publicación autenticada. No se generaron ni publicaron instaladores de esta versión.
+
 | Implementado en código | Alcance y límite |
 | --- | --- |
 | Combate por edad | Agrega eventos **ya medidos**, separa aldeanos/militares eliminados y perdidos, valida atribución, duplicados, cobertura y costes. No extrae estos eventos del replay |
