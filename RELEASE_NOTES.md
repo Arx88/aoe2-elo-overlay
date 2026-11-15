@@ -1,3 +1,19 @@
+## v2.2.0 · Asistencia visual automática y evolución personal
+
+- **Free, Pro y ProMax.** Free conserva exclusivamente nombre del rival, ELO actual y cara a cara. Pro suma roster ampliado, perfil del mapa, guía de civ, balance y resumen de resultados. ProMax añade oportunidades, aperturas, elección de civ, replay, evolución personal y Smart Build Order.
+- **Oportunidades automáticas.** El cruce utiliza 56 árboles tecnológicos y el historial compatible del mapa, ajustado por contexto, recencia y tamaño de muestra. Presenta rutas condicionales para Feudal, Castillos e Imperial. El índice expresa prioridad experimental, no probabilidad de ganar, y no presume conocer el ejército o la edad actuales.
+- **Smart Build Order.** Toggle de ProMax configurado antes de buscar partida. Cinco referencias con iconos de aldeanos, recursos y edificios: Scouts, M@A → Arqueros, Arqueros, FC y FI. La sugerencia se adapta a civ/mapa y se abstiene en contextos no revisados. FI se sugiere solo en la variante revisada de Turcos en Arena.
+- **Overlay solo visual.** Deja pasar los clics; no requiere selectores, F2 ni pasos manuales. Las oportunidades y la guía permanecen visibles aunque se oculte el ELO. El postmatch se retira automáticamente y queda disponible en el launcher.
+- **Ejecución económica S–D.** Notas personales por etapa cuando existen al menos dos indicadores económicos medidos y cinco referencias compatibles. Los destacados comparan con tu propio historial y distinguen mejoras de empates. Micro y decisiones permanecen sin nota cuando falta evidencia.
+- **Combate por edad con evidencia.** Motor y tabla para aldeanos y militares eliminados/perdidos, cobertura parcial, costes nominales y logros como Serial Killer. Necesita eventos ya medidos; el parser automático todavía no los extrae.
+- **Datos y accesos corregidos.** La primera orden de avance se distingue de la llegada confirmada a una edad. Se migran los registros anteriores conocidos. El vencimiento y el cambio de perfil retiran los datos sin permiso de las pantallas, conservando preferencias.
+
+**Límites de esta versión:** la guía no reconoce pasos completados en vivo. Sigue pendiente el lector automático de estado para bajas, economía y Boom Master. No hay base poblacional para afirmar «mejor que X % de usuarios». El parser actual aporta órdenes, apertura inferida y APM. El backend comercial y la validación visual/partidas en Windows no se realizaron en este bloque.
+
+Verificación: diez suites offline aprobadas desde una copia limpia del commit de implementación y revisión de sintaxis. La publicación incorpora `npm test` como requisito antes del build Windows; el instalador y `latest.yml` solo estarán disponibles cuando ese workflow termine correctamente.
+
+---
+
 ## v2.1.1 · El informe postmatch se cierra
 
 - **Ya no queda fijo.** El informe tiene una **X** arriba a la derecha y se cierra sola a los 60 segundos de terminar el análisis (o a los 3 minutos si la descarga se queda esperando).

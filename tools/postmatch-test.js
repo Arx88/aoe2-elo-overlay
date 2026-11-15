@@ -79,6 +79,18 @@ function main() {
   assert.equal(summary.mapBenchmark.recent.length, 3, 'modo/mapa/tiempo/ID actual filtran todos los resultados');
   assert.equal(report({ historyRows: history, historyError: 'HTTP 429' }).mapBenchmark.status, 'partial');
   assert.equal(report({ historyError: 'HTTP 429' }).mapBenchmark.status, 'error');
+  const recentHistory = Array.from({ length: 5 }, (_, index) => ({ matchId: index + 1,
+    startedAt: CURRENT - (index + 1) * 60000, mapName: 'Arabia', leaderboardId: 3,
+    won: index < 3 }));
+  const growing = report({ historyRows: recentHistory });
+  assert.equal(growing.historyHighlights[0].wins, 4);
+  assert.ok(growing.historyHighlights.some((item) => item.id === 'map-record-progress-v1'));
+  assert.ok(growing.stages.every((stage) => stage.grade === null), 'results never manufacture an economic grade');
+  assert.deepEqual(report({ historyRows: recentHistory, historyError: 'HTTP 429' }).historyHighlights, []);
+  const { renderPostMatch } = require('../ui/tactical-ui');
+  assert.ok(renderPostMatch(growing).includes('Buen momento en Arabia'));
+  assert.ok(!renderPostMatch(growing, { comparison: false }).includes('Buen momento en Arabia'));
+  assert.ok(!renderPostMatch(report({ historyError: 'HTTP 429' })).includes('Primera referencia'));
   assert.equal(report({ match: match(100, { leaderboardId: 'unranked' }), historyRows: history }).mapBenchmark.status, 'unavailable');
   assert.equal(report({ match: match(100, { players: [] }) }), null);
 

@@ -117,7 +117,7 @@ async function fetchReplayTelemetry(match, profileId, { onStatus } = {}) {
     onStatus({
       status: 'analyzing',
       label: 'Analizando partida',
-      detail: 'Leyendo apertura, llegada a edades y APM del replay.',
+      detail: 'Leyendo órdenes del replay: apertura, avances y APM.',
     });
   }
   const extracted = extractRecord(zip);

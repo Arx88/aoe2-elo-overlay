@@ -1,0 +1,21 @@
+{
+  "fixtureKind": "synthetic-test-only",
+  "schemaVersion": 1,
+  "clock": "game",
+  "matchId": "100",
+  "profileId": 7,
+  "durationSeconds": 1800,
+  "startingAge": "dark",
+  "players": [{ "profileId": 7, "team": 1 }, { "profileId": 8, "team": 2 }],
+  "coverage": { "agesComplete": true, "deaths": [{ "start": 0, "end": 1800 }] },
+  "ageEvents": [
+    { "type": "age-reached", "profileId": 7, "age": "dark", "gameSeconds": 0 },
+    { "type": "age-reached", "profileId": 7, "age": "feudal", "gameSeconds": 600 },
+    { "type": "age-reached", "profileId": 7, "age": "castle", "gameSeconds": 1200 }
+  ],
+  "deaths": [
+    { "id": "synthetic-1", "type": "unit-died", "unitInstanceId": "synthetic-unit-1", "gameSeconds": 700, "unitCategory": "villager", "ownerProfileId": 8, "killerProfileId": 7, "cause": "enemy-combat", "cost": { "food": 50, "wood": 0, "gold": 0, "stone": 0, "definition": "nominal-unit-replacement-cost-at-death-v1" } },
+    { "id": "synthetic-2", "type": "unit-died", "unitInstanceId": "synthetic-unit-2", "gameSeconds": 1200, "unitCategory": "military", "ownerProfileId": 8, "killerProfileId": 7, "cause": "enemy-combat", "cost": { "food": 60, "wood": 0, "gold": 75, "stone": 0, "definition": "nominal-unit-replacement-cost-at-death-v1" } },
+    { "id": "synthetic-3", "type": "unit-died", "unitInstanceId": "synthetic-unit-3", "gameSeconds": 1400, "unitCategory": "villager", "ownerProfileId": 7, "killerProfileId": null, "cause": "own-delete" }
+  ]
+}

@@ -57,15 +57,16 @@
             <svg aria-hidden="true"><use href="#ic-compass" /></svg>
             <span>Prematch</span><span class="nav-index">02</span>
           </button>
-          <button class="nav-item" data-page="postmatch" type="button"><svg aria-hidden="true"><use href="#ic-chart" /></svg><span>Postmatch</span><span class="nav-index">03</span></button>
+          <button class="nav-item" data-page="tactics" type="button"><svg aria-hidden="true"><use href="#ic-compass" /></svg><span>Durante</span><span class="nav-index">03</span></button>
+          <button class="nav-item" data-page="postmatch" type="button"><svg aria-hidden="true"><use href="#ic-chart" /></svg><span>Postmatch</span><span class="nav-index">04</span></button>
           <button class="nav-item" data-page="skins" type="button">
             <svg aria-hidden="true"><use href="#ic-appearance" /></svg>
-            <span>Apariencia</span><span class="nav-index">04</span>
+            <span>Apariencia</span><span class="nav-index">05</span>
           </button>
-          <button class="nav-item" data-page="plans" type="button"><svg aria-hidden="true"><use href="#ic-access" /></svg><span>Plan y acceso</span><span class="nav-index">05</span></button>
+          <button class="nav-item" data-page="plans" type="button"><svg aria-hidden="true"><use href="#ic-access" /></svg><span>Plan y acceso</span><span class="nav-index">06</span></button>
           <button class="nav-item" data-page="updater" type="button">
             <svg aria-hidden="true"><use href="#ic-update" /></svg>
-            <span>Actualizaciones</span><span class="nav-index">06</span>
+            <span>Actualizaciones</span><span class="nav-index">07</span>
           </button>
         </nav>
 
@@ -200,7 +201,7 @@
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="smartTips" title="Consejos pre-partida calculados con replays analizados: en el mapa actual, qué civilizaciones y qué aperturas le cuestan al rival, y su perfil de ritmo. Solo se ven en la ventana de preparación (antes de que arranque la partida) y desaparecen solos al iniciar.">
+              <label class="row tog" for="smartTips" title="Consejos pre-partida calculados con replays analizados: en el mapa actual, qué civilizaciones y qué aperturas le cuestan al rival, y su perfil de ritmo. Las oportunidades por edad permanecen visibles durante la partida.">
                 <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 7v5c0 4 3 7 8 9 5-2 8-5 8-9V7l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg></span>
                 <span class="tcopy">
                   <span class="rname">Plan de partida</span>
@@ -255,14 +256,23 @@
             </div>
           </section>
 
+          <section class="page" data-page="tactics">
+            <div class="section-banner"><img src="assets/brand/watchtower-v1.png" alt="" width="76" height="76" draggable="false" /><div><span class="eyebrow">LEÉ · CONTRASTÁ · ADAPTÁ</span><h2>Encontrá tu oportunidad.</h2><p>Tu civilización frente a la del rival, con árboles tecnológicos e historial del mapa.</p></div></div>
+            <p class="mini">Planes automáticos para Feudal, Castillos e Imperial. Se actualizan con las civilizaciones confirmadas; no requieren entradas durante la partida.</p>
+            <div class="block"><label class="row tog" for="smartBuildOrder"><span class="ric"><svg aria-hidden="true"><use href="#ic-tower" /></svg></span><span class="tcopy"><span class="rname">Smart Build Order</span><span class="rdesc">Guía sugerida por tu civ y mapa · se activa antes de jugar · ProMax</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label></div>
+            <div id="buildOrderReport" aria-live="polite"></div>
+            <div class="group-head"><span>Oportunidades frente al rival</span><i></i></div>
+            <div id="tacticalReport" aria-live="polite"></div>
+          </section>
+
           <!-- ============ POSTMATCH ============ -->
           <section class="page" data-page="postmatch">
-            <div class="section-banner"><img src="assets/brand/opening-v1.png" alt="" width="76" height="76" draggable="false" /><div><span class="eyebrow">TU PRÓXIMA MEJORA</span><h2>Terminá con una lectura clara.</h2><p>Al volver al overlay, el replay se descarga y analiza automáticamente: resultado, apertura, llegada a edades y APM.</p></div></div>
+            <div class="section-banner"><img src="assets/brand/opening-v1.png" alt="" width="76" height="76" draggable="false" /><div><span class="eyebrow">TU PRÓXIMA MEJORA</span><h2>Terminá con una lectura clara.</h2><p>Al volver al overlay, el replay se descarga y analiza: resultado, apertura inferida, órdenes de avance y APM.</p></div></div>
             <div class="group-head"><span>Al terminar la partida</span><i></i></div>
             <div class="block">
               <label class="row tog" for="postMatch"><span class="ric"><svg aria-hidden="true"><use href="#ic-chart" /></svg></span><span class="tcopy"><span class="rname">Resumen postmatch</span><span class="rdesc">El overlay vuelve con el resultado confirmado y el resumen de la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
               <label class="row tog" for="postMatchComparison"><span class="ric"><svg aria-hidden="true"><use href="#ic-compass" /></svg></span><span class="tcopy"><span class="rname">Comparar mi evolución</span><span class="rdesc">Esta partida frente a tus anteriores en el mismo mapa y modo</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-              <label class="row tog" for="postMatchReplay"><span class="ric"><svg aria-hidden="true"><use href="#ic-tower" /></svg></span><span class="tcopy"><span class="rname">Análisis del replay y APM</span><span class="rdesc">Descarga automática del replay: apertura, llegadas a Feudal/Castillos y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              <label class="row tog" for="postMatchReplay"><span class="ric"><svg aria-hidden="true"><use href="#ic-tower" /></svg></span><span class="tcopy"><span class="rname">Análisis del replay y APM</span><span class="rdesc">Apertura inferida, primera orden de avance a cada edad y actividad registrada</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
             </div>
             <div class="group-head"><span>Último informe</span><i></i><button id="refreshPostMatch" class="link-btn" type="button">Actualizar</button></div>
             <div id="postMatchReport" class="postmatch-report" aria-live="polite"><div class="empty-report"><svg aria-hidden="true"><use href="#ic-chart" /></svg><h3>Tu próxima partida marca el comienzo.</h3><p>Al terminar, el informe aparecerá acá y en el overlay.</p></div></div>
@@ -271,8 +281,8 @@
           <!-- ============ PLAN Y ACCESO ============ -->
           <section class="page" data-page="plans">
             <div class="access-summary"><div><span class="eyebrow">TU ACCESO ACTUAL</span><h2 id="planName">Cargando…</h2><p id="planDescription">Consultando las funciones disponibles de esta versión.</p><span id="planExpiry" class="access-expiry"></span></div><svg aria-hidden="true"><use href="#ic-access" /></svg></div>
-            <details class="license-details" open><summary>Activar Pro con clave de acceso</summary><form id="accessKeyForm" class="license-form"><p>Ingresá la clave temporal que te compartieron. Habilita las funciones Pro en esta instalación; no es una suscripción.</p><label for="accessKey">Clave de acceso</label><input id="accessKey" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" /><div class="license-actions"><span id="accessKeyStatus" class="inline-status" role="status"></span><button id="activateAccessKey" class="btn gold" type="submit">Activar Pro</button></div></form></details>
-            <div class="plans-grid"><article class="plan-card"><span class="eyebrow">LA BASE PARA COMPETIR</span><h3>Free</h3><p>Conocé la partida y a sus jugadores.</p><ul id="freeFeatures" class="plan-feature-list"></ul></article><article class="plan-card pro"><span class="eyebrow">PREPARACIÓN Y EVOLUCIÓN</span><h3>Pro</h3><p>Profundizá el análisis y aprendé de tus partidas.</p><ul id="proFeatures" class="plan-feature-list"></ul><span class="includes-free">Incluye todas las funciones Free.</span></article></div>
+            <details class="license-details" open><summary>Activar acceso de prueba ProMax</summary><form id="accessKeyForm" class="license-form"><p>Ingresá la clave temporal que te compartieron. Habilita las funciones ProMax en esta instalación; no es una suscripción.</p><label for="accessKey">Clave de acceso</label><input id="accessKey" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" /><div class="license-actions"><span id="accessKeyStatus" class="inline-status" role="status"></span><button id="activateAccessKey" class="btn gold" type="submit">Activar ProMax</button></div></form></details>
+            <div class="plans-grid"><article class="plan-card"><span class="eyebrow">EL CARA A CARA</span><h3>Free</h3><p>Nombre, ELO actual e historial entre ambos.</p><ul id="freeFeatures" class="plan-feature-list"></ul></article><article class="plan-card pro"><span class="eyebrow">CONOCÉ EL CONTEXTO</span><h3>Pro</h3><p>Perfil del rival, civilizaciones y resumen de resultados.</p><ul id="proFeatures" class="plan-feature-list"></ul><span class="includes-free">Incluye Free.</span></article><article class="plan-card pro"><span class="eyebrow">PREPARÁ · ADAPTÁ · MEJORÁ</span><h3>ProMax</h3><p>Oportunidades automáticas, replays y evolución medida.</p><ul id="proMaxFeatures" class="plan-feature-list"></ul><span class="includes-free">Incluye Free y Pro. Las métricas requieren datos medidos.</span></article></div>
             <div class="commerce-actions"><div><strong id="commerceTitle">Suscripciones</strong><p id="commerceStatus">La contratación todavía no está habilitada.</p></div><div class="button-group"><button id="accountCommerce" class="btn" type="button" disabled>Gestionar cuenta</button><button id="checkoutCommerce" class="btn gold" type="button" disabled>Obtener Pro</button></div></div>
             <details class="license-details"><summary>Activar una licencia existente</summary><form id="licenseForm" class="license-form"><p>Ingresá la cuenta y la credencial firmada que recibiste del servicio del producto.</p><label for="licenseAccount">Cuenta del producto</label><input id="licenseAccount" class="field" type="text" autocomplete="username" spellcheck="false" /><label for="licenseToken">Credencial de acceso</label><textarea id="licenseToken" class="field" rows="3" autocomplete="off" spellcheck="false" placeholder="v1.…"></textarea><div class="license-actions"><span id="licenseStatus" class="inline-status" role="status"></span><button id="activateLicense" class="btn" type="submit">Verificar acceso</button></div></form></details>
             <p class="product-footnote">El plan habilita funciones. La disponibilidad de los datos depende de la muestra, el modo de juego y los replays analizados.</p>

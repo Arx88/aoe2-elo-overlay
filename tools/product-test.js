@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { FEATURES, TOKEN_PREFIX, getProductState, verifyEntitlement, allowsFeature,
-  effectivePreferences, featureState, validateCommerceUrl } = require('../src/product');
+  effectivePreferences, featureState, validateCommerceUrl, createProductStateCache } = require('../src/product');
 
 const now = Date.UTC(2026, 10, 14, 12);
 const seconds = Math.floor(now / 1000);
@@ -23,9 +23,11 @@ function sign(payload, privateKey = pair.privateKey) {
 const free = getProductState(options);
 assert.equal(free.plan, 'free');
 assert.equal(free.subscriptionVerified, false);
-assert.equal(allowsFeature(free, 'rivalCivs'), true);
+assert.equal(allowsFeature(free, 'rivalCivs'), false);
 assert.equal(allowsFeature(free, 'rivalOpenings'), false);
-assert.equal(allowsFeature(free, 'postMatch'), true);
+assert.equal(allowsFeature(free, 'postMatch'), false);
+assert.equal(allowsFeature(free, 'rivalH2H'), true);
+assert.deepEqual(FEATURES.filter((f) => allowsFeature(free, f.key)).map((f) => f.key).sort(), ['elo', 'rivalH2H']);
 assert.equal(allowsFeature(free, 'postMatchComparison'), false);
 assert.equal(allowsFeature({ featureAccess: { invented: true } }, 'invented'), false);
 assert.equal(allowsFeature(getProductState({ ...options, plan: 'pro', pro: true }), 'smartTips'), false,
@@ -40,7 +42,7 @@ assert.ok(FEATURES.every((feature) => allowsFeature(beta, feature.key)));
 assert.equal(getProductState({ ...options, betaAccess: 'true' }).plan, 'free');
 
 const keyed = getProductState({ ...options, accessKeyGranted: true });
-assert.equal(keyed.plan, 'pro');
+assert.equal(keyed.plan, 'promax');
 assert.equal(keyed.accessSource, 'access-key');
 assert.equal(keyed.accessKeyGranted, true);
 assert.equal(keyed.subscriptionVerified, false);
@@ -52,7 +54,18 @@ const pro = getProductState({ ...options, entitlementToken });
 assert.equal(pro.plan, 'pro');
 assert.equal(pro.subscriptionVerified, true);
 assert.equal(pro.entitlement.expiresAt, claims.exp * 1000);
-assert.ok(FEATURES.every((feature) => allowsFeature(pro, feature.key)));
+assert.ok(FEATURES.filter((feature) => feature.plan !== 'promax').every((feature) => allowsFeature(pro, feature.key)));
+assert.equal(allowsFeature(pro, 'smartTips'), false);
+assert.equal(allowsFeature(pro, 'smartBuildOrder'), false);
+const proMax = getProductState({ ...options, entitlementToken: sign({ ...claims, plan: 'promax' }) });
+const upgradedTestAccess = getProductState({ ...options, entitlementToken, accessKeyGranted: true });
+assert.equal(upgradedTestAccess.plan, 'promax');
+assert.equal(upgradedTestAccess.accessSource, 'access-key');
+assert.equal(upgradedTestAccess.subscriptionVerified, false, 'a Pro licence does not make a tester ProMax grant a verified subscription');
+assert.equal(proMax.plan, 'promax');
+assert.ok(FEATURES.every((feature) => allowsFeature(proMax, feature.key)));
+assert.equal(effectivePreferences({ smartBuildOrder: true }, proMax).smartBuildOrder, true);
+assert.equal(effectivePreferences({ smartBuildOrder: true }, pro).smartBuildOrder, false);
 assert.equal(getProductState({ ...options, entitlementToken: null }).plan, 'free',
   'removing a token resets effective access without a sticky paid flag');
 assert.equal(getProductState({ ...options, entitlementToken, now: claims.exp * 1000 }).plan, 'free');
@@ -80,30 +93,31 @@ for (const bad of [42, {}, 'pro', 'v1.abc', 'v2.abc.abc', 'v1.***.abc',
   assert.equal(verifyEntitlement(bad, options).valid, false, 'malformed tokens fail closed');
 }
 
-const preferences = { rivalCivs: true, rivalOpenings: true, smartTips: false,
+const preferences = { rivalCivs: true, rivalH2H: true, rivalOpenings: true, smartTips: false,
   civRecommender: 'true', theme: 'clasico', postMatch: true, postMatchComparison: true };
 const effectiveFree = effectivePreferences(preferences, free);
-assert.equal(effectiveFree.rivalCivs, true);
+assert.equal(effectiveFree.rivalCivs, false);
 assert.equal(effectiveFree.rivalOpenings, false);
-assert.equal(effectiveFree.postMatch, true);
+assert.equal(effectiveFree.postMatch, false);
 assert.equal(effectiveFree.postMatchComparison, false);
 assert.equal(effectiveFree.theme, 'clasico');
 assert.equal(preferences.rivalOpenings, true, 'losing access does not erase a saved preference');
-assert.equal(effectivePreferences(preferences, pro).rivalOpenings, true);
+assert.equal(effectivePreferences(preferences, proMax).rivalOpenings, true);
 assert.equal(effectivePreferences(preferences, pro).smartTips, false, 'Pro does not enable an unselected preference');
 assert.equal(effectivePreferences(preferences, pro).civRecommender, false, 'preference values are strict booleans');
 
 const selected = { preferences, product: free, availability: { status: 'ready', sample: 14 } };
 assert.equal(featureState('rivalOpenings', selected).status, 'locked');
 assert.equal(featureState('rivalOpenings', selected).selected, true);
-assert.equal(featureState('rivalCivs', selected).status, 'ready');
-assert.equal(featureState('rivalCivs', { ...selected, availability: { status: 'error', message: 'HTTP 429' } }).message, 'HTTP 429');
-assert.equal(featureState('rivalOpenings', { ...selected, product: pro, availability: { status: 'insufficient', sample: 2 } }).status, 'insufficient',
+assert.equal(featureState('rivalH2H', selected).status, 'ready');
+assert.equal(featureState('rivalH2H', { ...selected, availability: { status: 'error', message: 'HTTP 429' } }).message, 'HTTP 429');
+assert.equal(featureState('rivalOpenings', { ...selected, product: proMax, availability: { status: 'insufficient', sample: 2 } }).status, 'insufficient',
   'paying does not transform an insufficient sample into ready data');
-assert.equal(featureState('smartTips', { ...selected, product: pro }).status, 'disabled');
+assert.equal(featureState('smartTips', { ...selected, product: proMax }).status, 'disabled');
 assert.equal(featureState('invented', selected).status, 'unknown-feature');
 assert.equal(featureState('elo', { product: free }).status, 'pending');
-assert.equal(featureState('rivalCivs', { ...selected, availability: { status: 'invented', sample: -4 } }).sample, null);
+assert.equal(featureState('rivalH2H', { ...selected, availability: { status: 'invented', sample: -4 } }).sample, null);
+assert.equal(effectivePreferences({ scoutF2: true }, proMax).scoutF2, false);
 
 const allowedHosts = ['billing.example.com'];
 assert.equal(validateCommerceUrl('https://billing.example.com/checkout?product=pro', allowedHosts).enabled, true);
@@ -120,5 +134,24 @@ assert.equal(getProductState({ ...options, billing: { checkoutUrl: 'https://bill
   allowedHosts } }).commerce.configured, true);
 assert.equal(Object.keys(pro).includes('entitlementToken'), false);
 assert.ok(!JSON.stringify(pro).includes(entitlementToken), 'renderer state never carries the signed token');
+
+// The main-process resolver must expire access without a token/config change.
+let clock = now;
+const cached = createProductStateCache(() => clock);
+const session = { ...options, entitlementToken };
+delete session.now;
+assert.equal(cached(session).plan, 'pro');
+assert.strictEqual(cached(session), cached(session), 'reuse verification within one clock second');
+clock = claims.exp * 1000;
+assert.equal(cached(session).plan, 'free', 'cached Pro expires without restarting or changing the token');
+assert.equal(cached(session).entitlement.reason, 'expired');
+assert.equal(effectivePreferences(preferences, cached(session)).rivalOpenings, false);
+assert.equal(preferences.rivalOpenings, true);
+clock = now;
+assert.equal(cached({ ...session, entitlementToken: sign({ ...claims, nbf: seconds + 120 }) }).plan, 'free');
+clock = now + 60000;
+assert.equal(cached({ ...session, entitlementToken: sign({ ...claims, nbf: seconds + 120 }) }).plan, 'pro',
+  'time also invalidates a not-yet-valid rejection');
+assert.ok(FEATURES.every((feature) => typeof feature.icon === 'string' && feature.icon.length));
 
 console.log('PRODUCT ACCESS OK: Free/Pro/beta/clave temporal, firmas, vencimiento, preferencias, disponibilidad y enlaces.');
