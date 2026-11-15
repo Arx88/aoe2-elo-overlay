@@ -31,7 +31,8 @@ respuestas reales antes de prometer funciones nuevas.
 | Recomendaciones | Observaciones por rival con recorte y muestra | Indicar falta de muestra o error de replays |
 | Cara a cara | Enfrentamientos del historial propio del modo, separados de aliados | Diferenciar error de cero enfrentamientos en la muestra |
 | Civ recomendada | Cruce de historial propio y observaciones del rival | Explicar falta de muestra o error de cualquiera de las fuentes |
-| Resumen con F2 | Resumen y acceso al detalle; registro global opcional | Informar si el atajo no puede registrarse |
+| Oportunidades automáticas | Tres horizontes condicionales entre civs, sin seleccionar edad/ejército | Esperar contexto confirmado y declarar límites del modelo |
+| Smart Build Order | Referencia sugerida automáticamente por civ/mapa/modo | Abstenerse en inicios incompatibles; no simular progreso |
 | Balance TG | Comparación con ELO RM 1v1 disponible | Indicar jugadores sin ELO y alcance |
 
 El resumen compacto debe seguir comunicando el estado de las opciones elegidas.
@@ -39,14 +40,26 @@ El detalle no debe depender exclusivamente de tooltips sobre un overlay que no
 recibe el ratón. La prueba final necesita partida real, datos fríos y calientes,
 errores, 429 y combinaciones de opciones.
 
-## Free y Pro: preparación
+## Free, Pro y ProMax: preparación
 
-La división de funciones, precios y reglas comerciales aún no está decidida.
-Propuesta para investigación: Free con identidad, ELO y lectura básica; Pro
-con análisis ampliado, tendencias y comparaciones avanzadas. Ninguna opción
-actual debe bloquearse ni anunciarse como parte de un plan hasta que se defina
-el catálogo y exista un mecanismo real de cuenta y autorización verificable.
-Un toggle local no es una suscripción ni una protección de acceso.
+El catálogo y los permisos están definidos en `src/product.js` y
+[PRODUCT-ACCESS.md](docs/PRODUCT-ACCESS.md). Free muestra estrictamente nombre,
+ELO actual del rival e historial entre ambos. Pro añade roster/contexto, civs,
+mapa, guía y resultados. ProMax añade aperturas, oportunidades automáticas,
+elección de civ, Smart Build Order y análisis/evolución personal con evidencia.
+
+El overlay es visual y deja pasar los clics: no exige selectores, F2, recálculo
+ni avance manual de recetas durante la partida. Las oportunidades muestran
+horizontes condicionales; la edad actual y los pasos completados no se infieren
+del tiempo transcurrido. Las recetas son referencias sugeridas, no una apertura
+propia detectada en vivo.
+
+La beta, la clave de prueba ProMax y una credencial firmada conservan estados
+distintos. El backend real de cuentas/cobros/renovación sigue pendiente y fue
+diferido expresamente en este bloque. Un toggle local no es una suscripción.
+Véanse el [estado de implementación](docs/IMPLEMENTATION-STATUS.md), la
+[fórmula de oportunidades](docs/OPPORTUNITIES.md) y el
+[alcance de Smart Build Order](docs/SMART-BUILD-ORDER.md).
 
 ## Medición prioritaria
 

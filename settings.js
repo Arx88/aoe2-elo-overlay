@@ -67,12 +67,16 @@ const postMatchComparisonInput = el('postMatchComparison');
 const postMatchReplayInput = el('postMatchReplay');
 const postMatchReportEl = el('postMatchReport');
 const refreshPostMatchBtn = el('refreshPostMatch');
+const tacticalReportEl = el('tacticalReport');
+const smartBuildOrderInput = el('smartBuildOrder');
+const buildOrderReportEl = el('buildOrderReport');
 const railPlanLabel = el('railPlanLabel');
 const planName = el('planName');
 const planDescription = el('planDescription');
 const planExpiry = el('planExpiry');
 const freeFeatures = el('freeFeatures');
 const proFeatures = el('proFeatures');
+const proMaxFeatures = el('proMaxFeatures');
 const commerceTitle = el('commerceTitle');
 const commerceStatus = el('commerceStatus');
 const accountCommerce = el('accountCommerce');
@@ -168,10 +172,14 @@ function renderFeatureList(target, features) {
     if (!feature.allowed) item.classList.add('locked');
     const name = document.createElement('b');
     name.textContent = feature.title;
+    const emblem = document.createElement('span');
+    emblem.className = 'feature-icon';
+    emblem.setAttribute('aria-hidden', 'true');
+    if (typeof TacticalUI === 'object') emblem.innerHTML = TacticalUI.icon(feature.icon || 'compass');
     const description = document.createElement('span');
     description.className = 'feature-desc';
     description.textContent = feature.description;
-    item.append(name, description);
+    item.append(emblem, name, description);
     target.append(item);
   }
 }
@@ -185,10 +193,10 @@ function renderProduct(product) {
 
   railPlanLabel.textContent = product.label || 'Free';
   planName.textContent = product.label || 'Free';
-  if (product.plan === 'pro' && product.accessSource === 'access-key') {
-    planDescription.textContent = 'Acceso Pro temporal por clave. No es una suscripción verificada.';
-  } else if (product.plan === 'pro') {
-    planDescription.textContent = 'Suscripción verificada. Incluye las funciones de análisis avanzado.';
+  if (product.accessSource === 'access-key') {
+    planDescription.textContent = 'Acceso de prueba ProMax por clave. No es una suscripción.';
+  } else if (product.plan === 'pro' || product.plan === 'promax') {
+    planDescription.textContent = 'Licencia firmada verificada para las funciones de este plan.';
   } else if (product.plan === 'beta') {
     planDescription.textContent = 'Acceso beta explícito de esta versión. No es una suscripción activa.';
   } else {
@@ -197,7 +205,7 @@ function renderProduct(product) {
   if (product.subscriptionVerified && product.entitlement && product.entitlement.expiresAt) {
     const expires = new Date(product.entitlement.expiresAt);
     planExpiry.textContent = `Vence el ${expires.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
-  } else if (product.plan === 'pro' && product.accessSource === 'access-key') {
+  } else if (product.accessSource === 'access-key') {
     planExpiry.textContent = 'Acceso por clave · sin suscripción';
   } else if (product.plan === 'beta') {
     planExpiry.textContent = 'Acceso beta · sin suscripción verificada';
@@ -207,12 +215,26 @@ function renderProduct(product) {
 
   renderFeatureList(freeFeatures, features.filter((feature) => feature.plan === 'free'));
   renderFeatureList(proFeatures, features.filter((feature) => feature.plan === 'pro'));
+  renderFeatureList(proMaxFeatures, features.filter((feature) => feature.plan === 'promax'));
 
-  postMatchInput.disabled = false;
+  postMatchInput.disabled = !product.featureAccess.postMatch;
+  civHelpInput.disabled = !product.featureAccess.civHelp;
+  tgBalanceInput.disabled = !product.featureAccess.tgBalance;
   postMatchComparisonInput.disabled = !proAccess;
   postMatchReplayInput.disabled = !replayAccess;
-  postMatchComparisonInput.title = proAccess ? '' : 'Disponible con Pro.';
-  postMatchReplayInput.title = replayAccess ? '' : 'Disponible con Pro.';
+  smartBuildOrderInput.disabled = !product.featureAccess.smartBuildOrder;
+  postMatchComparisonInput.title = proAccess ? '' : 'Disponible con ProMax.';
+  postMatchReplayInput.title = replayAccess ? '' : 'Disponible con ProMax.';
+  scoutF2Input.closest('.row').hidden = true;
+  scoutF2Input.disabled = true;
+  for (const [key, input] of Object.entries(rivalInputs)) {
+    const allowed = product.featureAccess && product.featureAccess[key] === true;
+    input.disabled = !allowed;
+    const tier = features.find((feature) => feature.key === key)?.plan;
+    input.title = allowed ? '' : `Disponible con ${tier === 'promax' ? 'ProMax' : 'Pro'}. Tu preferencia guardada se conserva.`;
+    const row = input.closest('.row');
+    if (row) row.classList.toggle('feature-locked', !allowed);
+  }
 
   const commerce = product.commerce || {};
   commerceStatus.textContent = commerce.message || 'La contratación todavía no está habilitada.';
@@ -224,7 +246,7 @@ function renderProduct(product) {
 const EMPTY_POSTMATCH = '<div class="empty-report"><svg aria-hidden="true"><use href="#ic-chart" /></svg><h3>Tu próxima partida marca el comienzo.</h3><p>Al terminar, el informe aparecerá acá y en el overlay.</p></div>';
 
 function paintPostMatch(payload) {
-  const report = payload && payload.report ? payload.report : payload;
+  const report = payload && Object.hasOwn(payload, 'report') ? payload.report : payload;
   if (payload && payload.access) postMatchAccess = payload.access;
   if (payload && payload.product) renderProduct(payload.product);
   if (!postMatchReportEl) return;
@@ -424,7 +446,7 @@ scoutF2Input.addEventListener('change', () =>
 for (const [key, input, label] of [
   ['postMatch', postMatchInput, 'Resumen postmatch'],
   ['postMatchComparison', postMatchComparisonInput, 'Comparar mi evolución'],
-  ['postMatchReplay', postMatchReplayInput, 'Calificación por etapa y APM'],
+  ['postMatchReplay', postMatchReplayInput, 'Análisis del replay y APM'],
 ]) {
   input.addEventListener('change', () =>
     applyToggle(input, (on) => window.settings.postMatchOption(key, on), label),
@@ -450,6 +472,46 @@ refreshPostMatchBtn.addEventListener('click', async () => {
 });
 
 window.settings.onPostMatch((payload) => paintPostMatch(payload));
+window.settings.onProduct((product) => { renderProduct(product); loadTactics(); });
+window.settings.onTactics((payload) => paintTactics(payload));
+window.settings.onBuildOrder((payload) => paintBuildOrder(payload));
+
+function paintBuildOrder(payload) {
+  if (!buildOrderReportEl || typeof TacticalUI !== 'object') return;
+  buildOrderReportEl.innerHTML = TacticalUI.renderSmartBuildOrder(payload, { library: true });
+  smartBuildOrderInput.checked = Boolean(payload?.enabled);
+  smartBuildOrderInput.disabled = payload?.status === 'locked' || Boolean(payload?.ongoing);
+  smartBuildOrderInput.title = payload?.ongoing ? 'Se configura antes de buscar partida.'
+    : payload?.status === 'locked' ? 'Disponible con ProMax.' : '';
+}
+
+async function loadBuildOrder() {
+  try { paintBuildOrder(await window.settings.buildOrderGet()); }
+  catch { paintBuildOrder({ status: 'unavailable', reasons: ['No se pudo consultar la guía.'] }); }
+}
+
+smartBuildOrderInput.addEventListener('change', async () => {
+  await applyToggle(smartBuildOrderInput, (on) => window.settings.smartBuildOrder(on), 'Smart Build Order');
+  await loadBuildOrder();
+});
+
+function paintTactics(payload) {
+  if (!tacticalReportEl || typeof TacticalUI !== 'object') return;
+  const tips = Array.isArray(payload?.tips) ? payload.tips : [];
+  const content = tips.filter((tip) => tip.opportunityStages || tip.opportunities).map((tip) =>
+    `<article class="tactical-rival"><h3>${TacticalUI.esc(tip.name || 'Rival')}</h3>${TacticalUI.renderAutomaticOpportunities(tip.opportunityStages || [tip.opportunities], { detail: true })}</article>`).join('');
+  const error = tips.find((tip) => tip.error)?.error;
+  const message = payload?.message || error || (payload?.status === 'loading'
+    ? 'Actualizando el cruce de civilizaciones y el historial…' : 'Esperando ambas civilizaciones y datos de la partida.');
+  tacticalReportEl.innerHTML = content || `<div class="empty-report"><h3>${TacticalUI.esc(message)}</h3></div>`;
+}
+
+async function loadTactics() {
+  await loadBuildOrder();
+  try { paintTactics(await window.settings.tacticsGet()); }
+  catch { paintTactics({ status: 'error', message: 'No se pudo consultar el análisis. Podés reintentar.' }); }
+}
+
 
 accountCommerce.addEventListener('click', async () => {
   const response = await window.settings.openCommerce('account');
@@ -563,11 +625,13 @@ async function loadCurrent() {
   postMatchInput.checked = info.postMatch !== false;
   postMatchComparisonInput.checked = Boolean(info.postMatchComparison);
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
+  smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
   if (typeof TacticalUI === 'object' && TacticalUI.configure) {
     TacticalUI.configure({ slugs: info.shields, aliases: info.civAliases });
   }
   if (info.product) renderProduct(info.product);
   await loadPostMatch();
+  await loadBuildOrder();
   autoUpdateInput.checked = Boolean(info.autoUpdate);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt
@@ -779,14 +843,15 @@ document.addEventListener('keydown', (event) => {
 /* ============================================================
    Navegación del wizard: solo el rail, sin botones de pie.
    ============================================================ */
-const PAGE_ORDER = ['player', 'overlay', 'postmatch', 'skins', 'plans', 'updater'];
+const PAGE_ORDER = ['player', 'overlay', 'tactics', 'postmatch', 'skins', 'plans', 'updater'];
 const PAGE_META = {
   player: { index: '01 / CUENTA', title: 'Tu punto de partida.', sub: 'Tu cuenta en el juego y cómo cambiarla.' },
   overlay: { index: '02 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida.' },
-  postmatch: { index: '03 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'El resultado y tu evolución cuando termina.' },
-  skins: { index: '04 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
-  plans: { index: '05 / PLAN Y ACCESO', title: 'Elegí cuánto ver.', sub: 'Free para competir; Pro para preparar y evolucionar.' },
-  updater: { index: '06 / ACTUALIZACIONES', title: 'Mantené la app al día.', sub: 'Actualizaciones seguras, también en plena temporada.' },
+  tactics: { index: '03 / DURANTE', title: 'Elegí cómo responder.', sub: 'Oportunidades por civilización, historial y composición observada.' },
+  postmatch: { index: '04 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'El resultado y tu evolución cuando termina.' },
+  skins: { index: '05 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
+  plans: { index: '06 / PLAN Y ACCESO', title: 'Elegí cuánto ver.', sub: 'Free para competir; Pro para preparar y evolucionar.' },
+  updater: { index: '07 / ACTUALIZACIONES', title: 'Mantené la app al día.', sub: 'Actualizaciones seguras, también en plena temporada.' },
 };
 
 let activePage = 'player';
@@ -800,6 +865,7 @@ function goTo(page) {
   pageSub.textContent = PAGE_META[page].sub;
   pageIndex.textContent = PAGE_META[page].index;
   if (page === 'postmatch') loadPostMatch();
+  if (page === 'tactics') loadTactics();
   if (pagesEl) pagesEl.scrollTop = 0;
 }
 

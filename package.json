@@ -6,6 +6,7 @@
   "author": "AoE2 ELO Overlay",
   "main": "main.js",
   "scripts": {
+    "test": "node tools/test.js",
     "start": "electron .",
     "selftest": "node tools/selftest.js",
     "pack": "electron-builder --win --dir",
