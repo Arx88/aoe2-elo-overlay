@@ -15,6 +15,7 @@ update-channel.local.json
 # Cachés del motor post-partida (se regeneran; ver docs/ENGINE.md)
 .engine-cache/
 .tmp-aoe2data/
+.save-unpacked.bin
 
 # Ruido del sistema / editor
 .workbuddy-ai/
