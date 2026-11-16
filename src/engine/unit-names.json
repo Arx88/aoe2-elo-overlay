@@ -1,0 +1,1493 @@
+{
+  "meta": {
+    "generatedBy": "tools/build-unit-names.js",
+    "dataset": "aoe2techtree.net/data/data.json",
+    "names": "key-value-strings-utf8.txt",
+    "units": 256,
+    "buildings": 40
+  },
+  "units": {
+    "4": {
+      "name": "Arquero",
+      "key": "arquero",
+      "trainSeconds": 35
+    },
+    "5": {
+      "name": "Artillero manual",
+      "key": "artillero-manual",
+      "trainSeconds": 34
+    },
+    "6": {
+      "name": "Hostigador de élite",
+      "key": "hostigador-de-elite",
+      "trainSeconds": 22
+    },
+    "7": {
+      "name": "Hostigador",
+      "key": "hostigador",
+      "trainSeconds": 26
+    },
+    "8": {
+      "name": "Arquero con arco largo",
+      "key": "arquero-con-arco-largo",
+      "trainSeconds": 18
+    },
+    "11": {
+      "name": "Mangudai",
+      "key": "mangudai",
+      "trainSeconds": 26
+    },
+    "13": {
+      "name": "Pesquero",
+      "key": "pesquero",
+      "trainSeconds": 40
+    },
+    "17": {
+      "name": "Barca mercante",
+      "key": "barca-mercante",
+      "trainSeconds": 36
+    },
+    "21": {
+      "name": "Galera de guerra",
+      "key": "galera-de-guerra",
+      "trainSeconds": 27
+    },
+    "24": {
+      "name": "Ballestero",
+      "key": "ballestero",
+      "trainSeconds": 27
+    },
+    "25": {
+      "name": "Cab. Orden Teutónica",
+      "key": "cab-orden-teutonica",
+      "trainSeconds": 12
+    },
+    "36": {
+      "name": "Cañón de asedio",
+      "key": "canon-de-asedio",
+      "trainSeconds": 56
+    },
+    "38": {
+      "name": "Caballero",
+      "key": "caballero",
+      "trainSeconds": 30
+    },
+    "39": {
+      "name": "Arquero a caballo",
+      "key": "arquero-a-caballo",
+      "trainSeconds": 37
+    },
+    "40": {
+      "name": "Catafracta",
+      "key": "catafracta",
+      "trainSeconds": 20
+    },
+    "41": {
+      "name": "Huscarle",
+      "key": "huscarle",
+      "trainSeconds": 13
+    },
+    "42": {
+      "name": "Lanzapiedras",
+      "key": "lanzapiedras",
+      "trainSeconds": 50
+    },
+    "46": {
+      "name": "Jenízaro",
+      "key": "jenizaro",
+      "trainSeconds": 21
+    },
+    "73": {
+      "name": "Chu ko nu",
+      "key": "chu-ko-nu",
+      "trainSeconds": 16
+    },
+    "74": {
+      "name": "Milicia",
+      "key": "milicia",
+      "trainSeconds": 21
+    },
+    "75": {
+      "name": "Hombre de armas",
+      "key": "hombre-de-armas",
+      "trainSeconds": 21
+    },
+    "77": {
+      "name": "Espad. espada larga",
+      "key": "espad-espada-larga",
+      "trainSeconds": 21
+    },
+    "83": {
+      "name": "Aldeano",
+      "key": "aldeano",
+      "trainSeconds": 25
+    },
+    "93": {
+      "name": "Lancero",
+      "key": "lancero",
+      "trainSeconds": 22
+    },
+    "125": {
+      "name": "Monje",
+      "key": "monje",
+      "trainSeconds": 51
+    },
+    "128": {
+      "name": "Carreta de mercancías (vacía)",
+      "key": "carreta-de-mercancias-vacia",
+      "trainSeconds": 51
+    },
+    "185": {
+      "name": "Hondero",
+      "key": "hondero",
+      "trainSeconds": 25
+    },
+    "207": {
+      "name": "Jinete de camello imperial",
+      "key": "jinete-de-camello-imperial",
+      "trainSeconds": 20
+    },
+    "232": {
+      "name": "Incursor azul",
+      "key": "incursor-azul",
+      "trainSeconds": 10
+    },
+    "239": {
+      "name": "Elefante de guerra",
+      "key": "elefante-de-guerra",
+      "trainSeconds": 25
+    },
+    "250": {
+      "name": "Drakkar",
+      "key": "drakkar",
+      "trainSeconds": 25
+    },
+    "279": {
+      "name": "Escorpión",
+      "key": "escorpion",
+      "trainSeconds": 30
+    },
+    "280": {
+      "name": "Mangana",
+      "key": "mangana",
+      "trainSeconds": 46
+    },
+    "281": {
+      "name": "Lanzador de hachas",
+      "key": "lanzador-de-hachas",
+      "trainSeconds": 13
+    },
+    "282": {
+      "name": "Mameluco",
+      "key": "mameluco",
+      "trainSeconds": 23
+    },
+    "283": {
+      "name": "Caballero",
+      "key": "caballero",
+      "trainSeconds": 30
+    },
+    "291": {
+      "name": "Samurai",
+      "key": "samurai",
+      "trainSeconds": 9
+    },
+    "293": {
+      "name": "Aldeano",
+      "key": "aldeano",
+      "trainSeconds": 25
+    },
+    "329": {
+      "name": "Jinete de camello",
+      "key": "jinete-de-camello",
+      "trainSeconds": 22
+    },
+    "330": {
+      "name": "Jinete de camello pesado",
+      "key": "jinete-de-camello-pesado",
+      "trainSeconds": 22
+    },
+    "331": {
+      "name": "Lanzapiedras (desarmado)",
+      "key": "lanzapiedras-desarmado",
+      "trainSeconds": 50
+    },
+    "358": {
+      "name": "Piquero",
+      "key": "piquero",
+      "trainSeconds": 22
+    },
+    "359": {
+      "name": "Alabardero",
+      "key": "alabardero",
+      "trainSeconds": 22
+    },
+    "420": {
+      "name": "Galeón artillado",
+      "key": "galeon-artillado",
+      "trainSeconds": 46
+    },
+    "422": {
+      "name": "Ariete cubierto",
+      "key": "ariete-cubierto",
+      "trainSeconds": 36
+    },
+    "440": {
+      "name": "Petardo",
+      "key": "petardo",
+      "trainSeconds": 25
+    },
+    "441": {
+      "name": "Húsar",
+      "key": "husar",
+      "trainSeconds": 30
+    },
+    "442": {
+      "name": "Galeón",
+      "key": "galeon",
+      "trainSeconds": 27
+    },
+    "448": {
+      "name": "Cab. de exploración",
+      "key": "cab-de-exploracion",
+      "trainSeconds": 30
+    },
+    "473": {
+      "name": "Espad. de mandoble",
+      "key": "espad-de-mandoble",
+      "trainSeconds": 21
+    },
+    "474": {
+      "name": "Cab. pesada de arq.",
+      "key": "cab-pesada-de-arq",
+      "trainSeconds": 30
+    },
+    "492": {
+      "name": "Arbalestero",
+      "key": "arbalestero",
+      "trainSeconds": 27
+    },
+    "527": {
+      "name": "Buque de demolición",
+      "key": "buque-de-demolicion",
+      "trainSeconds": 31
+    },
+    "528": {
+      "name": "Buque dem. pesado",
+      "key": "buque-dem-pesado",
+      "trainSeconds": 31
+    },
+    "529": {
+      "name": "Barco incendiario",
+      "key": "barco-incendiario",
+      "trainSeconds": 27
+    },
+    "530": {
+      "name": "Arq. tiro largo élite",
+      "key": "arq-tiro-largo-elite",
+      "trainSeconds": 18
+    },
+    "531": {
+      "name": "Lanzador hachas élite",
+      "key": "lanzador-hachas-elite",
+      "trainSeconds": 13
+    },
+    "532": {
+      "name": "Barco incendiario rápido",
+      "key": "barco-incendiario-rapido",
+      "trainSeconds": 27
+    },
+    "533": {
+      "name": "Drakkar de élite",
+      "key": "drakkar-de-elite",
+      "trainSeconds": 25
+    },
+    "534": {
+      "name": "Incursor azul de élite",
+      "key": "incursor-azul-de-elite",
+      "trainSeconds": 10
+    },
+    "539": {
+      "name": "Galera",
+      "key": "galera",
+      "trainSeconds": 45
+    },
+    "542": {
+      "name": "Escorpión pesado",
+      "key": "escorpion-pesado",
+      "trainSeconds": 30
+    },
+    "545": {
+      "name": "Barco transporte",
+      "key": "barco-transporte",
+      "trainSeconds": 46
+    },
+    "546": {
+      "name": "Caballería ligera",
+      "key": "caballeria-ligera",
+      "trainSeconds": 30
+    },
+    "548": {
+      "name": "Ariete de asedio",
+      "key": "ariete-de-asedio",
+      "trainSeconds": 36
+    },
+    "550": {
+      "name": "Onagro",
+      "key": "onagro",
+      "trainSeconds": 46
+    },
+    "553": {
+      "name": "Catafracta de élite",
+      "key": "catafracta-de-elite",
+      "trainSeconds": 20
+    },
+    "554": {
+      "name": "Cab O. Teutónica élite",
+      "key": "cab-o-teutonica-elite",
+      "trainSeconds": 12
+    },
+    "555": {
+      "name": "Huscarle de élite",
+      "key": "huscarle-de-elite",
+      "trainSeconds": 13
+    },
+    "556": {
+      "name": "Mameluco de élite",
+      "key": "mameluco-de-elite",
+      "trainSeconds": 23
+    },
+    "557": {
+      "name": "Jenízaro de élite",
+      "key": "jenizaro-de-elite",
+      "trainSeconds": 21
+    },
+    "558": {
+      "name": "Elefante guerra élite",
+      "key": "elefante-guerra-elite",
+      "trainSeconds": 25
+    },
+    "559": {
+      "name": "Chu ko nu de élite",
+      "key": "chu-ko-nu-de-elite",
+      "trainSeconds": 13
+    },
+    "560": {
+      "name": "Samurai de élite",
+      "key": "samurai-de-elite",
+      "trainSeconds": 9
+    },
+    "561": {
+      "name": "Mangudai de élite",
+      "key": "mangudai-de-elite",
+      "trainSeconds": 26
+    },
+    "567": {
+      "name": "Campeón",
+      "key": "campeon",
+      "trainSeconds": 21
+    },
+    "569": {
+      "name": "Paladín",
+      "key": "paladin",
+      "trainSeconds": 30
+    },
+    "588": {
+      "name": "Onagro de asedio",
+      "key": "onagro-de-asedio",
+      "trainSeconds": 46
+    },
+    "691": {
+      "name": "Galeón artillado élite",
+      "key": "galeon-artillado-elite",
+      "trainSeconds": 46
+    },
+    "692": {
+      "name": "Berserker",
+      "key": "berserker",
+      "trainSeconds": 14
+    },
+    "694": {
+      "name": "Berserker de élite",
+      "key": "berserker-de-elite",
+      "trainSeconds": 12
+    },
+    "725": {
+      "name": "Guerrero jaguar",
+      "key": "guerrero-jaguar",
+      "trainSeconds": 12
+    },
+    "726": {
+      "name": "Guerrero jaguar de élite",
+      "key": "guerrero-jaguar-de-elite",
+      "trainSeconds": 12
+    },
+    "751": {
+      "name": "Explorador águila",
+      "key": "explorador-aguila",
+      "trainSeconds": 46
+    },
+    "752": {
+      "name": "Guerrero águila de élite",
+      "key": "guerrero-aguila-de-elite",
+      "trainSeconds": 20
+    },
+    "753": {
+      "name": "Guerrero águila",
+      "key": "guerrero-aguila",
+      "trainSeconds": 35
+    },
+    "755": {
+      "name": "Tarcano",
+      "key": "tarcano",
+      "trainSeconds": 14
+    },
+    "757": {
+      "name": "Tarcano de élite",
+      "key": "tarcano-de-elite",
+      "trainSeconds": 14
+    },
+    "759": {
+      "name": "Huscarle",
+      "key": "huscarle",
+      "trainSeconds": 13
+    },
+    "761": {
+      "name": "Huscarle de élite",
+      "key": "huscarle-de-elite",
+      "trainSeconds": 13
+    },
+    "763": {
+      "name": "Arquero emplumado",
+      "key": "arquero-emplumado",
+      "trainSeconds": 16
+    },
+    "765": {
+      "name": "Arquero emplumado",
+      "key": "arquero-emplumado",
+      "trainSeconds": 16
+    },
+    "771": {
+      "name": "Conquistador",
+      "key": "conquistador",
+      "trainSeconds": 26
+    },
+    "773": {
+      "name": "Conquistador de élite",
+      "key": "conquistador-de-elite",
+      "trainSeconds": 24
+    },
+    "775": {
+      "name": "Misionero",
+      "key": "misionero",
+      "trainSeconds": 51
+    },
+    "827": {
+      "name": "Carreta de guerra",
+      "key": "carreta-de-guerra",
+      "trainSeconds": 21
+    },
+    "829": {
+      "name": "Carreta de guerra de élite",
+      "key": "carreta-de-guerra-de-elite",
+      "trainSeconds": 21
+    },
+    "831": {
+      "name": "Barco tortuga",
+      "key": "barco-tortuga",
+      "trainSeconds": 50
+    },
+    "832": {
+      "name": "Barco tortuga de élite",
+      "key": "barco-tortuga-de-elite",
+      "trainSeconds": 50
+    },
+    "866": {
+      "name": "Genovés ballestero",
+      "key": "genoves-ballestero",
+      "trainSeconds": 14
+    },
+    "868": {
+      "name": "Genovés ballestero de élite",
+      "key": "genoves-ballestero-de-elite",
+      "trainSeconds": 14
+    },
+    "869": {
+      "name": "Huszár magiar",
+      "key": "huszar-magiar",
+      "trainSeconds": 18
+    },
+    "871": {
+      "name": "Huszár magiar de élite",
+      "key": "huszar-magiar-de-elite",
+      "trainSeconds": 12
+    },
+    "873": {
+      "name": "Arquero en elefante",
+      "key": "arquero-en-elefante",
+      "trainSeconds": 32
+    },
+    "875": {
+      "name": "Arquero en elefante de élite",
+      "key": "arquero-en-elefante-de-elite",
+      "trainSeconds": 32
+    },
+    "876": {
+      "name": "Boyardo",
+      "key": "boyardo",
+      "trainSeconds": 15
+    },
+    "878": {
+      "name": "Boyardo de élite",
+      "key": "boyardo-de-elite",
+      "trainSeconds": 15
+    },
+    "879": {
+      "name": "Kamayuk",
+      "key": "kamayuk",
+      "trainSeconds": 10
+    },
+    "881": {
+      "name": "Kamayuk de élite",
+      "key": "kamayuk-de-elite",
+      "trainSeconds": 10
+    },
+    "882": {
+      "name": "Condotiero",
+      "key": "condotiero",
+      "trainSeconds": 18
+    },
+    "886": {
+      "name": "Tarcano",
+      "key": "tarcano",
+      "trainSeconds": 14
+    },
+    "887": {
+      "name": "Tarcano de élite",
+      "key": "tarcano-de-elite",
+      "trainSeconds": 14
+    },
+    "1001": {
+      "name": "Cañón de salvas",
+      "key": "canon-de-salvas",
+      "trainSeconds": 28
+    },
+    "1003": {
+      "name": "Cañón de salvas de élite",
+      "key": "canon-de-salvas-de-elite",
+      "trainSeconds": 21
+    },
+    "1004": {
+      "name": "Carabela",
+      "key": "carabela",
+      "trainSeconds": 25
+    },
+    "1006": {
+      "name": "Carabela de élite",
+      "key": "carabela-de-elite",
+      "trainSeconds": 25
+    },
+    "1007": {
+      "name": "Arquero en camello",
+      "key": "arquero-en-camello",
+      "trainSeconds": 25
+    },
+    "1009": {
+      "name": "Arquero en camello de élite",
+      "key": "arquero-en-camello-de-elite",
+      "trainSeconds": 25
+    },
+    "1010": {
+      "name": "Escaramuzador zenete",
+      "key": "escaramuzador-zenete",
+      "trainSeconds": 25
+    },
+    "1012": {
+      "name": "Escaramuzador zenete de élite",
+      "key": "escaramuzador-zenete-de-elite",
+      "trainSeconds": 23
+    },
+    "1013": {
+      "name": "Guardiana gbeto",
+      "key": "guardiana-gbeto",
+      "trainSeconds": 17
+    },
+    "1015": {
+      "name": "Guardiana gbeto de élite",
+      "key": "guardiana-gbeto-de-elite",
+      "trainSeconds": 17
+    },
+    "1016": {
+      "name": "Shotelai",
+      "key": "shotelai",
+      "trainSeconds": 8
+    },
+    "1018": {
+      "name": "Shotelai de élite",
+      "key": "shotelai-de-elite",
+      "trainSeconds": 4
+    },
+    "1103": {
+      "name": "Galera incendiaria",
+      "key": "galera-incendiaria",
+      "trainSeconds": 49
+    },
+    "1104": {
+      "name": "Balsa de demolición",
+      "key": "balsa-de-demolicion",
+      "trainSeconds": 45
+    },
+    "1105": {
+      "name": "Torre de asedio",
+      "key": "torre-de-asedio",
+      "trainSeconds": 36
+    },
+    "1120": {
+      "name": "Elefante con balista",
+      "key": "elefante-con-balista",
+      "trainSeconds": 25
+    },
+    "1122": {
+      "name": "Elefante con balista de élite",
+      "key": "elefante-con-balista-de-elite",
+      "trainSeconds": 25
+    },
+    "1123": {
+      "name": "Recluta con karambit",
+      "key": "recluta-con-karambit",
+      "trainSeconds": 6
+    },
+    "1125": {
+      "name": "Recluta con karambit de élite",
+      "key": "recluta-con-karambit-de-elite",
+      "trainSeconds": 6
+    },
+    "1126": {
+      "name": "Arambai",
+      "key": "arambai",
+      "trainSeconds": 18
+    },
+    "1128": {
+      "name": "Arambai de élite",
+      "key": "arambai-de-elite",
+      "trainSeconds": 18
+    },
+    "1129": {
+      "name": "Arquero de ratán",
+      "key": "arquero-de-ratan",
+      "trainSeconds": 16
+    },
+    "1131": {
+      "name": "Arquero de ratán de élite",
+      "key": "arquero-de-ratan-de-elite",
+      "trainSeconds": 16
+    },
+    "1132": {
+      "name": "Elefante de combate",
+      "key": "elefante-de-combate",
+      "trainSeconds": 24
+    },
+    "1134": {
+      "name": "Elefante de combate de élite",
+      "key": "elefante-de-combate-de-elite",
+      "trainSeconds": 24
+    },
+    "1155": {
+      "name": "Hostigador imperial",
+      "key": "hostigador-imperial",
+      "trainSeconds": 22
+    },
+    "1225": {
+      "name": "Konnik",
+      "key": "konnik",
+      "trainSeconds": 16
+    },
+    "1227": {
+      "name": "Konnik de élite",
+      "key": "konnik-de-elite",
+      "trainSeconds": 16
+    },
+    "1228": {
+      "name": "Keshik",
+      "key": "keshik",
+      "trainSeconds": 17
+    },
+    "1230": {
+      "name": "Keshik de élite",
+      "key": "keshik-de-elite",
+      "trainSeconds": 15
+    },
+    "1231": {
+      "name": "Kipchak",
+      "key": "kipchak",
+      "trainSeconds": 20
+    },
+    "1233": {
+      "name": "Kipchak de élite",
+      "key": "kipchak-de-elite",
+      "trainSeconds": 20
+    },
+    "1234": {
+      "name": "Leitis",
+      "key": "leitis",
+      "trainSeconds": 20
+    },
+    "1236": {
+      "name": "Leitis de élite",
+      "key": "leitis-de-elite",
+      "trainSeconds": 18
+    },
+    "1252": {
+      "name": "Konnik (desmontado)",
+      "key": "konnik-desmontado",
+      "trainSeconds": 16
+    },
+    "1253": {
+      "name": "Konnik de élite (desmontado)",
+      "key": "konnik-de-elite-desmontado",
+      "trainSeconds": 16
+    },
+    "1254": {
+      "name": "Konnik",
+      "key": "konnik",
+      "trainSeconds": 16
+    },
+    "1255": {
+      "name": "Konnik de élite",
+      "key": "konnik-de-elite",
+      "trainSeconds": 16
+    },
+    "1258": {
+      "name": "Ariete",
+      "key": "ariete",
+      "trainSeconds": 36
+    },
+    "1260": {
+      "name": "Kipchak de élite",
+      "key": "kipchak-de-elite",
+      "trainSeconds": 12
+    },
+    "1263": {
+      "name": "Camello llameante",
+      "key": "camello-llameante",
+      "trainSeconds": 30
+    },
+    "1302": {
+      "name": "Bote dragón",
+      "key": "bote-dragon",
+      "trainSeconds": 27
+    },
+    "1370": {
+      "name": "Lancero estepario",
+      "key": "lancero-estepario",
+      "trainSeconds": 24
+    },
+    "1372": {
+      "name": "Lancero estepario de élite",
+      "key": "lancero-estepario-de-elite",
+      "trainSeconds": 20
+    },
+    "1570": {
+      "name": "Guerrero Xólotl",
+      "key": "guerrero-xolotl",
+      "trainSeconds": 30
+    },
+    "1655": {
+      "name": "Costiller",
+      "key": "costiller",
+      "trainSeconds": 15
+    },
+    "1657": {
+      "name": "Costiller de élite",
+      "key": "costiller-de-elite",
+      "trainSeconds": 14
+    },
+    "1658": {
+      "name": "Serjeant",
+      "key": "serjeant",
+      "trainSeconds": 12
+    },
+    "1659": {
+      "name": "Serjeant de élite",
+      "key": "serjeant-de-elite",
+      "trainSeconds": 12
+    },
+    "1660": {
+      "name": "Serjeant",
+      "key": "serjeant",
+      "trainSeconds": 16
+    },
+    "1661": {
+      "name": "Serjeant de élite",
+      "key": "serjeant-de-elite",
+      "trainSeconds": 12
+    },
+    "1699": {
+      "name": "Milicia flamenca",
+      "key": "milicia-flamenca",
+      "trainSeconds": 16
+    },
+    "1701": {
+      "name": "Martillo de guerra",
+      "key": "martillo-de-guerra",
+      "trainSeconds": 12
+    },
+    "1703": {
+      "name": "Martillo de guerra de élite",
+      "key": "martillo-de-guerra-de-elite",
+      "trainSeconds": 12
+    },
+    "1704": {
+      "name": "Carro de guerra husita",
+      "key": "carro-de-guerra-husita",
+      "trainSeconds": 30
+    },
+    "1706": {
+      "name": "Carro de guerra husita de élite",
+      "key": "carro-de-guerra-husita-de-elite",
+      "trainSeconds": 26
+    },
+    "1707": {
+      "name": "Húsar alado",
+      "key": "husar-alado",
+      "trainSeconds": 30
+    },
+    "1709": {
+      "name": "Obús",
+      "key": "obus",
+      "trainSeconds": 56
+    },
+    "1735": {
+      "name": "Espadachín urumi",
+      "key": "espadachin-urumi",
+      "trainSeconds": 9
+    },
+    "1737": {
+      "name": "Espadachín urumi de élite",
+      "key": "espadachin-urumi-de-elite",
+      "trainSeconds": 9
+    },
+    "1738": {
+      "name": "Ratha (cuerpo a cuerpo)",
+      "key": "ratha-cuerpo-a-cuerpo",
+      "trainSeconds": 24
+    },
+    "1740": {
+      "name": "Ratha de élite (cuerpo a cuerpo)",
+      "key": "ratha-de-elite-cuerpo-a-cuerpo",
+      "trainSeconds": 18
+    },
+    "1741": {
+      "name": "Lanzador de chakrams",
+      "key": "lanzador-de-chakrams",
+      "trainSeconds": 15
+    },
+    "1743": {
+      "name": "Lanzador de chakrams de élite",
+      "key": "lanzador-de-chakrams-de-elite",
+      "trainSeconds": 15
+    },
+    "1744": {
+      "name": "Elefante acorazado",
+      "key": "elefante-acorazado",
+      "trainSeconds": 36
+    },
+    "1746": {
+      "name": "Elefante de asedio",
+      "key": "elefante-de-asedio",
+      "trainSeconds": 36
+    },
+    "1747": {
+      "name": "Ghulam",
+      "key": "ghulam",
+      "trainSeconds": 12
+    },
+    "1749": {
+      "name": "Ghulam de élite",
+      "key": "ghulam-de-elite",
+      "trainSeconds": 12
+    },
+    "1750": {
+      "name": "Thirisadai",
+      "key": "thirisadai",
+      "trainSeconds": 40
+    },
+    "1751": {
+      "name": "Jinete shrivamsha",
+      "key": "jinete-shrivamsha",
+      "trainSeconds": 20
+    },
+    "1753": {
+      "name": "Jinete shrivamsha de élite",
+      "key": "jinete-shrivamsha-de-elite",
+      "trainSeconds": 20
+    },
+    "1755": {
+      "name": "Explorador a camello",
+      "key": "explorador-a-camello",
+      "trainSeconds": 22
+    },
+    "1759": {
+      "name": "Ratha (a distancia)",
+      "key": "ratha-a-distancia",
+      "trainSeconds": 24
+    },
+    "1761": {
+      "name": "Ratha de élite (a distancia)",
+      "key": "ratha-de-elite-a-distancia",
+      "trainSeconds": 18
+    },
+    "1786": {
+      "name": "Lancero",
+      "key": "lancero",
+      "trainSeconds": 22
+    },
+    "1787": {
+      "name": "Piquero",
+      "key": "piquero",
+      "trainSeconds": 22
+    },
+    "1788": {
+      "name": "Alabardero",
+      "key": "alabardero",
+      "trainSeconds": 22
+    },
+    "1790": {
+      "name": "Centurión",
+      "key": "centurion",
+      "trainSeconds": 24
+    },
+    "1792": {
+      "name": "Centurión de élite",
+      "key": "centurion-de-elite",
+      "trainSeconds": 24
+    },
+    "1793": {
+      "name": "Legionario",
+      "key": "legionario",
+      "trainSeconds": 21
+    },
+    "1795": {
+      "name": "Dromón",
+      "key": "dromon",
+      "trainSeconds": 65
+    },
+    "1800": {
+      "name": "Arquero con arco compuesto",
+      "key": "arquero-con-arco-compuesto",
+      "trainSeconds": 12
+    },
+    "1802": {
+      "name": "Arquero con arco compuesto de élite",
+      "key": "arquero-con-arco-compuesto-de-elite",
+      "trainSeconds": 10
+    },
+    "1803": {
+      "name": "Monaspa",
+      "key": "monaspa",
+      "trainSeconds": 14
+    },
+    "1805": {
+      "name": "Monaspa de élite",
+      "key": "monaspa-de-elite",
+      "trainSeconds": 14
+    },
+    "1811": {
+      "name": "Sacerdote guerrero",
+      "key": "sacerdote-guerrero",
+      "trainSeconds": 30
+    },
+    "1813": {
+      "name": "Savar",
+      "key": "savar",
+      "trainSeconds": 30
+    },
+    "1901": {
+      "name": "Lancero incendiario",
+      "key": "lancero-incendiario",
+      "trainSeconds": 35
+    },
+    "1903": {
+      "name": "Lancero incendiario de élite",
+      "key": "lancero-incendiario-de-elite",
+      "trainSeconds": 25
+    },
+    "1904": {
+      "name": "Carro de cohetes",
+      "key": "carro-de-cohetes",
+      "trainSeconds": 40
+    },
+    "1907": {
+      "name": "Carro de cohetes pesado",
+      "key": "carro-de-cohetes-pesado",
+      "trainSeconds": 40
+    },
+    "1908": {
+      "name": "Pagoda de hierro",
+      "key": "pagoda-de-hierro",
+      "trainSeconds": 14
+    },
+    "1910": {
+      "name": "Pagoda de hierro de élite",
+      "key": "pagoda-de-hierro-de-elite",
+      "trainSeconds": 14
+    },
+    "1911": {
+      "name": "Granadero",
+      "key": "granadero",
+      "trainSeconds": 21
+    },
+    "1920": {
+      "name": "Liao Dao",
+      "key": "liao-dao",
+      "trainSeconds": 12
+    },
+    "1922": {
+      "name": "Liao Dao de élite",
+      "key": "liao-dao-de-elite",
+      "trainSeconds": 12
+    },
+    "1923": {
+      "name": "Trebuchet montado",
+      "key": "trebuchet-montado",
+      "trainSeconds": 46
+    },
+    "1942": {
+      "name": "Trebuchet de tracción",
+      "key": "trebuchet-de-traccion",
+      "trainSeconds": 70
+    },
+    "1944": {
+      "name": "Caballería de Hei Guang",
+      "key": "caballeria-de-hei-guang",
+      "trainSeconds": 28
+    },
+    "1946": {
+      "name": "Caballería pesada de Hei Guang",
+      "key": "caballeria-pesada-de-hei-guang",
+      "trainSeconds": 28
+    },
+    "1948": {
+      "name": "Lou Chuan",
+      "key": "lou-chuan",
+      "trainSeconds": 60
+    },
+    "1949": {
+      "name": "Caballería tigresa",
+      "key": "caballeria-tigresa",
+      "trainSeconds": 18
+    },
+    "1951": {
+      "name": "Caballería tigresa de élite",
+      "key": "caballeria-tigresa-de-elite",
+      "trainSeconds": 18
+    },
+    "1952": {
+      "name": "Saqueador xianbei",
+      "key": "saqueador-xianbei",
+      "trainSeconds": 29
+    },
+    "1954": {
+      "name": "Cao Cao",
+      "key": "cao-cao",
+      "trainSeconds": 60
+    },
+    "1959": {
+      "name": "Guardia de la pluma blanca",
+      "key": "guardia-de-la-pluma-blanca",
+      "trainSeconds": 11
+    },
+    "1961": {
+      "name": "Guardia de la pluma blanca de élite",
+      "key": "guardia-de-la-pluma-blanca-de-elite",
+      "trainSeconds": 11
+    },
+    "1962": {
+      "name": "Carro de guerra (disparo concentrado)",
+      "key": "carro-de-guerra-disparo-concentrado",
+      "trainSeconds": 32
+    },
+    "1966": {
+      "name": "Liu Bei",
+      "key": "liu-bei",
+      "trainSeconds": 60
+    },
+    "1968": {
+      "name": "Arquero de fuego",
+      "key": "arquero-de-fuego",
+      "trainSeconds": 17
+    },
+    "1970": {
+      "name": "Arquero de fuego de élite",
+      "key": "arquero-de-fuego-de-elite",
+      "trainSeconds": 17
+    },
+    "1974": {
+      "name": "Espadachín de Jian",
+      "key": "espadachin-de-jian",
+      "trainSeconds": 35
+    },
+    "1978": {
+      "name": "Sun Jian",
+      "key": "sun-jian",
+      "trainSeconds": 60
+    },
+    "1980": {
+      "name": "Carro de guerra (barrera)",
+      "key": "carro-de-guerra-barrera",
+      "trainSeconds": 28
+    },
+    "2550": {
+      "name": "Explorador champi",
+      "key": "explorador-champi",
+      "trainSeconds": 42
+    },
+    "2552": {
+      "name": "Guerrero champi",
+      "key": "guerrero-champi",
+      "trainSeconds": 26
+    },
+    "2554": {
+      "name": "Guerrero champi de élite",
+      "key": "guerrero-champi-de-elite",
+      "trainSeconds": 21
+    },
+    "2562": {
+      "name": "Guerrero guecha",
+      "key": "guerrero-guecha",
+      "trainSeconds": 17
+    },
+    "2564": {
+      "name": "Guerrero guecha de élite",
+      "key": "guerrero-guecha-de-elite",
+      "trainSeconds": 17
+    },
+    "2566": {
+      "name": "Kona",
+      "key": "kona",
+      "trainSeconds": 14
+    },
+    "2568": {
+      "name": "Kona de élite",
+      "key": "kona-de-elite",
+      "trainSeconds": 14
+    },
+    "2569": {
+      "name": "Jinete con boleadoras",
+      "key": "jinete-con-boleadoras",
+      "trainSeconds": 34
+    },
+    "2571": {
+      "name": "Jinete con boleadoras de élite",
+      "key": "jinete-con-boleadoras-de-elite",
+      "trainSeconds": 28
+    },
+    "2579": {
+      "name": "Arquero de los bosques",
+      "key": "arquero-de-los-bosques",
+      "trainSeconds": 18
+    },
+    "2581": {
+      "name": "Arquero bosques élite",
+      "key": "arquero-bosques-elite",
+      "trainSeconds": 14
+    },
+    "2582": {
+      "name": "Guerrero ibirapema",
+      "key": "guerrero-ibirapema",
+      "trainSeconds": 24
+    },
+    "2584": {
+      "name": "Guerrero ibirapema de élite",
+      "key": "guerrero-ibirapema-de-elite",
+      "trainSeconds": 24
+    },
+    "2586": {
+      "name": "Guardia del templo",
+      "key": "guardia-del-templo",
+      "trainSeconds": 28
+    },
+    "2587": {
+      "name": "Guardia templo élite",
+      "key": "guardia-templo-elite",
+      "trainSeconds": 24
+    },
+    "2588": {
+      "name": "Corredor champi",
+      "key": "corredor-champi",
+      "trainSeconds": 34
+    },
+    "2626": {
+      "name": "Urca",
+      "key": "urca",
+      "trainSeconds": 42
+    },
+    "2627": {
+      "name": "Urca de guerra",
+      "key": "urca-de-guerra",
+      "trainSeconds": 27
+    },
+    "2628": {
+      "name": "Carracas",
+      "key": "carracas",
+      "trainSeconds": 27
+    },
+    "2633": {
+      "name": "Galeón con catapulta",
+      "key": "galeon-con-catapulta",
+      "trainSeconds": 55
+    },
+    "2700": {
+      "name": "Ballestero montado",
+      "key": "ballestero-montado",
+      "trainSeconds": 40
+    },
+    "2701": {
+      "name": "Ballestero montado pesado",
+      "key": "ballestero-montado-pesado",
+      "trainSeconds": 30
+    },
+    "2703": {
+      "name": "Guardia varego",
+      "key": "guardia-varego",
+      "trainSeconds": 30
+    },
+    "2704": {
+      "name": "Guardia varego de élite",
+      "key": "guardia-varego-de-elite",
+      "trainSeconds": 30
+    },
+    "2705": {
+      "name": "Tropas del hogar",
+      "key": "tropas-del-hogar",
+      "trainSeconds": 16
+    },
+    "2706": {
+      "name": "T. del hogar de élite",
+      "key": "t-del-hogar-de-elite",
+      "trainSeconds": 14
+    },
+    "2708": {
+      "name": "Jarl",
+      "key": "jarl",
+      "trainSeconds": 23
+    },
+    "2709": {
+      "name": "Jarl de élite",
+      "key": "jarl-de-elite",
+      "trainSeconds": 23
+    },
+    "2711": {
+      "name": "Vikingo de Jomsborg",
+      "key": "vikingo-de-jomsborg",
+      "trainSeconds": 10
+    },
+    "2712": {
+      "name": "Vikingo de Jomsborg de élite",
+      "key": "vikingo-de-jomsborg-de-elite",
+      "trainSeconds": 10
+    }
+  },
+  "buildings": {
+    "12": {
+      "name": "Cuarteles",
+      "key": "cuarteles",
+      "trainSeconds": 50
+    },
+    "45": {
+      "name": "Muelle",
+      "key": "muelle",
+      "trainSeconds": 35
+    },
+    "49": {
+      "name": "Taller maq. de asedio",
+      "key": "taller-maq-de-asedio",
+      "trainSeconds": 40
+    },
+    "50": {
+      "name": "Granja",
+      "key": "granja",
+      "trainSeconds": 15
+    },
+    "68": {
+      "name": "Molino",
+      "key": "molino",
+      "trainSeconds": 35
+    },
+    "70": {
+      "name": "Casa",
+      "key": "casa",
+      "trainSeconds": 25
+    },
+    "71": {
+      "name": "Centro urbano",
+      "key": "centro-urbano",
+      "trainSeconds": 100
+    },
+    "72": {
+      "name": "Empalizada",
+      "key": "empalizada",
+      "trainSeconds": 7
+    },
+    "79": {
+      "name": "Atalaya",
+      "key": "atalaya",
+      "trainSeconds": 80
+    },
+    "82": {
+      "name": "Castillo",
+      "key": "castillo",
+      "trainSeconds": 200
+    },
+    "84": {
+      "name": "Mercado",
+      "key": "mercado",
+      "trainSeconds": 60
+    },
+    "87": {
+      "name": "Galería tiro con arco",
+      "key": "galeria-tiro-con-arco",
+      "trainSeconds": 50
+    },
+    "101": {
+      "name": "Establo",
+      "key": "establo",
+      "trainSeconds": 50
+    },
+    "103": {
+      "name": "Herrería",
+      "key": "herreria",
+      "trainSeconds": 40
+    },
+    "104": {
+      "name": "Monasterio",
+      "key": "monasterio",
+      "trainSeconds": 40
+    },
+    "109": {
+      "name": "Centro urbano",
+      "key": "centro-urbano",
+      "trainSeconds": 100
+    },
+    "117": {
+      "name": "Muro de piedra",
+      "key": "muro-de-piedra",
+      "trainSeconds": 10
+    },
+    "155": {
+      "name": "Muralla fortificada",
+      "key": "muralla-fortificada",
+      "trainSeconds": 10
+    },
+    "199": {
+      "name": "Trampa para peces",
+      "key": "trampa-para-peces",
+      "trainSeconds": 40
+    },
+    "209": {
+      "name": "Universidad",
+      "key": "universidad",
+      "trainSeconds": 60
+    },
+    "234": {
+      "name": "Torre de guardia",
+      "key": "torre-de-guardia",
+      "trainSeconds": 80
+    },
+    "235": {
+      "name": "Fortaleza",
+      "key": "fortaleza",
+      "trainSeconds": 80
+    },
+    "236": {
+      "name": "Torre de bombardeo",
+      "key": "torre-de-bombardeo",
+      "trainSeconds": 80
+    },
+    "276": {
+      "name": "Maravilla",
+      "key": "maravilla",
+      "trainSeconds": 3500
+    },
+    "487": {
+      "name": "Puerta",
+      "key": "puerta",
+      "trainSeconds": 70
+    },
+    "562": {
+      "name": "Campamento maderero",
+      "key": "campamento-maderero",
+      "trainSeconds": 35
+    },
+    "584": {
+      "name": "Campamento minero",
+      "key": "campamento-minero",
+      "trainSeconds": 35
+    },
+    "598": {
+      "name": "Puesto de avanzada",
+      "key": "puesto-de-avanzada",
+      "trainSeconds": 15
+    },
+    "621": {
+      "name": "Centro urbano",
+      "key": "centro-urbano",
+      "trainSeconds": 150
+    },
+    "792": {
+      "name": "Portón de madera",
+      "key": "porton-de-madera",
+      "trainSeconds": 30
+    },
+    "1021": {
+      "name": "Factoría",
+      "key": "factoria",
+      "trainSeconds": 120
+    },
+    "1189": {
+      "name": "Puerto",
+      "key": "puerto",
+      "trainSeconds": 35
+    },
+    "1251": {
+      "name": "Krepost",
+      "key": "krepost",
+      "trainSeconds": 150
+    },
+    "1665": {
+      "name": "Torre del homenaje",
+      "key": "torre-del-homenaje",
+      "trainSeconds": 125
+    },
+    "1734": {
+      "name": "Folwark",
+      "key": "folwark",
+      "trainSeconds": 40
+    },
+    "1754": {
+      "name": "Caravasar",
+      "key": "caravasar",
+      "trainSeconds": 60
+    },
+    "1806": {
+      "name": "Iglesia fortificada",
+      "key": "iglesia-fortificada",
+      "trainSeconds": 50
+    },
+    "1808": {
+      "name": "Carro de mulas",
+      "key": "carro-de-mulas",
+      "trainSeconds": 25
+    },
+    "1889": {
+      "name": "Pastura",
+      "key": "pastura",
+      "trainSeconds": 22
+    },
+    "2556": {
+      "name": "Asentamiento",
+      "key": "asentamiento",
+      "trainSeconds": 40
+    }
+  }
+}

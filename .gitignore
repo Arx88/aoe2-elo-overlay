@@ -12,6 +12,10 @@ update-channel.local.json
 # Capturas de prueba: solo las de la raíz. assets/**/*.png SON parte del build.
 /*.png
 
+# Cachés del motor post-partida (se regeneran; ver docs/ENGINE.md)
+.engine-cache/
+.tmp-aoe2data/
+
 # Ruido del sistema / editor
 .workbuddy-ai/
 Thumbs.db

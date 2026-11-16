@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "selftest": "node tools/selftest.js",
+    "engine:test": "node tools/engine-test.js",
     "pack": "electron-builder --win --dir",
     "dist": "electron-builder --win",
     "release": "electron-builder --win -p always",
