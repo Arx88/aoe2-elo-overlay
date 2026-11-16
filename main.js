@@ -51,7 +51,9 @@ const {
   normalizeTelemetry,
 } = require('./src/postmatch');
 const { fetchReplayTelemetry } = require('./src/replay');
-const { getProductState, effectivePreferences } = require('./src/product');
+const { createProductStateCache, effectivePreferences } = require('./src/product');
+const { buildSmartBuildOrder } = require('./src/build-orders');
+const { projectOverlayState, projectRivalPayload, projectScoutPayload } = require('./src/presentation');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
 // van a %APPDATA%\AoE2 ELO Overlay\. En desarrollo quedan junto al código.
@@ -102,8 +104,9 @@ const DEFAULT_CONFIG = {
   rivalFavorites: false, // civ más usada y winrate en el mapa de la partida
   rivalOpenings: false, // aperturas reales de AoE2Insights (replays analizados)
   // Consejo pre-partida (mapa × civ × apertura que le cuestan al rival).
-  // Solo en la ventana de preparación: se va apenas arranca la partida.
+  // Los horizontes de oportunidad se conservan durante la partida.
   smartTips: false,
+  smartBuildOrder: false,
   // Head-to-head: tu V-D contra este rival, del propio historial (mismo modo).
   rivalH2H: false,
   // Civ recomendada contra este rival: su debilidad × tu winrate con cada
@@ -120,8 +123,7 @@ const DEFAULT_CONFIG = {
   // nueva, la descarga e instala sola (nunca en media partida). Apagada de
   // fábrica: se activa desde la pestaña Updater.
   autoUpdate: false,
-  // Postmatch: el resumen de resultado es Free. Las comparaciones y las
-  // métricas de replay son Pro y se resuelven en el proceso principal.
+  // Postmatch: resumen de resultados Pro; comparación y replay ProMax.
   postMatch: true,
   postMatchComparison: false,
   postMatchReplay: false,
@@ -147,7 +149,7 @@ const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'riva
 const ARGV = process.argv.slice(1);
 // Beta explícita de desarrollo. Nunca la decide el renderer ni un selector de
 // plan: sin este argumento y sin credencial firmada, el producto es Free.
-const BETA_ACCESS = ARGV.includes('--beta');
+const BETA_ACCESS = !app.isPackaged && ARGV.includes('--beta');
 // Acceso Pro temporal por clave compartida. Es una medida de transición:
 // cuando exista la suscripción real, se elimina este bloque y su handler.
 const ACCESS_KEY_HASH = '42e50ac2e6a98e6a2a7b7a1047da204365e666b81af65d70931349e0936ff2cf';
@@ -468,6 +470,7 @@ const EXAMPLE_ALL_ON = {
   rivalFavorites: true,
   rivalOpenings: true,
   smartTips: true,
+  smartBuildOrder: true,
   rivalH2H: true,
   civRecommender: true,
   tgBalance: true,
@@ -502,8 +505,9 @@ const performanceStore = new PerformanceStore({
 // El token y la cuenta viven en memoria durante la sesión. El renderer nunca
 // recibe la credencial; solo el estado serializado del producto.
 let productSession = { accountId: null, entitlementToken: null };
-let productCache = null;
-let productCacheKey = '';
+const resolveProductState = createProductStateCache();
+let productExpiryTimer = null;
+let productExpiryAt = null;
 let postMatchReport = null;
 let postMatchMatch = null;
 let postMatchLastId = null;
@@ -535,16 +539,7 @@ function loadProductPublicKeys() {
 const PRODUCT_PUBLIC_KEYS = loadProductPublicKeys();
 
 function productState() {
-  const key = [
-    BETA_ACCESS,
-    hasAccessKeyGrant(),
-    productSession.accountId || '',
-    productSession.entitlementToken || '',
-    profileId || '',
-    JSON.stringify(config.commerce || {}),
-  ].join('|');
-  if (productCache && productCacheKey === key) return productCache;
-  productCache = getProductState({
+  const product = resolveProductState({
     betaAccess: BETA_ACCESS,
     accessKeyGranted: hasAccessKeyGrant(),
     entitlementToken: productSession.entitlementToken,
@@ -553,8 +548,39 @@ function productState() {
     publicKeys: PRODUCT_PUBLIC_KEYS,
     billing: config.commerce || {},
   });
-  productCacheKey = key;
-  return productCache;
+  const expiresAt = product.subscriptionVerified ? product.entitlement.expiresAt : null;
+  if (expiresAt !== productExpiryAt) {
+    clearTimeout(productExpiryTimer);
+    productExpiryTimer = null;
+    productExpiryAt = expiresAt;
+    if (expiresAt != null) {
+      productExpiryTimer = setTimeout(() => {
+        productExpiryTimer = null;
+        productExpiryAt = null;
+        const next = productState();
+        refreshAccessPresentation(next);
+      }, Math.min(Math.max(1, expiresAt - Date.now()), 2147483647));
+      productExpiryTimer.unref?.();
+    }
+  }
+  return product;
+}
+
+function refreshAccessPresentation(product = productState()) {
+  send('overlay:state', projectOverlayState(lastGood || {
+    status: profileId ? 'idle' : 'no-profile', profileId, players: [],
+  }, product));
+  send('overlay:rival', projectRivalPayload(rivalReports, product));
+  send('overlay:scout', projectScoutPayload(scoutPayload, product));
+  send('overlay:config', overlayConfig());
+  sendBuildOrder();
+  syncIntro(lastGood, { force: true });
+  sendView(true);
+  broadcastPostMatch();
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.webContents.send('product:update', product);
+    settingsWin.webContents.send('tactics:update', tacticalPayload());
+  }
 }
 
 function clamp(value, min, max) {
@@ -629,6 +655,7 @@ function overlayConfig() {
     rivalFavorites: Boolean(view.rivalFavorites),
     rivalOpenings: Boolean(view.rivalOpenings),
     smartTips: Boolean(view.smartTips),
+    smartBuildOrder: Boolean(view.smartBuildOrder),
     rivalH2H: Boolean(view.rivalH2H),
     civRecommender: Boolean(view.civRecommender),
     // Vista resumida de scouting con F2 (opción "Resumen con F2").
@@ -723,7 +750,7 @@ function sendRival(payload) {
     ? { ...payload, reports: payload.reports.map(decorateH2H) }
     : payload;
   rivalReports = decorated;
-  send('overlay:rival', decorated);
+  send('overlay:rival', projectRivalPayload(decorated, productState()));
 }
 
 /** Inyecta el h2h calculado (o su marcador de "buscando") en un reporte. */
@@ -1054,6 +1081,45 @@ function preStartState(state) {
   return Boolean(state && state.status === 'ongoing' && state.phase === 'lobby');
 }
 
+function scoutSignature(state) {
+  const mode = resolveMode(leaderboardOf(state));
+  const players = Array.isArray(state && state.players) ? state.players : [];
+  const own = players.find((player) => player.isYou) || players.find((player) => Number(player.profileId) === Number(runtimeProfileId()));
+  return `${state?.match?.matchId || 'sin-id'}:${mapKey(state?.match?.mapName)}:${mode ? mode.id : 'sin-modo'}:${own?.civ || '?'}:${opponentsOf(state, RIVAL_LIMIT).map((rival) => `${rival.profileId}:${rival.civ || players.find((p) => p.profileId === rival.profileId)?.civ || '?'}`).join(',')}`;
+}
+
+function tacticalPayload() {
+  const product = productState();
+  if (!product.featureAccess.smartTips) return { status: 'locked', tips: [], message: 'El análisis de oportunidades está incluido en ProMax.' };
+  if (!viewConfig().smartTips) return { status: 'disabled', tips: [], message: 'Activá Recomendaciones inteligentes en Prematch para analizar las oportunidades.' };
+  if (!lastGood || lastGood.status !== 'ongoing' || !scoutPayload || String(scoutPayload.matchId) !== String(lastGood.match?.matchId)) {
+    return { status: 'pending', tips: [], message: 'El análisis aparecerá cuando se confirme una partida.' };
+  }
+  const pending = scoutPayload.pending || scoutSig !== scoutSignature(lastGood);
+  return { ...scoutPayload, status: pending ? 'loading' : 'ready', automatic: true };
+}
+
+function buildOrderPayload() {
+  if (!productState().featureAccess.smartBuildOrder) return { status: 'locked', enabled: false,
+    message: 'Smart Build Order está incluido en ProMax.', guides: [], selected: null };
+  const ongoing = lastGood?.status === 'ongoing';
+  const own = ongoing ? (lastGood.players || []).find((player) => player.isYou ||
+    Number(player.profileId) === Number(runtimeProfileId())) : null;
+  const sameMatch = ongoing && scoutPayload && String(scoutPayload.matchId) === String(lastGood.match?.matchId);
+  const opportunityStages = sameMatch ? (scoutPayload.tips || []).flatMap((tip) => tip.opportunityStages || []) : [];
+  return { ...buildSmartBuildOrder({ ownCiv: own?.civ,
+    mapName: ongoing ? lastGood.match?.mapName : null,
+    mode: ongoing ? resolveMode(leaderboardOf(lastGood)) : null, opportunityStages }),
+    enabled: Boolean(viewConfig().smartBuildOrder), ongoing,
+    matchId: ongoing ? lastGood.match?.matchId : null };
+}
+
+function sendBuildOrder() {
+  const payload = buildOrderPayload();
+  send('overlay:build-order', payload.enabled && payload.ongoing ? payload : null);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('build-order:update', payload);
+}
+
 function sendScout(payload) {
   // La partida a la que pertenece el consejo viaja en el payload: el renderer
   // lo mantiene visible mientras sea el MISMO match, aunque el REST avise que
@@ -1061,7 +1127,9 @@ function sendScout(payload) {
   const matchId = lastGood && lastGood.match ? lastGood.match.matchId : null;
   const stamped = payload ? { ...payload, matchId: matchId ?? null } : payload;
   scoutPayload = stamped;
-  send('overlay:scout', stamped);
+  send('overlay:scout', projectScoutPayload(stamped, productState()));
+  sendBuildOrder();
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('tactics:update', tacticalPayload());
 }
 
 function clearScoutTips() {
@@ -1192,29 +1260,17 @@ async function refreshScoutTips(state, options = {}) {
   // smartTips (consejo) y civRecommender (civ recomendada) comparten la misma
   // consulta de replays: cualquiera de las dos enciende el flujo pre-partida.
   const ongoing = Boolean(state && state.status === 'ongoing');
-  const sameMatch =
-    ongoing &&
-    Boolean(scoutPayload) &&
-    String(scoutPayload.matchId ?? '') === String((state.match && state.match.matchId) ?? '');
   if ((!view.smartTips && !view.civRecommender) || !ongoing) {
     clearScoutTips();
     return;
   }
-  // La partida arrancó: no se lanzan consultas nuevas, pero lo ya calculado
-  // para ESTA partida se queda en pantalla (es dato válido de la partida).
-  if (!preStartState(state) && sameMatch) return;
-  if (!preStartState(state)) {
-    clearScoutTips();
-    return;
-  }
+  // También funciona si la app detecta la partida ya empezada. La firma
+  // evita repetir consultas y se renueva si se confirman nuevas civs.
 
   const rivals = opponentsOf(state, RIVAL_LIMIT);
   const mode = resolveMode(leaderboardOf(state));
-  const matchId = (state.match && state.match.matchId) || 'sin-id';
   const mapName = (state.match && state.match.mapName) || null;
-  const sig = `${matchId}:${mapKey(mapName)}:${mode ? mode.id : 'sin-modo'}:${rivals
-    .map((rival) => rival.profileId)
-    .join(',')}`;
+  const sig = scoutSignature(state);
   if (!options.force && sig === scoutSig && scoutPayload) return;
   if (scoutFetching) {
     scoutQueuedSig = sig;
@@ -1248,8 +1304,7 @@ async function refreshScoutTips(state, options = {}) {
   const tips = rivals.map((rival) => ({ profileId: rival.profileId, name: rival.name, loading: true }));
   const publish = () => {
     const current = lastGood;
-    const currentMode = resolveMode(leaderboardOf(current));
-    const currentSig = `${(current && current.match && current.match.matchId) || 'sin-id'}:${mapKey(current && current.match && current.match.mapName)}:${currentMode ? currentMode.id : 'sin-modo'}:${opponentsOf(current, RIVAL_LIMIT).map((rival) => rival.profileId).join(',')}`;
+    const currentSig = scoutSignature(current);
     const currentView = viewConfig();
     if (!current || current.status !== 'ongoing' || currentSig !== sig ||
         (!currentView.smartTips && !currentView.civRecommender)) return;
@@ -1280,7 +1335,13 @@ async function refreshScoutTips(state, options = {}) {
         // usa el head-to-head): una sola descarga sirve para todo. En modo
         // ejemplo, "mi" historial es el del perfil del ejemplo.
         recommend: Boolean(view.civRecommender),
-        myHistoryImpl: view.civRecommender && runtimeProfileId()
+        opportunityContext: view.smartTips ? {
+          ownCiv: (state.players || []).find((player) => player.isYou || Number(player.profileId) === Number(runtimeProfileId()))?.civ,
+          rivalCiv: rival.civ || (state.players || []).find((player) => Number(player.profileId) === Number(rival.profileId))?.civ,
+          currentMatchId: state.match && state.match.matchId,
+          cutoff: state.match && state.match.startedAt,
+        } : null,
+        myHistoryImpl: (view.civRecommender || view.smartTips) && runtimeProfileId()
           ? () => fetchMyHistory({
               profileId: runtimeProfileId(),
               leaderboardId: leaderboardOf(state),
@@ -1909,9 +1970,11 @@ function setRuntimeProfile(nextProfileId, alias) {
   lastSent = '';
   lastGood = null;
   clearRivalReports();
+  clearScoutTips();
   intro = null;
   clearTimeout(introTimer);
   syncIntro(null, { force: true });
+  refreshAccessPresentation();
   startLive();
   poll();
 }
@@ -2471,6 +2534,7 @@ function registerIpc() {
     rivalFavorites: Boolean(config.rivalFavorites),
     rivalOpenings: Boolean(config.rivalOpenings),
     smartTips: Boolean(config.smartTips),
+    smartBuildOrder: Boolean(config.smartBuildOrder),
     rivalH2H: Boolean(config.rivalH2H),
     civRecommender: Boolean(config.civRecommender),
     tgBalance: Boolean(config.tgBalance),
@@ -2696,6 +2760,24 @@ function registerIpc() {
     return { ok: true, ...payload, product: productState() };
   });
 
+  ipcMain.handle('settings:tactics-get', () => {
+    if (viewConfig().smartTips && lastGood?.status === 'ongoing' && !scoutPayload) {
+      refreshScoutTips(lastGood, { force: true }).catch((error) => log(`oportunidades: ${error.message}`));
+    }
+    return tacticalPayload();
+  });
+
+  ipcMain.handle('settings:build-order-get', () => buildOrderPayload());
+  ipcMain.handle('settings:smart-build-order', (_event, raw) => {
+    if (lastGood?.status === 'ongoing') return { ok: false, error: 'Configurá Smart Build Order antes de buscar partida.' };
+    if (!productState().featureAccess.smartBuildOrder) return { ok: false, error: 'Disponible con ProMax.' };
+    const enabled = Boolean(raw);
+    persistConfig({ smartBuildOrder: enabled });
+    send('overlay:config', overlayConfig());
+    sendBuildOrder();
+    return { ok: true, enabled };
+  });
+
   ipcMain.handle('postmatch:refresh', async () => {
     const match = latestStoredMatch();
     if (!match) {
@@ -2706,10 +2788,12 @@ function registerIpc() {
     return { ok: true, ...(postMatchPayload() || {}), product: productState() };
   });
 
-  // Importación de telemetría ya normalizada. El parser directo de
-  // .aoe2record todavía no está integrado, así que se acepta JSON compatible y
-  // se rechaza cualquier archivo que no corresponda a esta partida/jugador.
+  // Importación opcional de métricas adicionales ya normalizadas. El parser
+  // automático de comandos no produce economía ni eventos de combate.
   ipcMain.handle('postmatch:import', async () => {
+    if (!postMatchAccess().replay) {
+      return { ok: false, error: 'Activá el análisis del replay con acceso ProMax para importar métricas.' };
+    }
     const match = latestStoredMatch();
     if (!match) {
       return { ok: false, error: 'Primero necesitás una partida terminada y registrada.' };
@@ -2775,9 +2859,8 @@ function registerIpc() {
       return { ok: false, error: 'La clave de acceso no es válida.', product: productState() };
     }
     persistConfig({ accessKeyGrant: ACCESS_KEY_HASH });
-    send('overlay:config', overlayConfig());
-    broadcastPostMatch();
-    log('acceso Pro temporal activado con clave');
+    refreshAccessPresentation();
+    log('acceso de prueba ProMax activado con clave');
     return { ok: true, product: productState() };
   });
 
@@ -2787,9 +2870,10 @@ function registerIpc() {
     if (!accountId || !token) {
       return { ok: false, error: 'Ingresá la cuenta y la credencial firmada.', product: productState() };
     }
+    const previousSession = productSession;
     productSession = { accountId, entitlementToken: token };
     const product = productState();
-    if (!product.subscriptionVerified) {
+    if (!product.entitlement.valid) {
       const reason = product.entitlement && product.entitlement.reason;
       const messages = {
         'no-entitlement': 'Ingresá una credencial.',
@@ -2802,12 +2886,12 @@ function registerIpc() {
         'profile-mismatch': 'La credencial está asociada a otro perfil de AoE2.',
         'invalid-claims': 'La credencial tiene datos inválidos.',
       };
-      productSession = { accountId: null, entitlementToken: null };
+      productSession = previousSession;
+      refreshAccessPresentation();
       return { ok: false, error: messages[reason] || 'No se pudo verificar la credencial.', product: productState() };
     }
-    log(`licencia Pro verificada para la sesión · cuenta ${accountId}`);
-    send('overlay:config', overlayConfig());
-    broadcastPostMatch();
+    log(`licencia ${product.entitlement.plan} verificada para la sesión · cuenta ${accountId}`);
+    refreshAccessPresentation(product);
     return { ok: true, product };
   });
 
@@ -2877,9 +2961,10 @@ function registerIpc() {
     send('postmatch:update', overlayPostMatchPayload());
     syncReviewInteraction();
     // Y también el informe del rival que ya estaba calculado.
-    if (rivalReports) send('overlay:rival', rivalReports);
+    if (rivalReports) send('overlay:rival', projectRivalPayload(rivalReports, productState()));
     // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
-    if (scoutPayload) send('overlay:scout', scoutPayload);
+    if (scoutPayload) send('overlay:scout', projectScoutPayload(scoutPayload, productState()));
+    sendBuildOrder();
 
     // Si el renderer se recargó mientras el chip de actualización estaba
     // vigente, lo repintamos (se apaga solo por su propio timer).
@@ -2946,6 +3031,7 @@ function applyHeight(height) {
  * sin foco, así no molesta mientras jugás.
  */
 function setMovable(enabled) {
+  if (enabled && lastGood?.status === 'ongoing') return false;
   if (!win || win.isDestroyed()) {
     moving = false;
     return false;
@@ -2998,22 +3084,30 @@ function postMatchAccess() {
 /** Recorta el reporte antes de cruzar el IPC: Free no recibe datos Pro. */
 function visiblePostMatchReport() {
   if (!postMatchReport) return null;
+  if (!productState().featureAccess.postMatch) return null;
   const access = postMatchAccess();
   const report = JSON.parse(JSON.stringify(postMatchReport));
   if (!access.comparison) {
+    report.historyHighlights = [];
+    if (report.executionRatings) report.executionRatings.personalHighlights = [];
     report.mapBenchmark = {
       status: 'locked', games: 0, wins: 0, losses: 0, unknownResults: 0,
       winRate: null, afterWinRate: null, recent: [], sampleSize: 0,
-      summary: 'La comparación con tu historial está incluida en Pro.',
+      summary: 'La comparación con tu historial está incluida en ProMax.',
     };
   }
   if (!access.replay) {
     report.stages = [];
     report.metrics = {};
     report.improvements = [];
+    report.combat = null;
+    report.executionRatings = null;
+    report.context.opening = null;
+    report.context.openingLabel = null;
+    report.result.durationSeconds = null;
     report.analysis = {
       status: 'locked', label: 'Análisis de replay',
-      detail: 'La descarga y el análisis del replay están incluidos en Pro.',
+      detail: 'La descarga y el análisis del replay están incluidos en ProMax.',
     };
     report.data = {
       ...(report.data || {}),
@@ -3021,7 +3115,7 @@ function visiblePostMatchReport() {
       telemetryStatus: 'locked',
       sourceLabel: 'AoE2 Companion · resultados',
       warnings: [],
-      telemetryNote: 'APM y ejecución por etapas están incluidos en Pro.',
+      telemetryNote: 'APM y ejecución por etapas están incluidos en ProMax.',
     };
   }
   return report;
@@ -3052,9 +3146,8 @@ function clearPostMatchHide() {
  */
 function syncReviewInteraction() {
   if (!win || win.isDestroyed() || moving) return;
-  const open = reviewVisible();
-  win.setFocusable(open);
-  win.setIgnoreMouseEvents(!open, open ? {} : { forward: true });
+  win.setFocusable(false);
+  win.setIgnoreMouseEvents(true, { forward: true });
 }
 
 function overlayPostMatchPayload() {
@@ -3217,6 +3310,7 @@ function emit(state) {
   lastSent = signature;
   const previous = lastGood;
   lastGood = state;
+  if (state?.status === 'ongoing' && moving) setMovable(false);
   // Solo una partida que vimos EN VIVO y que termina con el mismo matchId
   // confirmado por la fuente puede generar un postmatch.
   const finished = completedMatchTransition(previous, state, profileId);
@@ -3244,7 +3338,8 @@ function emit(state) {
   }
   if (!ongoingId) lastOngoingMatchId = null;
 
-  send('overlay:state', state);
+  send('overlay:state', projectOverlayState(state, productState()));
+  sendBuildOrder();
   syncIntro(state);
   // El informe del rival NO bloquea: se dispara y llega cuando esté listo.
   refreshRivalReports(state).catch(() => {});
@@ -3504,7 +3599,7 @@ async function poll() {
   } catch (err) {
     log(`error: ${err.message}`);
     if (lastGood) {
-      send('overlay:state', { ...lastGood, stale: true, error: err.message });
+      send('overlay:state', projectOverlayState({ ...lastGood, stale: true, error: err.message }, productState()));
     } else {
       send('overlay:state', { status: 'error', message: err.message });
     }

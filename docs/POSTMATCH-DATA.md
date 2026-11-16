@@ -1,13 +1,13 @@
 # Postmatch: contrato y evaluación personal
 
-El resultado y la comparación de resultados por mapa se pueden mostrar al finalizar la partida. Al confirmarse el final, el proceso principal descarga el replay de Microsoft, lo analiza localmente y completa la telemetría sin intervención del usuario. Una victoria, una apertura detectada o un tiempo de partida no permiten calificar la ejecución de Feudal o Castillos.
+En Pro el resultado puede mostrarse al finalizar; ProMax añade comparación personal y análisis de replay. Free no recibe el informe postmatch. Con la opción y acceso de replay habilitados, al confirmarse el final el proceso principal descarga el replay de Microsoft, lo analiza localmente y completa las métricas disponibles sin intervención del usuario. Una victoria, una apertura detectada o un tiempo de partida no permiten calificar la ejecución de Feudal o Castillos.
 
 ## Pipeline automático
 
 1. `completedMatchTransition` confirma que la partida que se vio en vivo terminó con el mismo `matchId`.
 2. El informe se publica de inmediato con `analysis.status: 'downloading'`; el overlay vuelve a aparecer con el resultado ya confirmado.
 3. `src/replay.js` pide el ZIP a `GetMatchReplay` con `matchId` y el `profileId` del jugador, valida tamaño y tipo, y extrae únicamente el `.aoe2record` a un directorio temporal.
-4. `src/replay-analysis.js` instancia el parser WASM de `aoe2rec-js` y calcula apertura, llegada a Feudal/Castillos, duración y APM. No calcula eAPM, economía, bajas ni inactividad: si el replay no las expone, quedan ausentes.
+4. `src/replay-analysis.js` instancia el parser WASM de `aoe2rec-js` y calcula apertura inferida, primera orden de avance a Feudal/Castillos, duración y APM. `Research` no confirma llegada de edad. No extrae eAPM, economía, bajas ni inactividad: los campos no medidos quedan ausentes.
 5. El estado pasa a `analysis.status: 'analyzing'` mientras se lee el archivo y, al terminar, a `'ready'`.
 6. Si la descarga o el análisis fallan, el resultado y la referencia por mapa siguen visibles; `analysis.status: 'error'` explica el motivo y el botón Actualizar reintenta. Nunca se rellenan métricas para tapar el fallo.
 7. El ZIP y el replay se borran al terminar. No se conserva el archivo del usuario ni se sube a un servidor.
@@ -126,9 +126,19 @@ Las definiciones son identificadores de una semántica estable, no etiquetas dec
 
 Las métricas de llegada a una edad son tiempos de **llegada confirmada**, no el momento en que se hizo clic para investigar. Un parser que solo obtiene el clic no debe llenar `feudalSeconds` o `castleSeconds` con ese valor.
 
-## Notas A–E: ejecución económica personal
+El adaptador automático usa `feudalClickSeconds` y `castleClickSeconds`, con definición `first-age-research-command-game-seconds-v1`. Su versión es `0.1.25+command-adapter-v2`; no se mezcla con referencias del adaptador anterior. Al leer telemetría antigua de la fuente conocida `aoe2rec-js`/`0.1.25`, los tiempos mal etiquetados se reinterpretan como órdenes de avance, sin modificar el objeto de entrada. Otros proveedores que midan llegadas confirmadas siguen usando los campos de llegada.
 
-La primera versión de notas tiene el identificador `personal-economic-percentile-v1`. No califica las decisiones estratégicas ni atribuye una derrota a una etapa. Compara ejecución económica con el historial del mismo jugador.
+## Combate opcional y destacados sin reproducción profunda
+
+La telemetría v1 acepta el campo opcional `combat` con un resumen validado de `src/combat-analysis.js`. Ese motor agrupa eventos de muerte medidos por edad y categoría, con cobertura y costes explícitos. El almacén conserva el resumen compacto; no guarda todo el registro de eventos. Totales y destacados se recalculan al validar/restaurar. Un resumen inválido se omite con advertencias y no elimina el resultado ni otras métricas válidas. [Formato y uso](COMBAT-EVENTS.md).
+
+El parser automático todavía no genera esos eventos. El JSON de combate es una interfaz para un extractor medido, no un sustituto de ese extractor. Las notas económicas siguen independientes del número de bajas.
+
+`report.historyHighlights` usa resultados confirmados del historial consultado del mismo mapa/modo. Puede destacar una mejora del registro o al menos tres victorias entre los últimos cinco resultados confirmados disponibles. No afirma una racha completa ni mide ejecución de una edad. Se suprime ante error/historial parcial, muestra insuficiente o falta de resultado. El proceso principal recorta esos destacados si no está habilitada la comparación; el combate y la apertura se recortan si no está habilitado el análisis de replay.
+
+## Ejecución económica personal: contrato y presentación S–D
+
+El cálculo base conserva `personal-economic-percentile-v1` y sus campos A–E para compatibilidad. La interfaz nueva usa `report.executionRatings`, generado por `src/execution-ratings.js`, con método `personal-economic-sd-v1`. No califica las decisiones estratégicas ni atribuye una derrota a una etapa. Compara ejecución económica con el historial del mismo jugador.
 
 Para una nota se exigen al menos cinco replays **anteriores** compatibles en:
 
@@ -140,17 +150,23 @@ Para una nota se exigen al menos cinco replays **anteriores** compatibles en:
 
 Se requieren al menos dos indicadores económicos por etapa: proporción de tiempo productivo de TC perdido, proporción de bloqueo de población y/o inactividad ponderada de aldeanos. Los valores son proporciones entre 0 y 1; el reporte los presenta en porcentaje. Cuanto menos, mejor, de acuerdo con la definición de la fuente. El mismo grupo de replays debe tener todas las métricas que se comparan para esa nota.
 
-Cada indicador recibe un percentil personal: porcentaje de referencias con peor valor, más la mitad de los empates. La nota usa la media de esos percentiles:
+Cada indicador recibe un rango personal: porcentaje de referencias con peor valor, más la mitad de los empates. El score de etapa es la media redondeada de esos rangos. El contrato base A–E permanece compatible, pero la presentación nueva usa esta escala versionada:
 
-| Percentil personal | Nota |
+| Score personal | Nota S–D |
 | --- | --- |
-| 80–100 | A |
-| 60–79 | B |
-| 40–59 | C |
-| 20–39 | D |
-| 0–19 | E |
+| 90–100 | S |
+| 75–89 | A |
+| 50–74 | B |
+| 25–49 | C |
+| 0–24 | D |
 
-Una nota C corresponde a la zona habitual del propio historial; no es una evaluación absoluta del nivel competitivo. Si falta apertura o parche, no se asume que dos valores ausentes representan el mismo contexto. Se muestran las métricas, pero no se asigna una nota.
+Los umbrales son política de presentación, no niveles competitivos calibrados. `executionRatings.economic` valida estado listo, al menos cinco referencias, dos o tres indicadores económicos únicos y coherencia entre el score y las comparaciones. La nota general requiere que todas las etapas esperadas estén listas o explícitamente no alcanzadas. Con etapas parciales conserva sus notas individuales y omite la general. El tamaño mínimo mostrado es **por etapa**, no un conjunto común de referencias de toda la partida.
+
+`executionRatings.micro` y `.decisions` tienen nota nula: no existe evidencia/método validado para esas dimensiones. El APM o una buena proporción de bajas no las rellenan. «Macro económica» se acompaña de la etiqueta **Ejecución económica personal**; no es una evaluación de toda la macro estratégica.
+
+`comparison.strictlyBetterPercent` cuenta solo referencias estrictamente peores, sin sumar empates. Solo ese dato puede producir un destacado como «menor valor que en el X % de tus N partidas anteriores comparables». El rango que incluye medio empate y el score compuesto no se convierten en esa frase. Ninguno permite afirmar «mejor que X % de usuarios»; no existe cohorte poblacional conectada.
+
+Si falta apertura o parche, no se asume que dos valores ausentes representan el mismo contexto. Se muestran las métricas, sin asignar nota. El adaptador automático actual no entrega los indicadores económicos: esta presentación se habilita únicamente cuando exista telemetría medida compatible y muestra suficiente.
 
 APM, eAPM y tiempos de edades se presentan como información y diferencias contra la mediana compatible. No intervienen en las notas: más acciones o llegar antes a Castillos no implican por sí solos una mejor ejecución.
 
@@ -158,7 +174,7 @@ APM, eAPM y tiempos de edades se presentan como información y diferencias contr
 
 `report.status` es `pending` cuando todavía no hay resultado confirmado y `ready` cuando existe victoria/derrota. La disponibilidad de ejecución es independiente.
 
-`report.analysis.status` describe el trabajo del replay: `downloading`, `analyzing`, `ready`, `error` (o `locked` para Free). La UI muestra una barra y el texto correspondiente sin ocultar el resultado ya confirmado. Una etapa con `status: 'measured'` tiene un dato directo del replay (apertura o tiempo de edad), pero no una nota: las notas A–E siguen requiriendo la muestra económica descrita abajo.
+`report.analysis.status` describe el trabajo del replay: `downloading`, `analyzing`, `ready`, `error` (o `locked` si el plan/opción no permite replay). La UI muestra una barra y el texto correspondiente sin ocultar el resultado ya confirmado. Una etapa con `status: 'measured'` tiene un dato directo del replay (apertura o tiempo de edad), pero no una nota: las notas económicas siguen requiriendo la muestra descrita arriba.
 
 Cada etapa tiene `grade: null` mientras no hay evidencia suficiente:
 
@@ -170,12 +186,17 @@ Cada etapa tiene `grade: null` mientras no hay evidencia suficiente:
 | `needs_baseline` | X/5 replays comparables para tu primera nota |
 | `ready` | Nota + indicadores + muestra personal |
 
-`report.metrics` es un objeto con `apm`, `eapm`, `feudalSeconds` y `castleSeconds`; cada entrada incluye `status`, `value`, `unit` y `comparison`. Una UI debe comprobar `value != null`, ya que cero puede ser válido. `data.telemetryNote` explica el alcance en texto y `data.warnings` conserva problemas de validación concretos.
+`report.metrics` incluye `apm`, `eapm`, `feudalSeconds`, `castleSeconds`, `feudalClickSeconds` y `castleClickSeconds`; cada entrada incluye `status`, `value`, `unit` y `comparison`. Una UI debe comprobar `value != null`, ya que cero puede ser válido. `data.telemetryNote` explica el alcance en texto y `data.warnings` conserva problemas de validación concretos.
 
 ## Verificación
 
 ```powershell
 node tools/postmatch-test.js
+node tools/execution-ratings-test.js
 ```
 
 La suite comprueba ausencia de telemetría, resultados desconocidos, referencia del mismo mapa/modo, exclusión de la partida actual y de partidas futuras, deduplicación, definiciones incompatibles, muestras mínimas, notas con empates, etapas incompletas, persistencia entre reinicios y respuestas parciales posteriores.
+
+## Acceso y experiencia visual
+
+Main no entrega postmatch a Free. En Pro, recorta comparación, apertura, métricas, combate y `executionRatings` antes del IPC. En ProMax comprueba además las opciones guardadas. La UI vuelve a aplicar los permisos; un informe cacheado no concede acceso. El overlay deja pasar los clics y el informe se oculta automáticamente: las consultas y reintentos manuales pertenecen al launcher, fuera de la interacción en juego.

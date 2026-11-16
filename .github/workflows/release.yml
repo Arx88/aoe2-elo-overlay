@@ -27,6 +27,9 @@ jobs:
       - name: Dependencias
         run: npm ci
 
+      - name: Pruebas offline obligatorias
+        run: npm test
+
       # El selftest consulta APIs públicas de AoE2: si están caídas no debe
       # bloquear la publicación de una versión.
       - name: Tests

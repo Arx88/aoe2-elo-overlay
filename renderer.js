@@ -22,6 +22,10 @@ const scoutCardsEl = document.getElementById('scoutCards');
 const scoutContextEl = document.getElementById('scoutContext');
 const scoutFootnoteEl = document.getElementById('scoutFootnote');
 const postMatchEl = document.getElementById('postMatch');
+const smartBuildOrderEl = document.getElementById('smartBuildOrder');
+const opportunitiesEl = document.getElementById('opportunities');
+let buildOrderPayload = null;
+let smartBuildOrderEnabled = false;
 let postMatchPayload = null;
 let postMatchEnabled = false;
 let postMatchAccess = { comparison: true, replay: true };
@@ -139,6 +143,7 @@ let rivalOptions = {
 };
 // Recomendaciones inteligentes: llegan por `overlay:scout`; solo pre-partida.
 let scoutPayload = null;
+let rosterDetailsAllowed = false;
 let smartTipsEnabled = false;
 // Civ recomendada: comparte el payload de scout pero es su propia opción.
 let civRecommenderEnabled = false;
@@ -247,9 +252,9 @@ function civCard(civ) {
   const shield = civ.slug
     ? `<img class="civhelp-shield" src="assets/civs/${civ.slug}.png" alt="" draggable="false" />`
     : '<span class="civhelp-no-shield">?</span>';
-  const tag = civ.isYou
-    ? '<span class="civhelp-tag">VOS</span>'
-    : '<span class="civhelp-tag rival">RIVAL</span>';
+  const relation = civ.relation || (civ.isYou ? 'you' : 'unknown');
+  const labels = { you: 'VOS', ally: 'ALIADO', opponent: 'RIVAL', unknown: 'JUGADOR' };
+  const tag = `<span class="civhelp-tag${relation === 'opponent' ? ' rival' : ''}">${labels[relation]}</span>`;
   const fact = (ico, label, value, kind, dropLast = true) =>
     `<div class="civhelp-fact ${kind}">` +
     `<span class="civhelp-key">${icon(ico)}${label}</span>` +
@@ -279,18 +284,18 @@ function renderCivHelp() {
   }
 
   const players = Array.isArray(lastState.players) ? lastState.players : [];
-  const ordered = [
-    ...players.filter((player) => player.isYou),
-    ...players.filter((player) => !player.isYou),
-  ];
+  const relation = (player) => TacticalUI.civRelation(player, players);
+  const ordered = ['you', 'opponent', 'unknown', 'ally'].flatMap((role) =>
+    players.filter((player) => relation(player) === role));
   const civs = [];
   const seen = new Set();
   for (const player of ordered) {
     const slug = civSlug(player.civ);
-    const key = slug || String(player.civ || '?');
+    const role = relation(player);
+    const key = `${role}:${slug || String(player.civ || '?')}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    civs.push({ slug, raw: player.civ, isYou: Boolean(player.isYou) });
+    civs.push({ slug, raw: player.civ, isYou: Boolean(player.isYou), relation: role });
     if (civs.length >= 4) break;
   }
 
@@ -434,6 +439,13 @@ function applyVisibility() {
   scoutInfoEl.hidden = true;
   const reviewing = Boolean(postMatchEnabled && postMatchPayload && !ongoing && !moving);
   if (postMatchEl) postMatchEl.hidden = !reviewing;
+  if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(ongoing && !moving && smartBuildOrderEnabled &&
+    buildOrderPayload && String(buildOrderPayload.matchId) === String(lastState.match?.matchId));
+  if (opportunitiesEl) {
+    const current = tipsForCurrentMatch();
+    opportunitiesEl.hidden = !(ongoing && !moving && smartTipsEnabled && current.sameMatch &&
+      current.tips.some((tip) => Array.isArray(tip.opportunityStages)));
+  }
   panel.classList.toggle('reviewing', reviewing);
   analysisEl.hidden = analysisStage() == null;
 
@@ -1634,7 +1646,8 @@ function renderScouting() {
   const wide = entries.length <= 1;
   scoutCardsEl.innerHTML = entries.length
     ? entries.map((entry) => typeof TacticalUI === 'object' ? TacticalUI.renderRival({ entry, state: lastState,
-        options: { ...rivalOptions, smartTips: smartTipsEnabled, civRecommender: civRecommenderEnabled },
+        options: { ...rivalOptions, rosterDetails: rosterDetailsAllowed,
+          smartTips: smartTipsEnabled && !entry.tip?.opportunityStages, civRecommender: civRecommenderEnabled },
         detail: !scoutF2Enabled || detailMode }) : scoutCompactCard(entry, wide)).join('')
     : '<div class="rival-empty">Buscando los datos del rival…</div>';
   // Los anchos de barra se aplican por CSSOM (CSP sin unsafe-inline).
@@ -1730,6 +1743,7 @@ function applyView(payload) {
   renderRivalInfo();
   renderScoutInfo();
   renderAnalysis();
+  renderOpportunityInfo();
   applyVisibility();
 }
 
@@ -1871,8 +1885,8 @@ function renderOngoing(state) {
   const example = state.example || null;
   // El modo se repite solo si NO es RM 1v1: cuando el tag de la derecha ya
   // dice "ELO RM 1v1", volver a escribirlo en el título es ruido.
-  const mode = ladder.label === 'RM 1v1' ? '' : ` · ${ladder.label}`;
-  const title = inLobby ? `Partida encontrada${mode}` : `${state.match.mapName}${mode}`;
+  const mode = !rosterDetailsAllowed || !ladder.label || ladder.label === 'RM 1v1' ? '' : ` · ${ladder.label}`;
+  const title = !rosterDetailsAllowed ? 'Rivales' : inLobby ? `Partida encontrada${mode}` : `${state.match.mapName}${mode}`;
   // El Modo ejemplo se distingue a simple vista: los DATOS son reales, lo que
   // se simula es el reloj. Hay que decirlo para no confundirlo con una partida.
   const badge = example
@@ -1889,7 +1903,7 @@ function renderOngoing(state) {
 
   // El pie muestra solo el modo y el pico (o el dato de la partida en ejemplo).
   const fecha = example ? shortDate(example.realStartedAt) : '';
-  footText.textContent = example
+  footText.textContent = !rosterDetailsAllowed ? '' : example
     ? `partida real #${example.matchId ?? '—'}${fecha ? ` · ${fecha}` : ''} · reloj de prueba`
     : inLobby
       ? `${state.match.mapName !== '—' ? `${state.match.mapName} · ` : ''}empezando…`
@@ -1902,18 +1916,20 @@ function renderOngoing(state) {
   }
 
   let previousTeam = null;
-  rowsEl.innerHTML = state.players
+  const displayedPlayers = rosterDetailsAllowed ? state.players : state.players.filter((player) =>
+    !player.isYou && TacticalUI.civRelation(player, state.players) !== 'ally');
+  rowsEl.innerHTML = displayedPlayers
     .map((player) => {
       const divider = previousTeam !== null && player.team !== previousTeam ? '<div class="sep"></div>' : '';
       previousTeam = player.team;
       const name = escapeHtml(player.name || 'Jugador');
       const badge = player.isYou ? '<em>vos</em>' : '';
-      const civ = `<span class="civ">${civMarkup(player.civ)}</span>`;
+      const civ = rosterDetailsAllowed ? `<span class="civ">${civMarkup(player.civ)}</span>` : '';
       // Mientras llega el RM 1v1 se muestra "…", nunca el ELO del modo.
       // "—" significa "este jugador no tiene ladder 1v1".
       const waiting = Boolean(state.pending) && !player.hasStats;
       const elo = player.rating != null ? fmtNumber(player.rating) : waiting ? '…' : '—';
-      const rank = player.rank
+      const rank = !rosterDetailsAllowed ? '' : player.rank
         ? `<span class="rank">#${player.rank}</span>`
         : `<span class="rank">${waiting ? '…' : ''}</span>`;
       // Pico con flecha en vez de la palabra: se entiende igual y deja de
@@ -1928,7 +1944,7 @@ function renderOngoing(state) {
           ${civ}
           <span class="elo">${elo}</span>
           ${rank}
-          <span class="peak" title="Pico de ELO (RM 1v1)">${peak}</span>
+          ${rosterDetailsAllowed ? `<span class="peak" title="Pico de ELO (RM 1v1)">${peak}</span>` : ''}
         </div>`;
     })
     .join('');
@@ -1936,7 +1952,7 @@ function renderOngoing(state) {
   // El CSP del HTML bloquea atributos style inline: el color del equipo se
   // aplica por CSSOM una vez renderizadas las filas.
   rowsEl.querySelectorAll('.dot').forEach((dot, index) => {
-    const player = state.players[index];
+    const player = displayedPlayers[index];
     if (!player) return;
     dot.style.background = player.colorHex || TEAM_COLORS[player.color] || '#d9b26a';
   });
@@ -2001,15 +2017,30 @@ function render(state) {
   renderScoutInfo();
   renderAnalysis();
   // Un solo pase de visibilidad con TODAS las condiciones juntas.
+  renderOpportunityInfo();
   applyVisibility();
 }
 
 function renderPostMatch(payload) {
-  postMatchPayload = payload && payload.report ? payload.report : payload;
+  postMatchPayload = payload && Object.hasOwn(payload, 'report') ? payload.report : payload;
   if (postMatchEl && typeof TacticalUI === 'object') {
     postMatchEl.innerHTML = postMatchPayload ? TacticalUI.renderPostMatch(postMatchPayload, postMatchAccess) : '';
   }
   applyVisibility();
+}
+
+function renderBuildOrder(payload = buildOrderPayload) {
+  buildOrderPayload = payload;
+  if (smartBuildOrderEl && typeof TacticalUI === 'object') smartBuildOrderEl.innerHTML =
+    payload ? TacticalUI.renderSmartBuildOrder(payload) : '';
+  applyVisibility();
+}
+
+function renderOpportunityInfo() {
+  if (!opportunitiesEl || typeof TacticalUI !== 'object') return;
+  const current = tipsForCurrentMatch();
+  opportunitiesEl.innerHTML = current.sameMatch ? current.tips.filter((tip) => tip.opportunityStages)
+    .map((tip) => TacticalUI.renderAutomaticOpportunities(tip.opportunityStages)).join('') : '';
 }
 
 function applyTheme(theme) {
@@ -2049,10 +2080,12 @@ window.overlay.onConfig((config) => {
     if (config[key] !== undefined) rivalOptions[key] = Boolean(config[key]);
   }
   if (config.smartTips !== undefined) smartTipsEnabled = Boolean(config.smartTips);
+  if (config.smartBuildOrder !== undefined) smartBuildOrderEnabled = Boolean(config.smartBuildOrder);
   if (config.civRecommender !== undefined) civRecommenderEnabled = Boolean(config.civRecommender);
   if (config.scoutF2 !== undefined) scoutF2Enabled = Boolean(config.scoutF2);
   if (config.tgBalance !== undefined) balanceEnabled = Boolean(config.tgBalance);
   if (config.postMatch !== undefined) postMatchEnabled = Boolean(config.postMatch);
+  if (config.product) rosterDetailsAllowed = config.product.featureAccess.rosterDetails === true;
   if (config.product) postMatchAccess = {
     comparison: Boolean(config.product.featureAccess.postMatchComparison && config.postMatchComparison),
     replay: Boolean(config.product.featureAccess.postMatchReplay && config.postMatchReplay),
@@ -2076,18 +2109,8 @@ window.overlay.onState(render);
 window.overlay.onUpdate(showUpdateToast);
 window.overlay.onMovable(setMoving);
 if (window.overlay.onPostMatch) window.overlay.onPostMatch(renderPostMatch);
-// La X vive dentro del informe. El main habilita el mouse solo mientras el
-// informe está abierto; al cerrarlo vuelve el click-through del overlay.
-if (postMatchEl) {
-  postMatchEl.addEventListener('click', (event) => {
-    const target = event.target && event.target.closest
-      ? event.target.closest('[data-postmatch-close]')
-      : null;
-    if (!target) return;
-    event.preventDefault();
-    if (window.overlay.dismissPostMatch) window.overlay.dismissPostMatch();
-  });
-}
+if (window.overlay.onBuildOrder) window.overlay.onBuildOrder(renderBuildOrder);
+// El overlay es visual y deja pasar los clics al juego.
 if (window.overlay.onView) window.overlay.onView(applyView);
 // F2: el main posee el estado (el renderer se puede recargar en caliente).
 if (window.overlay.onDetail) window.overlay.onDetail((payload) => setDetail(payload && payload.detail));
@@ -2102,6 +2125,7 @@ if (window.overlay.onScout) {
   window.overlay.onScout((payload) => {
     scoutPayload = payload;
     renderScoutInfo();
+    renderOpportunityInfo();
     applyVisibility();
   });
 }

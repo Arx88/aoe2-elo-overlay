@@ -5,6 +5,8 @@ const path = require('node:path');
 const { resolveMode } = require('./insights');
 const { mapKey } = require('./rival');
 const { openingLabel, openingShort } = require('./replay-analysis');
+const { normalizeCombatSummary } = require('./combat-analysis');
+const { buildExecutionRatings } = require('./execution-ratings');
 
 const STORE_VERSION = 1;
 const TELEMETRY_VERSION = 1;
@@ -29,6 +31,8 @@ const SUMMARY_METRICS = {
   eapm: { label: 'eAPM', unit: 'acciones/min', min: 0, max: 10000 },
   feudalSeconds: { label: 'Llegada a Feudal', unit: 's de juego', min: 0, max: 86400 },
   castleSeconds: { label: 'Llegada a Castillos', unit: 's de juego', min: 0, max: 86400 },
+  feudalClickSeconds: { label: 'Orden de avance a Feudal', unit: 's de juego', min: 0, max: 86400 },
+  castleClickSeconds: { label: 'Orden de avance a Castillos', unit: 's de juego', min: 0, max: 86400 },
 };
 
 function finite(value, min = -Infinity, max = Infinity) {
@@ -131,12 +135,23 @@ function normalizeTelemetry(raw, expected = {}) {
     context: { mapName, leaderboardId: mode, civ, opening, gameSpeed, startingAge,
       patch: text(context.patch, 60) },
     durationSeconds: finite(raw.durationSeconds, 0, 86400),
-    metrics: {}, phases: {},
+    metrics: {}, phases: {}, combat: null,
   };
+  const summaryInput = { ...(raw.metrics || {}) };
+  // The first bundled command adapter mislabeled Research as age reached.
+  // Restore those saved values as command times without rewriting the file.
+  if (sourceId === 'aoe2rec-js' && sourceVersion === '0.1.25' && source.type === 'replay-analysis') {
+    for (const [reached, ordered] of [['feudalSeconds', 'feudalClickSeconds'], ['castleSeconds', 'castleClickSeconds']]) {
+      if (summaryInput[reached]?.definition !== 'age-reached-game-seconds-v1') continue;
+      summaryInput[ordered] = { ...summaryInput[reached], definition: 'first-age-research-command-game-seconds-v1' };
+      delete summaryInput[reached];
+      warnings.push('Un tiempo del analizador anterior se interpreta como orden de avance, no llegada confirmada.');
+    }
+  }
   for (const [key, spec] of Object.entries(SUMMARY_METRICS)) {
-    const metric = normalizeMetric(raw.metrics && raw.metrics[key], spec);
+    const metric = normalizeMetric(summaryInput[key], spec);
     if (metric) data.metrics[key] = metric;
-    else if (raw.metrics && raw.metrics[key] != null) warnings.push(`Métrica inválida: ${key}.`);
+    else if (summaryInput[key] != null) warnings.push(`Métrica inválida: ${key}.`);
   }
   for (const phase of PHASES) {
     const input = raw.phases && raw.phases[phase.id];
@@ -161,13 +176,26 @@ function normalizeTelemetry(raw, expected = {}) {
   if (feudal != null && castle != null && castle < feudal) {
     return fail('Los tiempos de llegada a edades son inconsistentes.');
   }
-  if (data.durationSeconds != null && [feudal, castle].some((v) => v != null && v > data.durationSeconds)) {
+  const feudalClick = data.metrics.feudalClickSeconds?.value;
+  const castleClick = data.metrics.castleClickSeconds?.value;
+  if (feudalClick != null && castleClick != null && castleClick < feudalClick) {
+    return fail('Los tiempos de órdenes de avance son inconsistentes.');
+  }
+  if (data.durationSeconds != null && [feudal, castle, feudalClick, castleClick].some((v) => v != null && v > data.durationSeconds)) {
     return fail('Un tiempo de edad supera la duración del replay.');
   }
   const phaseDuration = Object.values(data.phases).reduce((total, phase) =>
     total + (phase.durationSeconds || 0), 0);
   if (data.durationSeconds != null && phaseDuration > data.durationSeconds + 1) {
     return fail('Las etapas medidas superan la duración del replay.');
+  }
+  // Optional measured combat, independent from economic grades. A damaged
+  // combat summary does not erase the confirmed result or other telemetry.
+  if (raw.combat != null) {
+    const combat = normalizeCombatSummary(raw.combat, { profileId: data.profileId,
+      durationSeconds: data.durationSeconds, startingAge: data.context.startingAge });
+    data.combat = combat.data;
+    warnings.push(...combat.warnings);
   }
   return { status: 'ready', data, warnings };
 }
@@ -435,12 +463,32 @@ function metricComparison(metric, others, direction = null) {
   const ties = values.filter((v) => Math.abs(metric.value - v) <= tolerance).length;
   return { sampleSize: values.length, median: center, delta,
     improved: direction ? (direction === 'lower' ? delta < 0 : delta > 0) : null,
+    strictlyBetterPercent: better == null ? null : better / values.length * 100,
     percentile: better == null ? null : Math.round((better + ties * 0.5) / values.length * 100) };
 }
 
 function gradeFor(score) {
   if (!Number.isFinite(score)) return null;
   return score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : score >= 20 ? 'D' : 'E';
+}
+
+function historyHighlights(current, benchmark) {
+  if (typeof current.won !== 'boolean' || benchmark.status !== 'ready') return [];
+  const highlights = [];
+  const recent = [{ won: current.won }, ...benchmark.recent]
+    .filter((row) => typeof row.won === 'boolean').slice(0, 5);
+  const wins = recent.filter((row) => row.won).length;
+  if (recent.length === 5 && wins >= 3) {
+    highlights.push({ id: 'recent-map-results-v1', icon: 'map', title: `Buen momento en ${current.mapName}`,
+      detail: `Ganaste ${wins} de tus últimos 5 resultados confirmados consultados en este mapa y modo.`,
+      sampleSize: 5, wins });
+  }
+  if (current.won && benchmark.winRate != null && benchmark.afterWinRate > benchmark.winRate) {
+    highlights.push({ id: 'map-record-progress-v1', icon: 'trend', title: 'Tu registro en el mapa crece',
+      detail: `Pasaste de ${benchmark.winRate} % a ${benchmark.afterWinRate} % de victorias en ${benchmark.games + 1} resultados confirmados del historial consultado.`,
+      sampleSize: benchmark.games + 1 });
+  }
+  return highlights.slice(0, 2);
 }
 
 function buildStage(phase, telemetry, baselines, telemetryStatus) {
@@ -460,13 +508,18 @@ function buildStage(phase, telemetry, baselines, telemetryStatus) {
   if (phase.id === 'opening' && telemetry.context.opening) {
     measured = {
       valueLabel: openingShort(telemetry.context.opening),
-      detail: 'Apertura detectada en el replay.',
+      detail: 'Apertura inferida de las órdenes del replay.',
     };
   }
   const ageMetric = phase.id === 'feudal' ? telemetry.metrics.feudalSeconds
     : phase.id === 'castle' ? telemetry.metrics.castleSeconds : null;
   if (ageMetric && ageMetric.value != null) {
     measured = { valueSeconds: ageMetric.value, detail: 'Llegada medida en el replay.' };
+  } else {
+    const click = phase.id === 'feudal' ? telemetry.metrics.feudalClickSeconds
+      : phase.id === 'castle' ? telemetry.metrics.castleClickSeconds : null;
+    if (click && click.value != null) measured = { valueSeconds: click.value,
+      detail: 'Primera orden de avance · llegada sin confirmar.', valueType: 'research-command' };
   }
   const withEvidence = (value) => ({ ...base, ...value, status: 'measured',
     summary: 'Dato medido del replay. La nota económica requiere más evidencia.' });
@@ -552,7 +605,7 @@ function buildPostMatchReport(options = {}) {
     }
   }
   const resultStatus = complete && typeof current.won === 'boolean' ? (current.won ? 'won' : 'lost') : 'pending';
-  return {
+  const report = {
     version: 1, matchId, profileId: Number(profileId), updatedAt: now,
     status: resultStatus === 'pending' ? 'pending' : 'ready',
     context: { mapName: current.mapName, mode: resolveMode(current.leaderboardId),
@@ -566,6 +619,8 @@ function buildPostMatchReport(options = {}) {
       elapsedSeconds: current.elapsedSeconds,
       durationSeconds: telemetry ? telemetry.durationSeconds : null },
     mapBenchmark: benchmark, stages, metrics, improvements: improvements.slice(0, 3),
+    combat: telemetry ? telemetry.combat : null,
+    historyHighlights: complete ? historyHighlights(current, benchmark) : [],
     analysis: {
       status: ['downloading', 'analyzing', 'ready', 'error'].includes(options.analysis && options.analysis.status)
         ? options.analysis.status : (telemetry ? 'ready' : 'idle'),
@@ -581,6 +636,8 @@ function buildPostMatchReport(options = {}) {
       telemetryNote: telemetry ? 'Las notas evalúan ejecución económica frente a tu propio historial; no atribuyen la causa de la victoria.' :
         'El replay se descarga y analiza automáticamente al terminar. Si Microsoft todavía no lo publicó, el informe queda con el resultado confirmado.' },
   };
+  report.executionRatings = buildExecutionRatings(report);
+  return report;
 }
 
 /** A completed historical game is shown only after the app observed it live. */

@@ -2,6 +2,14 @@
 
 Overlay de escritorio para **Age of Empires II: Definitive Edition**: muestra en pantalla, apenas se encuentra la partida, el **ELO actual de 1v1 Random Map**, el **rank** y el **pico histórico (máximo)** de cada jugador.
 
+**Bloque en desarrollo (15/11/2026):** [estado real y pendientes](docs/IMPLEMENTATION-STATUS.md), [plan de evolución](docs/PRODUCT-ROADMAP.md) y [estudios con fuentes](docs/RESEARCH-INDEX.md). Los cambios de esta rama no equivalen a una release publicada.
+
+El catálogo es **Free / Pro / ProMax**: Free muestra exclusivamente nombre del rival, ELO actual y cara a cara; Pro añade contexto/resultados; ProMax añade recomendaciones, replay, evolución personal y Smart Build Order. [Detalle de permisos](docs/PRODUCT-ACCESS.md). Los mecanismos descritos a continuación se someten a esos gates.
+
+El overlay es visual y deja pasar los clics. Las [oportunidades](docs/OPPORTUNITIES.md) son horizontes condicionales automáticos; [Smart Build Order](docs/SMART-BUILD-ORDER.md) sugiere una referencia por civ/mapa sin detectar pasos completados ni avanzar por reloj. El replay actual aporta órdenes, apertura inferida y APM: **no extrae automáticamente bajas, recursos o inactividad**. El [motor de combate](docs/COMBAT-EVENTS.md) necesita eventos ya medidos. Las notas económicas S–D y frases de evolución requieren evidencia e historial personal compatible; no existe un ranking de usuarios conectado.
+
+Pruebas offline: `npm test`. La validación visual/Windows y el backend comercial quedaron diferidos para este bloque.
+
 **Regla de producto:** el número que se ve es **siempre** el ELO de **RM 1v1 (ladder #3)**, juegues lo que juegues. En TG, Empire Wars, Deathmatch o una sala personalizada el panel sigue mostrando el 1v1 de cada jugador, porque ese es el que sirve para medir el nivel. El ELO propio del modo (equipo, EW, unranked…) se descarta; si alguien nunca jugó 1v1 ranked, se muestra `—`, nunca un ELO de otro modo inventado a modo de reemplazo.
 
 ```
@@ -13,7 +21,7 @@ ARABIAN DESERT · RM team                    [ELO RM 1v1]
 
 La cabecera dice el **modo** de la partida; la etiqueta `ELO RM 1v1` aclara de dónde salen los números.
 
-Opcionalmente (todo **apagado de fábrica**) podés sumar la **Ayuda de civ** a 0:01 y un **informe del rival**: sus últimas 5 civs, la civ que más usa en el mapa de la partida, sus **aperturas reales** (`Scout rush`, `Archer rush`, `Drush`…) detectadas en replays analizados y el **cara a cara** (tu V-D contra ese rival). Y, en la ventana de preparación, **Recomendaciones inteligentes** con qué civs y qué aperturas le cuestan al rival en el mapa actual, más la **Civ recomendada**: contra este rival, en este mapa, qué civ jugársele (su debilidad × tu winrate). En team games hay **Balance de equipos**: la mediana de ELO 1v1 de tu equipo contra la del rival (con el rango si el equipo está disperso). Todo con datos reales. Podés hacer que todo eso se aparte solo al tiempo que elijas (entre 0:10 y 1:00; 0:20 por defecto) para que no estorbe durante el juego.
+Opcionalmente (todo **apagado de fábrica**) podés sumar la **Ayuda de civ** a 0:01 y un **informe del rival**: sus últimas 5 civs, la civ que más usa en el mapa de la partida, sus **aperturas reales** (`Scout rush`, `Archer rush`, `Drush`…) detectadas en replays analizados y el **cara a cara** (tu V-D contra ese rival). Y, en la ventana de preparación, **Recomendaciones inteligentes** con qué civs y qué aperturas le cuestan al rival en el mapa actual, más la **Civ recomendada**: contra este rival, en este mapa, qué civ jugársele (su debilidad × tu winrate). En team games hay **Balance de equipos**: la mediana de ELO 1v1 de tu equipo contra la del rival (con el rango si el equipo está disperso). Los datos históricos y las sugerencias se identifican por separado. Podés ocultar el ELO y el informe previo al tiempo que elijas (entre 0:10 y 1:00; 0:20 por defecto). Las oportunidades automáticas y Smart Build Order conservan su visibilidad durante la partida si están activados.
 
 Para revisar **todas esas funciones de una sola vez sin esperar a que el juego encuentre partida**, está el **Modo ejemplo** (`Ctrl+Alt+S → "Ver test"`): escribís cualquier nombre de jugador o su profile ID y el overlay se arma con la **última partida real** de ese perfil.
 
@@ -204,7 +212,7 @@ En **Configuración → Datos del rival** hay **seis** opciones independientes. 
 El historial de `/api/matches` se consulta con `leaderboard_ids=<ladder>`: el mapa y la civ se calculan solo con el **modo exacto** de la partida (RM 1v1, RM Team, EW…), nunca mezclando ladders. Sin ladder (unranked) no se fuerza RM.
 
 | **Aperturas reales del rival** | `rivalOpenings` | `false` | `Scout rush`, `Archer rush`, `Drush`, `Drush fast castle`, `Man at arms rush`, `Fast castle`: apertura **más usada** y las últimas partidas, detectadas en **replays analizados** por AoE2Insights, **del mismo modo de juego** (EW no se mezcla con RM), **del mapa de la partida y de la civ que más usa en ese mapa**. Si no hay replays de esa civ en ese mapa, no se muestra la apertura general ni la de otra civ. |
-| **Recomendaciones inteligentes** | `smartTips` | `false` | Consejo **pre-partida** (solo en la ventana de preparación, se va al iniciar) calculado con replays reales de AoE2Insights: en **el mapa actual**, qué civilizaciones le **cuestan** al rival (`pierde 80% contra Gurjaras · 5 pj`), qué **aperturas le duelen** (`Scouts 39% · 31 pj`) y su **perfil de ritmo** (si le salen mejor las partidas cortas o las largas). Cada línea muestra su muestra; si el mapa no tiene datos suficientes, baja al tipo de mapa (abierto/cerrado) y lo dice. |
+| **Recomendaciones inteligentes** | `smartTips` | `false` | ProMax: cruza ambas civs y el historial del mapa para puntuar rutas potenciales. Muestra automáticamente horizontes condicionales Feudal/Castillos/Imperial; sin edad ni composición actual observada. [Método](docs/OPPORTUNITIES.md). |
 | **Enfrentamientos previos** | `rivalH2H` | `false` | **Cara a cara**: tu V-D contra este rival, del **propio historial** y del **mismo modo de juego** (`1-2 · 3 partidas · última en Arabia`). Solo cuentan los enfrentamientos: las veces que jugaron **como aliados** van en una tarjeta aparte (`Como aliados 5`) y no suman al V-D. Si nunca se cruzaron, lo dice en vez de mostrar ceros. En equipo games muestra hasta 2 rivales, igual que el informe. |
 | **Civ recomendada** | `civRecommender` | `false` | **Pre-partida**: contra este rival, en este mapa, qué civ jugársele. Cruza dos datos reales: lo que el rival **pierde** según sus replays analizados y **tu winrate con cada civ en ese mapa** (de tu historial). Score = 60 % tuyo + 40 % del rival; **ninguna línea se muestra sin muestra suficiente** (3 partidas mínimo) y cada una declara la suya (`vos 67 % (9 pj) · le cuesta 80 % (5 pj)`). En custom/unranked no se consulta nada en vez de mezclar modos. |
 
@@ -305,7 +313,7 @@ env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS \
 
 ### No toca tu configuración
 
-Durante el ejemplo las cinco opciones visuales se encienden **solo en memoria** (`EXAMPLE_ALL_ON` → `viewConfig()`): `civHelp`, `hideEloAt20`, `rivalCivs`, `rivalFavorites` y `rivalOpenings`. **No se llama a `persistConfig()`**: tu `config.json`, tus toggles y tu cuenta quedan exactamente como estaban. Al terminar, `deactivateExample()` reenvía la config real, limpia el reloj, el informe del rival y el estado cacheado.
+Durante el ejemplo `EXAMPLE_ALL_ON` solicita las opciones visuales **solo en memoria** (`viewConfig()`), sujetas al acceso efectivo del plan. No concede por sí solo funciones bloqueadas. **No se llama a `persistConfig()`**: tu `config.json`, tus toggles y tu cuenta quedan exactamente como estaban. Al terminar, `deactivateExample()` reenvía la config real, limpia el reloj, el informe del rival y el estado cacheado.
 
 Además:
 
@@ -369,7 +377,7 @@ Si la última línea es un **latido** y **no** aparece `proceso terminado`, el p
 | `Ctrl+Alt+R` | Refrescar ahora |
 | `Ctrl+Alt+Q` | Cerrar la app |
 
-El overlay es **siempre click-through**: no recibe clicks, no se puede activar ni pasar a primer plano (`focusable: false` + `setIgnoreMouseEvents(true)`). Eso se suspende un momento solo cuando elegís **Posición → Mover el panel** en la configuración: el panel se vuelve arrastrable, lo soltás donde quieras y con **Listo** (o `Esc`) vuelve a ser click-through y queda fijo ahí. Esa posición se guarda como `position: "custom"` con `x`/`y` en la config; en cada arranque se respeta (y se limita al monitor para que no quede fuera de vista).
+El overlay es **siempre click-through**: no recibe clicks, no se puede activar ni pasar a primer plano (`focusable: false` + `setIgnoreMouseEvents(true)`). Fuera de una partida, eso se suspende un momento al elegir **Posición → Mover el panel** en la configuración: el panel se vuelve arrastrable, lo soltás donde quieras y con **Listo** (o `Esc`) vuelve a ser click-through y queda fijo ahí. Esa posición se guarda como `position: "custom"` con `x`/`y` en la config; en cada arranque se respeta (y se limita al monitor para que no quede fuera de vista).
 
 ## Configuración (`config.json`)
 
@@ -393,10 +401,14 @@ En la app instalada/portable está en `%APPDATA%\AoE2 ELO Overlay\config.json`. 
 | `rivalCivs` | `false` | Últimas 5 civs jugadas por el rival (informe opcional) |
 | `rivalFavorites` | `false` | Civ y mapa más usados del rival |
 | `rivalOpenings` | `false` | Aperturas reales de AoE2Insights (replays analizados) |
-| `smartTips` | `false` | Consejos pre-partida del rival (solo en la ventana de preparación) |
+| `smartTips` | `false` | ProMax: oportunidades automáticas entre civs, con horizontes condicionales por edad |
 | `rivalH2H` | `false` | Cara a cara: tu V-D contra este rival, del propio historial y del mismo modo |
-| `civRecommender` | `false` | Civ recomendada contra el rival: su debilidad × tu winrate en el mapa (pre-partida) |
+| `civRecommender` | `false` | ProMax: elección de civ con historial propio y del rival, muestra y alcance explícitos |
 | `tgBalance` | `false` | Balance de equipos en TG: mediana de ELO 1v1 por equipo (con rango si está disperso) |
+| `smartBuildOrder` | `false` | ProMax: referencia automática de build order; se configura antes de buscar partida |
+| `postMatch` | `true` | Pro: resultado confirmado y resumen postmatch |
+| `postMatchComparison` | `false` | ProMax: evolución con historial personal comparable |
+| `postMatchReplay` | `false` | ProMax: análisis del replay y métricas realmente disponibles |
 | `autoUpdate` | `false` | Actualizaciones automáticas: consulta cada 30 min y aplica sola lo que encuentre (nunca en partida). Se activa en la pestaña **Updater** |
 | `debug` | `false` | Loguea detalles de altura y diagnóstico |
 
@@ -418,7 +430,7 @@ Ninguna de las fuentes pide API key. `aoe2.net` está muerto (API dada de baja),
    `GET /api/profiles/<rival>/stats?leaderboard_id=<enum>` trae los agregados históricos `civ[]` y `map[]` con `games` / `wins` / `losses`. El `leaderboardId` numérico del juego se traduce a enum (`3 → rm_1v1`, `4 → rm_team`, `13 → ew_1v1`, `14 → ew_team`, `1/2 → dm_*`); en unranked/custom cae a `rm_1v1`.
 4. **Aperturas reales del rival** — AoE2Insights (`src/insights.js`, ver la sección anterior):
    `GET /stats/api/match-ups/` filtrado por `player_relic_id` (= `profileId`) **y por la ladder exacta de la partida** (`ladder = 3/4/13/14/1/2` según el modo). Es la **única** fuente que publica `strategy`, y solo para replays ya analizados. No hay inferencia por civ ni guía genérica, y jamás se mezclan modos.
-5. **Cara a cara y civ recomendada** — tu PROPIO historial (`src/mine.js`, solo si activás `rivalH2H` o `civRecommender`):
+5. **Cara a cara y civ recomendada** — tu PROPIO historial (`src/mine.js`, si activás `rivalH2H`, `civRecommender` o las oportunidades de `smartTips`):
    `GET /api/matches?profile_ids=<tu id>&per_page=100` paginado con pausa de 120 ms (hasta 6 páginas ≈ 600 partidas del modo, cache **30 min** compartida entre las dos opciones). De ahí salen tus enfrentamientos contra cada rival — reconocido por `profileId` dentro de `teams[].players[]`, separando aliados de rivales por `teamId` — y tu winrate con cada civ en el mapa de la partida. En modo ejemplo, "tu" historial es el del perfil del ejemplo (misma regla que `isYou`).
 
 Verificado el 2026-11-09 con un `matched` real de TG: los `rating` del evento coinciden con la ladder #4 (equipo), no con la #3, y `getPersonalStat` para 8 jugadores tarda ~0,5 s. También se confirmó que los jugadores que nunca jugaron 1v1 ranked **no tienen fila** en la ladder 3: no es un bug del parser, es así el backend.

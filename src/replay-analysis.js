@@ -6,8 +6,9 @@
  * experimental de Node: instanciamos el binario a mano, así funciona igual en
  * desarrollo y dentro del paquete de Electron.
  *
- * Lo que se mide acá es el registro de comandos del replay: apertura, llegada
- * a edades y APM. No inventamos economía, bajas ni eAPM: si el replay no lo
+ * Lo que se mide acá es el registro de comandos del replay: apertura inferida,
+ * órdenes de avance y APM. Research no confirma una llegada de edad.
+ * No inventamos economía, bajas ni eAPM: si el replay no lo
  * trae, el campo queda ausente.
  */
 
@@ -351,6 +352,21 @@ function gameDuration(chapter) {
   return Math.max(total, postgame);
 }
 
+function commandMetrics(player, durationMs) {
+  const metrics = {};
+  if (Number.isFinite(durationMs) && durationMs > 0 && Number.isFinite(player.actions) && player.actions >= 0) {
+    metrics.apm = { value: Math.round(player.actions / (durationMs / 60000) * 10) / 10,
+      definition: 'game-command-count-v1' };
+  }
+  for (const [field, key] of [['feudalMs', 'feudalClickSeconds'], ['castleMs', 'castleClickSeconds']]) {
+    if (Number.isFinite(player[field]) && player[field] >= 0) {
+      metrics[key] = { value: Math.round(player[field] / 1000 * 10) / 10,
+        definition: 'first-age-research-command-game-seconds-v1' };
+    }
+  }
+  return metrics;
+}
+
 /**
  * Lee el replay y devuelve la telemetría normalizable. `match` es la partida
  * confirmada por la API: su mapa/modo/civ mandan para validar el archivo.
@@ -407,24 +423,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     .find((p) => Number(p.profileId) === Number(profileId));
   const civ = (matchPlayer && matchPlayer.civ) || 'Unknown';
   const opening = classify(player, civ);
-  const minutes = Math.max(durationMs / 60_000, 1);
-  const metrics = {};
-  const apm = Math.round(player.actions / minutes * 10) / 10;
-  if (Number.isFinite(apm) && apm > 0) {
-    metrics.apm = { value: apm, definition: 'game-command-count-v1' };
-  }
-  if (player.feudalMs != null) {
-    metrics.feudalSeconds = {
-      value: Math.round(player.feudalMs / 1000 * 10) / 10,
-      definition: 'age-reached-game-seconds-v1',
-    };
-  }
-  if (player.castleMs != null) {
-    metrics.castleSeconds = {
-      value: Math.round(player.castleMs / 1000 * 10) / 10,
-      definition: 'age-reached-game-seconds-v1',
-    };
-  }
+  const metrics = commandMetrics(player, durationMs);
 
   return {
     schemaVersion: 1,
@@ -433,7 +432,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     clock: 'game',
     source: {
       id: 'aoe2rec-js',
-      version: '0.1.25',
+      version: '0.1.25+command-adapter-v2',
       type: 'replay-analysis',
       label: 'Replay de Microsoft · análisis local',
     },
@@ -453,6 +452,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
 
 module.exports = {
   analyzeReplayFile,
+  commandMetrics,
   classify,
   signals,
   openingLabel,

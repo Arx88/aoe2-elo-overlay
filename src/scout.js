@@ -1,4 +1,5 @@
 'use strict';
+const { buildAutomaticOpportunityPlans } = require('./opportunities');
 
 /**
  * RECOMENDACIONES INTELIGENTES (pre-partida)
@@ -557,6 +558,7 @@ async function buildScoutTips(options = {}) {
     // Civ recomendada: `myHistoryImpl` lo inyecta main.js (mi historial ya
     // cacheado por src/mine.js, compartido con el head-to-head).
     recommend = false,
+    opportunityContext = null,
     myHistoryImpl = null,
     fetchImpl,
     sleep,
@@ -581,7 +583,7 @@ async function buildScoutTips(options = {}) {
   const rowsKey = `scout:rows:v2:${id}:${resolved.id}:${limit}`;
   // No esperar a los replays para empezar el historial propio. H2H comparte
   // la petición en vuelo mediante fetchMyHistory.
-  const minePromise = recommend && typeof myHistoryImpl === 'function'
+  const minePromise = (recommend || opportunityContext) && typeof myHistoryImpl === 'function'
     ? Promise.resolve().then(() => myHistoryImpl()).then((value) => ({ value }), (error) => ({ error }))
     : null;
   const cached = cache && cache.get(rowsKey);
@@ -640,13 +642,21 @@ async function buildScoutTips(options = {}) {
     stale,
     fetchedAt: fromCache && cached ? cached.ts : now,
   };
+  const ownOutcome = minePromise ? await minePromise : null;
+  const ownRows = ownOutcome && !ownOutcome.error && !ownOutcome.value?.error
+    ? ownOutcome.value?.rows || [] : [];
+  if (opportunityContext) {
+    result.opportunityStages = buildAutomaticOpportunityPlans({ ...opportunityContext, mode: resolved,
+      mapName, rows, ownRows, now });
+    result.opportunities = result.opportunityStages[0];
+  }
 
   // Civ recomendada: cruza lo que le cuesta al rival (weakAgainst, arriba)
   // con MI winrate con cada civ en este mapa. El fallo no tira el consejo.
   if (recommend) {
     if (typeof myHistoryImpl === 'function') {
       try {
-        const outcome = await minePromise;
+        const outcome = ownOutcome;
         if (outcome.error) throw outcome.error;
         const mine = outcome.value;
         if (mine.error) throw new Error(mine.error);

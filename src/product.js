@@ -8,11 +8,23 @@ const AUDIENCE = 'aoe2-helper';
 const TOKEN_PREFIX = 'aoe2-helper.entitlement.v1.';
 const MAX_TOKEN_LENGTH = 16384;
 const CLOCK_SKEW_SECONDS = 60;
+const FEATURE_ICONS = { elo: 'users', rivalCivs: 'history', rivalFavorites: 'map',
+  civHelp: 'shield', tgBalance: 'users', scoutF2: 'compass', postMatch: 'chart',
+  rivalOpenings: 'bow', smartTips: 'target', rivalH2H: 'sword', civRecommender: 'castle',
+  postMatchComparison: 'trend', postMatchReplay: 'clock', smartBuildOrder: 'villager' };
+const FEATURE_PLANS = { elo: 'free', rivalH2H: 'free', rosterDetails: 'pro',
+  rivalCivs: 'pro', rivalFavorites: 'pro', civHelp: 'pro', tgBalance: 'pro', postMatch: 'pro',
+  rivalOpenings: 'promax', smartTips: 'promax', civRecommender: 'promax',
+  postMatchComparison: 'promax', postMatchReplay: 'promax', smartBuildOrder: 'promax' };
+const PLAN_RANK = { free: 0, pro: 1, promax: 2, beta: 2 };
 
 const FEATURES = Object.freeze([
-  { key: 'elo', title: 'ELO y roster', plan: 'free', alwaysOn: true,
-    description: 'ELO actual y pico de RM 1v1 de los jugadores de la partida.',
+  { key: 'elo', title: 'Nombre y ELO del rival', plan: 'free', alwaysOn: true,
+    description: 'Nombre y ELO actual de RM 1v1 del rival.',
     dataNote: 'Requiere que la cuenta y los jugadores estén identificados.' },
+  { key: 'rosterDetails', title: 'Roster ampliado', plan: 'pro', alwaysOn: true,
+    description: 'Civilizaciones, rango, pico de ELO y contexto del roster.',
+    dataNote: 'Los campos ausentes conservan su estado sin dato.' },
   { key: 'rivalCivs', title: 'Últimas civilizaciones', plan: 'free', preference: true,
     description: 'Las últimas cinco elecciones del rival, con mapa y resultado.',
     dataNote: 'Historial público del mismo modo; los errores de consulta se informan.' },
@@ -47,9 +59,13 @@ const FEATURES = Object.freeze([
     description: 'Compara esta partida con tu historial comparable en el mismo mapa.',
     dataNote: 'Solo usa partidas anteriores del mismo mapa y modo, con muestra declarada.' },
   { key: 'postMatchReplay', title: 'Análisis del replay', plan: 'pro', preference: true,
-    description: 'Descarga automática del replay: apertura, llegada a Feudal/Castillos y APM.',
+    description: 'Descarga automática del replay: apertura inferida, órdenes de avance y APM.',
     dataNote: 'El replay se analiza localmente. Las notas económicas requieren métricas y muestra; nunca se inventan.' },
-].map((feature) => Object.freeze(feature)));
+  { key: 'smartBuildOrder', title: 'Smart Build Order', plan: 'promax', preference: true,
+    description: 'Guía visual sugerida por tu civilización, mapa y rutas de oportunidad.',
+    dataNote: 'Se activa antes de jugar. Es una referencia; la apertura y los pasos en vivo no están medidos.' },
+].filter((feature) => feature.key !== 'scoutF2').map((feature) => Object.freeze({ ...feature,
+  plan: FEATURE_PLANS[feature.key], icon: FEATURE_ICONS[feature.key] || 'compass' })));
 
 const BY_KEY = new Map(FEATURES.map((feature) => [feature.key, feature]));
 
@@ -85,7 +101,7 @@ function verifyEntitlement(token, options = {}) {
   if (!payload || Array.isArray(payload) || typeof payload !== 'object' ||
       payload.schema !== 1 || typeof payload.kid !== 'string' || !payload.kid ||
       typeof payload.sub !== 'string' || !payload.sub.trim() || payload.sub.length > 200 ||
-      payload.aud !== AUDIENCE || payload.plan !== 'pro' ||
+      payload.aud !== AUDIENCE || !['pro', 'promax'].includes(payload.plan) ||
       !Number.isSafeInteger(payload.iat) || !Number.isSafeInteger(payload.exp) ||
       payload.iat <= 0 || payload.exp <= payload.iat ||
       (payload.nbf != null && (!Number.isSafeInteger(payload.nbf) || payload.nbf <= 0))) {
@@ -118,7 +134,7 @@ function verifyEntitlement(token, options = {}) {
       return rejected('profile-mismatch');
     }
   }
-  return { valid: true, reason: null, plan: 'pro', accountId: payload.sub,
+  return { valid: true, reason: null, plan: payload.plan, accountId: payload.sub,
     expiresAt: payload.exp * 1000, issuedAt: payload.iat * 1000 };
 }
 
@@ -139,23 +155,23 @@ function getProductState(options = {}) {
   const entitlement = verifyEntitlement(options.entitlementToken, options);
   const beta = options.betaAccess === true;
   const accessKey = options.accessKeyGranted === true;
-  const plan = entitlement.valid ? 'pro' : (accessKey ? 'pro' : (beta ? 'beta' : 'free'));
-  const permitsPro = plan === 'pro' || plan === 'beta';
+  const signedAccess = entitlement.valid && (!accessKey || entitlement.plan === 'promax');
+  const plan = signedAccess ? entitlement.plan : (accessKey ? 'promax' : (beta ? 'beta' : 'free'));
   const billing = options.billing && typeof options.billing === 'object' ? options.billing : {};
   const checkout = validateCommerceUrl(billing.checkoutUrl, billing.allowedHosts);
   const account = validateCommerceUrl(billing.accountUrl, billing.allowedHosts);
   const features = FEATURES.map((feature) => ({ ...feature,
-    allowed: feature.plan === 'free' || permitsPro,
+    allowed: PLAN_RANK[plan] >= PLAN_RANK[feature.plan],
     accessReason: feature.plan === 'free' ? 'included-free' :
-      (permitsPro ? (entitlement.valid ? 'verified-entitlement' : (accessKey ? 'access-key' : 'beta-access')) : 'requires-pro'),
+      (PLAN_RANK[plan] >= PLAN_RANK[feature.plan] ? (signedAccess ? 'verified-entitlement' : (accessKey ? 'access-key' : 'beta-access')) : `requires-${feature.plan}`),
   }));
   return {
     schema: 1,
     plan,
-    label: plan === 'beta' ? 'Acceso beta' : (plan === 'pro' ? 'Pro' : 'Free'),
-    accessSource: entitlement.valid ? 'verified-entitlement' :
+    label: plan === 'beta' ? 'Acceso beta' : plan === 'promax' ? 'ProMax' : (plan === 'pro' ? 'Pro' : 'Free'),
+    accessSource: signedAccess ? 'verified-entitlement' :
       (accessKey ? 'access-key' : (beta ? 'beta-access' : 'free')),
-    subscriptionVerified: entitlement.valid,
+    subscriptionVerified: signedAccess,
     accessKeyGranted: accessKey,
     entitlement,
     features,
@@ -176,12 +192,30 @@ function allowsFeature(product, key) {
   return BY_KEY.has(key) && product?.featureAccess?.[key] === true;
 }
 
+/** Memoize within a verification second, never for an entire login session.
+ * Time is part of the cache identity: exp/nbf/iat can change access even when
+ * neither the signed token nor saved preferences changed.
+ */
+function createProductStateCache(clock = Date.now) {
+  let key = null;
+  let state = null;
+  return (options = {}) => {
+    const now = options.now == null ? clock() : options.now;
+    const next = JSON.stringify({ ...options, now: Math.floor(now / 1000) });
+    if (state && next === key) return state;
+    state = getProductState({ ...options, now });
+    key = next;
+    return state;
+  };
+}
+
 /** Keep user preferences independently from entitlement; never erase them. */
 function effectivePreferences(preferences = {}, product = getProductState()) {
   const effective = { ...preferences };
   for (const feature of FEATURES) {
     if (feature.preference) effective[feature.key] = preferences[feature.key] === true && allowsFeature(product, feature.key);
   }
+  effective.scoutF2 = false; // Automatic visual-only presentation; no live input.
   return effective;
 }
 
@@ -197,7 +231,7 @@ function featureState(key, options = {}) {
   const allowed = allowsFeature(product, key);
   const selected = feature.alwaysOn === true || options.preferences?.[key] === true;
   const base = { key, plan: feature.plan, allowed, selected, enabled: allowed && selected };
-  if (!allowed) return { ...base, status: 'locked', message: 'Disponible con Pro.' };
+  if (!allowed) return { ...base, status: 'locked', message: feature.plan === 'promax' ? 'Disponible con ProMax.' : 'Disponible con Pro.' };
   if (!selected) return { ...base, status: 'disabled', message: 'Desactivada en tus preferencias.' };
   const data = options.availability || {};
   const statuses = ['loading', 'ready', 'insufficient', 'unavailable', 'error', 'pending'];
@@ -207,4 +241,4 @@ function featureState(key, options = {}) {
 }
 
 module.exports = { FEATURES, AUDIENCE, TOKEN_PREFIX, verifyEntitlement, validateCommerceUrl,
-  getProductState, allowsFeature, effectivePreferences, featureState };
+  getProductState, createProductStateCache, allowsFeature, effectivePreferences, featureState };
