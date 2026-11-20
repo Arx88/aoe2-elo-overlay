@@ -21,3 +21,6 @@ update-channel.local.json
 .workbuddy-ai/
 Thumbs.db
 .DS_Store
+
+admin-app/
+licensing-api/
