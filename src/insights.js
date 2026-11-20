@@ -182,7 +182,7 @@ function openingShort(name) {
   return (name && SHORT_LABELS[name]) || name || null;
 }
 
-/** Campos por defecto de la consulta de aperturas (los de siempre). */
+/** Campos por defecto de la consulta de aperturas (enriquecidos sin requests extra). */
 const DEFAULT_FIELDS = [
   'strategy',
   'match_id',
@@ -193,9 +193,16 @@ const DEFAULT_FIELDS = [
   'player_name',
   'won',
   'map_openness',
+  'map_terrain',
   'civilization_opponent',
   'strategy_opponent',
   'match_duration',
+  'elo',
+  'elo_opponent',
+  'elo_group',
+  'mean_eapm',
+  'mean_eapm_opponent',
+  'patch',
 ];
 
 /** URL exacta de la consulta. Expuesta para el selftest. */

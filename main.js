@@ -129,6 +129,7 @@ const DEFAULT_CONFIG = {
   // Postmatch: resumen de resultados Pro; comparación y replay ProMax.
   postMatch: true,
   postMatchComparison: false,
+  postMatchCompareMode: 'both',
   postMatchReplay: false,
   // Clave temporal de acceso Pro. Se guarda el hash, nunca la clave.
   accessKeyGrant: null,
@@ -668,6 +669,7 @@ function overlayConfig() {
     // Postmatch resuelto: Free ve el resultado; Pro ve comparación y replay.
     postMatch: Boolean(view.postMatch),
     postMatchComparison: Boolean(view.postMatchComparison),
+    postMatchCompareMode: ['both', 'personal', 'community'].includes(config.postMatchCompareMode) ? config.postMatchCompareMode : 'both',
     postMatchReplay: Boolean(view.postMatchReplay),
     product: productState(),
     example: Boolean(exampleActive && exampleInfo),
@@ -2565,6 +2567,7 @@ function registerIpc() {
     autoUpdate: Boolean(config.autoUpdate),
     postMatch: config.postMatch !== false,
     postMatchComparison: Boolean(config.postMatchComparison),
+    postMatchCompareMode: ['both', 'personal', 'community'].includes(config.postMatchCompareMode) ? config.postMatchCompareMode : 'both',
     postMatchReplay: Boolean(config.postMatchReplay),
     shields: CIV_SLUGS,
     civAliases: CIV_ALIASES,
@@ -2765,6 +2768,15 @@ function registerIpc() {
   // acceso se rechaza también acá, no solo deshabilitando el control.
   ipcMain.handle('settings:postMatchOption', (_event, rawKey, rawValue) => {
     const key = String(rawKey || '');
+    if (key === 'postMatchCompareMode') {
+      const mode = ['both', 'personal', 'community'].includes(String(rawValue)) ? String(rawValue) : null;
+      if (!mode) return { ok: false, error: 'Modo de comparación inválido.' };
+      persistConfig({ postMatchCompareMode: mode });
+      send('overlay:config', overlayConfig());
+      broadcastPostMatch();
+      log(`postmatch · modo de comparación: ${mode}`);
+      return { ok: true, key, value: mode };
+    }
     if (!['postMatch', 'postMatchComparison', 'postMatchReplay'].includes(key)) {
       return { ok: false, error: 'Esa opción de postmatch no existe.' };
     }
@@ -3097,8 +3109,11 @@ function signatureOf(state) {
 function postMatchAccess() {
   const view = viewConfig();
   const product = productState();
+  const compareMode = ['both', 'personal', 'community'].includes(config.postMatchCompareMode)
+    ? config.postMatchCompareMode : 'both';
   return {
     comparison: Boolean(view.postMatchComparison),
+    compareMode,
     replay: Boolean(view.postMatchReplay),
     comparisonReason: product.featureAccess.postMatchComparison ? 'disabled' : 'pro',
     replayReason: product.featureAccess.postMatchReplay ? 'disabled' : 'pro',
@@ -3113,6 +3128,7 @@ function visiblePostMatchReport() {
   const report = JSON.parse(JSON.stringify(postMatchReport));
   if (!access.comparison) {
     if (report.openingReview) report.openingReview.comparison = null;
+    if (report.engine) report.engine.evolution = null;
     report.historyHighlights = [];
     report.improvements = [];
     report.executionRatings = null;
@@ -3136,6 +3152,7 @@ function visiblePostMatchReport() {
   if (!access.replay) {
     report.openingReview = null;
     report.castlesWindow = null;
+    report.engine = null;
     report.stages = [];
     report.metrics = {};
     report.improvements = [];

@@ -216,9 +216,17 @@ async function fetchPersonalStats(profileIds, ladderId = ELO_LADDER.id, timeoutM
 
   // statGroups[] agrupa miembros; cada fila de leaderboardStats apunta a un statgroup_id.
   const owner = new Map();
+  const memberMeta = new Map();
   for (const group of data.statGroups || []) {
     const member = (group.members || [])[0];
-    if (member && member.profile_id != null) owner.set(group.id, Number(member.profile_id));
+    if (member && member.profile_id != null) {
+      const pid = Number(member.profile_id);
+      owner.set(group.id, pid);
+      memberMeta.set(pid, {
+        country: member.country || null,
+        clan: member.clanlist_name || null,
+      });
+    }
   }
 
   const out = new Map();
@@ -227,13 +235,34 @@ async function fetchPersonalStats(profileIds, ladderId = ELO_LADDER.id, timeoutM
     const profileId = owner.get(row.statgroup_id);
     if (profileId == null) continue;
 
+    const rating = numOrNull(row.rating);
     const peak = numOrNull(row.highestrating);
+    const cleanPeak = peak && peak > 0 ? peak : null;
+    const rank = row.rank > 0 ? Number(row.rank) : null;
+    const rankTotal = row.ranktotal > 0 ? Number(row.ranktotal) : null;
+    const ladderPercentile = rank && rankTotal
+      ? Math.max(0.1, Math.min(100, Math.round((rank / rankTotal) * 1000) / 10))
+      : null;
+    const peakDelta = rating != null && cleanPeak != null ? Math.round(cleanPeak - rating) : null;
+    const lastMatchSec = numOrNull(row.lastmatchdate);
+    const meta = memberMeta.get(profileId) || {};
+
     out.set(profileId, {
-      rating: numOrNull(row.rating),
-      peak: peak && peak > 0 ? peak : null,
-      rank: row.rank > 0 ? row.rank : null,
+      rating,
+      peak: cleanPeak,
+      rank,
+      rankTotal,
+      ladderPercentile,
+      peakDelta,
       wins: numOrNull(row.wins),
       losses: numOrNull(row.losses),
+      streak: numOrNull(row.streak),
+      drops: numOrNull(row.drops),
+      regionRank: row.regionrank > 0 ? Number(row.regionrank) : null,
+      regionRankTotal: row.regionranktotal > 0 ? Number(row.regionranktotal) : null,
+      lastMatchAt: lastMatchSec && lastMatchSec > 0 ? lastMatchSec * 1000 : null,
+      country: meta.country || null,
+      clan: meta.clan || null,
     });
   }
   return out;
@@ -298,12 +327,36 @@ function composeRows(players, stats, youId) {
     // en el Map". Un placeholder {rating:null,...} (jugador sin ladder 1v1 o
     // backend caído) cuenta como SIN datos para que el renderer pinte `—`.
     const hasStats = Boolean(stat) && (stat.rating != null || stat.peak != null || stat.rank != null);
+    const rating = stat ? stat.rating : null;
+    const peak = stat ? stat.peak : null;
+    const rank = stat ? stat.rank : null;
+    const rankTotal = stat && stat.rankTotal != null ? stat.rankTotal : null;
+    const ladderPercentile = stat && stat.ladderPercentile != null
+      ? stat.ladderPercentile
+      : rank && rankTotal
+        ? Math.max(0.1, Math.min(100, Math.round((rank / rankTotal) * 1000) / 10))
+        : null;
+    const peakDelta = stat && stat.peakDelta != null
+      ? stat.peakDelta
+      : rating != null && peak != null
+        ? Math.round(peak - rating)
+        : null;
     return {
       ...player,
       isYou: Number(player.profileId) === Number(youId),
-      rating: stat ? stat.rating : null,
-      peak: stat ? stat.peak : null,
-      rank: stat ? stat.rank : null,
+      rating,
+      peak,
+      rank,
+      rankTotal,
+      ladderPercentile,
+      peakDelta,
+      streak: stat && stat.streak != null ? stat.streak : null,
+      drops: stat && stat.drops != null ? stat.drops : null,
+      wins: stat && stat.wins != null ? stat.wins : null,
+      losses: stat && stat.losses != null ? stat.losses : null,
+      lastMatchAt: stat && stat.lastMatchAt != null ? stat.lastMatchAt : null,
+      country: (stat && stat.country) || player.country || null,
+      clan: (stat && stat.clan) || player.clan || null,
       hasStats,
     };
   });

@@ -1,3 +1,17 @@
+## v2.3.0 · Prematch predictivo y Postmatch entrenador en tiempo real
+
+- **Prematch predictivo renovado:** clasificación por entropía del pool del rival (`Especialista`, `Foco` o `Random`), predicción Top-3 ponderada por mapa y recencia, perfil de eAPM frente a rivales reales, debilidades ajustadas por diferencia de ELO y tira editorial de telemetría (Perfil · Ladder · Racha · Mecánica).
+- **Motor local instantáneo de Postmatch (`savegame\`):** analiza automáticamente el `.aoe2record` recién guardado en tu PC en menos de un segundo antes de caer a la descarga de Microsoft, sin abrir el juego ni instalar nada extra.
+- **Tarjeta única unificada de Postmatch con jerarquía visual limpia e iconografía SVG centrada:**
+  - **Reto activo entre partidas:** evalúa automáticamente el foco de tu partida anterior y destaca arriba cuando lo cumplís (`★ RETO CUMPLIDO`).
+  - **Apertura detectada + 4 Edades calificadas (`S · A · B · C · D`):** califica **Alta Edad**, **Feudal**, **Castillos** e **Imperial** (sin castigar TC inactivo en Imperial por tope de 200 pop) con selector de referencia en **Ajustes → Postmatch** (**Personal + Estándar ELO**, **Solo tu historial** o **Solo estándar por ELO**).
+  - **Evolución personal vs tus propias partidas:** sparklines y deltas (`▲ / ▼`) de Uso de TC, TC inactivo separado en **Alta Edad / Feudal / Total**, Aldeanos/min y eAPM contra tus últimas 12 partidas del modo.
+  - **Duelo cara a cara con escudos de civilización**, **Colas y edificios militares** (detecta saturación de establos/arquerías y estima edificios faltantes), **Mercado decodificado por recurso** (comida/madera/piedra), **Mayor bache exacto de TC** con minuto y causa, **Micro de combate (`%` Attack-Move/Patrol)** y **Ciclo de retorno al TC**.
+
+Verificación: 14/14 suites deterministas en verde (`npm test`), CSP estricta sin estilos inline y validación visual en Electron sobre replays locales reales.
+
+---
+
 ## v2.2.4 · Espaciado y tipografía consistentes
 
 - La grilla, los márgenes, las esquinas y la escala de texto comparten medidas entre overlay y launcher.

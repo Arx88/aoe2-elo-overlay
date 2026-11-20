@@ -17,6 +17,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { seeOrder, pickCheckpoint } = require('./opening-review');
 const { observeQueue, collectCastlesWindow, supportedMap } = require('./castles-window');
+const { analyzePostmatchEngine } = require('./engine/postmatch-engine');
 
 const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v5';
 
@@ -370,6 +371,18 @@ const AGE_NOTICES = new Map([
   [' advanced to the Feudal Age.', 'feudal'],
   [' advanced to the Castle Age.', 'castle'],
   [' advanced to the Imperial Age.', 'imperial'],
+  [' avançou para a Idade Feudal.', 'feudal'],
+  [' avançou para a Idade dos Castelos.', 'castle'],
+  [' avançou para a Idade Imperial.', 'imperial'],
+  [' est passé à l’âge féodal.', 'feudal'],
+  [' est passé à l’âge des châteaux.', 'castle'],
+  [' est passé à l’âge impérial.', 'imperial'],
+  [' hat die Feudalzeit erreicht.', 'feudal'],
+  [' hat die Ritterzeit erreicht.', 'castle'],
+  [' hat die Imperialzeit erreicht.', 'imperial'],
+  [' è passato all\'Età Feudale.', 'feudal'],
+  [' è passato all\'Età dei Castelli.', 'castle'],
+  [' è passato all\'Età Imperiale.', 'imperial'],
   ['升级至封建时代。', 'feudal'],
   ['升级至城堡时代。', 'castle'],
   ['升级至帝王时代。', 'imperial'],
@@ -519,8 +532,35 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
   const matchPlayer = (Array.isArray(match.players) ? match.players : [])
     .find((p) => Number(p.profileId) === Number(profileId));
   const civ = (matchPlayer && matchPlayer.civ) || 'Unknown';
+  const ownTeam = matchPlayer && matchPlayer.team != null ? Number(matchPlayer.team) : null;
+  const rivalMatchPlayer = (Array.isArray(match.players) ? match.players : [])
+    .find((p) => Number(p.profileId) !== Number(profileId) &&
+      (ownTeam == null || p.team == null || Number(p.team) !== ownTeam));
+  const rivalReplayPlayer = rivalMatchPlayer
+    ? replayPlayers.find((p) => Number(p.profile_id) === Number(rivalMatchPlayer.profileId))
+    : replayPlayers.find((p) => Number(p.profile_id) > 0 && Number(p.profile_id) !== Number(profileId));
+
   const opening = classify(player, civ);
   const metrics = commandMetrics(player, durationMs);
+  const rivalPlayerState = rivalReplayPlayer ? players.get(Number(rivalReplayPlayer.player_number)) : null;
+  const engineSummary = analyzePostmatchEngine(chapter.operations, {
+    selfSlot: Number(self.player_number),
+    rivalSlot: rivalReplayPlayer ? Number(rivalReplayPlayer.player_number) : null,
+    selfCiv: civ,
+    rivalCiv: (rivalMatchPlayer && rivalMatchPlayer.civ) || null,
+    selfAges: player.ageReachedMs || null,
+    rivalAges: rivalPlayerState ? rivalPlayerState.ageReachedMs || null : null,
+    opening: opening.name,
+    openingShort: openingShort(opening.name),
+    playerElo: matchPlayer && Number.isFinite(Number(matchPlayer.rating)) ? Number(matchPlayer.rating) : null,
+    durationMs,
+  });
+  if (engineSummary && Number.isFinite(engineSummary.self?.eapm)) {
+    metrics.eapm = {
+      value: engineSummary.self.eapm,
+      definition: 'debounced-command-eapm-v1',
+    };
+  }
   const openingCheckpoint = pickCheckpoint({
     player, opening: opening.name, settings, build: chapter.zheader.build,
     mapName: match.mapName, mode: match.leaderboardId, playerCount,
@@ -549,6 +589,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     durationSeconds: Math.round(durationMs / 100) / 10,
     metrics,
     openingCheckpoint,
+    engineSummary,
     castlesWindow: trackWindow ? collectCastlesWindow({
       self: player,
       rival: [...players.values()].find((p) => p.profileId > 0 && p.profileId !== Number(profileId)),

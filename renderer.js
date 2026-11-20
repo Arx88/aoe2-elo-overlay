@@ -2015,7 +2015,11 @@ function renderPostMatch(payload) {
   postMatchPayload = payload && Object.hasOwn(payload, 'report') ? payload.report : payload;
   if (postMatchEl && typeof TacticalUI === 'object') {
     postMatchEl.innerHTML = postMatchPayload
-      ? TacticalUI.renderPostMatch(postMatchPayload, { ...postMatchAccess, compact: true }) : '';
+      ? TacticalUI.renderPostMatch(postMatchPayload, postMatchAccess) : '';
+    postMatchEl.querySelectorAll('[data-w]').forEach((bar) => {
+      const width = Math.max(0, Math.min(100, Number(bar.dataset.w) || 0));
+      bar.style.width = `${width}%`;
+    });
   }
   applyVisibility();
 }
@@ -2072,6 +2076,7 @@ window.overlay.onConfig((config) => {
   if (config.product) rosterDetailsAllowed = config.product.featureAccess.rosterDetails === true;
   if (config.product) postMatchAccess = {
     comparison: Boolean(config.product.featureAccess.postMatchComparison && config.postMatchComparison),
+    compareMode: config.postMatchCompareMode || 'both',
     replay: Boolean(config.product.featureAccess.postMatchReplay && config.postMatchReplay),
     comparisonReason: config.product.featureAccess.postMatchComparison ? 'disabled' : 'pro',
     replayReason: config.product.featureAccess.postMatchReplay ? 'disabled' : 'pro',

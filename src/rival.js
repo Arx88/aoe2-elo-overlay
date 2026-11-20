@@ -34,6 +34,7 @@
 
 const { getJson, fetchMatches } = require('./aoe');
 const { civSlug } = require('./civs');
+const { predictRivalCivs } = require('./prematch-predict');
 const {
   buildRivalOpenings,
   resolveMode,
@@ -486,8 +487,10 @@ async function buildRivalInsights(options = {}) {
   const applyHistory = (records) => {
     const prior = historical ? (Number.isFinite(cutoff) ? records.filter((row) =>
       row && isPriorReplay(row, currentMatchId, cutoff)) : []) : records;
-    result.history = parseRivalHistory(prior, id, currentMatchId, { mode });
+    const allModeRows = parseRivalHistory(prior, id, currentMatchId, { mode, limit: 500 });
+    result.history = allModeRows.slice(0, HISTORY_SIZE);
     result.mapStats = parseMapStats(prior, id, currentMatchId, { mode, mapName });
+    result.prediction = predictRivalCivs(allModeRows, mapName, { now });
   };
 
   // Con eso se corta al encontrar todas las del mapa.

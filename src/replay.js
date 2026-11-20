@@ -13,6 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 const AdmZip = require('adm-zip');
 const { analyzeReplayFile } = require('./replay-analysis');
+const { listAccounts } = require('./detect');
 
 const REPLAY_BASE = process.env.AOE2_REPLAY_BASE ||
   'https://api.ageofempires.com/api/GameStats/AgeII/GetMatchReplay/';
@@ -96,13 +97,79 @@ function extractRecord(zipBuffer) {
 }
 
 /**
- * Pipeline completo: descarga, extracción segura y análisis local.
- * `onStatus` recibe los dos estados que muestra el overlay.
+ * Busca el replay recién guardado localmente en `%USERPROFILE%\Games\Age of Empires 2 DE\<id>\savegame\`.
+ * Evita esperar varios minutos a que Microsoft publique el ZIP (HTTP 404).
+ * Valida roster completo y hora mediante `analyzeReplayFile`.
  */
-async function fetchReplayTelemetry(match, profileId, { onStatus } = {}) {
+async function tryLocalReplay(match, profileId) {
+  let accounts;
+  try {
+    accounts = listAccounts();
+  } catch {
+    return null;
+  }
+  const refTime = Number(match && (match.finishedAt || match.startedAt)) || Date.now();
+  const candidates = [];
+  for (const acc of accounts) {
+    const dir = path.join(acc.dir, 'savegame');
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile() || !/\.aoe2record$/i.test(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      try {
+        const stat = fs.statSync(full);
+        if (stat.size <= 0 || stat.size > MAX_RECORD_BYTES) continue;
+        // Solo archivos recientes alrededor de la partida (±2 horas para tolerar desfase)
+        if (Math.abs(stat.mtimeMs - refTime) > 2 * 60 * 60 * 1000) continue;
+        candidates.push({ full, mtimeMs: stat.mtimeMs });
+      } catch { /* ignorar */ }
+    }
+  }
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  for (const item of candidates.slice(0, 6)) {
+    try {
+      const telemetry = await analyzeReplayFile(item.full, { match, profileId });
+      if (telemetry) {
+        return {
+          ...telemetry,
+          source: {
+            ...telemetry.source,
+            label: 'Replay local · análisis instantáneo',
+          },
+        };
+      }
+    } catch {
+      // No coincide roster u hora: probar siguiente candidato
+    }
+  }
+  return null;
+}
+
+/**
+ * Pipeline completo: primero intenta el .aoe2record local (<1s) y, si no está,
+ * descarga desde Microsoft, extrae de forma segura y analiza localmente.
+ */
+async function fetchReplayTelemetry(match, profileId, { onStatus, skipLocal = false } = {}) {
   const id = match && match.matchId;
   if (!id) throw new Error('La partida no tiene un ID de replay.');
   if (!Number.isFinite(Number(profileId))) throw new Error('Falta el perfil para pedir el replay.');
+
+  if (!skipLocal) {
+    if (onStatus) {
+      onStatus({
+        status: 'analyzing',
+        label: 'Analizando replay local',
+        detail: 'Leyendo economía, producción y ritmo desde tu carpeta savegame.',
+      });
+    }
+    const local = await tryLocalReplay(match, profileId);
+    if (local) return local;
+  }
 
   if (onStatus) {
     onStatus({
@@ -117,7 +184,7 @@ async function fetchReplayTelemetry(match, profileId, { onStatus } = {}) {
     onStatus({
       status: 'analyzing',
       label: 'Analizando partida',
-      detail: 'Leyendo órdenes del replay: apertura, avances y APM.',
+      detail: 'Leyendo órdenes del replay: economía, ejército, edades y ritmo.',
     });
   }
   const extracted = extractRecord(zip);
@@ -130,6 +197,7 @@ async function fetchReplayTelemetry(match, profileId, { onStatus } = {}) {
 
 module.exports = {
   fetchReplayTelemetry,
+  tryLocalReplay,
   downloadReplay,
   extractRecord,
   replayUrl,

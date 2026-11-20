@@ -1,5 +1,10 @@
 'use strict';
 const { buildAutomaticOpportunityPlans } = require('./opportunities');
+const {
+  predictRivalCivs,
+  computeEapmProfile,
+  computeEloAdjustedWeaknesses,
+} = require('./prematch-predict');
 
 /**
  * RECOMENDACIONES INTELIGENTES (pre-partida)
@@ -129,6 +134,7 @@ function parseScoutRows(payload) {
   const won = col('won');
   const maps = col('map');
   const openness = col('map_openness');
+  const terrains = col('map_terrain');
   const civs = col('civilization');
   const oppCivs = col('civilization_opponent');
   const strategies = col('strategy');
@@ -136,6 +142,16 @@ function parseScoutRows(payload) {
   const durations = col('match_duration');
   const started = col('started_time');
   const ladders = col('ladder');
+  const elos = col('elo');
+  const oppElos = col('elo_opponent');
+  const eloGroups = col('elo_group');
+  const eapms = col('mean_eapm');
+  const oppEapms = col('mean_eapm_opponent');
+  const patches = col('patch');
+  const posNum = (v) => {
+    const num = Number(v);
+    return Number.isFinite(num) && num > 0 ? num : null;
+  };
 
   const seen = new Map();
   const out = [];
@@ -156,6 +172,7 @@ function parseScoutRows(payload) {
       won: isWin(won[i]),
       map: maps[i] || null,
       openness: openness[i] || null,
+      terrain: terrains[i] || null,
       civ: validCiv(civs[i]),
       oppCiv: validCiv(oppCivs[i]),
       strategy: validStrategy(strategies[i]),
@@ -164,6 +181,12 @@ function parseScoutRows(payload) {
       duration: Number.isFinite(duration) && duration > 0 ? duration : null,
       startedAt: started[i] || null,
       ladder: ladders[i] || null,
+      elo: posNum(elos[i]),
+      oppElo: posNum(oppElos[i]),
+      eloGroup: eloGroups[i] || null,
+      meanEapm: posNum(eapms[i]),
+      oppMeanEapm: posNum(oppEapms[i]),
+      patch: posNum(patches[i]),
     };
     seen.set(key, match);
     out.push(match);
@@ -528,6 +551,9 @@ function computeTips(matches, options = {}) {
     openingsAgainst: openingsAgainst(scoped.rows),
     style: styleProfile(scoped.rows),
     tempo: tempoProfile(scoped.rows),
+    eapm: computeEapmProfile(modeRows),
+    eloWeakness: computeEloAdjustedWeaknesses(scoped.rows),
+    prediction: predictRivalCivs(modeRows, mapName, { now: options.now }),
     matchup: currentMatchup(modeRows, { ...options, mapName, mode }),
     likelyCivs: historicalChoices(scoped.rows, 'civ'),
     likelyOpenings: historicalChoices(scoped.rows, 'strategy'),

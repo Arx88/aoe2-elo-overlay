@@ -146,6 +146,357 @@ function validateMeasuredWindows(data, warnings) {
  * metrics remain missing. This function makes no claim to authenticate an
  * external provider: source is attribution and compatibility metadata.
  */
+function sanitizeEngineSide(side) {
+  if (!side || typeof side !== 'object') return null;
+  const num = (v, min = 0, max = 1e6) => finite(v, min, max);
+  const topUnits = Array.isArray(side.topUnits) ? side.topUnits.slice(0, 5)
+    .filter((u) => u && text(u.name) && num(u.count, 1, 50000) != null)
+    .map((u) => ({ key: text(u.key, 60) || text(u.name, 60), name: text(u.name, 60), count: Math.round(u.count) })) : [];
+  const topWorkshops = Array.isArray(side.topWorkshops) ? side.topWorkshops.slice(0, 4)
+    .filter((w) => w && text(w.name) && num(w.count, 1, 500) != null)
+    .map((w) => ({
+      key: text(w.key, 60) || text(w.name, 60),
+      name: text(w.name, 60),
+      count: Math.round(w.count),
+      units: Math.round(num(w.units, 0, 50000) || 0),
+      peakQueue: num(w.peakQueue, 0, 200) != null ? rounded(w.peakQueue) : null,
+      overloadedPct: num(w.overloadedPct, 0, 100) != null ? Math.round(w.overloadedPct) : null,
+      recommendedCount: num(w.recommendedCount, 1, 500) != null ? Math.round(w.recommendedCount) : null,
+      status: ['saturated', 'balanced', 'light'].includes(w.status) ? w.status : 'balanced',
+      note: text(w.note, 120),
+    })) : [];
+  const gap = side.biggestTcGap && typeof side.biggestTcGap === 'object' && text(side.biggestTcGap.summary) ? {
+    startSec: Math.round(num(side.biggestTcGap.startSec, 0, 86400) || 0),
+    endSec: Math.round(num(side.biggestTcGap.endSec, 0, 86400) || 0),
+    durationSec: Math.round(num(side.biggestTcGap.durationSec, 0, 86400) || 0),
+    age: text(side.biggestTcGap.age, 30),
+    militaryOrdersInGap: Math.round(num(side.biggestTcGap.militaryOrdersInGap, 0, 50000) || 0),
+    cause: ['combat', 'eco', 'quiet'].includes(side.biggestTcGap.cause) ? side.biggestTcGap.cause : 'quiet',
+    summary: text(side.biggestTcGap.summary, 160),
+  } : null;
+  const cm = side.combatMicro && typeof side.combatMicro === 'object' ? {
+    controlSharePct: num(side.combatMicro.controlSharePct, 0, 100) != null ? rounded(side.combatMicro.controlSharePct) : null,
+    combatOrders: Math.round(num(side.combatMicro.combatOrders, 0, 500000) || 0),
+    moveOrders: Math.round(num(side.combatMicro.moveOrders, 0, 500000) || 0),
+    tcReturnSec: num(side.combatMicro.tcReturnSec, 1, 600) != null ? Math.round(side.combatMicro.tcReturnSec) : null,
+  } : null;
+  const mp = side.marketProfile && typeof side.marketProfile === 'object' && num(side.marketProfile.totalOps, 1, 50000) != null ? {
+    totalOps: Math.round(side.marketProfile.totalOps),
+    earlyOps: Math.round(num(side.marketProfile.earlyOps, 0, 50000) || 0),
+    bought: {
+      food: Math.round(num(side.marketProfile.bought?.food, 0, 1000000) || 0),
+      wood: Math.round(num(side.marketProfile.bought?.wood, 0, 1000000) || 0),
+      stone: Math.round(num(side.marketProfile.bought?.stone, 0, 1000000) || 0),
+    },
+    sold: {
+      food: Math.round(num(side.marketProfile.sold?.food, 0, 1000000) || 0),
+      wood: Math.round(num(side.marketProfile.sold?.wood, 0, 1000000) || 0),
+      stone: Math.round(num(side.marketProfile.sold?.stone, 0, 1000000) || 0),
+    },
+    note: text(side.marketProfile.note, 140),
+  } : null;
+  const h = side.habits && typeof side.habits === 'object' ? side.habits : {};
+  return {
+    villagersOrdered: Math.round(num(side.villagersOrdered, 0, 5000) || 0),
+    townCenters: Math.round(num(side.townCenters, 0, 100) || 0),
+    tcIdleSeconds: num(side.tcIdleSeconds, 0, 86400) != null ? rounded(side.tcIdleSeconds) : null,
+    tcUtilization: num(side.tcUtilization, 0, 100) != null ? rounded(side.tcUtilization) : null,
+    tcIdleRatio: num(side.tcIdleRatio, 0, 1) != null ? rounded(side.tcIdleRatio, 3) : null,
+    tcIdleDarkSeconds: num(side.tcIdleDarkSeconds, 0, 86400) != null ? rounded(side.tcIdleDarkSeconds) : null,
+    tcUtilizationDark: num(side.tcUtilizationDark, 0, 100) != null ? rounded(side.tcUtilizationDark) : null,
+    tcIdleFeudalSeconds: num(side.tcIdleFeudalSeconds, 0, 86400) != null ? rounded(side.tcIdleFeudalSeconds) : null,
+    tcIdleFeudalPerTcSeconds: num(side.tcIdleFeudalPerTcSeconds, 0, 86400) != null ? rounded(side.tcIdleFeudalPerTcSeconds) : null,
+    feudalActiveTcs: Math.round(num(side.feudalActiveTcs, 0, 100) || 0),
+    tcUtilizationFeudal: num(side.tcUtilizationFeudal, 0, 100) != null ? rounded(side.tcUtilizationFeudal) : null,
+    tcIdleEarlySeconds: num(side.tcIdleEarlySeconds, 0, 86400) != null ? rounded(side.tcIdleEarlySeconds) : null,
+    tcUtilizationEarly: num(side.tcUtilizationEarly, 0, 100) != null ? rounded(side.tcUtilizationEarly) : null,
+    tcIdleTotalSeconds: num(side.tcIdleTotalSeconds, 0, 86400) != null ? rounded(side.tcIdleTotalSeconds) : null,
+    tcUtilizationTotal: num(side.tcUtilizationTotal, 0, 100) != null ? rounded(side.tcUtilizationTotal) : null,
+    biggestTcGap: gap,
+    militaryOrdered: Math.round(num(side.militaryOrdered, 0, 50000) || 0),
+    workshopsCount: Math.round(num(side.workshopsCount, 0, 500) || 0),
+    workshopUtilization: num(side.workshopUtilization, 0, 100) != null ? Math.round(side.workshopUtilization) : null,
+    topUnits,
+    topWorkshops,
+    apm: num(side.apm, 0, 2000) != null ? rounded(side.apm) : null,
+    eapm: num(side.eapm, 0, 2000) != null ? rounded(side.eapm) : null,
+    militarySharePct: num(side.militarySharePct, 0, 100) != null ? Math.round(side.militarySharePct) : null,
+    ecoSharePct: num(side.ecoSharePct, 0, 100) != null ? Math.round(side.ecoSharePct) : null,
+    combatMicro: cm,
+    marketProfile: mp,
+    habits: {
+      move: Math.round(num(h.move, 0, 500000) || 0),
+      attackMove: Math.round(num(h.attackMove, 0, 500000) || 0),
+      patrol: Math.round(num(h.patrol, 0, 500000) || 0),
+      market: Math.round(num(h.market, 0, 50000) || 0),
+      townBell: Math.round(num(h.townBell, 0, 5000) || 0),
+      tributes: Math.round(num(h.tributes, 0, 5000) || 0),
+      selfDeleted: Math.round(num(h.selfDeleted, 0, 50000) || 0),
+    },
+  };
+}
+
+function normalizeEngineSummary(raw) {
+  if (!raw || typeof raw !== 'object' || raw.version !== 'postmatch-engine-v1') return null;
+  const self = sanitizeEngineSide(raw.self);
+  if (!self) return null;
+  const rival = sanitizeEngineSide(raw.rival);
+  const timeline = Array.isArray(raw.timeline) ? raw.timeline.slice(0, 24)
+    .filter((b) => b && finite(b.seconds, 0, 86400) != null)
+    .map((b) => ({
+      seconds: Math.round(b.seconds),
+      selfVillagers: Math.round(finite(b.selfVillagers, 0, 5000) || 0),
+      rivalVillagers: finite(b.rivalVillagers, 0, 5000) != null ? Math.round(b.rivalVillagers) : null,
+      selfMilitary: Math.round(finite(b.selfMilitary, 0, 50000) || 0),
+      rivalMilitary: finite(b.rivalMilitary, 0, 50000) != null ? Math.round(b.rivalMilitary) : null,
+    })) : [];
+  const openingSummary = raw.openingSummary && text(raw.openingSummary.name) ? {
+    name: text(raw.openingSummary.name, 60),
+    grade: ['S', 'A', 'B', 'C', 'D'].includes(raw.openingSummary.grade) ? raw.openingSummary.grade : null,
+    score: finite(raw.openingSummary.score, 0, 100) != null ? Math.round(raw.openingSummary.score) : null,
+    feudalSeconds: finite(raw.openingSummary.feudalSeconds, 0, 86400) != null ? Math.round(raw.openingSummary.feudalSeconds) : null,
+    darkIdleSeconds: finite(raw.openingSummary.darkIdleSeconds, 0, 86400) != null ? Math.round(raw.openingSummary.darkIdleSeconds) : null,
+    tip: text(raw.openingSummary.tip, 140),
+  } : null;
+  const stages = Array.isArray(raw.stages) ? raw.stages.slice(0, 4)
+    .filter((s) => s && ['dark', 'opening', 'feudal', 'castle', 'imperial'].includes(s.id) && text(s.label))
+    .map((s) => ({
+      id: s.id,
+      label: text(s.label, 40),
+      subtitle: text(s.subtitle, 60) || null,
+      status: s.status === 'ready' ? 'ready' : 'not_reached',
+      grade: ['S', 'A', 'B', 'C', 'D'].includes(s.grade) ? s.grade : null,
+      score: finite(s.score, 0, 100) != null ? Math.round(s.score) : null,
+      metric: text(s.metric, 80),
+      tip: text(s.tip, 140),
+    })) : [];
+  const highlights = Array.isArray(raw.highlights) ? raw.highlights.slice(0, 3)
+    .filter((item) => item && text(item.title) && text(item.detail))
+    .map((item) => ({
+      id: text(item.id, 60),
+      tone: item.tone === 'warn' ? 'warn' : 'good',
+      icon: text(item.icon, 30) || 'medal',
+      title: text(item.title, 80),
+      detail: text(item.detail, 180),
+    })) : [];
+  const focus = raw.focus && text(raw.focus.title) && text(raw.focus.detail)
+    ? { title: text(raw.focus.title, 90), detail: text(raw.focus.detail, 220) } : null;
+  return {
+    version: raw.version,
+    durationSeconds: finite(raw.durationSeconds, 0, 86400) != null ? rounded(raw.durationSeconds) : null,
+    self,
+    rival,
+    openingSummary,
+    stages,
+    timeline,
+    highlights,
+    focus,
+  };
+}
+
+function buildPersonalEvolution(telemetry, records, current) {
+  const engine = telemetry && telemetry.engineSummary;
+  if (!engine || !engine.self) return null;
+  const minsOf = (eng, fallbackDur) => Math.max(1, ((eng.durationSeconds || fallbackDur || 600) / 60));
+  const extract = (eng, fallbackDur) => {
+    const mins = minsOf(eng, fallbackDur);
+    const earlyIdlePerTc = (eng.self.tcIdleDarkSeconds != null && eng.self.tcIdleFeudalPerTcSeconds != null)
+      ? rounded(eng.self.tcIdleDarkSeconds + eng.self.tcIdleFeudalPerTcSeconds)
+      : (eng.self.tcIdleEarlySeconds ?? eng.self.tcIdleSeconds);
+    return {
+      tcUtilization: eng.self.tcUtilizationEarly ?? eng.self.tcUtilization,
+      tcIdleSeconds: earlyIdlePerTc,
+      tcIdleDarkSeconds: eng.self.tcIdleDarkSeconds,
+      tcIdleFeudalSeconds: eng.self.tcIdleFeudalPerTcSeconds ?? eng.self.tcIdleFeudalSeconds,
+      tcIdleTotalSeconds: eng.self.tcIdleTotalSeconds ?? eng.self.tcIdleSeconds,
+      villagersPerMin: rounded(eng.self.villagersOrdered / mins, 2),
+      militaryPerMin: rounded(eng.self.militaryOrdered / mins, 2),
+      eapm: eng.self.eapm,
+    };
+  };
+
+  // Partidas previas del MISMO jugador y mismo modo con motor local (todos los mapas del modo)
+  const prior = (Array.isArray(records) ? records : [])
+    .filter((row) => {
+      if (!row || identity(row.matchId) === current.matchId) return false;
+      if (row.profileId != null && identity(row.profileId) !== identity(current.profileId)) return false;
+      if (modeId(row.leaderboardId) !== current.leaderboardId) return false;
+      const at = timestamp(row.startedAt);
+      if (!current.startedAt || !at || at >= current.startedAt) return false;
+      return Boolean(row.telemetry && row.telemetry.engineSummary && row.telemetry.engineSummary.self);
+    })
+    .sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt))
+    .slice(0, 12);
+
+  const nowVals = extract(engine, telemetry.durationSeconds);
+  const priorVals = prior.map((row) => extract(row.telemetry.engineSummary, row.telemetry.durationSeconds));
+
+  const compare = (key, direction, label, unit) => {
+    const cur = nowVals[key];
+    if (!Number.isFinite(cur)) return null;
+    const hist = priorVals.map((v) => v[key]).filter(Number.isFinite);
+    const series = [...hist.slice(0, 7).reverse(), cur];
+    if (!hist.length) {
+      return { key, label, unit, current: cur, median: null, delta: null, improved: null,
+        isBest: false, betterThanPct: null, sampleSize: 0, series };
+    }
+    const med = rounded(median(hist), key.includes('PerMin') ? 2 : 1);
+    const delta = rounded(cur - med, key.includes('PerMin') ? 2 : 1);
+    const better = direction === 'lower'
+      ? hist.filter((v) => cur < v).length
+      : hist.filter((v) => cur > v).length;
+    const isBest = hist.length >= 3 && better === hist.length;
+    const improved = direction === 'lower' ? delta < 0 : delta > 0;
+    const betterThanPct = Math.round((better / hist.length) * 100);
+    return { key, label, unit, current: cur, median: med, delta, improved,
+      isBest, betterThanPct, sampleSize: hist.length, series };
+  };
+
+  const metrics = {
+    tcUtilization: compare('tcUtilization', 'higher', 'Uso TC · Alta + Feudal', '%'),
+    tcIdleSeconds: compare('tcIdleSeconds', 'lower', 'TC inactivo · Alta + Feudal', 's'),
+    tcIdleDarkSeconds: compare('tcIdleDarkSeconds', 'lower', 'TC inactivo · Alta Edad', 's'),
+    tcIdleFeudalSeconds: compare('tcIdleFeudalSeconds', 'lower', 'TC inactivo · Feudal', 's'),
+    tcIdleTotalSeconds: compare('tcIdleTotalSeconds', 'lower', 'TC inactivo · Total', 's'),
+    villagersPerMin: compare('villagersPerMin', 'higher', 'Aldeanos / min', '/min'),
+    militaryPerMin: compare('militaryPerMin', 'higher', 'Ejército / min', '/min'),
+    eapm: compare('eapm', 'higher', 'Ritmo eAPM', 'eAPM'),
+  };
+
+  // Titular personal si mejoró claramente frente a su propia historia
+  let headline = null;
+  if (prior.length >= 2) {
+    if (metrics.tcUtilization?.isBest) {
+      headline = { kind: 'record', text: `Récord personal · ${metrics.tcUtilization.current}% de continuidad de TC (mejor que tus últimas ${prior.length} partidas)` };
+    } else if (metrics.tcIdleSeconds?.isBest) {
+      headline = { kind: 'record', text: `Récord personal · solo ${Math.round(metrics.tcIdleSeconds.current)} s de TC inactivo (${Math.round(Math.abs(metrics.tcIdleSeconds.delta))} s menos que tu media)` };
+    } else if (metrics.tcUtilization?.improved && metrics.tcUtilization.delta >= 2) {
+      headline = { kind: 'up', text: `Mejoraste tu TC · +${metrics.tcUtilization.delta} pts sobre tu media personal (${prior.length} partidas)` };
+    } else if (metrics.militaryPerMin?.improved && metrics.militaryPerMin.betterThanPct >= 75) {
+      headline = { kind: 'up', text: `Mejor ritmo militar que en el ${metrics.militaryPerMin.betterThanPct}% de tus últimas ${prior.length} partidas` };
+    }
+  }
+
+  // Comparación personal por etapa (puntaje de hoy vs tu propia mediana en esa etapa)
+  const stageDeltas = {};
+  for (const stage of (engine.stages || [])) {
+    if (stage.status !== 'ready' || !Number.isFinite(stage.score)) continue;
+    const histScores = prior
+      .map((row) => (row.telemetry.engineSummary.stages || []).find((s) => s.id === stage.id && s.status === 'ready')?.score)
+      .filter(Number.isFinite);
+    if (!histScores.length) continue;
+    const med = Math.round(median(histScores));
+    const deltaScore = Math.round(stage.score - med);
+    const better = histScores.filter((v) => stage.score > v).length;
+    stageDeltas[stage.id] = {
+      median: med,
+      deltaScore,
+      betterThanPct: Math.round((better / histScores.length) * 100),
+      sampleSize: histScores.length,
+    };
+  }
+
+  if (engine.openingSummary && Number.isFinite(engine.openingSummary.score)) {
+    const opScores = prior
+      .map((row) => row.telemetry.engineSummary.openingSummary?.score)
+      .filter(Number.isFinite);
+    if (opScores.length) {
+      const med = Math.round(median(opScores));
+      stageDeltas.opening = {
+        median: med,
+        deltaScore: Math.round(engine.openingSummary.score - med),
+        betterThanPct: Math.round((opScores.filter((v) => engine.openingSummary.score > v).length / opScores.length) * 100),
+        sampleSize: opScores.length,
+      };
+    }
+  }
+
+  // Reto automático de la partida anterior + patrones repetidos en las últimas partidas
+  let sessionChallenge = null;
+  if (prior.length >= 1) {
+    const prevEng = prior[0].telemetry.engineSummary;
+    const prevFocus = prevEng.focus && prevEng.focus.title ? prevEng.focus.title : null;
+    const prevVals0 = priorVals[0];
+    if (prevFocus) {
+      let completed = false;
+      let detail = '';
+      if (/huecos de TC|Centro Urbano/i.test(prevFocus)) {
+        const prevIdle = prevVals0.tcIdleSeconds;
+        const curIdle = nowVals.tcIdleSeconds;
+        completed = Number.isFinite(curIdle) && Number.isFinite(prevIdle) && (curIdle < prevIdle - 10 || curIdle <= 45);
+        detail = completed
+          ? `Bajaste el idle de ${Math.round(prevIdle)} s a ${Math.round(curIdle)} s`
+          : `Objetivo: bajar de ${Math.round(prevIdle || 0)} s (hoy ${Math.round(curIdle || 0)} s)`;
+      } else if (/Attack-Move|Patrullar/i.test(prevFocus)) {
+        const curMicro = (engine.self.habits?.attackMove || 0) + (engine.self.habits?.patrol || 0);
+        completed = curMicro >= 5;
+        detail = completed
+          ? `${curMicro} órdenes de Attack-Move / Patrol registradas hoy`
+          : `Objetivo: usar al menos 5 Attack-Move / Patrol (hoy ${curMicro})`;
+      } else if (/Campana Urbana/i.test(prevFocus)) {
+        const bells = engine.self.habits?.townBell || 0;
+        completed = bells === 0;
+        detail = completed ? '0 usos de Campana Urbana hoy' : `Tocaste la campana ${bells} veces`;
+      } else if (/Mercado|aldeanos/i.test(prevFocus)) {
+        const prevM = prevEng.self.habits?.market || 0;
+        const curM = engine.self.habits?.market || 0;
+        completed = curM < prevM;
+        detail = completed ? `Bajaste el Mercado de ${prevM} a ${curM} ops` : `Mercado: ${curM} ops (antes ${prevM})`;
+      } else if (/militar/i.test(prevFocus)) {
+        completed = Number.isFinite(nowVals.militaryPerMin) && Number.isFinite(prevVals0.militaryPerMin) && nowVals.militaryPerMin > prevVals0.militaryPerMin;
+        const fmtR = (v) => String(v).replace('.', ',');
+        detail = completed
+          ? `Subiste ritmo militar de ${fmtR(prevVals0.militaryPerMin)} a ${fmtR(nowVals.militaryPerMin)}/min`
+          : `Ritmo militar ${fmtR(nowVals.militaryPerMin)}/min (antes ${fmtR(prevVals0.militaryPerMin)}/min)`;
+      }
+      if (detail) {
+        sessionChallenge = {
+          status: completed ? 'completed' : 'pending',
+          goal: prevFocus,
+          detail,
+        };
+      }
+    }
+  }
+
+  let recurringPattern = null;
+  const recentSet = [engine, ...prior.slice(0, 7).map((r) => r.telemetry.engineSummary)];
+  if (recentSet.length >= 3) {
+    const milGames = recentSet.filter((e) => (e.self.militaryOrdered || 0) >= 20);
+    const noMicroGames = milGames.filter((e) => ((e.self.habits?.attackMove || 0) + (e.self.habits?.patrol || 0)) === 0);
+    const woodSellGames = recentSet.filter((e) => (e.self.marketProfile?.sold?.wood || 0) >= 200);
+    const satGames = recentSet.filter((e) => (e.self.topWorkshops || []).some((w) => w.status === 'saturated'));
+    if (milGames.length >= 3 && noMicroGames.length >= Math.ceil(milGames.length * 0.6)) {
+      recurringPattern = {
+        id: 'pattern-no-micro',
+        title: 'Patrón repetido · Sin Attack-Move / Patrol',
+        detail: `Ocurrió en ${noMicroGames.length} de tus últimas ${milGames.length} partidas con ejército.`,
+      };
+    } else if (woodSellGames.length >= Math.ceil(recentSet.length * 0.5)) {
+      recurringPattern = {
+        id: 'pattern-wood-sell',
+        title: 'Patrón repetido · Exceso de madera en Mercado',
+        detail: `Vendiste madera en ${woodSellGames.length} de tus últimas ${recentSet.length} partidas: probá dejar 2–3 leñadores menos.`,
+      };
+    } else if (satGames.length >= 2) {
+      recurringPattern = {
+        id: 'pattern-ws-sat',
+        title: 'Patrón repetido · Colas militares saturadas',
+        detail: `En ${satGames.length} de tus últimas ${recentSet.length} partidas te faltaron edificios militares.`,
+      };
+    }
+  }
+
+  return {
+    sampleSize: prior.length,
+    headline,
+    metrics,
+    stageDeltas,
+    sessionChallenge,
+    recurringPattern,
+  };
+}
+
 function normalizeTelemetry(raw, expected = {}) {
   if (!raw) return { status: 'missing', data: null, warnings: [] };
   const warnings = [];
@@ -258,6 +609,9 @@ function normalizeTelemetry(raw, expected = {}) {
   if (raw.openingCheckpoint && !data.openingCheckpoint) warnings.push('Hito de apertura incompatible con el replay.');
   data.castlesWindow = normalizeCastlesWindow(raw.castlesWindow, data);
   if (raw.castlesWindow && !data.castlesWindow) warnings.push('Ventana de Castillos incompatible con el replay.');
+  if (raw.engineSummary != null) {
+    data.engineSummary = normalizeEngineSummary(raw.engineSummary);
+  }
   return { status: 'ready', data, warnings };
 }
 
@@ -672,6 +1026,17 @@ function buildPostMatchReport(options = {}) {
         delta: metric.comparison.delta, sampleSize: metric.comparison.sampleSize });
     }
   }
+  const ownTeam = player && player.team != null ? Number(player.team) : null;
+  const rivalPlayer = (match && Array.isArray(match.players) ? match.players : [])
+    .find((p) => identity(p.profileId) !== identity(profileId) &&
+      (ownTeam == null || p.team == null || Number(p.team) !== ownTeam));
+  const engineData = telemetry && telemetry.engineSummary ? {
+    ...telemetry.engineSummary,
+    rivalName: rivalPlayer ? text(rivalPlayer.name) || 'Rival' : 'Rival',
+    rivalCiv: rivalPlayer ? text(rivalPlayer.civ) || null : null,
+    evolution: buildPersonalEvolution(telemetry, records, current),
+  } : null;
+
   const resultStatus = complete && typeof current.won === 'boolean' ? (current.won ? 'won' : 'lost') : 'pending';
   const report = {
     version: 1, matchId, profileId: Number(profileId), updatedAt: now,
@@ -689,6 +1054,7 @@ function buildPostMatchReport(options = {}) {
     mapBenchmark: benchmark, stages, metrics, improvements: improvements.slice(0, 3),
     openingReview: buildOpeningReview(telemetry, baselines),
     castlesWindow: presentCastlesWindow(telemetry, match),
+    engine: engineData,
     combat: telemetry ? telemetry.combat : null,
     historyHighlights: complete ? historyHighlights(current, benchmark) : [],
     analysis: {

@@ -64,6 +64,7 @@ const tgBalanceInput = el('tgBalance');
 const scoutF2Input = el('scoutF2');
 const postMatchInput = el('postMatch');
 const postMatchComparisonInput = el('postMatchComparison');
+const postMatchCompareModeInput = el('postMatchCompareMode');
 const postMatchReplayInput = el('postMatchReplay');
 const postMatchReportEl = el('postMatchReport');
 const refreshPostMatchBtn = el('refreshPostMatch');
@@ -221,6 +222,7 @@ function renderProduct(product) {
   civHelpInput.disabled = !product.featureAccess.civHelp;
   tgBalanceInput.disabled = !product.featureAccess.tgBalance;
   postMatchComparisonInput.disabled = !proAccess;
+  if (postMatchCompareModeInput) postMatchCompareModeInput.disabled = !proAccess;
   postMatchReplayInput.disabled = !replayAccess;
   smartBuildOrderInput.disabled = !product.featureAccess.smartBuildOrder;
   postMatchComparisonInput.title = proAccess ? '' : 'Disponible con ProMax.';
@@ -259,6 +261,10 @@ function paintPostMatch(payload) {
     return;
   }
   postMatchReportEl.innerHTML = TacticalUI.renderPostMatch(report, postMatchAccess);
+  postMatchReportEl.querySelectorAll('[data-w]').forEach((bar) => {
+    const width = Math.max(0, Math.min(100, Number(bar.dataset.w) || 0));
+    bar.style.width = `${width}%`;
+  });
 }
 
 async function loadPostMatch() {
@@ -452,6 +458,17 @@ for (const [key, input, label] of [
     applyToggle(input, (on) => window.settings.postMatchOption(key, on), label),
   );
 }
+if (postMatchCompareModeInput) {
+  postMatchCompareModeInput.addEventListener('change', async () => {
+    const val = postMatchCompareModeInput.value;
+    const res = await window.settings.postMatchOption('postMatchCompareMode', val);
+    if (!res || !res.ok) {
+      setStatus((res && res.error) || 'No se pudo cambiar la referencia del postmatch.', true);
+      return;
+    }
+    setStatus('Referencia del postmatch actualizada.');
+  });
+}
 
 refreshPostMatchBtn.addEventListener('click', async () => {
   if (postMatchBusy) return;
@@ -624,6 +641,7 @@ async function loadCurrent() {
   tgBalanceInput.checked = Boolean(info.tgBalance);
   postMatchInput.checked = info.postMatch !== false;
   postMatchComparisonInput.checked = Boolean(info.postMatchComparison);
+  if (postMatchCompareModeInput) postMatchCompareModeInput.value = info.postMatchCompareMode || 'both';
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
   smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
   if (typeof TacticalUI === 'object' && TacticalUI.configure) {
