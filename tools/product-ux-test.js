@@ -187,7 +187,8 @@ const hiddenCiv = renderRival({ state, options: { civRecommender: true }, entry:
     likelyCivs: [{ name: 'Poles', games: 9, sample: 20 }],
   },
 } });
-assert.match(hiddenCiv, /Civilizaciones en el historial/);
+assert.match(hiddenCiv, /Sus civs más jugadas/);
+assert.match(hiddenCiv, /class="civ-picks-list".*assets\/civs\/poles\.png/s);
 assert.match(hiddenCiv, /9 de 20/);
 assert.doesNotMatch(hiddenCiv, /45 ?%|Teutons/);
 const publicHistory = renderRival({ state, options: { civRecommender: true }, entry: {
@@ -196,7 +197,7 @@ const publicHistory = renderRival({ state, options: { civRecommender: true }, en
   },
 } });
 assert.match(publicHistory, /9 de 25/);
-assert.match(publicHistory, /historial consultado/);
+assert.match(publicHistory, /partidas con civ conocida/);
 const measured = renderPostMatch({ ...report(reachedTelemetry), combat: { status: 'partial', stages: [
   { age: 'feudal', label: 'Feudal', status: 'complete', startSeconds: 583, endSeconds: 1000,
     villagersKilled: 4, villagersLost: 1, militaryKilled: 6, militaryLost: 7 },
@@ -237,7 +238,9 @@ const mapHtml = renderRival({
   entry: { name: 'Rival', report: { mapStats: stats } },
 });
 assert.match(mapHtml, /4 victorias del rival en 7 resultados conocidos/);
-assert.match(mapHtml, /Civilización identificada en <b>7<\/b> de 8 partidas revisadas/);
-assert.doesNotMatch(mapHtml, /empatadas|Mongols/);
+assert.match(mapHtml, /assets\/civs\/mongols\.png/);
+assert.match(mapHtml, /2 de 7/);
+assert.ok(mapHtml.indexOf('Sus civs más jugadas') < mapHtml.indexOf('4 victorias'));
+assert.doesNotMatch(mapHtml, /empatadas|Civilización identificada/);
 assert.doesNotMatch(mapHtml, /Más usada/);
 console.log('Producto UX: cobertura de replay, cruce real de civs, fechas, privacidad y progreso personal OK.');

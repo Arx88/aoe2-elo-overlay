@@ -384,3 +384,14 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
 }
 
 .civ-hidden { color: var(--muted); font-size: 14px; font-weight: 650; }
+
+/* Escudos de las elecciones observadas antes de revelar el cruce. */
+.single .intel-rival-content .civ-picks { grid-column: 1 / -1; }
+.intel-block.civ-picks { margin: 2px 0 8px; padding: 11px 12px; border: 1px solid var(--head-border); border-radius: 12px; }
+.civ-picks h4 { color: var(--text); margin-bottom: 3px; font-size: 15px; }
+.civ-picks-scope { margin: 0 0 9px; color: var(--muted); font-size: 11px; }
+.civ-picks-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.civ-picks-list li { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 3px; border-radius: 8px; text-align: center; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.civ-picks-list .civ-badge { width: 38px; height: 38px; object-fit: contain; margin-bottom: 2px; }
+.civ-picks-list strong { color: var(--text); font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+.civ-picks-list li > span { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }

@@ -139,7 +139,7 @@
       ? OPENING_CHECKS[opening.name] : null;
     const caveat = current ? '' : [civ ? `Sin aperturas de ${civ} en este mapa en la muestra.` : null,
       c.fallbackReason].filter(Boolean).join(' ');
-    const alternatives = detail && openings.length > 1
+    const alternatives = detail && current && openings.length > 1
       ? `<p class="intel-muted">También registró ${openings.slice(1, 3).map((row) =>
         `${esc(row.short || row.name)} (${number(row.games)}/${number(row.sample)})`).join(' · ')}</p>` : '';
     return section(title, read + `<p class="intel-signal-scope">${esc(scope)}</p>` +
@@ -147,23 +147,27 @@
       (question ? `<p class="intel-check">${icon('target')}${esc(question)}</p>` : '') + alternatives, 'scout', 'tactical-block');
   }
   function historicalCivBlock(tip, map, report) {
-    const title = 'Civilizaciones en el historial';
+    const title = 'Sus civs más jugadas';
     const stats = report?.mapStats;
-    const observed = (stats?.civs || []).filter((row) => civSlug(row.name));
+    const observed = (stats?.civs || []).filter((row) => civSlug(row.name)).slice(0, 3);
     const count = stats?.civSampleGames ?? stats?.sampleGames;
+    const render = (rows, scope) => section(title, `<p class="civ-picks-scope">${esc(scope)}</p>
+      <ul class="civ-picks-list">${rows.map((row) => `<li>${civBadge(row.name)}
+        <strong>${esc(row.name)}</strong><span>${number(row.games)} de ${number(row.sample)}</span></li>`).join('')}</ul>`,
+      'matchup', 'civ-picks');
     if (count > 0 && observed.length) {
-      return section(title, `<p class="intel-muted">${esc(map)} · ${esc(report.mode?.label || 'mismo modo')} · historial consultado</p><ul class="intel-civ-choices">${observed.map((row) =>
-        `<li>${civLabel(row.name)}<b>${number(row.games)} de ${number(count)}</b></li>`).join('')}</ul>`, 'matchup');
+      const scope = [map, report.mode?.label, 'partidas con civ conocida', report.partial ? 'muestra en carga' : null]
+        .filter(Boolean).join(' · ');
+      return render(observed.map((row) => ({ ...row, sample: count })), scope);
     }
     if (!tip || tip.loading) return note(title, 'Consultando elecciones anteriores…', 'loading');
     if (tip.modePending || tip.modeUnavailable || tip.error) return note(title, 'Historial del modo no disponible.');
     const context = tip.context;
-    const choices = Array.isArray(tip.likelyCivs) ? tip.likelyCivs.slice(0, 3) : [];
+    const choices = (Array.isArray(tip.likelyCivs) ? tip.likelyCivs : [])
+      .filter((row) => civSlug(row.name)).slice(0, 3);
     if (!context || context.mapName !== map || !choices.length) return note(title, 'Sin muestra de elecciones en este mapa.');
-    const scope = [context.scopeLabel, context.modeLabel, 'replays consultados',
-      tip.stale ? 'datos guardados' : tip.provisional ? 'muestra inicial' : null].filter(Boolean).join(' · ');
-    return section(title, `<p class="intel-muted">${esc(scope)}</p><ul class="intel-civ-choices">${choices.map((row) =>
-      `<li>${civLabel(row.name)}<b>${number(row.games)} de ${number(row.sample)}</b></li>`).join('')}</ul>`, 'matchup');
+    return render(choices, [map, context.modeLabel, 'replays consultados',
+      tip.stale ? 'datos guardados' : tip.provisional ? 'muestra inicial' : null].filter(Boolean).join(' · '));
   }
   function matchupBlock(tip, matchup, ownCiv, rivalCiv, map, report) {
     const title = 'Antecedentes de este cruce';
@@ -223,13 +227,15 @@
     const matchup = raw && raw.rival === civSlug(knownCiv) && raw.own === civSlug(ownCiv) &&
       raw.map === mapKey(map) && (mode == null || String(raw.modeId) === String(mode)) ? raw : null;
     const content = [];
+    const showPicks = !knownCiv && (options.civRecommender || options.rivalFavorites);
+    if (showPicks) content.push(historicalCivBlock(tip, map, r));
     if (options.smartTips) content.push(tacticalBlock(tip, detail, matchup, knownCiv, map));
     const hasOpeningSignal = matchup?.openingsSample || (!knownCiv && tip?.context?.scope === 'map' &&
       tip.likelyOpenings?.[0]?.sample > 0);
     if (options.rivalOpenings && !(options.smartTips && hasOpeningSignal)) content.push(openingBlock(r, knownCiv));
     if (options.rivalCivs) content.push(historyBlock(r));
-    if (options.civRecommender) content.push(matchupBlock(tip, matchup, ownCiv, knownCiv, map, r));
-    if (options.rivalFavorites) content.push(mapBlock(r, map, detail));
+    if (options.civRecommender && knownCiv) content.push(matchupBlock(tip, matchup, ownCiv, knownCiv, map, r));
+    if (options.rivalFavorites) content.push(mapBlock(r, map, detail && !showPicks));
     if (options.rivalH2H) content.push(h2hBlock(r));
     const compactIdentity = options.rosterDetails !== false && state?.players?.length === 2 &&
       Number.isFinite(Number(player?.profileId)) && state.players.some((row) => row.profileId === player.profileId);

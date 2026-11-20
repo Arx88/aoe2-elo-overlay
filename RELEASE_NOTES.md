@@ -1,3 +1,11 @@
+## v2.2.3 · Escudos del historial a primera vista
+
+- El prematch muestra arriba los escudos grandes de las civs más jugadas por el rival en el mapa, con su recuento y muestra.
+- La civ actual del rival sigue oculta hasta que se revela. Los escudos del historial representan partidas observadas.
+- Incluye el launcher, la animación de carga y la revisión del replay de v2.2.1.
+
+---
+
 ## v2.2.2 · Prematch antes de revelar civilizaciones
 
 - El roster oculta la civ rival durante el lobby. En modo ejemplo tampoco se anticipan las civs del resultado archivado.
