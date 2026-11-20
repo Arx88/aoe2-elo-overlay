@@ -7,6 +7,8 @@ const { mapKey } = require('./rival');
 const { openingLabel, openingShort } = require('./replay-analysis');
 const { normalizeCombatSummary } = require('./combat-analysis');
 const { buildExecutionRatings } = require('./execution-ratings');
+const { normalizeCheckpoint, buildOpeningReview } = require('./opening-review');
+const { normalizeCastlesWindow, presentCastlesWindow } = require('./castles-window');
 
 const STORE_VERSION = 1;
 const TELEMETRY_VERSION = 1;
@@ -31,6 +33,7 @@ const SUMMARY_METRICS = {
   eapm: { label: 'eAPM', unit: 'acciones/min', min: 0, max: 10000 },
   feudalSeconds: { label: 'Llegada a Feudal', unit: 's de juego', min: 0, max: 86400 },
   castleSeconds: { label: 'Llegada a Castillos', unit: 's de juego', min: 0, max: 86400 },
+  imperialSeconds: { label: 'Llegada a Imperial', unit: 's de juego', min: 0, max: 86400 },
   feudalClickSeconds: { label: 'Orden de avance a Feudal', unit: 's de juego', min: 0, max: 86400 },
   castleClickSeconds: { label: 'Orden de avance a Castillos', unit: 's de juego', min: 0, max: 86400 },
 };
@@ -83,6 +86,57 @@ function normalizeMetric(raw, spec) {
   // or TC idle definitions with different research handling, must not mix.
   if (value == null || !definition) return null;
   return { value, definition };
+}
+
+function validateMeasuredWindows(data, warnings) {
+  const reachedAt = (age) => {
+    const metric = data.metrics[`${age}Seconds`];
+    return metric?.definition === 'age-reached-game-seconds-v1' ? metric.value : null;
+  };
+  const feudal = reachedAt('feudal');
+  const castle = reachedAt('castle');
+  const imperial = reachedAt('imperial');
+  const arrivals = { feudal, castle, imperial };
+  // Compare readings of the same game clock, allowing integer-second exports.
+  const tolerance = 1;
+  if (data.combat && Object.entries(arrivals).some(([age, time]) => {
+    if (time == null) return false;
+    const phase = data.combat.stages.find((stage) => stage.age === age);
+    return phase ? Math.abs(phase.startSeconds - time) > tolerance
+      : time < data.combat.durationSeconds - tolerance;
+  })) {
+    data.combat = null;
+    warnings.push('Las edades del informe de combate no coinciden con las llegadas medidas.');
+  }
+
+  // A slice of a phase can still display measurements, but cannot earn a
+  // grade alongside full phases that cover different gameplay.
+  const limits = {
+    opening: data.context.startingAge === 'dark' && feudal != null ? feudal : null,
+    feudal: feudal != null && castle != null ? castle - feudal : null,
+    castle: castle != null && imperial != null ? imperial - castle : null,
+  };
+  for (const phase of PHASES) {
+    const measurement = data.phases[phase.id];
+    if (!measurement) continue;
+    const start = arrivals[phase.id];
+    if (measurement.reached === false && start != null && start > tolerance) {
+      data.phases[phase.id] = { reached: true, complete: false, durationSeconds: null, metrics: {} };
+      warnings.push(`Etapa ${phase.label} marcada como no alcanzada pese a tener una llegada medida.`);
+      continue;
+    }
+    const covered = data.combat?.stages.find((stage) =>
+      stage.age === (phase.id === 'opening' ? 'dark' : phase.id) && stage.status === 'complete');
+    const expected = limits[phase.id] ?? (covered ? covered.endSeconds - covered.startSeconds : null);
+    const max = start != null && data.durationSeconds != null ? data.durationSeconds - start : null;
+    const elapsed = measurement.durationSeconds;
+    if (measurement.complete && (elapsed == null ||
+      (expected != null && Math.abs(elapsed - expected) > tolerance) ||
+      (max != null && elapsed > max + tolerance))) {
+      measurement.complete = false;
+      warnings.push(`La duración declarada de ${phase.label} no coincide con el tramo medido.`);
+    }
+  }
 }
 
 /**
@@ -173,7 +227,9 @@ function normalizeTelemetry(raw, expected = {}) {
   // Contradictory age ordering is not a sound comparison input.
   const feudal = data.metrics.feudalSeconds && data.metrics.feudalSeconds.value;
   const castle = data.metrics.castleSeconds && data.metrics.castleSeconds.value;
-  if (feudal != null && castle != null && castle < feudal) {
+  const imperial = data.metrics.imperialSeconds?.value;
+  const observedArrivals = [feudal, castle, imperial].filter((value) => value != null);
+  if (observedArrivals.some((value, index) => index > 0 && value < observedArrivals[index - 1])) {
     return fail('Los tiempos de llegada a edades son inconsistentes.');
   }
   const feudalClick = data.metrics.feudalClickSeconds?.value;
@@ -181,7 +237,7 @@ function normalizeTelemetry(raw, expected = {}) {
   if (feudalClick != null && castleClick != null && castleClick < feudalClick) {
     return fail('Los tiempos de órdenes de avance son inconsistentes.');
   }
-  if (data.durationSeconds != null && [feudal, castle, feudalClick, castleClick].some((v) => v != null && v > data.durationSeconds)) {
+  if (data.durationSeconds != null && [...observedArrivals, feudalClick, castleClick].some((v) => v != null && v > data.durationSeconds)) {
     return fail('Un tiempo de edad supera la duración del replay.');
   }
   const phaseDuration = Object.values(data.phases).reduce((total, phase) =>
@@ -197,6 +253,11 @@ function normalizeTelemetry(raw, expected = {}) {
     data.combat = combat.data;
     warnings.push(...combat.warnings);
   }
+  validateMeasuredWindows(data, warnings);
+  data.openingCheckpoint = normalizeCheckpoint(raw.openingCheckpoint, data);
+  if (raw.openingCheckpoint && !data.openingCheckpoint) warnings.push('Hito de apertura incompatible con el replay.');
+  data.castlesWindow = normalizeCastlesWindow(raw.castlesWindow, data);
+  if (raw.castlesWindow && !data.castlesWindow) warnings.push('Ventana de Castillos incompatible con el replay.');
   return { status: 'ready', data, warnings };
 }
 
@@ -442,7 +503,12 @@ function comparableTelemetry(row, current, telemetry) {
   if (!other) return null;
   const a = telemetry.context;
   const b = other.context;
-  if (telemetry.source.id !== other.source.id || telemetry.source.version !== other.source.version ||
+  // Adapter extensions preserve the command metrics. Newly available age
+  // arrivals only compare to other metrics with the same definition.
+  const commandVersion = (source) => source.id === 'aoe2rec-js' && source.type === 'replay-analysis' &&
+    ['0.1.25+command-adapter-v3', '0.1.25+command-adapter-v4', '0.1.25+command-adapter-v5'].includes(source.version)
+    ? 'command-orders-v3-v5' : source.version;
+  if (telemetry.source.id !== other.source.id || commandVersion(telemetry.source) !== commandVersion(other.source) ||
       telemetry.source.type !== other.source.type ||
       mapKey(a.civ) !== mapKey(b.civ) || mapKey(a.opening) !== mapKey(b.opening) ||
       a.gameSpeed !== b.gameSpeed || a.startingAge !== b.startingAge || a.patch !== b.patch) return null;
@@ -580,8 +646,10 @@ function buildPostMatchReport(options = {}) {
   const complete = match.ongoing !== true && Boolean(timestamp(match.finishedAt) || typeof player.won === 'boolean');
   const normalized = normalizeTelemetry(options.telemetry || (saved && saved.telemetry), current);
   const telemetry = complete ? normalized.data : null;
-  const baselines = telemetry ? records.map((row) => comparableTelemetry(row, current, telemetry)).filter(Boolean) : [];
+  const baselines = telemetry ? [...records].sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt))
+    .map((row) => comparableTelemetry(row, current, telemetry)).filter(Boolean) : [];
   const benchmark = mapBenchmark(current, options.historyRows, records, options.historyError);
+  if (options.historyPending && !benchmark.games && benchmark.status === 'empty') benchmark.status = 'loading';
   const stages = PHASES.map((phase) => buildStage(phase, telemetry, baselines, normalized.status));
   const metrics = {};
   for (const [id, spec] of Object.entries(SUMMARY_METRICS)) {
@@ -619,6 +687,8 @@ function buildPostMatchReport(options = {}) {
       elapsedSeconds: current.elapsedSeconds,
       durationSeconds: telemetry ? telemetry.durationSeconds : null },
     mapBenchmark: benchmark, stages, metrics, improvements: improvements.slice(0, 3),
+    openingReview: buildOpeningReview(telemetry, baselines),
+    castlesWindow: presentCastlesWindow(telemetry, match),
     combat: telemetry ? telemetry.combat : null,
     historyHighlights: complete ? historyHighlights(current, benchmark) : [],
     analysis: {
@@ -632,7 +702,7 @@ function buildPostMatchReport(options = {}) {
       sourceLabel: telemetry ? telemetry.source.label : 'AoE2 Companion · resultados',
       warnings: normalized.warnings, gradingVersion: GRADING_VERSION,
       baselinePolicy: 'Mismo jugador, mapa, modo, civilización, apertura, velocidad, edad inicial, parche y definición de métricas. Solo partidas anteriores.',
-      historyStatus: options.historyError ? 'error' : 'ready',
+      historyStatus: options.historyPending ? 'loading' : options.historyError ? 'error' : 'ready',
       telemetryNote: telemetry ? 'Las notas evalúan ejecución económica frente a tu propio historial; no atribuyen la causa de la victoria.' :
         'El replay se descarga y analiza automáticamente al terminar. Si Microsoft todavía no lo publicó, el informe queda con el resultado confirmado.' },
   };

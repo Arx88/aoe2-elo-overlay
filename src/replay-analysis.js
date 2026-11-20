@@ -15,6 +15,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { seeOrder, pickCheckpoint } = require('./opening-review');
+const { observeQueue, collectCastlesWindow, supportedMap } = require('./castles-window');
+
+const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v5';
 
 const AGES = ['dark', 'feudal', 'castle', 'imperial'];
 const IDS = {
@@ -185,6 +189,8 @@ function emptyPlayer() {
     feudalMs: null,
     castleMs: null,
     imperialMs: null,
+    practiceOrders: {},
+    queues: [],
     villagers: Object.fromEntries(AGES.map((age) => [age, 0])),
     units: Object.fromEntries(AGES.map((age) => [age, new Map()])),
     buildings: Object.fromEntries(AGES.map((age) => [age, new Map()])),
@@ -224,6 +230,7 @@ function applyAction(player, type, payload, time) {
     return;
   }
   if (type === 'DeQueue' || type === 'Queue' || type === 'Multiqueue') {
+    seeOrder(player.practiceOrders, type, payload, time);
     const unit = Number(payload.unit_id);
     if (!unit) return;
     const amount = Math.max(1, Number(payload.amount) || 1);
@@ -240,7 +247,9 @@ function applyAction(player, type, payload, time) {
     return;
   }
   if (type === 'Build') {
-    for (const id of buildingIds(payload)) count(player.buildings[player.age], id, 1);
+    const ids = buildingIds(payload);
+    seeOrder(player.practiceOrders, type, payload, time, ids);
+    for (const id of ids) count(player.buildings[player.age], id, 1);
     return;
   }
   if (type === 'Wall') {
@@ -336,7 +345,7 @@ function classify(player, civ) {
   return { name: 'Other', signals: s };
 }
 
-function gameDuration(chapter) {
+function gameClock(chapter) {
   let total = 0;
   let postgame = 0;
   for (const operation of chapter.operations || []) {
@@ -349,7 +358,39 @@ function gameDuration(chapter) {
       }
     }
   }
-  return Math.max(total, postgame);
+  return { durationMs: Math.max(total, postgame), replayEndMs: postgame || null };
+}
+
+// These notices are emitted by the game on reaching an age. Player chat
+// has a different AGP envelope. Unknown languages or formats stay absent.
+const AGE_NOTICES = new Map([
+  [' ha avanzado a la Edad Feudal.', 'feudal'],
+  [' ha avanzado a la Edad de los Castillos.', 'castle'],
+  [' ha avanzado a la Edad Imperial.', 'imperial'],
+  [' advanced to the Feudal Age.', 'feudal'],
+  [' advanced to the Castle Age.', 'castle'],
+  [' advanced to the Imperial Age.', 'imperial'],
+  ['升级至封建时代。', 'feudal'],
+  ['升级至城堡时代。', 'castle'],
+  ['升级至帝王时代。', 'imperial'],
+]);
+
+function ageReachedNotice(operation) {
+  if (typeof operation?.text !== 'string' || operation.text.length > 400 ||
+      !Array.isArray(operation.padding) || operation.padding.length !== 4 ||
+      !operation.padding.every((byte) => byte === 255)) return null;
+  let chat;
+  try {
+    chat = JSON.parse(operation.text);
+  } catch {
+    return null;
+  }
+  if (!chat || !Number.isSafeInteger(chat.player) || chat.player < 1 || chat.player > 8 ||
+      chat.channel !== 0 || chat.tauntNumber !== -1 || typeof chat.message !== 'string') return null;
+  const marker = `<player_id,${chat.player},0>`;
+  if (!chat.message.startsWith(marker) || chat.messageAGP !== `@#${chat.player}${chat.message}`) return null;
+  const age = AGE_NOTICES.get(chat.message.slice(marker.length));
+  return age ? { slot: chat.player, age } : null;
 }
 
 function commandMetrics(player, durationMs) {
@@ -364,7 +405,38 @@ function commandMetrics(player, durationMs) {
         definition: 'first-age-research-command-game-seconds-v1' };
     }
   }
+  for (const [age, nextOrder] of [['feudal', player.castleMs], ['castle', player.imperialMs], ['imperial', null]]) {
+    const reached = player.ageReachedMs?.[age];
+    const ordered = player[`${age}Ms`];
+    if (Number.isFinite(reached) && Number.isFinite(ordered) &&
+        reached > ordered && reached <= durationMs && (nextOrder == null || reached <= nextOrder)) {
+      metrics[`${age}Seconds`] = { value: Math.round(reached / 100) / 10,
+        definition: 'age-reached-game-seconds-v1' };
+    }
+  }
   return metrics;
+}
+
+function checkReplayRoster(expectedPlayers, replayPlayers) {
+  const ids = (players, key) => [...new Set((players || []).map((p) => Number(p[key]))
+    .filter((id) => Number.isSafeInteger(id) && id > 0))].sort((a, b) => a - b);
+  const expected = ids(expectedPlayers, 'profileId');
+  const recorded = ids(replayPlayers, 'profile_id');
+  if (expected.length < 2 || expected.length !== recorded.length ||
+      expected.some((id, index) => id !== recorded[index])) {
+    throw new Error('El roster del replay no coincide con la partida registrada.');
+  }
+  return recorded.length;
+}
+
+function checkReplayStart(startedAt, replayTimestamp) {
+  if (!Number.isFinite(startedAt) || !Number.isFinite(replayTimestamp) || replayTimestamp <= 0) return;
+  // Companion starts the match clock before the recorder. Allow loading time,
+  // while rejecting the usual case of a different match with the same roster.
+  const seconds = startedAt / 1000;
+  if (Math.abs(seconds - replayTimestamp) > 180) {
+    throw new Error('La hora del replay no coincide con la partida registrada.');
+  }
 }
 
 /**
@@ -376,8 +448,8 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     throw new Error('Falta la partida o el jugador para analizar el replay.');
   }
   const parser = await loadParser();
+  if (fs.statSync(filePath).size > 80 * 1024 * 1024) throw new Error('El replay supera el límite de 80 MB.');
   const buffer = fs.readFileSync(filePath);
-  if (buffer.length > 80 * 1024 * 1024) throw new Error('El replay supera el límite de 80 MB.');
   let record;
   try {
     record = parser.parse_rec(toArrayBuffer(buffer));
@@ -392,15 +464,37 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
   const replayPlayers = Array.isArray(settings.players) ? settings.players : [];
   const self = replayPlayers.find((p) => Number(p.profile_id) === Number(profileId));
   if (!self) throw new Error('El replay no corresponde al jugador de esta partida.');
+  const playerCount = checkReplayRoster(match.players, replayPlayers);
+  checkReplayStart(match.startedAt, chapter.zheader.timestamp);
 
   const players = new Map();
+  const trackWindow = record.chapters.length === 1 && playerCount === 2 &&
+    [3, '3', 'rm_1v1'].includes(match.leaderboardId) &&
+    settings.starting_age_id === 2 && settings.starting_resources_id === 0 &&
+    settings.num_starting_units === 0 && supportedMap(match.mapName);
   for (const p of replayPlayers) {
     if (Number.isFinite(p.player_number) && p.player_number > 0) {
-      players.set(p.player_number, emptyPlayer());
+      players.set(p.player_number, { ...emptyPlayer(), profileId: Number(p.profile_id) });
     }
   }
-  const durationMs = gameDuration(chapter);
+  const { durationMs, replayEndMs } = gameClock(chapter);
+  const ageNotices = record.chapters.length === 1 && replayEndMs != null;
+  let notificationClockMs = 0;
   for (const operation of chapter.operations) {
+    if (ageNotices && operation.Sync) {
+      notificationClockMs += Number(operation.Sync.time_increment) || 0;
+      continue;
+    }
+    if (ageNotices && operation.Chat && notificationClockMs <= replayEndMs) {
+      const notice = ageReachedNotice(operation.Chat);
+      const subject = notice && players.get(notice.slot);
+      if (subject && Number.isFinite(subject[`${notice.age}Ms`]) &&
+          notificationClockMs > subject[`${notice.age}Ms`]) {
+        subject.ageReachedMs ||= {};
+        subject.ageReachedMs[notice.age] ??= notificationClockMs;
+      }
+      continue;
+    }
     const action = operation.Action;
     if (!action) continue;
     const data = action.action_data;
@@ -414,7 +508,10 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     player.actions += 1;
     // `world_time` del action es el reloj de juego en ms. El Sync suma lo
     // mismo, pero usar el del action evita acumular cientos de miles de ops.
-    applyAction(player, type, payload, Number(action.world_time) || 0);
+    if (Number.isFinite(action.world_time) && action.world_time >= 0) {
+      if (trackWindow) observeQueue(player.queues, type, payload, action.world_time);
+      applyAction(player, type, payload, action.world_time);
+    }
   }
 
   const player = players.get(Number(self.player_number));
@@ -424,6 +521,10 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
   const civ = (matchPlayer && matchPlayer.civ) || 'Unknown';
   const opening = classify(player, civ);
   const metrics = commandMetrics(player, durationMs);
+  const openingCheckpoint = pickCheckpoint({
+    player, opening: opening.name, settings, build: chapter.zheader.build,
+    mapName: match.mapName, mode: match.leaderboardId, playerCount,
+  });
 
   return {
     schemaVersion: 1,
@@ -432,7 +533,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     clock: 'game',
     source: {
       id: 'aoe2rec-js',
-      version: '0.1.25+command-adapter-v2',
+      version: COMMAND_ADAPTER_VERSION,
       type: 'replay-analysis',
       label: 'Replay de Microsoft · análisis local',
     },
@@ -445,18 +546,28 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
       startingAge: startingAgeLabel(Number(settings.starting_age_id)),
       patch: String((chapter.zheader && chapter.zheader.game) || 'desconocido').slice(0, 60),
     },
-    durationSeconds: Math.round(durationMs / 1000),
+    durationSeconds: Math.round(durationMs / 100) / 10,
     metrics,
+    openingCheckpoint,
+    castlesWindow: trackWindow ? collectCastlesWindow({
+      self: player,
+      rival: [...players.values()].find((p) => p.profileId > 0 && p.profileId !== Number(profileId)),
+      replayEndMs,
+    }) : null,
   };
 }
 
 module.exports = {
   analyzeReplayFile,
   commandMetrics,
+  ageReachedNotice,
   classify,
   signals,
   openingLabel,
   openingShort,
   OPENING_LABELS,
   OPENING_SPANISH,
+  checkReplayRoster,
+  checkReplayStart,
+  COMMAND_ADAPTER_VERSION,
 };

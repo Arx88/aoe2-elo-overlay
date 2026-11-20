@@ -79,6 +79,8 @@ const CIV_SET = new Set(CIV_SLUGS);
 // Nombres viejos o variantes que puede devolver la API. Se exporta para que
 // el renderer (sin Node) pueda resolver la guía de civ con el mismo criterio.
 const CIV_ALIASES = {
+  inca: 'incas',
+  maya: 'mayans',
   indians: 'hindustanis',
   khitansmongols: 'khitans',
 };

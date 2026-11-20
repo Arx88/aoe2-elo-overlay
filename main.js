@@ -25,9 +25,10 @@ const {
   searchProfiles,
   fetchProfileIdentity,
   fetchMatchById,
+  historyCutoff,
 } = require('./src/aoe');
 const { detectProfile } = require('./src/detect');
-const { CIV_SLUGS, CIV_ALIASES } = require('./src/civs');
+const { CIV_SLUGS, CIV_ALIASES, civSlug } = require('./src/civs');
 const { CIV_GUIDE } = require('./src/civ-guide');
 const {
   SHOW_AT_MS,
@@ -41,6 +42,7 @@ const {
 const { LobbyWatcher, QueueWatcher, FastLane } = require('./src/live');
 const { buildRivalInsights, opponentsOf, needsRivalHistory, mergeRivalReport, resolveMode, mapKey } = require('./src/rival');
 const { progressiveScout } = require('./src/scout');
+const { isPriorReplay } = require('./src/insights');
 const { fetchMyHistory, computeH2H } = require('./src/mine');
 const { initAutoUpdate } = require('./src/updater');
 const { ReplayCache } = require('./src/replay-cache');
@@ -137,7 +139,7 @@ const DEFAULT_CONFIG = {
 // smartTips y civRecommender son pre-partida con su propio flujo
 // (refreshScoutTips) para no recalcular el informe.
 const RIVAL_OPTION_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'smartTips', 'rivalH2H', 'civRecommender'];
-const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'rivalH2H'];
+const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'rivalH2H', 'civRecommender'];
 
 // Los `rating/peak/rank` de todos los demos son de RM 1v1 (igual que en vivo),
 // aunque el `ladder` del demo diga RM team / EW / Unranked.
@@ -509,6 +511,7 @@ const resolveProductState = createProductStateCache();
 let productExpiryTimer = null;
 let productExpiryAt = null;
 let postMatchReport = null;
+let postMatchGeneration = 0;
 let postMatchMatch = null;
 let postMatchLastId = null;
 // El informe postmatch tiene cierre explícito y auto-cierre: no puede quedar
@@ -731,7 +734,7 @@ function rivalSignature(state, rivals) {
   const matchId = (state && state.match && state.match.matchId) || 'sin-id';
   const mapName = (state && state.match && state.match.mapName) || 'sin-mapa';
   const mode = resolveMode(leaderboardOf(state));
-  return `${matchId}:${mode ? mode.id : 'sin-modo'}:${mapName}:${rivals.map((rival) => rival.profileId).join(',')}:${flags}`;
+  return `${matchId}:${mode ? mode.id : 'sin-modo'}:${mapName}:${rivals.map((rival) => `${rival.profileId}-${civSlug(rival.civ) || '?'}`).join(',')}:${flags}`;
 }
 
 /** Ladder de la partida: del payload del match; si falta, del etiquetado. */
@@ -747,7 +750,8 @@ function sendRival(payload) {
   // Así sobrevive a que el informe se republish por partes (civs → aperturas)
   // sin que cada etapa tenga que saber de él.
   const decorated = payload && Array.isArray(payload.reports)
-    ? { ...payload, reports: payload.reports.map(decorateH2H) }
+    ? { ...payload, matchId: payload.matchId ?? lastGood?.match?.matchId,
+      reports: payload.reports.map(decorateH2H) }
     : payload;
   rivalReports = decorated;
   send('overlay:rival', projectRivalPayload(decorated, productState()));
@@ -880,8 +884,9 @@ function demoRivalReports(state) {
         favorite: { name: 'Scout rush', short: 'Scouts', count: 20, share: 56 },
         mapAnalyzed: 3,
         mapFavorite: { name: 'Scout rush', short: 'Scouts', count: 2, share: 67 },
-        mapCivAnalyzed: 2,
-        mapCivFavorite: { name: 'Scout rush', short: 'Scouts', count: 2, share: 100 },
+        openingCiv: rival.civ,
+        mapCivAnalyzed: index === 0 ? 9 : 0,
+        mapCivFavorite: index === 0 ? { name: 'Archer rush', short: 'Arqueros', count: 6, share: 67 } : null,
         ranking: [
           { name: 'Scout rush', short: 'Scouts', count: 20, share: 56 },
           { name: 'Drush', short: 'Drush', count: 9, share: 25 },
@@ -966,7 +971,8 @@ async function refreshRivalReports(state, options = {}) {
     return;
   }
 
-  if (!needsRivalHistory(view)) {
+  const needsCivHistory = view.civRecommender && rivals.some((rival) => !civSlug(rival.civ));
+  if (!needsRivalHistory(view) && !needsCivHistory) {
     // Solo H2H: el historial necesario es el propio, no el del rival.
     sendRival({ ts: Date.now(), pendingOpenings: false, reports: rivals.map((rival) => ({
       profileId: rival.profileId, name: rival.name, civ: rival.civ,
@@ -1013,6 +1019,8 @@ async function refreshRivalReports(state, options = {}) {
           leaderboardId,
           mapName,
           currentMatchId,
+          cutoff: historyCutoff(state),
+          historical: exampleActive,
           cache: statsCache,
           cacheTtlMs: Number(config.statsCacheMinutes || 15) * 60 * 1000,
           includeOpenings: Boolean(view.rivalOpenings),
@@ -1091,7 +1099,7 @@ function scoutSignature(state) {
 function tacticalPayload() {
   const product = productState();
   if (!product.featureAccess.smartTips) return { status: 'locked', tips: [], message: 'El análisis de oportunidades está incluido en ProMax.' };
-  if (!viewConfig().smartTips) return { status: 'disabled', tips: [], message: 'Activá Recomendaciones inteligentes en Prematch para analizar las oportunidades.' };
+  if (!viewConfig().smartTips) return { status: 'disabled', tips: [], message: 'Activá Lectura de apertura en Prematch para analizar las oportunidades.' };
   if (!lastGood || lastGood.status !== 'ongoing' || !scoutPayload || String(scoutPayload.matchId) !== String(lastGood.match?.matchId)) {
     return { status: 'pending', tips: [], message: 'El análisis aparecerá cuando se confirme una partida.' };
   }
@@ -1174,6 +1182,12 @@ function demoScoutTips(state) {
         totalMatches: p.totalMatches,
         scope: p.scope,
         scopeLabel: p.scope === 'mode' ? `en ${mode.label}` : `en ${mapName}`,
+        // Datos sintéticos de --demo. Ejercitan alcance local y degradado.
+        context: index === 0
+          ? { scope: 'map', scopeLabel: `en ${mapName}`, modeLabel: mode.label }
+          : { scope: 'mode', scopeLabel: 'en todo el modo', modeLabel: mode.label, fallbackReason: 'Muestra limitada en este mapa.' },
+        likelyOpenings: [{ name: p.style.top.name, short: p.style.top.short,
+          games: p.style.top.games, sample: p.style.analyzed }],
         sample: p.sample,
         wins: p.wins,
         winRate: p.winRate,
@@ -1181,7 +1195,14 @@ function demoScoutTips(state) {
         openingsAgainst: p.openingsAgainst,
         style: p.style,
         tempo: p.tempo,
-        recommend: p.recommend,
+        matchup: {
+          map: mapKey(mapName), modeId: mode.id, modeLabel: mode.label, teamGame: mode.size === 'team',
+          own: civSlug(state.players.find((player) => player.isYou)?.civ), rival: civSlug(rival.civ),
+          openings: index === 0 ? [{ name: 'Archer rush', short: 'Arqueros', games: 6, sample: 9 },
+            { name: 'Scout rush', short: 'Scouts', games: 3, sample: 9 }] : [],
+          openingsSample: index === 0 ? 9 : 0, games: mode.size === '1v1' ? 6 : 0, losses: 3,
+          against: [{ name: 'Arqueros', losses: 3, games: 4 }],
+        },
         recommendError: null,
         fetchedAt: Date.now(),
         fromCache: false,
@@ -1210,15 +1231,6 @@ const DEMO_SCOUT_PROFILES = [
       top: { name: 'Scout rush', short: 'Scouts', games: 16 },
     },
     tempo: { shortGames: 9, shortWinRate: 33, longGames: 22, longWinRate: 64 },
-    recommend: [
-      { civ: 'Gurjaras', slug: 'gurjaras', mine: { games: 9, wins: 6, winRate: 67, scope: 'map' },
-        vsRival: { games: 5, losses: 4, lossRate: 80 }, score: 72 },
-      // Con cascada, esta civ cae al modo completo: la línea lo declara.
-      { civ: 'Teutons', slug: 'teutons', mine: { games: 6, wins: 4, winRate: 67, scope: 'mode' },
-        vsRival: { games: 7, losses: 4, lossRate: 57 }, score: 63 },
-      { civ: 'Bengalis', slug: 'bengalis', mine: null,
-        vsRival: { games: 5, losses: 4, lossRate: 80 }, score: 80 },
-    ],
   },
   {
     totalMatches: 74, scope: 'map', sample: 31, wins: 15, winRate: 48,
@@ -1237,12 +1249,6 @@ const DEMO_SCOUT_PROFILES = [
       top: { name: 'Fast castle', short: 'FC', games: 12 },
     },
     tempo: { shortGames: 12, shortWinRate: 64, longGames: 10, longWinRate: 42 },
-    recommend: [
-      { civ: 'Magyars', slug: 'magyars', mine: { games: 7, wins: 4, winRate: 57, scope: 'map' },
-        vsRival: { games: 8, losses: 5, lossRate: 63 }, score: 61 },
-      { civ: 'Teutons', slug: 'teutons', mine: null,
-        vsRival: { games: 6, losses: 4, lossRate: 67 }, score: 67 },
-    ],
   },
 ];
 
@@ -1324,6 +1330,13 @@ async function refreshScoutTips(state, options = {}) {
     await Promise.all(rivals.map(async (rival, index) => {
       let tip;
       try {
+        const matchupContext = {
+          matchId: state.match?.matchId,
+          cutoff: historyCutoff(state),
+          historical: Boolean(state.example),
+          ownCiv: (state.players || []).find((player) => player.isYou || Number(player.profileId) === Number(runtimeProfileId()))?.civ,
+          rivalCiv: rival.civ || (state.players || []).find((player) => Number(player.profileId) === Number(rival.profileId))?.civ,
+        };
         const scoutOptions = {
         profileId: rival.profileId,
         name: rival.name,
@@ -1331,17 +1344,13 @@ async function refreshScoutTips(state, options = {}) {
         mapName,
         cache: statsCache,
         cacheTtlMs: 30 * 60 * 1000,
-        // La recomendación cruza con MI historial (mismo fetch cacheado que
-        // usa el head-to-head): una sola descarga sirve para todo. En modo
-        // ejemplo, "mi" historial es el del perfil del ejemplo.
-        recommend: Boolean(view.civRecommender),
+        matchupContext,
         opportunityContext: view.smartTips ? {
-          ownCiv: (state.players || []).find((player) => player.isYou || Number(player.profileId) === Number(runtimeProfileId()))?.civ,
-          rivalCiv: rival.civ || (state.players || []).find((player) => Number(player.profileId) === Number(rival.profileId))?.civ,
+          ...matchupContext,
           currentMatchId: state.match && state.match.matchId,
-          cutoff: state.match && state.match.startedAt,
+          cutoff: historyCutoff(state),
         } : null,
-        myHistoryImpl: (view.civRecommender || view.smartTips) && runtimeProfileId()
+        myHistoryImpl: view.smartTips && runtimeProfileId()
           ? () => fetchMyHistory({
               profileId: runtimeProfileId(),
               leaderboardId: leaderboardOf(state),
@@ -1457,12 +1466,15 @@ async function refreshH2H(state, options = {}) {
     const currentSig = `${(current && current.match && current.match.matchId) || 'sin-id'}:${currentMode ? currentMode.id : 'sin-modo'}:${opponentsOf(current, RIVAL_LIMIT).map((rival) => rival.profileId).join(',')}`;
     if (!current || current.status !== 'ongoing' || !viewConfig().rivalH2H ||
         runtimeProfileId() !== myId || currentSig !== sig) return;
+    const cutoff = historyCutoff(state);
+    const priorRows = state.example ? (cutoff == null ? [] : mine.rows.filter((row) =>
+      isPriorReplay(row, state.match?.matchId, cutoff))) : mine.rows;
     for (const rival of rivals) {
       // Siempre se publica, incluso sin enfrentamientos: `scanned` le dice al
       // panel en cuántas partidas se buscó, para que "no apareció" no se lea
       // como "nunca jugaron" a secas.
-      const h2h = mine.error ? { error: mine.error } : computeH2H(mine.rows, rival.profileId);
-      h2h.scanned = mine.rows.length;
+      const h2h = mine.error ? { error: mine.error } : computeH2H(priorRows, rival.profileId);
+      h2h.scanned = priorRows.length;
       h2hByRival.set(rival.profileId, h2h);
       h2hPendingIds.delete(rival.profileId);
     }
@@ -1964,6 +1976,8 @@ function setRuntimeProfile(nextProfileId, alias) {
   // El informe visible pertenece al perfil anterior; el historial local queda
   // separado por perfil y se puede volver a consultar.
   postMatchReport = null;
+  postMatchGeneration += 1;
+  clearPostMatchHide();
   postMatchMatch = null;
   postMatchLastId = null;
   broadcastPostMatch();
@@ -2348,6 +2362,14 @@ function exampleInfoFrom(snapshot, resolved, mode, began) {
 
 /** Apaga el ejemplo SIN consultar aún el estado en vivo. */
 function deactivateExample() {
+  if (exampleActive) {
+    postMatchGeneration += 1;
+    postMatchReport = null;
+    postMatchMatch = null;
+    postMatchLastId = null;
+    clearPostMatchHide();
+    broadcastPostMatch();
+  }
   exampleActive = false;
   exampleInfo = null;
   exampleFrozenAt = null;
@@ -2783,7 +2805,7 @@ function registerIpc() {
     if (!match) {
       return { ok: false, error: 'Todavía no hay una partida terminada para analizar.' };
     }
-    const report = await publishPostMatch(match, { force: true });
+    const report = await publishPostMatch(match, { force: true, refreshReplay: true });
     if (!report) return { ok: false, error: 'No se pudo reconstruir el informe.' };
     return { ok: true, ...(postMatchPayload() || {}), product: productState() };
   });
@@ -3088,8 +3110,21 @@ function visiblePostMatchReport() {
   const access = postMatchAccess();
   const report = JSON.parse(JSON.stringify(postMatchReport));
   if (!access.comparison) {
+    if (report.openingReview) report.openingReview.comparison = null;
     report.historyHighlights = [];
-    if (report.executionRatings) report.executionRatings.personalHighlights = [];
+    report.improvements = [];
+    report.executionRatings = null;
+    for (const metric of Object.values(report.metrics || {})) metric.comparison = null;
+    for (const stage of report.stages || []) {
+      for (const metric of stage.metrics || []) metric.comparison = null;
+      if (stage.status === 'ready' || stage.status === 'needs_baseline') {
+        stage.status = 'measured';
+        stage.grade = stage.score = null;
+        stage.sampleSize = 0;
+        stage.summary = 'Indicadores medidos en esta partida.';
+        stage.detail = 'Comparación personal desactivada.';
+      }
+    }
     report.mapBenchmark = {
       status: 'locked', games: 0, wins: 0, losses: 0, unknownResults: 0,
       winRate: null, afterWinRate: null, recent: [], sampleSize: 0,
@@ -3097,6 +3132,8 @@ function visiblePostMatchReport() {
     };
   }
   if (!access.replay) {
+    report.openingReview = null;
+    report.castlesWindow = null;
     report.stages = [];
     report.metrics = {};
     report.improvements = [];
@@ -3214,6 +3251,11 @@ async function publishPostMatch(match, options = {}) {
     log(`postmatch: la partida ${id} no se pudo registrar`);
     return null;
   }
+  const generation = ++postMatchGeneration;
+  const example = exampleActive;
+  const isCurrent = () => generation === postMatchGeneration &&
+    exampleActive === example &&
+    (example ? Number(exampleProfileId) === targetProfileId : Number(profileId) === targetProfileId);
   postMatchLastId = id;
   postMatchMatch = match;
   // Un resultado nuevo vuelve a abrir el informe, aunque el anterior se haya
@@ -3223,46 +3265,53 @@ async function publishPostMatch(match, options = {}) {
 
   let telemetry = options.telemetry || (saved && saved.telemetry) || null;
   const replayAllowed = Boolean(viewConfig().postMatch) && postMatchAccess().replay;
-  let analysis = telemetry
+  const refreshLegacyReplay = options.refreshReplay && telemetry?.source?.id === 'aoe2rec-js' &&
+    ['0.1.25', '0.1.25+command-adapter-v2', '0.1.25+command-adapter-v3', '0.1.25+command-adapter-v4'].includes(telemetry.source.version);
+  const fetchingReplay = replayAllowed && options.autoReplay !== false && (!telemetry || refreshLegacyReplay);
+  let analysis = fetchingReplay
+    ? { status: 'downloading', label: 'Descargando partida', detail: 'Buscando la grabación de la partida.' }
+    : telemetry
     ? { status: 'ready', label: 'Análisis listo', detail: 'El replay ya estaba analizado.' }
-    : replayAllowed
-      ? {
-        status: 'downloading', label: 'Descargando partida',
-        detail: `Replay de #${id} desde Microsoft.`,
-      }
-      : { status: 'ready', label: 'Análisis de replay', detail: 'La opción está desactivada.' };
+    : { status: 'idle', label: 'Sin análisis de replay', detail: '' };
 
-  // El historial y el replay son dos redes distintas: arrancan juntos, pero el
-  // primer pintado no espera a ninguna de las dos.
-  const historyPromise = fetchMyHistory({
+  let history = { rows: [], pending: postMatchAccess().comparison };
+  const paint = () => {
+    if (!isCurrent()) return;
+    postMatchReport = buildPostMatchReport({
+      match,
+      profileId: targetProfileId,
+      records: performanceStore.list(targetProfileId),
+      telemetry,
+      historyRows: history.rows,
+      historyError: history.error,
+      historyPending: history.pending,
+      analysis,
+    });
+    broadcastPostMatch();
+  };
+  // Ambos datos progresan de forma independiente. El análisis del replay no
+  // se queda detrás de la paginación del historial.
+  const historyPromise = history.pending ? fetchMyHistory({
     profileId: targetProfileId,
     leaderboardId: match.leaderboardId,
     currentMatchId: match.matchId,
     cache: statsCache,
     cacheTtlMs: 30 * 60 * 1000,
     log,
-  }).catch((err) => ({ rows: [], error: err.message }));
-
-  const paint = (nextTelemetry, nextAnalysis) => {
-    postMatchReport = buildPostMatchReport({
-      match,
-      profileId: targetProfileId,
-      records: performanceStore.list(targetProfileId),
-      telemetry: nextTelemetry,
-      analysis: nextAnalysis,
-    });
-    broadcastPostMatch();
-  };
-  paint(telemetry, analysis);
-  schedulePostMatchHide(POSTMATCH_LOADING_MAX_MS);
+  }).catch((err) => ({ rows: [], error: err.message })).then((result) => {
+    history = result;
+    paint();
+  }) : Promise.resolve();
+  paint();
+  schedulePostMatchHide(fetchingReplay ? POSTMATCH_LOADING_MAX_MS : POSTMATCH_AUTO_HIDE_MS);
 
   let error = null;
-  if (!telemetry && replayAllowed && options.autoReplay !== false) {
+  if (fetchingReplay) {
     try {
       telemetry = await fetchReplayTelemetry(match, targetProfileId, {
         onStatus: (next) => {
           analysis = next;
-          paint(null, analysis);
+          paint();
         },
       });
       analysis = { status: 'ready', label: 'Análisis listo', detail: 'Replay descargado y analizado.' };
@@ -3276,21 +3325,14 @@ async function publishPostMatch(match, options = {}) {
     }
   }
 
-  if (telemetry && persist) {
+  if (!isCurrent()) return null;
+  if (telemetry && persist && fetchingReplay && !error) {
     performanceStore.recordMatch(match, targetProfileId, telemetry);
   }
-  const history = await historyPromise;
-  postMatchReport = buildPostMatchReport({
-    match,
-    profileId: targetProfileId,
-    records: performanceStore.list(targetProfileId),
-    telemetry,
-    historyRows: history.rows,
-    historyError: history.error,
-    analysis,
-  });
-  broadcastPostMatch();
-  schedulePostMatchHide();
+  paint();
+  if (fetchingReplay) schedulePostMatchHide();
+  await historyPromise;
+  if (!isCurrent()) return null;
   const result = postMatchReport && postMatchReport.result;
   log(
     `postmatch: ${match.mapName || '—'} · ${result ? result.label : 'sin resultado'} · ` +

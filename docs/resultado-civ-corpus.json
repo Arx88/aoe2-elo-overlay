@@ -1,0 +1,561 @@
+{
+  "scope": {
+    "sourceMatches": 532920,
+    "sourcePlayerRows": 1725370,
+    "ranked1v1Matches": 362052,
+    "usableMatches": 361852,
+    "excludedRanked1v1Matches": 200
+  },
+  "patches": [
+    0
+  ],
+  "datesUtc": [
+    "2026-06-01T22:09:19+00:00",
+    "2026-07-03T04:07:07+00:00"
+  ],
+  "temporalBlocksStartUtc": [
+    "2026-06-16T13:01:07+00:00",
+    "2026-06-30T16:06:48+00:00"
+  ],
+  "lagSeconds": 600,
+  "predictedPlayerSlots": 217112,
+  "labelsById": {
+    "0": "georgians",
+    "1": "britons",
+    "2": "franks",
+    "3": "goths",
+    "4": "teutons",
+    "5": "japanese",
+    "6": "chinese",
+    "7": "byzantines",
+    "8": "persians",
+    "9": "saracens",
+    "10": "turks",
+    "11": "vikings",
+    "12": "mongols",
+    "13": "celts",
+    "14": "spanish",
+    "15": "aztecs",
+    "16": "mayans",
+    "17": "huns",
+    "18": "koreans",
+    "19": "italians",
+    "20": "hindustanis",
+    "21": "incas",
+    "22": "magyars",
+    "23": "slavs",
+    "24": "portuguese",
+    "25": "ethiopians",
+    "26": "malians",
+    "27": "berbers",
+    "28": "khmer",
+    "29": "malay",
+    "30": "burmese",
+    "31": "vietnamese",
+    "32": "bulgarians",
+    "33": "tatars",
+    "34": "cumans",
+    "35": "lithuanians",
+    "36": "burgundians",
+    "37": "sicilians",
+    "38": "poles",
+    "39": "bohemians",
+    "40": "dravidians",
+    "41": "bengalis",
+    "42": "gurjaras",
+    "43": "romans",
+    "44": "armenians",
+    "48": "khitans",
+    "49": "shu",
+    "50": "wu",
+    "51": "wei",
+    "52": "jurchens",
+    "58": "mapuche",
+    "59": "tupi",
+    "60": "muisca"
+  },
+  "predictionColumns": [
+    "match_id",
+    "profile_id",
+    "start_time",
+    "map",
+    "eloBand",
+    "actualCiv",
+    "completedPlayerHistory",
+    "block",
+    "poblacion",
+    "ultima_civ",
+    "historial",
+    "reciente_y_mapa"
+  ],
+  "scores": {
+    "total": {
+      "poblacion": {
+        "n": 217112,
+        "top1": 6.61,
+        "top3": 15.47,
+        "logLoss": 3.8013
+      },
+      "ultima_civ": {
+        "n": 217112,
+        "top1": 41.24,
+        "top3": 46.57,
+        "logLoss": 3.0002
+      },
+      "historial": {
+        "n": 217112,
+        "top1": 37.39,
+        "top3": 53.45,
+        "logLoss": 2.6967
+      },
+      "reciente_y_mapa": {
+        "n": 217112,
+        "top1": 39.08,
+        "top3": 54.51,
+        "logLoss": 2.7289
+      }
+    },
+    "bloque_1": {
+      "poblacion": {
+        "n": 108556,
+        "top1": 6.5,
+        "top3": 15.53,
+        "logLoss": 3.8063
+      },
+      "ultima_civ": {
+        "n": 108556,
+        "top1": 40.0,
+        "top3": 45.47,
+        "logLoss": 3.05
+      },
+      "historial": {
+        "n": 108556,
+        "top1": 37.05,
+        "top3": 52.29,
+        "logLoss": 2.7455
+      },
+      "reciente_y_mapa": {
+        "n": 108556,
+        "top1": 38.09,
+        "top3": 53.13,
+        "logLoss": 2.7893
+      }
+    },
+    "historial_10+": {
+      "poblacion": {
+        "n": 171112,
+        "top1": 6.57,
+        "top3": 15.35,
+        "logLoss": 3.8078
+      },
+      "ultima_civ": {
+        "n": 171112,
+        "top1": 42.65,
+        "top3": 47.79,
+        "logLoss": 2.9733
+      },
+      "historial": {
+        "n": 171112,
+        "top1": 38.07,
+        "top3": 55.28,
+        "logLoss": 2.6024
+      },
+      "reciente_y_mapa": {
+        "n": 171112,
+        "top1": 40.08,
+        "top3": 56.55,
+        "logLoss": 2.6707
+      }
+    },
+    "elo_otro": {
+      "poblacion": {
+        "n": 21104,
+        "top1": 7.31,
+        "top3": 16.92,
+        "logLoss": 3.7258
+      },
+      "ultima_civ": {
+        "n": 21104,
+        "top1": 50.07,
+        "top3": 54.61,
+        "logLoss": 2.6133
+      },
+      "historial": {
+        "n": 21104,
+        "top1": 43.48,
+        "top3": 59.21,
+        "logLoss": 2.4764
+      },
+      "reciente_y_mapa": {
+        "n": 21104,
+        "top1": 45.09,
+        "top3": 59.84,
+        "logLoss": 2.4615
+      }
+    },
+    "historial_1-9": {
+      "poblacion": {
+        "n": 37126,
+        "top1": 6.83,
+        "top3": 16.04,
+        "logLoss": 3.7745
+      },
+      "ultima_civ": {
+        "n": 37126,
+        "top1": 43.03,
+        "top3": 48.44,
+        "logLoss": 2.9361
+      },
+      "historial": {
+        "n": 37126,
+        "top1": 41.62,
+        "top3": 54.16,
+        "logLoss": 2.8708
+      },
+      "reciente_y_mapa": {
+        "n": 37126,
+        "top1": 42.24,
+        "top3": 54.46,
+        "logLoss": 2.7441
+      }
+    },
+    "elo_1600": {
+      "poblacion": {
+        "n": 10914,
+        "top1": 6.99,
+        "top3": 13.48,
+        "logLoss": 3.9059
+      },
+      "ultima_civ": {
+        "n": 10914,
+        "top1": 18.43,
+        "top3": 25.0,
+        "logLoss": 4.0574
+      },
+      "historial": {
+        "n": 10914,
+        "top1": 21.19,
+        "top3": 31.36,
+        "logLoss": 3.5434
+      },
+      "reciente_y_mapa": {
+        "n": 10914,
+        "top1": 22.04,
+        "top3": 31.7,
+        "logLoss": 3.8387
+      }
+    },
+    "elo_1800": {
+      "poblacion": {
+        "n": 5660,
+        "top1": 4.89,
+        "top3": 11.25,
+        "logLoss": 3.9536
+      },
+      "ultima_civ": {
+        "n": 5660,
+        "top1": 12.12,
+        "top3": 18.41,
+        "logLoss": 4.3535
+      },
+      "historial": {
+        "n": 5660,
+        "top1": 15.51,
+        "top3": 23.16,
+        "logLoss": 3.8217
+      },
+      "reciente_y_mapa": {
+        "n": 5660,
+        "top1": 15.34,
+        "top3": 23.2,
+        "logLoss": 4.186
+      }
+    },
+    "elo_800": {
+      "poblacion": {
+        "n": 44049,
+        "top1": 6.06,
+        "top3": 15.44,
+        "logLoss": 3.7745
+      },
+      "ultima_civ": {
+        "n": 44049,
+        "top1": 47.6,
+        "top3": 52.33,
+        "logLoss": 2.6939
+      },
+      "historial": {
+        "n": 44049,
+        "top1": 42.21,
+        "top3": 59.79,
+        "logLoss": 2.4764
+      },
+      "reciente_y_mapa": {
+        "n": 44049,
+        "top1": 43.98,
+        "top3": 61.02,
+        "logLoss": 2.4266
+      }
+    },
+    "elo_1000": {
+      "poblacion": {
+        "n": 52973,
+        "top1": 6.63,
+        "top3": 15.67,
+        "logLoss": 3.7923
+      },
+      "ultima_civ": {
+        "n": 52973,
+        "top1": 44.82,
+        "top3": 50.28,
+        "logLoss": 2.8277
+      },
+      "historial": {
+        "n": 52973,
+        "top1": 40.07,
+        "top3": 57.64,
+        "logLoss": 2.5164
+      },
+      "reciente_y_mapa": {
+        "n": 52973,
+        "top1": 42.03,
+        "top3": 58.98,
+        "logLoss": 2.4949
+      }
+    },
+    "arena": {
+      "poblacion": {
+        "n": 18762,
+        "top1": 6.01,
+        "top3": 15.87,
+        "logLoss": 3.7604
+      },
+      "ultima_civ": {
+        "n": 18762,
+        "top1": 41.37,
+        "top3": 47.11,
+        "logLoss": 2.965
+      },
+      "historial": {
+        "n": 18762,
+        "top1": 37.95,
+        "top3": 56.13,
+        "logLoss": 2.6248
+      },
+      "reciente_y_mapa": {
+        "n": 18762,
+        "top1": 39.69,
+        "top3": 57.14,
+        "logLoss": 2.6287
+      }
+    },
+    "arabia": {
+      "poblacion": {
+        "n": 43130,
+        "top1": 6.89,
+        "top3": 16.48,
+        "logLoss": 3.7882
+      },
+      "ultima_civ": {
+        "n": 43130,
+        "top1": 41.25,
+        "top3": 46.76,
+        "logLoss": 2.9999
+      },
+      "historial": {
+        "n": 43130,
+        "top1": 37.49,
+        "top3": 53.22,
+        "logLoss": 2.6963
+      },
+      "reciente_y_mapa": {
+        "n": 43130,
+        "top1": 39.0,
+        "top3": 54.23,
+        "logLoss": 2.7548
+      }
+    },
+    "elo_1400": {
+      "poblacion": {
+        "n": 19770,
+        "top1": 7.39,
+        "top3": 15.19,
+        "logLoss": 3.8613
+      },
+      "ultima_civ": {
+        "n": 19770,
+        "top1": 29.32,
+        "top3": 35.73,
+        "logLoss": 3.5506
+      },
+      "historial": {
+        "n": 19770,
+        "top1": 28.36,
+        "top3": 43.28,
+        "logLoss": 3.1019
+      },
+      "reciente_y_mapa": {
+        "n": 19770,
+        "top1": 30.44,
+        "top3": 44.13,
+        "logLoss": 3.2538
+      }
+    },
+    "elo_1200": {
+      "poblacion": {
+        "n": 33237,
+        "top1": 6.38,
+        "top3": 15.32,
+        "logLoss": 3.8275
+      },
+      "ultima_civ": {
+        "n": 33237,
+        "top1": 38.07,
+        "top3": 43.76,
+        "logLoss": 3.1558
+      },
+      "historial": {
+        "n": 33237,
+        "top1": 35.23,
+        "top3": 51.68,
+        "logLoss": 2.7498
+      },
+      "reciente_y_mapa": {
+        "n": 33237,
+        "top1": 37.03,
+        "top3": 53.09,
+        "logLoss": 2.8128
+      }
+    },
+    "elo_2000": {
+      "poblacion": {
+        "n": 2553,
+        "top1": 3.25,
+        "top3": 9.28,
+        "logLoss": 3.9936
+      },
+      "ultima_civ": {
+        "n": 2553,
+        "top1": 6.54,
+        "top3": 11.83,
+        "logLoss": 4.6195
+      },
+      "historial": {
+        "n": 2553,
+        "top1": 9.83,
+        "top3": 16.29,
+        "logLoss": 4.078
+      },
+      "reciente_y_mapa": {
+        "n": 2553,
+        "top1": 9.56,
+        "top3": 15.59,
+        "logLoss": 4.5218
+      }
+    },
+    "elo_600": {
+      "poblacion": {
+        "n": 25498,
+        "top1": 7.4,
+        "top3": 17.04,
+        "logLoss": 3.7389
+      },
+      "ultima_civ": {
+        "n": 25498,
+        "top1": 50.57,
+        "top3": 55.28,
+        "logLoss": 2.5695
+      },
+      "historial": {
+        "n": 25498,
+        "top1": 44.43,
+        "top3": 61.33,
+        "logLoss": 2.4194
+      },
+      "reciente_y_mapa": {
+        "n": 25498,
+        "top1": 46.16,
+        "top3": 62.34,
+        "logLoss": 2.3581
+      }
+    },
+    "historial_0": {
+      "poblacion": {
+        "n": 8874,
+        "top1": 6.58,
+        "top3": 15.28,
+        "logLoss": 3.7878
+      },
+      "ultima_civ": {
+        "n": 8874,
+        "top1": 6.58,
+        "top3": 15.28,
+        "logLoss": 3.7878
+      },
+      "historial": {
+        "n": 8874,
+        "top1": 6.58,
+        "top3": 15.28,
+        "logLoss": 3.7878
+      },
+      "reciente_y_mapa": {
+        "n": 8874,
+        "top1": 6.58,
+        "top3": 15.28,
+        "logLoss": 3.7878
+      }
+    },
+    "elo_2200": {
+      "poblacion": {
+        "n": 1354,
+        "top1": 3.69,
+        "top3": 9.01,
+        "logLoss": 4.021
+      },
+      "ultima_civ": {
+        "n": 1354,
+        "top1": 3.55,
+        "top3": 9.23,
+        "logLoss": 4.7741
+      },
+      "historial": {
+        "n": 1354,
+        "top1": 6.28,
+        "top3": 12.41,
+        "logLoss": 4.2201
+      },
+      "reciente_y_mapa": {
+        "n": 1354,
+        "top1": 6.06,
+        "top3": 11.52,
+        "logLoss": 4.7348
+      }
+    },
+    "bloque_2": {
+      "poblacion": {
+        "n": 108556,
+        "top1": 6.73,
+        "top3": 15.4,
+        "logLoss": 3.7964
+      },
+      "ultima_civ": {
+        "n": 108556,
+        "top1": 42.48,
+        "top3": 47.67,
+        "logLoss": 2.9505
+      },
+      "historial": {
+        "n": 108556,
+        "top1": 37.73,
+        "top3": 54.62,
+        "logLoss": 2.6479
+      },
+      "reciente_y_mapa": {
+        "n": 108556,
+        "top1": 40.08,
+        "top3": 55.89,
+        "logLoss": 2.6686
+      }
+    }
+  }
+}

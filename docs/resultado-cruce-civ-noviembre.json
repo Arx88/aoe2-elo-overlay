@@ -1,0 +1,29 @@
+{
+  "total": {
+    "predictions": 114754,
+    "eligible": 109,
+    "coveragePct": 0.095,
+    "baselineLogLoss": 0.68,
+    "exactLogLoss": 0.6811,
+    "alerts": 17,
+    "observedAboveBaselinePct": 8.8
+  },
+  "arena": {
+    "predictions": 18996,
+    "eligible": 19,
+    "coveragePct": 0.1,
+    "baselineLogLoss": 0.7211,
+    "exactLogLoss": 0.7311,
+    "alerts": 8,
+    "observedAboveBaselinePct": 6.87
+  },
+  "arabia": {
+    "predictions": 46764,
+    "eligible": 79,
+    "coveragePct": 0.169,
+    "baselineLogLoss": 0.6516,
+    "exactLogLoss": 0.637,
+    "alerts": 9,
+    "observedAboveBaselinePct": 10.51
+  }
+}

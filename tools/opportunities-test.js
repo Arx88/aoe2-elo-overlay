@@ -67,8 +67,8 @@ async function main() {
   const team = buildOpportunityPlan({ ...options, mode: 4, rows: teamRows });
   assert.ok(candidate(team, 'archers').history.reliability < candidate(base, 'archers').history.reliability);
   assert.equal(team.data.teamResults, true);
-  assert.ok(renderAutomaticOpportunities([base]).includes('no probabilidad de victoria'));
-  assert.ok(renderAutomaticOpportunities([base]).includes('Ventanas condicionales automáticas'));
+  assert.match(renderAutomaticOpportunities([base]), /El ejército y la edad actuales no están medidos/);
+  assert.doesNotMatch(renderAutomaticOpportunities([base]), /prioridad \/ 100/);
   const goths = buildOpportunityPlan({ ...options, rivalCiv: 'Goths', age: 'castle', rows: [] });
   const archerGoths = candidate(goths, 'archers');
   assert.ok(archerGoths);

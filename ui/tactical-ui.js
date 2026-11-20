@@ -2,7 +2,7 @@
   'use strict';
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const number = (value) => Number.isFinite(Number(value)) && value != null ? Number(value).toLocaleString('es-AR') : '—';
-  const CIV_ALIASES = { indians: 'hindustanis', khitansmongols: 'khitans' };
+  const CIV_ALIASES = { inca: 'incas', maya: 'mayans', indians: 'hindustanis', khitansmongols: 'khitans' };
   let civSlugs = null;
   let civAliases = CIV_ALIASES;
   /** El main entrega la misma lista de escudos que usa el roster. */
@@ -27,7 +27,7 @@
   /** Nombre de civilización con su escudo, sin alterar el flujo del texto. */
   function civLabel(name, fallback = 'Civ sin dato') {
     const value = name || fallback;
-    const badge = civBadge(value);
+    const badge = civBadge(name);
     return badge
       ? `<span class="intel-civ">${badge}<span>${esc(value)}</span></span>`
       : esc(value);
@@ -40,42 +40,22 @@
     if (!Number.isSafeInteger(ownTeam) || ownTeam <= 0 || !Number.isSafeInteger(otherTeam) || otherTeam <= 0) return 'unknown';
     return ownTeam === otherTeam ? 'ally' : 'opponent';
   }
-  const paths = {
-    compass: '<circle cx="12" cy="12" r="8"/><path d="m15 9-2 4-4 2 2-4 4-2ZM12 2v2m0 16v2M2 12h2m16 0h2"/>',
-    map: '<path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2V6Zm6-2v14m6-12v14"/>',
-    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="m12 12 8-8m-4 0h4v4"/>',
-    history: '<path d="M4 10a8 8 0 1 1 0 5M3 4v6h6m3-3v5l3 2"/>',
-    sword: '<path d="m6 18 9-9 4-5 1 1-4 5-9 9m-3-4 5 5m-5 1 3-3"/>',
-    castle: '<path d="M4 21V6h3v3h3V4h4v5h3V6h3v15H4Zm5 0v-5a3 3 0 0 1 6 0v5"/>',
-    resources: '<path d="m12 3 8 5v8l-8 5-8-5V8l8-5Zm-8 5 8 5 8-5m-8 5v8M8 5.5l8 5"/>',
-    medal: '<path d="m8 3 4 6 4-6M5 3h5m4 0h5"/><circle cx="12" cy="15" r="6"/><path d="m12 11 1.2 2.5 2.8.4-2 2 .5 2.8-2.5-1.3-2.5 1.3.5-2.8-2-2 2.8-.4L12 11Z"/>',
-    shield: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Zm0 0v18M4 9h16"/>',
-    bow: '<path d="M5 3c13 1 15 3 16 16M5 3l16 16M4 20 19 5m-5 0h5v5M2 16l4 4"/>',
-    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>',
-    chart: '<path d="M3 3v18h18M7 17v-4m5 4V9m5 8V5"/>',
-    users: '<circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 4v3"/>',
-    trend: '<path d="m3 17 6-6 4 4 8-10m-6 0h6v6"/>',
-    villager: '<circle cx="10" cy="5" r="3"/><path d="M5 21v-6l2-5h6l3 5m-6-5v7m-3 4 3-4 3 4m4-13 4 4m-6 5 6-9"/>',
-    food: '<path d="M12 8c-8-5-10 8-4 12 2 1 3-1 4-1s2 2 4 1c6-4 4-17-4-12Zm0 0c0-3 1-5 4-5m-4 4C8 7 7 5 7 3c3 0 5 1 5 4Z"/>',
-    wood: '<path d="m12 2-7 9h4l-5 7h6v4h4v-4h6l-5-7h4l-7-9Z"/>',
-    sheep: '<path d="M6 8a3 3 0 0 1 5-2 3 3 0 0 1 5 1 3 3 0 0 1 2 5 4 4 0 0 1-5 5H7a4 4 0 0 1-1-9Zm0 8v5m8-4v4m3-13h3v6h-3m2-5h.1"/>',
-    boar: '<path d="M4 9c4-4 10-4 14 0l3 1v6h-4l-3 2H7l-3-3V9Zm3 8v4m7-3v3M4 10 2 7m15 2V5l3 3m-2 4h.1m0 4 1 3 2-2"/>',
-    berries: '<circle cx="8" cy="14" r="4"/><circle cx="16" cy="14" r="4"/><circle cx="12" cy="19" r="3"/><path d="M12 11V5m0 3C7 8 5 6 5 3c5 0 7 2 7 5Zm0-1c3-4 5-4 8-4-1 4-4 5-8 5"/>',
-    gold: '<path d="m3 17 4-8h10l4 8-3 4H6l-3-4Zm4-8 4 5h10M3 17h8l2-3m-2 3v4m0-7v3M13 3v2m5-2-1 2"/>',
-    stone: '<path d="m3 17 3-9 9-5 6 7-2 11H7l-4-4Zm3-9 7 5 8-3m-8 3-6 8m6-8 6 8"/>',
-    building: '<path d="m3 10 9-7 9 7M5 9v12h14V9m-10 12v-7h6v7"/>',
-    age: '<path d="M4 21h16M6 21v-5h4v-5h4V6h4v15M3 11l8-8m-5 0h5v5"/>',
-    barracks: '<path d="M4 21V9l8-6 8 6v12M4 10h16m-12 4 8 6m0-6-8 6"/>',
-    stable: '<path d="M4 21V9l8-6 8 6v12M7 21v-7l4-4 5 3-1 3-4-1v6"/>',
-    scout: '<path d="m5 21 2-8 6-9h5l-1 5 3 3-2 4-6-2-1 7m2-17-3-2m5 6h.1"/>',
-    archer: '<path d="M5 3c13 1 15 3 16 16M5 3l16 16M4 20 19 5m-5 0h5v5M2 16l4 4"/>',
-    blacksmith: '<path d="M3 9h18l-5 5h-4v4h5v3H6v-3h3v-4L3 9Zm7-6 3 3m-1-4 3 3"/>',
-    market: '<path d="M3 9h18l-2-6H5L3 9Zm1 0v12h16V9m-13 4h10m-8 8v-5h6v5"/>',
-    gunpowder: '<path d="m4 13 16-5 1 4-16 5-1-4Zm5 3 5 5m3-7 2 7M2 9l2 1M4 5l2 2m4-4v3"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
+  const ICONS = {
+    compass: 'eye', target: 'eye', map: 'map', history: 'history',
+    sword: 'sword', combat: 'combat', matchup: 'matchup',
+    castle: 'castle', resources: 'gold', medal: 'medal', shield: 'shield',
+    bow: 'archer', clock: 'clock', chart: 'trend', users: 'players', trend: 'trend',
+    villager: 'villager', food: 'food', wood: 'wood', sheep: 'sheep', boar: 'boar',
+    berries: 'berries', gold: 'gold', stone: 'stone', building: 'building',
+    age: 'age', barracks: 'barracks', stable: 'stable', scout: 'scout',
+    archer: 'archer', blacksmith: 'blacksmith', market: 'market',
+    gunpowder: 'gunpowder', relic: 'relic',
   };
-  function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.compass}</svg>`; }
-  function note(title, message, state = 'empty') { return `<div class="intel-note ${esc(state)}"><span>${icon(state === 'loading' ? 'compass' : 'target')}</span><div><b>${esc(title)}</b><p>${esc(message)}</p></div></div>`; }
+  function icon(name) {
+    const asset = ICONS[name];
+    return asset ? `<img class="product-icon" src="assets/icons/${asset}.png" alt="" draggable="false">` : '';
+  }
+  function note(title, message, state = 'empty') { return `<div class="intel-note ${esc(state)}"><span>${icon(state === 'loading' ? 'history' : 'target')}</span><div><b>${esc(title)}</b><p>${esc(message)}</p></div></div>`; }
   function section(title, content, ico = 'map', extra = '') { return `<section class="intel-block ${extra}"><h4>${icon(ico)}${esc(title)}</h4>${content}</section>`; }
   function dataState(report, label) {
     if (!report || report.loading) return note(label, 'Consultando datos…', 'loading');
@@ -83,34 +63,47 @@
     if (report.modeUnavailable) return note(label, 'Esta fuente no ofrece datos de este modo.');
     return '';
   }
-  function mapBlock(report, mapName) {
+  function mapBlock(report, mapName, detail) {
     const pending = dataState(report, 'Perfil del mapa'); if (pending) return pending;
     const m = report.mapStats;
     if (!m || !m.games) return note(mapName || 'Mapa actual', report.error ? 'No se pudo consultar el historial. Se reintentará.' : 'Sin partidas públicas de este mapa en la muestra.');
     const known = m.resultGames == null ? m.games : m.resultGames;
     const wins = m.wins;
     const value = known < 5 ? `${number(wins)}/${number(known)}` : m.winRate == null ? '—' : `${number(m.winRate)}%`;
-    const civ = m.civ;
-    return section(`En ${m.name || mapName || 'este mapa'}`, `<div class="intel-map"><div><b class="intel-value">${value}</b><span>victorias del rival</span></div><p>${number(wins)} victorias · ${number(known)} resultados<br><small>${known < 20 ? 'Muestra limitada' : 'Historial del mapa'}${report.partial ? ' · consulta parcial' : ''}</small></p></div>` +
-      (civ ? `<div class="intel-pick"><span>Elección más frecuente</span><b>${civLabel(civ.name)}</b><small>${number(civ.games)} de ${number(m.sampleGames == null ? m.games : m.sampleGames)} partidas leídas en este mapa</small></div>` : '<p class="intel-muted">Sin elección de civilización suficiente en este mapa.</p>'), 'map');
+    const resultLabel = report.mode?.size === 'team' ? 'de su equipo' : 'del rival';
+    const choices = m.civSampleGames;
+    const civCoverage = Number.isFinite(choices) && choices > 0
+      ? `<p class="intel-muted">Civilización identificada en <b>${number(choices)}</b> de ${number(m.sampleGames)} partidas revisadas.</p>`
+      : '<p class="intel-muted">Sin elecciones de civ verificadas en la muestra.</p>';
+    return section(`En ${m.name || mapName || 'este mapa'}`,
+      `<p class="intel-statline"><b>${value}</b> · ${number(wins)} victorias ${resultLabel} en ${number(known)} resultados conocidos${report.partial ? ' · parcial' : ''}</p>` +
+      (detail ? civCoverage : ''), 'map');
   }
   function historyBlock(report) {
-    const pending = dataState(report, 'Últimas 5 elecciones'); if (pending) return pending;
+    const title = 'Últimas 5 partidas';
+    const pending = dataState(report, title); if (pending) return pending;
     const rows = Array.isArray(report.history) ? report.history.slice(0, 5) : [];
-    if (!rows.length) return note('Últimas 5 elecciones', report.error ? 'El historial no está disponible ahora.' : 'Sin partidas recientes de este modo.');
-    return section('Últimas 5 elecciones', '<div class="intel-history">' + rows.map((r) => `<div><b class="result-letter ${r.won === true ? 'win' : r.won === false ? 'loss' : ''}">${r.won === true ? 'V' : r.won === false ? 'D' : '—'}</b><strong>${civLabel(r.civ)}</strong><span>${esc(r.mapName || 'Mapa sin dato')}</span></div>`).join('') + '</div>', 'history');
+    if (!rows.length) return note(title, report.error ? 'El historial no está disponible ahora.' : 'Sin partidas recientes de este modo.');
+    const entries = rows.map((row, index) => {
+      const outcome = row.won === true ? 'Victoria' : row.won === false ? 'Derrota' : 'Resultado pendiente';
+      return `<li class="intel-history-row${index === 0 ? ' recent' : ''}"><strong>${civLabel(row.civ)}</strong><small>${esc(row.mapName || 'Mapa sin dato')}</small><b class="result-letter ${row.won === true ? 'win' : row.won === false ? 'loss' : ''}" title="${outcome}" aria-label="${outcome}">${row.won === true ? 'V' : row.won === false ? 'D' : '—'}</b></li>`;
+    }).join('');
+    return `<section class="intel-block history-block"><div class="intel-history-head"><h4>${icon('history')}${title}</h4><p class="intel-history-label">Más reciente arriba · mismo modo</p></div><ol class="intel-history-list">${entries}</ol></section>`;
   }
-  function openingBlock(report) {
-    const pending = dataState(report, 'Apertura con su civ del mapa'); if (pending) return pending;
+  function openingBlock(report, currentCiv) {
+    const title = 'Aperturas de su civilización';
+    const pending = dataState(report, title); if (pending) return pending;
     const o = report.openings;
-    if (report.openingError || (o && o.error)) return note('Aperturas del mapa', 'No se pudieron consultar los replays.');
-    if (!o || report.pendingOpenings || o.loading) return note('Aperturas del mapa', 'Buscando replays analizados…', 'loading');
-    if (o.modeUnavailable) return note('Aperturas del mapa', 'No hay análisis de replays para este modo.');
+    if (!civSlug(currentCiv)) return note(title, 'Esperando la civilización del rival.');
+    if (report.openingError || o?.error) return note(title, 'No se pudieron consultar los replays.');
+    if (!o || report.pendingOpenings || o.loading || civSlug(o.openingCiv) !== civSlug(currentCiv)) {
+      return note(title, 'Buscando replays de esta civilización en el mapa…', 'loading');
+    }
+    if (o.modeUnavailable) return note(title, 'No hay análisis de replays para este modo.');
     const pick = o.mapCivFavorite;
     const n = Number(o.mapCivAnalyzed) || 0;
-    if (!pick || !n) return note('Aperturas del mapa', 'Sin replays de su civilización más usada en este mapa.');
-    const civ = report.mapStats && report.mapStats.civ;
-    return section('Apertura con su civ del mapa', `<div class="intel-opening"><b>${esc(pick.short || pick.name)}</b><span>${number(pick.count)} de ${number(n)} replays</span></div><p class="intel-muted">${civLabel(civ && civ.name, 'Civilización del mapa')}${n < 5 ? ' · pocos replays; confirmar explorando' : ' · frecuencia histórica'}</p>`, 'sword');
+    if (!pick || !n) return note(title, 'Sin aperturas detectadas con esta civilización en el mapa.');
+    return section(title, `<div class="intel-opening"><b>${esc(pick.short || pick.name)}</b><span>${number(pick.count)} de ${number(n)} replays</span></div><p class="intel-muted">${civLabel(currentCiv)}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword');
   }
   function h2hBlock(report) {
     const pending = dataState(report, 'Tu cara a cara'); if (pending) return pending;
@@ -118,42 +111,86 @@
     if (report.h2hPending || !h) return note('Tu cara a cara', 'Consultando tus enfrentamientos…', 'loading');
     if (h.error) return note('Tu cara a cara', 'No se pudo consultar tu historial.');
     if (h.modeUnavailable || h.modePending) return note('Tu cara a cara', h.modePending ? 'Esperando el modo confirmado.' : 'Sin historial compatible con este modo.');
-    return section('Tu cara a cara', `<div class="intel-h2h"><b>${number(h.wins)} <small>V</small> <i>—</i> ${number(h.losses)} <small>D</small></b><p>${h.games ? `${number(h.games)} enfrentamientos confirmados` : `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`}${h.asAllies ? ` · ${number(h.asAllies)} como aliados` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'target');
+    return section('Tu cara a cara', `<div class="intel-h2h"><b>${number(h.wins)} <small>V</small> <i>—</i> ${number(h.losses)} <small>D</small></b><p>${h.games ? `${number(h.games)} enfrentamientos confirmados` : `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`}${h.asAllies ? ` · ${number(h.asAllies)} como aliados` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'combat');
   }
-  function evidence(e) { return `${e.label || ''}${e.value != null ? ` ${e.value}` : ''}${e.total != null ? ` · ${number(e.part)}/${number(e.total)}` : ''}`.trim(); }
-  function tacticalBlock(tip, detail) {
-    if (!tip || tip.loading) return note('Plan de partida', 'Preparando un análisis con replays del rival…', 'loading');
-    if (tip.modePending || tip.modeUnavailable) return note('Plan de partida', tip.modePending ? 'Esperando el modo confirmado.' : 'Este modo todavía no tiene replays compatibles.');
-    if (tip.error && !tip.sample) return note('Plan de partida', 'La fuente de replays no respondió. El resto del informe sigue disponible.');
-    const plan = tip.tacticalPlan;
-    if (!plan || !plan.context) return note('Plan de partida', 'Sin replays suficientes para recomendar una respuesta.');
-    const c = plan.context;
-    const scope = `<div class="intel-scope ${c.scope !== 'map' ? 'fallback' : ''}"><b>${esc(c.scopeLabel)}</b><span>${number(c.sample)} replays · ${esc(c.modeLabel || '')}</span>${c.fallbackReason ? `<p>${esc(c.fallbackReason)}</p>` : ''}${tip.stale ? '<p>Datos guardados · actualizando la fuente</p>' : tip.provisional ? '<p>Muestra inicial · ampliando el análisis</p>' : ''}</div>`;
-    const opening = tip.likelyOpenings && tip.likelyOpenings[0];
-    const read = opening ? `<div class="intel-reading"><img src="assets/brand/opening-v1.png" width="44" height="44" alt=""/><div><span>Lo que más repite en este alcance</span><b>${esc(opening.short || opening.name)}</b><small>${number(opening.games)} de ${number(opening.sample)} aperturas detectadas · frecuencia histórica</small></div></div>` : '<p class="intel-muted">Sin una apertura dominante con muestra suficiente.</p>';
-    const actions = (plan.actions || []).slice(0, detail ? 3 : 2);
-    const body = actions.length ? '<ol class="intel-actions">' + actions.map((a, i) => `<li><span class="action-index">0${i + 1}</span><div><b>${esc(a.title)}</b><p>${esc(a.reason)}</p>${a.evidence && a.evidence.length ? `<div class="intel-evidence">${a.evidence.map((e) => `<span>${esc(evidence(e))}</span>`).join('')}</div>` : ''}</div></li>`).join('') + '</ol>' : '<p class="intel-muted">Todavía no hay evidencia suficiente para una acción específica.</p>';
-    const caveat = plan.caveat ? `<p class="intel-caveat">${esc(plan.caveat)}</p>` : '';
-    return section('Lectura y respuesta', scope + read + body + caveat, 'compass', 'tactical-block');
+  const OPENING_CHECKS = {
+    'Scout rush': 'Al explorar, ¿se confirma un establo temprano?',
+    'Archer rush': 'Al explorar, ¿se confirma una galería temprana?',
+    'Man at arms rush': 'Al explorar, ¿aparecen milicias tempranas?',
+    Drush: 'Al explorar, ¿aparecen milicias antes de Feudal?',
+  };
+  function tacticalBlock(tip, detail, matchup, civ, map) {
+    const title = 'Aperturas del historial';
+    if (!tip || tip.loading) return note(title, 'Buscando aperturas del rival…', 'loading');
+    if (tip.modePending || tip.modeUnavailable) return note(title, tip.modePending ? 'Esperando el modo confirmado.' : 'Este modo todavía no tiene replays compatibles.');
+    if (tip.error && !tip.sample) return note(title, 'La fuente de replays no respondió.');
+    const c = tip.tacticalPlan?.context || tip.context;
+    const current = matchup?.openings?.length > 0;
+    const openings = current ? matchup.openings : tip.likelyOpenings || [];
+    const opening = openings[0];
+    if (!c || !opening?.sample || !opening.games) {
+      return note(title, 'Sin aperturas clasificadas en el historial consultado.');
+    }
+    const read = `<div class="intel-opening-signal"><b>${esc(opening.short || opening.name)}</b><span>${number(opening.games)} de ${number(opening.sample)} replays clasificados</span></div>`;
+    const scope = [current ? `${civ} en ${map}` : c.scopeLabel, c.modeLabel,
+      current ? (opening.sample < 6 ? 'muestra chica' : null) : 'todas sus civs',
+      tip.stale ? 'datos guardados' : tip.provisional ? 'muestra inicial' : null].filter(Boolean).join(' · ');
+    const question = (current || (!civ && c.scope === 'map')) && opening.games >= 4 && opening.sample >= 6
+      ? OPENING_CHECKS[opening.name] : null;
+    const caveat = current ? '' : [civ ? `Sin aperturas de ${civ} en este mapa en la muestra.` : null,
+      c.fallbackReason].filter(Boolean).join(' ');
+    const alternatives = detail && openings.length > 1
+      ? `<p class="intel-muted">También registró ${openings.slice(1, 3).map((row) =>
+        `${esc(row.short || row.name)} (${number(row.games)}/${number(row.sample)})`).join(' · ')}</p>` : '';
+    return section(title, read + `<p class="intel-signal-scope">${esc(scope)}</p>` +
+      (caveat ? `<p class="intel-muted">${esc(caveat)}</p>` : '') +
+      (question ? `<p class="intel-check">${icon('target')}${esc(question)}</p>` : '') + alternatives, 'scout', 'tactical-block');
   }
-  function recommendationBlock(tip, detail) {
-    if (!tip || tip.loading) return note('Tu elección de civilización', 'Cruzando tu historial del mapa con el rival…', 'loading');
-    if (tip.recommendError) return note('Tu elección de civilización', 'No se pudo consultar tu historial.');
-    if (tip.modePending || tip.modeUnavailable) return note('Tu elección de civilización', tip.modePending ? 'Esperando el modo confirmado.' : 'Sin historial compatible con este modo.');
-    const rows = Array.isArray(tip.recommend) ? tip.recommend.slice(0, detail ? 2 : 1) : [];
-    if (!rows.length) return note('Tu elección de civilización', 'Falta una muestra suficiente para sugerir una civilización en este mapa.');
-    return section('Una elección para considerar', rows.map((r) => `<div class="intel-recommend"><b>${civLabel(r.civ || r.name)}</b><span>${esc(r.basisLabel || 'Historial comparable')}</span><p>${(r.evidence || []).map(evidence).map(esc).join(' · ') || esc(r.reason || '')}</p>${r.crossScope ? `<small>${esc(r.caveat || 'El historial propio y el del rival tienen alcances distintos.')}</small>` : ''}</div>`).join('') + '<p class="intel-muted">Orientación histórica; no estima la probabilidad de ganar.</p>', 'castle');
+  function historicalCivBlock(tip, map, report) {
+    const title = 'Civilizaciones en el historial';
+    const stats = report?.mapStats;
+    const observed = (stats?.civs || []).filter((row) => civSlug(row.name));
+    const count = stats?.civSampleGames ?? stats?.sampleGames;
+    if (count > 0 && observed.length) {
+      return section(title, `<p class="intel-muted">${esc(map)} · ${esc(report.mode?.label || 'mismo modo')} · historial consultado</p><ul class="intel-civ-choices">${observed.map((row) =>
+        `<li>${civLabel(row.name)}<b>${number(row.games)} de ${number(count)}</b></li>`).join('')}</ul>`, 'matchup');
+    }
+    if (!tip || tip.loading) return note(title, 'Consultando elecciones anteriores…', 'loading');
+    if (tip.modePending || tip.modeUnavailable || tip.error) return note(title, 'Historial del modo no disponible.');
+    const context = tip.context;
+    const choices = Array.isArray(tip.likelyCivs) ? tip.likelyCivs.slice(0, 3) : [];
+    if (!context || context.mapName !== map || !choices.length) return note(title, 'Sin muestra de elecciones en este mapa.');
+    const scope = [context.scopeLabel, context.modeLabel, 'replays consultados',
+      tip.stale ? 'datos guardados' : tip.provisional ? 'muestra inicial' : null].filter(Boolean).join(' · ');
+    return section(title, `<p class="intel-muted">${esc(scope)}</p><ul class="intel-civ-choices">${choices.map((row) =>
+      `<li>${civLabel(row.name)}<b>${number(row.games)} de ${number(row.sample)}</b></li>`).join('')}</ul>`, 'matchup');
+  }
+  function matchupBlock(tip, matchup, ownCiv, rivalCiv, map, report) {
+    const title = 'Antecedentes de este cruce';
+    if (!civSlug(rivalCiv)) return historicalCivBlock(tip, map, report);
+    if (!civSlug(ownCiv)) return note(title, 'Esperando tu civilización.');
+    if (!tip || tip.loading) return note(title, 'Buscando el cruce para este mapa…', 'loading');
+    if (tip.modePending || tip.modeUnavailable) return note(title, 'Sin historial compatible con el modo.');
+    if (tip.error) return note(title, 'La fuente de replays no respondió.');
+    if (!matchup) return note(title, 'Esperando datos del cruce actual.', 'loading');
+    if (matchup.teamGame) return note(title, 'El resultado de equipo no mide este mano a mano.');
+    if (!matchup.games) return note(title, 'Sin resultados para este cruce en el mapa.');
+    const against = (matchup.against || []).map((row) => `<p class="intel-muted">Ante ${esc(row.name)} · ${number(row.losses)}/${number(row.games)} derrotas</p>`).join('');
+    return section(title, `<p class="intel-matchup">${civLabel(ownCiv)} <span>vs</span> ${civLabel(rivalCiv)}</p>
+      <p class="intel-statline"><b>${number(matchup.losses)}/${number(matchup.games)}</b> derrotas del rival en el mapa</p>
+      ${matchup.games < 6 ? '<p class="intel-muted">Muestra chica.</p>' : ''}
+      ${against}`, 'matchup');
   }
   function renderAutomaticOpportunities(plans = [], { detail = false } = {}) {
     const ready = plans.filter((plan) => plan?.status === 'ready');
     if (!ready.length) return note('Rutas de partida', plans.find((plan) => plan?.reason)?.reason || 'Esperando ambas civilizaciones y contexto confirmado.');
     const context = ready[0];
-    return `<section class="opportunities automatic"><h4>${icon('target')}Tu ruta frente a ${civLabel(context.rivalCiv)}</h4><p class="opportunity-context">${civLabel(context.ownCiv)} · ${esc(context.mapName)} · ${context.contextSample} resultados del contexto</p>${ready.map((plan) => {
+    return `<section class="opportunities automatic"><h4>${icon('target')}Rutas de referencia frente a ${civLabel(context.rivalCiv)}</h4><p class="opportunity-context">${civLabel(context.ownCiv)} · ${esc(context.mapName)}${detail ? ` · ${number(context.contextSample)} resultados de la muestra` : ''}</p>${(detail ? ready : ready.slice(0, 1)).map((plan) => {
       const best = plan.candidates[0];
       if (!best) return '';
       const age = { feudal: 'Feudal', castle: 'Castillos', imperial: 'Imperial' }[plan.age];
-      return `<article class="opportunity-card"><header>${icon(best.icon)}<div><small>Al llegar a ${esc(age)}</small><b>${esc(best.label)}</b></div><strong>${best.score}<small>prioridad / 100</small></strong></header><p>${esc(best.condition)}</p>${detail ? `<p>${best.history.games >= 3 ? `${plan.data.teamResults ? 'Su equipo perdió' : 'Perdió'} ${best.history.losses}/${best.history.games} ante esta apertura en el contexto consultado.` : 'Muestra específica insuficiente: orientación del árbol tecnológico.'}${best.support ? ` Complemento posible: ${esc(best.support.label)}.` : ''}</p>` : ''}</article>`;
-    }).join('')}<p class="opportunity-note">Ventanas condicionales automáticas. La edad y el ejército actuales no están medidos. Índice de prioridad experimental, no probabilidad de victoria.</p></section>`;
+      return `<article class="opportunity-card"><header>${icon(best.icon)}<div><small>Opción de ${esc(age)}</small><b>${esc(best.label)}</b></div></header><p>${esc(best.condition)}</p>${detail ? `<p>${best.history.games >= 3 ? `${plan.data.teamResults ? 'Su equipo perdió' : 'Perdió'} ${best.history.losses}/${best.history.games} ante esta apertura en el contexto consultado.` : 'Orientación del árbol tecnológico con muestra insuficiente.'}</p>` : ''}</article>`;
+    }).join('')}<p class="opportunity-note">Referencia de civilizaciones. El ejército y la edad actuales no están medidos.</p></section>`;
   }
   const RESOURCE_LABELS = { villager: 'Aldeanos', food: 'Comida', sheep: 'Ovejas', boar: 'Jabalí',
     wood: 'Madera', berries: 'Bayas', gold: 'Oro', stone: 'Piedra', building: 'Edificios',
@@ -176,18 +213,24 @@
     const { name, player, report, tip } = entry;
     const map = state && state.match && state.match.mapName;
     const r = report || null;
-    const civ = player && player.civ || r && r.civ;
+    const civ = player ? player.civ : r?.civ;
+    const ownCiv = state?.players?.find((p) => p.isYou)?.civ;
+    const knownCiv = civSlug(civ) ? civ : null;
+    const mode = state?.ladder?.id ?? state?.match?.leaderboardId ?? tip?.mode?.id;
+    const mapKey = (name) => String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const raw = tip?.matchup;
+    const matchup = raw && raw.rival === civSlug(knownCiv) && raw.own === civSlug(ownCiv) &&
+      raw.map === mapKey(map) && (mode == null || String(raw.modeId) === String(mode)) ? raw : null;
     const content = [];
-    if (options.rivalFavorites) content.push(mapBlock(r, map));
-    if (options.rivalOpenings) content.push(openingBlock(r));
-    if (options.smartTips) {
-      if (tip && tip.opportunityStages) content.push(renderAutomaticOpportunities(tip.opportunityStages));
-      else content.push(tacticalBlock(tip, detail));
-    }
-    if (options.civRecommender) content.push(recommendationBlock(tip, detail));
-    if (options.rivalH2H) content.push(h2hBlock(r));
+    if (options.smartTips) content.push(tacticalBlock(tip, detail, matchup, knownCiv, map));
+    if (options.rivalOpenings && !(options.smartTips && matchup?.openingsSample)) content.push(openingBlock(r, knownCiv));
     if (options.rivalCivs) content.push(historyBlock(r));
-    return `<article class="intel-rival"><header class="intel-identity"><span class="intel-crest">${icon('compass')}</span><div><span class="intel-eyebrow">INFORME DEL RIVAL</span><h3>${esc(name)}</h3>${options.rosterDetails === false ? '' : `<p>${civLabel(civ, 'Civilización sin confirmar')}</p>`}</div><span class="intel-rating">${number(player && player.rating)}<small>ELO 1v1</small></span></header>${content.join('')}<footer class="intel-source">${options.rosterDetails === false ? 'Historial entre ambos' : `Historial: Companion · Replays: AoE2Insights${r && r.partial ? ' · muestra parcial' : ''}`}</footer></article>`;
+    if (options.civRecommender) content.push(matchupBlock(tip, matchup, ownCiv, knownCiv, map, r));
+    if (options.rivalFavorites) content.push(mapBlock(r, map, detail));
+    if (options.rivalH2H) content.push(h2hBlock(r));
+    const compactIdentity = options.rosterDetails !== false && state?.players?.length === 2 &&
+      Number.isFinite(Number(player?.profileId)) && state.players.some((row) => row.profileId === player.profileId);
+    return `<article class="intel-rival">${compactIdentity ? '' : `<header class="intel-identity"><div><h3>${esc(name)}</h3></div>${options.rosterDetails === false ? '' : `<p>${civLabel(civ, 'Civilización sin confirmar')}</p>`}</header>`}<div class="intel-rival-content">${content.join('')}</div><footer class="intel-source">${options.rosterDetails === false ? 'Historial entre ambos' : `Historial: Companion · Replays: AoE2Insights${r && r.partial ? ' · muestra parcial' : ''}`}</footer></article>`;
   }
   function clock(seconds) { return Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '—'; }
   function combatBlock(combat) {
@@ -200,23 +243,71 @@
     const trade = totals.valueDestroyed != null && totals.valueLost != null
       ? `<div class="review-trade">${icon('resources')}<p><b>${number(totals.valueDestroyed)} destruidos <span>/ ${number(totals.valueLost)} perdidos</span></b><small>Valor nominal de reemplazo en combate enemigo · comida + madera + oro + piedra</small></p></div>` : '';
     return (highlights ? `<section class="review-highlights" aria-label="Momentos destacados">${highlights}</section>` : '') +
-      `<section class="review-combat"><h3>${icon('sword')}Combate por edad</h3><p>Durante tus edades · eliminaciones enemigas atribuidas y pérdidas propias</p><table><caption class="sr-only">Bajas de aldeanos y militares según la edad del jugador</caption><thead><tr><th rowspan="2" scope="col">Edad</th><th colspan="2" scope="colgroup">Aldeanos</th><th colspan="2" scope="colgroup">Militares</th></tr><tr><th scope="col">Eliminados</th><th scope="col">Perdidos</th><th scope="col">Eliminados</th><th scope="col">Perdidos</th></tr></thead><tbody>${stages}</tbody></table>${trade}<p class="review-combat-note">Las pérdidas incluyen borrado propio y causas sin autor. Pesqueros, comercio y otras categorías se conservan aparte.${combat.status === 'partial' ? ' ≥ indica un mínimo observado; — indica cobertura incompleta.' : ''}${totals.unattributedDeaths ? ` ${number(totals.unattributedDeaths)} pérdidas sin autor identificado.` : ''}${totals.unclassifiedDeaths ? ` ${number(totals.unclassifiedDeaths)} bajas sin categoría; no se calcula valor ni logros afectados.` : ''}</p></section>`;
+      `<section class="review-combat"><h3>${icon('combat')}Combate por edad</h3><p>Durante tus edades · eliminaciones enemigas atribuidas y pérdidas propias</p><table><caption class="sr-only">Bajas de aldeanos y militares según la edad del jugador</caption><thead><tr><th rowspan="2" scope="col">Edad</th><th colspan="2" scope="colgroup">Aldeanos</th><th colspan="2" scope="colgroup">Militares</th></tr><tr><th scope="col">Eliminados</th><th scope="col">Perdidos</th><th scope="col">Eliminados</th><th scope="col">Perdidos</th></tr></thead><tbody>${stages}</tbody></table>${trade}<p class="review-combat-note">Las pérdidas incluyen borrado propio y causas sin autor. Pesqueros, comercio y otras categorías se conservan aparte.${combat.status === 'partial' ? ' ≥ indica un mínimo observado; — indica cobertura incompleta.' : ''}${totals.unattributedDeaths ? ` ${number(totals.unattributedDeaths)} pérdidas sin autor identificado.` : ''}${totals.unclassifiedDeaths ? ` ${number(totals.unclassifiedDeaths)} bajas sin categoría; no se calcula valor ni logros afectados.` : ''}</p></section>`;
   }
   function executionBlock(ratings, comparison) {
     if (!ratings) return '';
     const economic = ratings.economic || {};
-    const cards = [economic, ratings.micro, ratings.decisions].filter(Boolean).map((rating) =>
-      `<article class="review-skill ${rating.grade ? 'graded' : ''}"><span>${icon(rating.id === 'economic' ? 'resources' : rating.id === 'micro' ? 'sword' : 'compass')}</span><div><small>${esc(rating.label)}</small><b>${esc(rating.grade || '—')}</b><p>${rating.grade ? esc(rating.scopeLabel) : 'Sin evaluación disponible'}</p></div></article>`).join('');
+    const cards = [economic, ratings.micro, ratings.decisions].filter((rating) => rating?.grade).map((rating) =>
+      `<article class="review-skill ${rating.grade ? 'graded' : ''}"><span>${icon(rating.id === 'economic' ? 'villager' : rating.id === 'micro' ? 'sword' : 'compass')}</span><div><small>${esc(rating.label)}</small><b>${esc(rating.grade || '—')}</b><p>${rating.grade ? esc(rating.scopeLabel) : 'Sin evaluación disponible'}</p></div></article>`).join('');
     const highlights = comparison && (ratings.personalHighlights || []).length
       ? `<div class="review-personal-highlights">${ratings.personalHighlights.map((item) => `<p>${icon('trend')}<span><b>${esc(item.title)}</b>${esc(item.detail)}</span></p>`).join('')}</div>` : '';
-    return `<section class="review-execution"><h3>${icon('medal')}Tu ejecución</h3><div class="review-skills">${cards}</div><p class="review-execution-note">${esc(economic.detail)}${economic.grade ? ` Mínimo de ${number(economic.minimumStageSampleSize)} referencias por etapa. Escala personal S–D; no es un ranking de usuarios.` : ' Micro y decisiones requieren evidencia propia; el APM no las sustituye.'}</p>${highlights}</section>`;
+    if (!cards && !highlights) return '';
+    return `<section class="review-execution"><h3>${icon('medal')}Tu ejecución</h3><div class="review-skills">${cards}</div><p class="review-execution-note">${esc(economic.detail)}${economic.grade ? ` Escala personal S–D · ${number(economic.minimumStageSampleSize)} referencias mínimas por etapa.` : ''}</p>${highlights}</section>`;
+  }
+  function matchHistoryContext(benchmark) {
+    if (!benchmark.games || !['limited', 'ready', 'partial'].includes(benchmark.status)) return '';
+    const partial = benchmark.status === 'partial' ? ' · parcial' : '';
+    return `<p class="review-map-record">Historial consultado en este mapa · ${number(benchmark.wins)} V · ${number(benchmark.losses)} D · mismo modo${partial}</p>`;
+  }
+  function measuredAges(metrics) {
+    const labels = { feudalSeconds: 'Feudal', castleSeconds: 'Castillos', imperialSeconds: 'Imperial' };
+    const entries = Object.entries(labels).filter(([key]) =>
+      metrics[key]?.definition === 'age-reached-game-seconds-v1' && Number.isFinite(metrics[key].value));
+    if (!entries.length) return '';
+    return `<section class="review-arrivals"><h3>${icon('clock')}Llegadas a cada edad</h3><dl>${entries.map(([key, label]) =>
+      `<div><dt>${label}</dt><dd>${clock(metrics[key].value)}</dd></div>`).join('')}</dl></section>`;
+  }
+  function compactCombat(combat) {
+    if (!combat || !['ready', 'partial'].includes(combat.status)) return '';
+    const stages = (combat.stages || []).filter((stage) => stage.status === 'complete' &&
+      ['feudal', 'castle'].includes(stage.age) && !stage.unclassifiedDeaths);
+    if (!stages.length) return '';
+    const rows = stages.map((stage) => `<div class="review-impact-row"><div><b>${esc(stage.label)}</b><small>${clock(stage.startSeconds)}–${clock(stage.endSeconds)}</small></div>
+      <div><b>${number(stage.villagersKilled)} <span>/</span> ${number(stage.villagersLost)}</b><small>Aldeanos</small></div>
+      <div><b>${number(stage.militaryKilled)} <span>/</span> ${number(stage.militaryLost)}</b><small>Militares</small></div></div>`).join('');
+    return `<section class="review-impact"><h3>${icon('combat')}Intercambio por edad</h3><p>Eliminaciones enemigas / pérdidas propias · tramos con cobertura validada</p>${rows}</section>`;
+  }
+  function compactExecution(ratings) {
+    const stages = (ratings?.economic?.stages || []).filter((stage) => stage.grade);
+    if (!stages.length) return '';
+    const grades = stages.map((stage) => `<div><strong>${esc(stage.grade)}</strong><span>${esc(stage.label)}</span><small>${number(stage.sampleSize)} comparables</small></div>`).join('');
+    const highlight = ratings.personalHighlights?.[0];
+    return `<section class="review-impact"><h3>${icon('medal')}Tu ejecución económica</h3><p>Frente a tus propias partidas comparables.</p>
+      <div class="review-personal-grades">${grades}</div>
+      ${highlight ? `<p><b>${esc(highlight.title)}</b> · ${esc(highlight.detail)}</p>` : ''}</section>`;
+  }
+  function replayEpisode(window, map) {
+    if (!window?.self || !window?.rival || !Number.isFinite(window.cutoffMs)) return '';
+    const column = (label, side) => {
+      const orders = (side.military || []).map((line) => `${number(line.count)}&nbsp;${esc(line.label)}`);
+      return `<div><span>${esc(label)} · ${civLabel(side.civ)}</span><b>${orders.join(' · ') || 'Sin encargos militares registrados'}</b><small>${number(side.villagers)} aldeanos encargados</small></div>`;
+    };
+    const arena = String(map).trim().toLowerCase() === 'arena';
+    const title = arena ? 'Preparación antes de Castillos' : 'Revisá el cierre de Feudal';
+    return `<section class="review-episode"><h3>${icon('combat')}${title}</h3>
+      <p>Pedidos registrados hasta ${clock(window.cutoffMs / 1000)}</p>
+      <div class="review-episode-sides">${column('Vos', window.self)}${column('Rival', window.rival)}</div>
+      <p>${arena ? 'En el replay, revisá qué inversión se concretó después y qué economía pudo sostenerla.' : 'En el replay, revisá qué ejército llegó a presionar y qué pudo seguir produciendo cada jugador.'}</p>
+    </section>`;
   }
   function renderPostMatch(report, access = {}) {
     if (!report) return '';
     const c = report.context || {}, result = report.result || {}, b = report.mapBenchmark || {};
     const analysis = report.analysis || {};
     const scanning = analysis.status === 'downloading' || analysis.status === 'analyzing';
-    const stage = (report.stages || []).map((s) => {
+    const stage = (report.stages || []).filter((s) => !access.compact && s.valueType !== 'research-command' &&
+      (s.grade || s.id === 'opening' || s.valueSeconds == null)).map((s) => {
       const rating = report.executionRatings?.economic?.stages?.find((item) => item.id === s.id);
       const grade = rating?.grade;
       const value = grade || (s.valueSeconds != null ? clock(s.valueSeconds) : s.valueLabel || '—');
@@ -232,33 +323,46 @@
     const metrics = report.metrics || {};
     const metric = (key, label, time = false) => {
       const m = metrics[key] || {};
-      const missing = m.status === 'unavailable' ? 'No disponible'
-        : m.status === 'needs_replay' ? 'Requiere replay' : 'Sin dato';
-      return `<div><span>${label}</span><b>${m.value == null ? '—' : time ? clock(m.value) : number(Math.round(m.value * 10) / 10)}</b><small>${m.value == null ? missing : esc(m.unit || '')}</small></div>`;
+      if (m.value == null) return '';
+      return `<div><span>${label}</span><b>${time ? clock(m.value) : number(Math.round(m.value * 10) / 10)}</b><small>${esc(m.unit || '')}</small></div>`;
     };
-    const scan = scanning ? `<div class="review-scan" role="status" aria-live="polite"><span class="review-scan-icon"><img src="assets/brand/watchtower-v1.png" width="34" height="34" alt=""/></span><div class="review-scan-copy"><span class="intel-eyebrow">POSTMATCH</span><b>${esc(analysis.label || 'Preparando el análisis')}</b><small>${esc(analysis.detail || '')}</small></div><span class="review-scan-track" aria-hidden="true"><i></i></span></div>` : '';
-    const ageMetric = (age, label) => metrics[`${age}Seconds`]?.value != null
-      ? metric(`${age}Seconds`, `Llegada a ${label}`, true)
-      : metric(`${age}ClickSeconds`, `Orden de avance a ${label}`, true);
+    const scan = scanning ? `<div class="review-scan" data-phase="${esc(analysis.status)}" role="status" aria-live="polite"><span class="review-scan-icon"><img src="assets/icons/history.png" width="27" height="27" alt=""/></span><div class="review-scan-copy"><b>${esc(analysis.label || 'Preparando el análisis')}</b><small>${esc(analysis.detail || '')}</small></div><span class="review-scan-track" aria-hidden="true"><i></i><i></i></span></div>` : '';
     const warning = analysis.status === 'error' ? `<p class="review-warning">${esc(analysis.detail || 'No se pudo analizar el replay.')}</p>` : '';
+    const arrivals = access.replay !== false && !scanning ? measuredAges(metrics) : '';
+    const episode = access.replay !== false && !scanning ? replayEpisode(report.castlesWindow, c.mapName) : '';
+    const shownMetrics = access.compact ? '' : metric('apm', 'APM') + metric('eapm', 'eAPM');
+    const compactApm = access.replay !== false && !scanning && metrics.apm?.value != null
+      ? `<span class="review-activity"><b>${number(metrics.apm.value)}</b> APM de comandos</span>` : '';
     const replayBody = access.replay !== false
-      ? (scan || `<div class="review-stages">${stage}</div><div class="review-metrics">${metric('apm', 'APM')}${metric('eapm', 'eAPM')}${ageMetric('feudal', 'Feudal')}${ageMetric('castle', 'Castillos')}</div>`)
-      : `<p class="intel-muted">${access.replayReason === 'disabled' ? 'Las métricas de replay están desactivadas en tus preferencias.' : 'Las métricas de replay y calificaciones están incluidas en ProMax.'}</p>`;
+      ? (scan || `${stage ? `<div class="review-stages">${stage}</div>` : ''}${shownMetrics ? `<div class="review-metrics">${shownMetrics}</div>` : ''}`)
+      : (access.compact ? '' : `<p class="intel-muted">${access.replayReason === 'disabled' ? 'Las métricas de replay están desactivadas en tus preferencias.' : 'Las métricas de replay y calificaciones están incluidas en ProMax.'}</p>`);
     const source = report.data && report.data.hasTelemetry
       ? report.data.sourceLabel
       : analysis.status === 'locked' ? 'El análisis del replay está incluido en ProMax.'
         : scanning ? 'El replay se descarga y analiza automáticamente. Esto puede tardar unos segundos.'
-          : 'Resultado confirmado. El replay se descarga y analiza automáticamente al terminar la partida.';
+          : analysis.status === 'error' ? 'Resultado confirmado. Podés volver a intentar desde Ajustes.'
+            : 'Resultado confirmado.';
     const historyMoments = access.comparison !== false && (report.historyHighlights || []).length
       ? `<section class="review-history-highlights" aria-label="Tu evolución en el mapa">${report.historyHighlights.slice(0, 2).map((item) => `<article>${icon(item.icon || 'map')}<div><b>${esc(item.title)}</b><p>${esc(item.detail)}</p></div></article>`).join('')}</section>` : '';
-    const mapBody = ['error', 'unavailable'].includes(b.status)
-      ? note('Tu referencia en el mapa', b.summary || 'El historial no está disponible.')
-      : `<section class="review-map"><div><span>Tu referencia en ${esc(c.mapName)}</span><b>${b.games ? `${number(b.wins)} V — ${number(b.losses)} D` : scanning ? 'Cargando referencia' : 'Primera referencia'}</b><small>${b.games ? `${number(b.games)} partidas anteriores del mismo modo${b.status === 'partial' ? ' · historial parcial' : ''}` : scanning ? 'Consultando tus partidas anteriores' : '0 partidas anteriores del mismo modo'}</small></div><div class="review-recent">${(b.recent || []).slice(0, 8).map((r) => `<span class="${r.won === true ? 'win' : r.won === false ? 'loss' : ''}">${r.won === true ? 'V' : r.won === false ? 'D' : '—'}</span>`).join('')}</div></section>`;
-    return `<header class="review-header"><img src="assets/brand/watchtower-v1.png" width="44" height="44" alt=""/><div><span class="intel-eyebrow">INFORME POSTMATCH</span><h2>${esc(result.label || 'Resultado pendiente')}</h2><p>${esc(c.mapName)} · ${civLabel(c.civ)}${c.openingLabel ? ` · ${esc(c.openingLabel)}` : ''}</p></div><strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff == null ? '' : `${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}`}<small>${result.ratingDiff == null ? 'Esperando resultado' : 'ELO del modo'}</small></strong></header>` +
-      historyMoments + (access.comparison !== false ? mapBody : `<p class="intel-muted">${access.comparisonReason === 'disabled' ? 'La comparación con tu historial está desactivada en tus preferencias.' : 'La evolución en este mapa está incluida en ProMax.'}</p>`) +
-      replayBody + warning + (access.replay !== false && !scanning ? executionBlock(report.executionRatings, access.comparison !== false) + combatBlock(report.combat) : '') +
+    const mapBody = access.comparison !== false && report.data?.historyStatus !== 'loading' ? matchHistoryContext(b) : '';
+    const mode = c.mode?.label;
+    const header = `<header class="review-header"><img src="assets/icons/history.png" width="32" height="32" alt=""/><div><h2>${esc(result.label || 'Resultado pendiente')}</h2><p>${esc(c.mapName)} · ${civLabel(c.civ)}${mode ? ` · ${esc(mode)}` : ''}</p>${c.openingLabel ? `<small>Apertura probable · ${esc(c.openingLabel)}</small>` : ''}</div>${result.ratingDiff == null ? '' : `<strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}<small>ELO del modo</small></strong>`}</header>`;
+    if (access.compact) {
+      const impact = access.replay !== false && !scanning ? compactCombat(report.combat) : '';
+      const execution = access.replay !== false && access.comparison !== false && !scanning
+        ? compactExecution(report.executionRatings) : '';
+      const coverage = !scanning && analysis.status !== 'error' && access.replay !== false && report.data?.hasTelemetry
+        ? [!arrivals ? 'Llegadas sin confirmar' : '', !impact ? 'Combate sin cobertura' : '',
+          access.comparison !== false && !execution ? 'Economía sin medición comparable' : ''].filter(Boolean).join(' · ') : '';
+      const footer = coverage || compactApm || report.data?.hasTelemetry
+        ? `<div class="review-compact-footer">${compactApm}${coverage ? `<span>${esc(coverage)}</span>` : ''}<small>Detalle del replay en Ajustes → Postmatch</small></div>` : '';
+      return header + episode + impact + execution + arrivals + mapBody + (scanning ? scan : '') + warning + footer;
+    }
+    return header + episode + arrivals + replayBody + warning +
+      (access.comparison !== false ? mapBody + historyMoments : `<p class="intel-muted">${access.comparisonReason === 'disabled' ? 'La comparación con tu historial está desactivada en tus preferencias.' : 'La evolución en este mapa está incluida en ProMax.'}</p>`) +
+      (access.replay !== false && !scanning ? executionBlock(report.executionRatings, access.comparison !== false) + combatBlock(report.combat) : '') +
       (access.replay !== false && access.comparison !== false && (report.improvements || []).length ? '<section class="review-insights">' + report.improvements.slice(0, 2).map((i) => `<div>${icon('trend')}<p><b>${esc(i.title)}</b><span>${esc(i.detail)}</span></p></div>`).join('') + '</section>' : '') +
-      `<p class="review-data">${esc(source)}</p><footer class="intel-source">Las notas comparan tu ejecución con tu historial comparable. Más APM no implica jugar mejor.</footer>`;
+      `<p class="review-data">${esc(source)}</p>`;
   }
   const api = { renderRival, renderPostMatch, renderAutomaticOpportunities, renderSmartBuildOrder, configure, civLabel, civRelation, esc, icon };
   if (typeof module === 'object' && module.exports) module.exports = api;

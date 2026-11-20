@@ -2,9 +2,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body,
 body[data-theme] {
-  --ui-page: #111517;
-  --ui-card: #191e20;
-  --ui-card-border: #303739;
+  --ui-page: #12161b;
+  --ui-card: #1a1f26;
+  --ui-card-border: #2b323b;
   --ui-field: #101416;
   --ui-hover: #22292c;
   --ui-focus: #c7ad76;
@@ -16,7 +16,7 @@ body[data-theme] {
   --brass-soft: #a79166;
   --success: #8dc5a8;
   --error: #ef9b92;
-  --font: 'Segoe UI', system-ui, sans-serif;
+  --font: var(--interface-font);
   height: 100vh;
   overflow: hidden;
   display: flex;
@@ -87,10 +87,6 @@ main.content { min-width: 0; min-height: 0; display: flex; flex-direction: colum
 .page { display: none; flex-direction: column; gap: 0; max-width: 1000px; margin: 0 auto; }
 .page.active { display: flex; animation: reveal 180ms ease both; }
 @keyframes reveal { from { opacity: .4; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
-.welcome-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #3d4037; border-left: 3px solid var(--brass-soft); padding: 21px 20px; background: #1c2120; margin-bottom: 24px; overflow: hidden; }
-.welcome-panel h2 { margin: 9px 0 10px; font-size: 24px; font-weight: 500; letter-spacing: -.04em; line-height: 1.18; }
-.welcome-panel p { color: #adb3af; font-size: 12.5px; }
-.welcome-panel img { width: 155px; height: 155px; object-fit: contain; flex: none; }
 .group-head { display: flex; align-items: center; gap: 12px; margin: 21px 0 12px; min-height: 18px; color: #c4c9c9; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .group-head:first-child { margin-top: 0; }
 .group-head > i { height: 1px; flex: 1; background: var(--line); }
@@ -146,7 +142,7 @@ summary { padding: 13px 0; cursor: pointer; color: #b3bdc0; font-size: 12px; }
 .row { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) 38px; gap: 12px; align-items: center; padding: 17px 0; border-bottom: 1px solid var(--line); }
 .row:last-child { border-bottom: none; }
 .ric { color: #8d9c9f; display: flex; align-items: center; justify-content: center; }
-.ric svg { width: 22px; height: 22px; }
+.ric :is(svg, .product-icon) { width: 22px; height: 22px; }
 .tcopy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .rname { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 550; color: #e4e7e6; }
 .rdesc { font-size: 11.5px; color: #9ca9ae; line-height: 1.5; }
@@ -318,8 +314,6 @@ input[type='range']::-webkit-slider-thumb { appearance: none; width: 13px; heigh
   .workflow { padding: 13px 11px; gap: 7px; }
   .workflow > div { grid-template-columns: 21px 1fr; gap: 2px 4px; }
   .workflow small { font-size: 9px; }
-  .welcome-panel h2 { font-size: 22px; }
-  .welcome-panel img { width: 130px; height: 140px; }
   .plan-card { padding: 16px 13px; }
   .commerce-actions { flex-wrap: wrap; }
 }
@@ -327,10 +321,25 @@ input[type='range']::-webkit-slider-thumb { appearance: none; width: 13px; heigh
   .rail-brand { padding-bottom: 15px; }
   .nav-item { min-height: 40px; }
   .content-head { padding-top: 18px; }
-  .welcome-panel { padding: 16px 18px; margin-bottom: 16px; }
-  .welcome-panel img { width: 110px; height: 110px; }
-  .welcome-panel h2 { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0ms !important; }
 }
+
+.nav-item .product-icon, .nav-btn .product-icon { width: 18px; height: 18px; }
+.ric .product-icon { width: 17px; height: 17px; }
+
+/* Launcher */
+.rail { background: linear-gradient(165deg, #171d1e 0, #111617 46%, #0e1214 100%); }
+.rail-brand { gap: 11px; padding-bottom: 24px; }
+.rail-mark { width: 49px; height: 54px; }
+.rail-name { font-size: 17px; letter-spacing: -.035em; }
+.nav-item { border-radius: 9px; font-size: 14px; }
+.nav-item.active { background: linear-gradient(110deg, #393224, #242724); border-color: #514531; }
+.nav-item:focus-visible, .account-detect:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#pageTitle { font-size: clamp(27px, 4vw, 38px); font-weight: 670; line-height: 1.12; }
+.content-head .rule { margin-top: 19px; }
+.block { border-radius: 12px; }
+.account-meta, .account-hint { font-size: 13px; }
+.account-detect { border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) { .page.active { animation: none; } }

@@ -53,9 +53,9 @@ const RIVAL_LABELS = {
   rivalCivs: 'Últimas 5 civs del rival',
   rivalFavorites: 'Civ y mapa más usados',
   rivalOpenings: 'Aperturas reales',
-  smartTips: 'Recomendaciones inteligentes',
+  smartTips: 'Lectura de apertura',
   rivalH2H: 'Enfrentamientos previos',
-  civRecommender: 'Civ recomendada',
+  civRecommender: 'Historial y cruce de civilizaciones',
 };
 const tgBalanceInput = el('tgBalance');
 // "Resumen con F2": vista resumida del scouting con su atajo. Apagada de
@@ -845,7 +845,7 @@ document.addEventListener('keydown', (event) => {
    ============================================================ */
 const PAGE_ORDER = ['player', 'overlay', 'tactics', 'postmatch', 'skins', 'plans', 'updater'];
 const PAGE_META = {
-  player: { index: '01 / CUENTA', title: 'Tu punto de partida.', sub: 'Tu cuenta en el juego y cómo cambiarla.' },
+  player: { index: '01 / CUENTA', title: 'Cuenta de jugador', sub: 'Tu cuenta en el juego y cómo cambiarla.' },
   overlay: { index: '02 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida.' },
   tactics: { index: '03 / DURANTE', title: 'Elegí cómo responder.', sub: 'Oportunidades por civilización, historial y composición observada.' },
   postmatch: { index: '04 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'El resultado y tu evolución cuando termina.' },
@@ -863,7 +863,7 @@ function goTo(page) {
   for (const section of pageSections) section.classList.toggle('active', section.dataset.page === page);
   pageTitle.textContent = PAGE_META[page].title;
   pageSub.textContent = PAGE_META[page].sub;
-  pageIndex.textContent = PAGE_META[page].index;
+  pageIndex.textContent = PAGE_META[page].index.replace(/^\d+ \/ /, '');
   if (page === 'postmatch') loadPostMatch();
   if (page === 'tactics') loadTactics();
   if (pagesEl) pagesEl.scrollTop = 0;

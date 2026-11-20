@@ -17,7 +17,7 @@ function match(id = 100, changes = {}) {
 }
 function telemetry(id = 100, changes = {}) {
   const metric = (value, definition) => ({ value, definition });
-  const phase = () => ({ reached: true, complete: true, durationSeconds: 600,
+  const phase = (durationSeconds) => ({ reached: true, complete: true, durationSeconds,
     metrics: { tcIdleRatio: metric(0.01, 'tc-idle-opportunity-v1'),
       housedRatio: metric(0.01, 'population-blockage-v1'),
       villagerIdleRatio: metric(0.01, 'weighted-villager-idle-v1') } });
@@ -29,7 +29,7 @@ function telemetry(id = 100, changes = {}) {
     metrics: { apm: metric(120, 'all-game-commands-v1'), eapm: metric(60, 'effective-commands-v1'),
       feudalSeconds: metric(620, 'age-reached-game-seconds-v1'),
       castleSeconds: metric(1200, 'age-reached-game-seconds-v1') },
-    phases: { opening: phase(), feudal: phase(), castle: phase() }, ...changes };
+    phases: { opening: phase(620), feudal: phase(580), castle: phase(600) }, ...changes };
 }
 function baseline(count = MIN_BASELINE) {
   const rows = [];
@@ -159,7 +159,15 @@ function main() {
   assert.equal(report({ telemetry: oneMetric, records: baseline() }).stages[0].grade, null);
   const partial = telemetry(); partial.phases.feudal.complete = false;
   assert.equal(report({ telemetry: partial, records: baseline() }).stages[1].status, 'incomplete');
+  const shortFeudal = telemetry(); shortFeudal.phases.feudal.durationSeconds = 0.001;
+  const shortReport = report({ telemetry: shortFeudal, records: baseline() });
+  assert.equal(shortReport.stages[1].grade, null);
+  assert.equal(shortReport.stages[1].status, 'incomplete');
+  assert.match(shortReport.data.warnings.join(' '), /duración declarada de Feudal/);
+  const contradicted = telemetry(); contradicted.phases.castle = { reached: false };
+  assert.equal(normalizeTelemetry(contradicted).data.phases.castle.reached, true);
   const notReached = telemetry(); notReached.phases.castle = { reached: false };
+  delete notReached.metrics.castleSeconds;
   assert.equal(report({ telemetry: notReached, records: baseline() }).stages[2].status, 'not_reached');
 
   const invalidCases = [

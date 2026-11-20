@@ -23,7 +23,6 @@ const scoutContextEl = document.getElementById('scoutContext');
 const scoutFootnoteEl = document.getElementById('scoutFootnote');
 const postMatchEl = document.getElementById('postMatch');
 const smartBuildOrderEl = document.getElementById('smartBuildOrder');
-const opportunitiesEl = document.getElementById('opportunities');
 let buildOrderPayload = null;
 let smartBuildOrderEnabled = false;
 let postMatchPayload = null;
@@ -350,6 +349,7 @@ function analysisStage() {
   if (civView.eloHidden) return null;
   // 1) El roster ya está en pantalla y faltan los números de ELO.
   if (lastState.pending) return 'elo';
+  if (lastState.phase !== 'lobby') return null;
   // 2) Informe del rival: primero civs/favoritos, después las aperturas.
   if (rivalEnabled()) {
     const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
@@ -434,18 +434,13 @@ function applyVisibility() {
   const detail = !scoutF2Enabled || detailMode;
   document.body.classList.toggle('scout-f2', scoutF2Enabled);
   document.body.classList.toggle('scout-detail', detail);
-  scoutingEl.hidden = !(ongoing && compactAvailable() && !hidden);
+  scoutingEl.hidden = !(ongoing && lastState.phase === 'lobby' && compactAvailable() && !hidden);
   rivalInfoEl.hidden = true;
   scoutInfoEl.hidden = true;
   const reviewing = Boolean(postMatchEnabled && postMatchPayload && !ongoing && !moving);
   if (postMatchEl) postMatchEl.hidden = !reviewing;
-  if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(ongoing && !moving && smartBuildOrderEnabled &&
+  if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(ongoing && lastState.phase !== 'lobby' && !moving && smartBuildOrderEnabled &&
     buildOrderPayload && String(buildOrderPayload.matchId) === String(lastState.match?.matchId));
-  if (opportunitiesEl) {
-    const current = tipsForCurrentMatch();
-    opportunitiesEl.hidden = !(ongoing && !moving && smartTipsEnabled && current.sameMatch &&
-      current.tips.some((tip) => Array.isArray(tip.opportunityStages)));
-  }
   panel.classList.toggle('reviewing', reviewing);
   analysisEl.hidden = analysisStage() == null;
 
@@ -1512,9 +1507,12 @@ function scoutAdditionalEvidence(tip) {
  * llegan los datos en segundo plano.
  */
 function scoutUniverse() {
-  const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
+  const matchId = lastState?.match?.matchId;
+  const sameRivalMatch = rivalPayload && (rivalPayload.matchId == null ||
+    String(rivalPayload.matchId) === String(matchId));
+  const reports = sameRivalMatch && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
   const { tips, sameMatch } = tipsForCurrentMatch();
-  const usableTips = (Boolean(lastState && lastState.phase === 'lobby') || sameMatch) ? tips : [];
+  const usableTips = sameMatch ? tips : [];
   const ids = [];
   const push = (id) => {
     const key = String(id == null ? '' : id);
@@ -1638,16 +1636,16 @@ function renderScouting() {
   scoutingEl.classList.toggle('single', entries.length <= 1);
   if (scoutContextEl) {
     const total = knownOpponentCount();
-    scoutContextEl.textContent = entries.length
-      ? `${fmtNumber(entries.length)}${total > entries.length ? ` de ${fmtNumber(total)}` : ''} rival${entries.length === 1 && total <= 1 ? '' : 'es'}` +
-        (mapName && mapName !== '—' ? ` · ${mapName}` : '')
-      : '';
+    const count = entries.length === 1 && total <= 1 ? null
+      : `${fmtNumber(entries.length)}${total > entries.length ? ` de ${fmtNumber(total)}` : ''} rivales`;
+    scoutContextEl.textContent = entries.length ? [count, mapName && mapName !== '—' ? mapName : null]
+      .filter(Boolean).join(' · ') : '';
   }
   const wide = entries.length <= 1;
   scoutCardsEl.innerHTML = entries.length
     ? entries.map((entry) => typeof TacticalUI === 'object' ? TacticalUI.renderRival({ entry, state: lastState,
         options: { ...rivalOptions, rosterDetails: rosterDetailsAllowed,
-          smartTips: smartTipsEnabled && !entry.tip?.opportunityStages, civRecommender: civRecommenderEnabled },
+          smartTips: smartTipsEnabled, civRecommender: civRecommenderEnabled },
         detail: !scoutF2Enabled || detailMode }) : scoutCompactCard(entry, wide)).join('')
     : '<div class="rival-empty">Buscando los datos del rival…</div>';
   // Los anchos de barra se aplican por CSSOM (CSP sin unsafe-inline).
@@ -1743,7 +1741,6 @@ function applyView(payload) {
   renderRivalInfo();
   renderScoutInfo();
   renderAnalysis();
-  renderOpportunityInfo();
   applyVisibility();
 }
 
@@ -1843,13 +1840,6 @@ function renderBalance(state) {
       const otherTeam = solidTeams.find((team) => team !== myTeam);
       const mine = Math.round(medianOf(teams.get(myTeam)));
       const theirs = Math.round(medianOf(teams.get(otherTeam)));
-      const diff = mine - theirs;
-      const verdict =
-        diff > 0
-          ? `arrancás ${fmtNumber(diff)} arriba`
-          : diff < 0
-            ? `arrancás ${fmtNumber(-diff)} abajo`
-            : 'parejos';
       // Un equipo con ELOs muy separados no es un "equipo 1412": se declara.
       const fmtTeam = (team) => {
         const [min, max] = rangeOf(teams.get(team));
@@ -1863,8 +1853,7 @@ function renderBalance(state) {
       const parcial = rated < players.length ? ' · parcial' : '';
       content =
         `<span class="bal-ic" title="Mediana de ELO RM 1v1 por equipo">${icon('balanza')}</span>` +
-        `<span>Tu equipo <b>${fmtTeam(myTeam)}</b> · Rival <b>${fmtTeam(otherTeam)}</b>` +
-        ` · ${verdict}${parcial}</span>`;
+        `<span>Mediana RM 1v1 · Tu equipo <b>${fmtTeam(myTeam)}</b> · Rival <b>${fmtTeam(otherTeam)}</b>${parcial}</span>`;
     }
   }
   if (content == null) {
@@ -2017,14 +2006,14 @@ function render(state) {
   renderScoutInfo();
   renderAnalysis();
   // Un solo pase de visibilidad con TODAS las condiciones juntas.
-  renderOpportunityInfo();
   applyVisibility();
 }
 
 function renderPostMatch(payload) {
   postMatchPayload = payload && Object.hasOwn(payload, 'report') ? payload.report : payload;
   if (postMatchEl && typeof TacticalUI === 'object') {
-    postMatchEl.innerHTML = postMatchPayload ? TacticalUI.renderPostMatch(postMatchPayload, postMatchAccess) : '';
+    postMatchEl.innerHTML = postMatchPayload
+      ? TacticalUI.renderPostMatch(postMatchPayload, { ...postMatchAccess, compact: true }) : '';
   }
   applyVisibility();
 }
@@ -2034,13 +2023,6 @@ function renderBuildOrder(payload = buildOrderPayload) {
   if (smartBuildOrderEl && typeof TacticalUI === 'object') smartBuildOrderEl.innerHTML =
     payload ? TacticalUI.renderSmartBuildOrder(payload) : '';
   applyVisibility();
-}
-
-function renderOpportunityInfo() {
-  if (!opportunitiesEl || typeof TacticalUI !== 'object') return;
-  const current = tipsForCurrentMatch();
-  opportunitiesEl.innerHTML = current.sameMatch ? current.tips.filter((tip) => tip.opportunityStages)
-    .map((tip) => TacticalUI.renderAutomaticOpportunities(tip.opportunityStages)).join('') : '';
 }
 
 function applyTheme(theme) {
@@ -2125,7 +2107,6 @@ if (window.overlay.onScout) {
   window.overlay.onScout((payload) => {
     scoutPayload = payload;
     renderScoutInfo();
-    renderOpportunityInfo();
     applyVisibility();
   });
 }

@@ -1,3 +1,12 @@
+## v2.2.1 · Lectura del rival y revisión del replay
+
+- Prematch con apertura observada, últimas cinco partidas y antecedentes con denominadores explícitos. Las civs frecuentes del historial se presentan como elecciones observadas.
+- Postmatch con un episodio compartido para revisar qué encargó cada jugador al mismo minuto. Las llegadas a las edades se muestran cuando el replay las confirma.
+- Launcher con navegación más legible y acceso directo a la cuenta. Descarga y análisis tienen una animación de carga que respeta movimiento reducido.
+- Benchmark temporal reproducible de 332.408 predicciones de civ. Los porcentajes del modelo quedan pendientes de calibración y verificación en vivo.
+
+---
+
 ## v2.2.0 · Asistencia visual automática y evolución personal
 
 - **Free, Pro y ProMax.** Free conserva exclusivamente nombre del rival, ELO actual y cara a cara. Pro suma roster ampliado, perfil del mapa, guía de civ, balance y resumen de resultados. ProMax añade oportunidades, aperturas, elección de civ, replay, evolución personal y Smart Build Order.

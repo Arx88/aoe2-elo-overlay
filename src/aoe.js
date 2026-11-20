@@ -140,6 +140,11 @@ async function fetchMatchById(matchId) {
   return normalizeMatch(raw);
 }
 
+function historyCutoff(state) {
+  const timestamp = state?.example ? state.example.realStartedAt : state?.match?.startedAt;
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
 function normalizeMatch(raw) {
   const teams = Array.isArray(raw.teams) ? raw.teams : [];
   const players = [];
@@ -624,6 +629,7 @@ module.exports = {
   fetchProfileIdentity,
   composeRows,
   normalizeMatch,
+  historyCutoff,
   buildSnapshot,
   buildExampleSnapshot,
   buildSnapshotFromLobby,

@@ -151,6 +151,14 @@ function sameMode(rowLadder, mode) {
   return Boolean(row && row.id === mode.id);
 }
 
+/** Exclude the current game and anything known after its start. */
+function isPriorReplay(row, matchId, cutoff) {
+  if (matchId != null && String(row.matchId) === String(matchId)) return false;
+  if (!Number.isFinite(cutoff) || cutoff <= 0) return true;
+  const started = typeof row.startedAt === 'number' ? row.startedAt : Date.parse(row.startedAt);
+  return Number.isFinite(started) && started < cutoff;
+}
+
 function openingsCacheKey(profileId, mode) {
   return `rival:openings:${Number(profileId)}:${mode ? mode.id : 'sin-modo'}`;
 }
@@ -503,6 +511,7 @@ module.exports = {
   LADDER_MODES,
   MODE_KEYS,
   DEFAULT_FIELDS,
+  isPriorReplay,
   openingName,
   openingShort,
   resolveMode,

@@ -5,6 +5,10 @@ const path = require('node:path');
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 40;
 const MAX_BYTES = 8 * 1024 * 1024;
+// Techo de memoria para TODAS las claves (elo1v1, rival, mine, scout...): el
+// Map es compartido por toda la app y en sesiones largas de TG crecía sin
+// límite. Solo las claves persistibles van a disco; el resto se evicta acá.
+const MAX_MEMORY_ENTRIES = 300;
 const KEY = /^scout:rows:v2:\d+:\d+:(60|500)$/;
 
 /** Persist only public, parsed replay summaries, bounded by age and size. */
@@ -29,11 +33,21 @@ class ReplayCache extends Map {
   }
 
   set(key, value) {
+    // Reinsertar para que el orden del Map refleje el uso reciente: el evict
+    // saca siempre el más viejo.
+    if (this.has(key)) super.delete(key);
     super.set(key, value);
     if (KEY.test(String(key))) {
       clearTimeout(this.timer);
       this.timer = setTimeout(() => this.flush(), 800);
       if (this.timer.unref) this.timer.unref();
+    }
+    while (this.size > MAX_MEMORY_ENTRIES) {
+      const oldest = this.keys().next().value;
+      if (oldest === undefined) break;
+      // Lo persistible se baja a disco ANTES de soltarlo, si aún no se fue.
+      if (KEY.test(String(oldest))) this.flush();
+      super.delete(oldest);
     }
     return this;
   }

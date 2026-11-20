@@ -126,7 +126,9 @@ Las definiciones son identificadores de una semántica estable, no etiquetas dec
 
 Las métricas de llegada a una edad son tiempos de **llegada confirmada**, no el momento en que se hizo clic para investigar. Un parser que solo obtiene el clic no debe llenar `feudalSeconds` o `castleSeconds` con ese valor.
 
-El adaptador automático usa `feudalClickSeconds` y `castleClickSeconds`, con definición `first-age-research-command-game-seconds-v1`. Su versión es `0.1.25+command-adapter-v2`; no se mezcla con referencias del adaptador anterior. Al leer telemetría antigua de la fuente conocida `aoe2rec-js`/`0.1.25`, los tiempos mal etiquetados se reinterpretan como órdenes de avance, sin modificar el objeto de entrada. Otros proveedores que midan llegadas confirmadas siguen usando los campos de llegada.
+El adaptador 0.1.25+command-adapter-v5 conserva las órdenes y separa las llegadas a las edades. La llegada requiere una notificación del juego en un formato reconocido, el jugador correspondiente al slot del replay, un clic anterior y el reloj del mismo capítulo. Se comprobó con las partidas públicas 520379962 (Arabia, chino simplificado) y 521092784 (Arena, inglés) y con una repetición local en español. Si falta la notificación, queda el clic. Los adaptadores v3 a v5 conservan las referencias con definiciones de comandos idénticas.
+
+Cuando existe un horario de llegada medido, el normalizador comprueba que el resumen de combate comience esa edad en el mismo punto. Para una etapa económica declarada completa, verifica la duración contra los límites de edad disponibles. Un conflicto en combate conserva el resto del informe. Un tramo económico incompatible conserva sus métricas como incompletas y queda fuera de las notas comparables.
 
 ## Combate opcional y destacados sin reproducción profunda
 

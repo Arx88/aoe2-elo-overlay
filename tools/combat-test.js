@@ -143,6 +143,14 @@ const broken = normalizeTelemetry({ ...telemetry, combat: { ...telemetry.combat,
 assert.equal(broken.status, 'ready');
 assert.equal(broken.data.combat, null);
 assert.ok(broken.warnings.length);
+const conflict = normalizeTelemetry({ ...telemetry, metrics: {
+  apm: { value: 50, definition: 'measured-test' },
+  feudalSeconds: { value: 200, definition: 'age-reached-game-seconds-v1' },
+} });
+assert.equal(conflict.status, 'ready');
+assert.equal(conflict.data.combat, null);
+assert.equal(conflict.data.metrics.apm.value, 50);
+assert.match(conflict.warnings.join(' '), /edades del informe de combate/);
 const roster = [{ isYou: true, team: 1 }, { team: 1 }, { team: 2 }, { team: null }];
 assert.equal(civRelation(roster[0], roster), 'you');
 assert.equal(civRelation(roster[1], roster), 'ally', 'a teammate is never labeled as a rival');

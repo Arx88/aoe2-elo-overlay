@@ -44,8 +44,10 @@ const {
   sameMode,
   DEFAULT_TTL_MS,
   DEFAULT_FIELDS,
+  isPriorReplay,
 } = require('./insights');
 const { mapKey } = require('./rival');
+const { civSlug } = require('./civs');
 const { buildCivRecommendation, computeMyMapCivs } = require('./mine');
 
 const SOURCE = 'AoE2Insights · replays analizados';
@@ -67,14 +69,13 @@ const LONG_S = 25 * 60; // partida "larga": >= 25 min
 const WEAK_MIN_LOSS_RATE = 55; // "le cuesta" = pierde más de la mitad
 
 /**
- * ESTILO DE JUEGO: agresión feudal vs boom. Coste CERO: `strategy` ya se
+ * ESTILO DE JUEGO: presión feudal y subida rápida. Coste CERO: `strategy` ya se
  * parsea replay por replay en parseScoutRows(), así que no hay request nueva
  * ni endpoint nuevo: son columnas que el overlay Ya descargó y cacheó.
  *
  * La taxonomía es la REAL del endpoint (SHORT_LABELS en src/insights.js):
  * Scout rush, Archer rush, Drush, Drush fast castle, Man at arms rush y
- * Fast castle. NO existe una etiqueta de "Imperial rápido": el boom se mide
- * con Fast castle + match_duration, que es lo que ya usa tempoProfile().
+ * Fast castle. NO existe una etiqueta de "Imperial rápido": Fast castle describe el avance a Castillos. La continuación se debe observar.
  *
  * `Drush fast castle` se cuenta aparte como HÍBRIDO (presión en Dark Age para
  * llegar a Castillos): meterlo en agresivo o en boom haría mentir el reparto.
@@ -464,13 +465,48 @@ function buildTacticalPlan(tip) {
   };
 }
 
+// The same deduplicated replay rows also support a strict current matchup.
+function currentMatchup(rows, { mapName, mode, ownCiv, rivalCiv }) {
+  const map = mapKey(mapName);
+  const own = civSlug(ownCiv);
+  const rival = civSlug(rivalCiv);
+  if (!map || !mode || !rival) return null;
+  const sameMap = rows.filter((row) => mapKey(row.map) === map && civSlug(row.civ) === rival);
+  const openings = historicalChoices(sameMap, 'strategy');
+  const versus = mode.size === '1v1' && own
+    ? sameMap.filter((row) => {
+      const opponents = Array.isArray(row.opponents) ? row.opponents : [row];
+      return opponents.length === 1 && civSlug(opponents[0].oppCiv) === own;
+    }) : [];
+  const results = versus.filter((row) => typeof row.won === 'boolean');
+  const losses = results.filter((row) => !row.won).length;
+  const byOpening = new Map();
+  for (const row of results) {
+    const opening = validStrategy((row.opponents?.[0] || row).oppStrategy);
+    if (!opening) continue;
+    const entry = byOpening.get(opening) || { name: openingShort(opening) || opening, games: 0, losses: 0 };
+    entry.games += 1;
+    if (!row.won) entry.losses += 1;
+    byOpening.set(opening, entry);
+  }
+  return {
+    map, modeId: mode.id, modeLabel: mode.label, teamGame: mode.size === 'team',
+    own, rival, openings, openingsSample: openings[0]?.sample || 0,
+    games: results.length, losses,
+    against: [...byOpening.values()].filter((entry) => entry.games >= MIN_OPENING_GAMES)
+      .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name)).slice(0, 2),
+  };
+}
+
 /** Recorte completo de un rival a partir de sus partidas ya parseadas. */
 function computeTips(matches, options = {}) {
   const { mapName = null, mode = null } = options;
   // Las filas antiguas en caché no incluían ladder. Se conoce su modo por la
   // clave. Cuando sí está presente, la comprobación evita mezclar RM y EW.
-  const modeRows = (Array.isArray(matches) ? matches : [])
-    .filter((row) => !mode || !row.ladder || sameMode(row.ladder, mode));
+  const history = options.historical && !Number.isFinite(options.cutoff) ? [] : matches;
+  const modeRows = (Array.isArray(history) ? history : [])
+    .filter((row) => (!mode || !row.ladder || sameMode(row.ladder, mode)) &&
+      isPriorReplay(row, options.matchId, options.cutoff));
   const scoped = pickScope(modeRows, mapName, mode);
   const results = scoped.rows.filter((row) => typeof row.won === 'boolean');
   const wins = results.filter((row) => row.won).length;
@@ -492,6 +528,7 @@ function computeTips(matches, options = {}) {
     openingsAgainst: openingsAgainst(scoped.rows),
     style: styleProfile(scoped.rows),
     tempo: tempoProfile(scoped.rows),
+    matchup: currentMatchup(modeRows, { ...options, mapName, mode }),
     likelyCivs: historicalChoices(scoped.rows, 'civ'),
     likelyOpenings: historicalChoices(scoped.rows, 'strategy'),
     context,
@@ -559,6 +596,7 @@ async function buildScoutTips(options = {}) {
     // cacheado por src/mine.js, compartido con el head-to-head).
     recommend = false,
     opportunityContext = null,
+    matchupContext = null,
     myHistoryImpl = null,
     fetchImpl,
     sleep,
@@ -593,7 +631,7 @@ async function buildScoutTips(options = {}) {
   let stale = false;
 
   if (cached && now - cached.ts > cacheTtlMs && typeof onStale === 'function') {
-    const previous = computeTips(cached.rows, { mapName, mode: resolved });
+    const previous = computeTips(cached.rows, { ...matchupContext, mapName, mode: resolved });
     onStale({ ...emptyTips(id, name, cached.ts, { mode: resolved }), ok: true,
       totalMatches: cached.rows.length, totalRows: cached.totalRows, ...previous,
       fromCache: true, stale: true, provisional: true, recommendPending: recommend });
@@ -631,7 +669,7 @@ async function buildScoutTips(options = {}) {
     }
   }
 
-  const tips = computeTips(rows, { mapName, mode: resolved });
+  const tips = computeTips(rows, { ...matchupContext, mapName, mode: resolved });
   const result = {
     ...emptyTips(id, name, now, { mode: resolved }),
     ok: true,
@@ -703,7 +741,7 @@ async function progressiveScout(options, onPartial, build = buildScoutTips) {
   const full = build({ ...options, onStale: (initial) => {
     if (!fullDone && typeof onPartial === 'function') onPartial(initial);
   } });
-  const quick = build({ ...options, limit: 60, onStale: null }).then((initial) => {
+  const quick = build({ ...options, limit: 60, onStale: null, opportunityContext: null, myHistoryImpl: null, recommend: false }).then((initial) => {
     if (!fullDone && initial && !initial.error && typeof onPartial === 'function') {
       onPartial({ ...initial, provisional: true });
     }

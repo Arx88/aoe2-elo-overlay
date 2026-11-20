@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; font-src 'self'"
     />
     <title>AoE2 ELO Overlay</title>
     <link rel="stylesheet" href="theme.css" />
@@ -33,9 +33,6 @@
         <div id="rows"><div class="hint">Iniciando…</div></div>
         <div id="foot"><span id="foottext"></span></div>
       </div>
-
-      <section id="smartBuildOrder" hidden aria-live="polite"></section>
-      <section id="opportunities" hidden aria-live="polite"></section>
 
       <!--
         Aviso de actualización: chip temporal, sin botones (el panel es
@@ -70,7 +67,7 @@
       -->
       <section id="scouting" hidden aria-live="polite">
         <div class="scout-head">
-          <span class="scout-title"><img src="assets/brand/watchtower-v1.png" width="26" height="26" alt=""/>Lectura de partida</span>
+          <span class="scout-title"><img class="product-icon" src="assets/icons/eye.png" width="20" height="20" alt=""/>Lectura del rival</span>
           <span class="scout-context" id="scoutContext"></span>
           <!-- El overlay es click-through: el chip es SOLO la pista del atajo. -->
           <span class="scout-toggle" id="scoutToggle">F2 · Ver todo</span>
@@ -79,6 +76,7 @@
         <!-- Honestidad de muestra y alcance: UNA vez por sección. -->
         <p class="scout-footnote" id="scoutFootnote" hidden></p>
       </section>
+      <section id="smartBuildOrder" hidden aria-live="polite"></section>
       <section id="postMatch" hidden aria-live="polite"></section>
 
       <!--
