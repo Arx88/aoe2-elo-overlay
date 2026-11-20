@@ -1,3 +1,10 @@
+## v2.5.3 · Nueva identidad oficial: Relic
+
+- **Identidad unificada bajo la marca Relic:** nuevo logotipo horizontal dorado en el Centro de mando, medallón circular oficial como ícono de aplicación (`.ico`, bandeja del sistema, barra de ventana y asistente inicial), instalador `Relic Setup` y accesos directos unificados.
+- **Compatibilidad total al actualizar:** mantiene intactos tu perfil, configuración, idioma e historial de partidas al actualizar desde versiones anteriores.
+
+---
+
 ## v2.5.2 · Traducción integral 100%, acústica háptica premium y cierre total de claves antiguas
 
 - **Traducción completa 100% en toda la aplicación (`English`, `Español España`, `Español México` y `简体中文`):** todas las 7 pestañas del Centro de mando (**Cuenta**, **Prematch**, **Durante**, **Postmatch**, **Apariencia**, **Plan y acceso**, **Actualizaciones**), tarjetas de planes, modales, textos dinámicos, estados del actualizador y el **Overlay HUD** en vivo ahora cambian de idioma al instante sin restos sin traducir.

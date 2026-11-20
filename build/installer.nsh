@@ -1,10 +1,10 @@
-; AoE2 Helper · Personalización visual del instalador NSIS (alineado al Launcher)
+; Relic · Personalización visual del instalador NSIS (alineado al Launcher)
 !macro customHeader
-  !system "echo AoE2 Helper NSIS branding loaded"
+  !system "echo Relic NSIS branding loaded"
 !macroend
 
 !macro preInit
   SetRegView 64
 !macroend
 
-BrandingText "AoE2 Helper · Age of Empires II: DE"
+BrandingText "Relic · Age of Empires II: DE"

@@ -1,9 +1,9 @@
 {
   "name": "aoe2-elo-overlay",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "private": true,
-  "description": "Overlay de ELO para Age of Empires II: DE (elo actual + pico 1v1 RM de los jugadores de la partida en curso)",
-  "author": "AoE2 ELO Overlay",
+  "description": "Relic — Inteligencia táctica, prematch y postmatch para Age of Empires II: DE",
+  "author": "Relic",
   "main": "main.js",
   "scripts": {
     "test": "node tools/test.js",

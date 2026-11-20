@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 BUILD.mkdir(exist_ok=True)
 
-EMBLEM = ROOT / "assets" / "brand" / "double-h-v1.png"
+EMBLEM = ROOT / "assets" / "brand" / "relic-icon.png"
+WORDMARK = ROOT / "assets" / "brand" / "relic-logo.png"
 ART_PERFIL = ROOT / "assets" / "art" / "perfil.webp"
 ART_LATERAL = ROOT / "assets" / "art" / "lateral.webp"
 
@@ -52,29 +53,29 @@ def make_sidebar():
     # Acento superior dorado muy fino
     draw.line([(20, 146), (W - 20, 146)], fill=(120, 102, 68), width=1)
 
-    # Emblema dorado del Launcher centrado en la parte superior
+    # Emblema dorado Relic centrado en la parte superior
     if EMBLEM.exists():
         logo = Image.open(EMBLEM).convert("RGBA")
-        logo.thumbnail((84, 84), Image.Resampling.LANCZOS)
+        logo.thumbnail((88, 88), Image.Resampling.LANCZOS)
         lx = (W - logo.width) // 2
-        ly = 34
+        ly = 28
         canvas.paste(logo, (lx, ly), logo)
 
     # Etiqueta limpia debajo del emblema
     try:
-        font_title = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 14)
-        font_sub = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 10)
+        font_title = ImageFont.truetype("C:/Windows/Fonts/georgiab.ttf", 18)
+        font_sub = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 9)
     except Exception:
         font_title = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    title = "AoE2 Helper"
+    title = "Relic"
     tb = draw.textbbox((0, 0), title, font=font_title)
-    draw.text(((W - (tb[2] - tb[0])) // 2, 124), title, fill=(239, 238, 233), font=font_title)
+    draw.text(((W - (tb[2] - tb[0])) // 2, 120), title, fill=(232, 198, 126), font=font_title)
 
     sub = "AGE OF EMPIRES II · DE"
     sb = draw.textbbox((0, 0), sub, font=font_sub)
-    draw.text(((W - (sb[2] - sb[0])) // 2, 156), sub, fill=(199, 173, 118), font=font_sub)
+    draw.text(((W - (sb[2] - sb[0])) // 2, 155), sub, fill=(199, 173, 118), font=font_sub)
 
     out = BUILD / "installer-sidebar.bmp"
     canvas.save(out, format="BMP")
@@ -99,7 +100,11 @@ def make_header():
                 mpx[x, y] = int(200 * (x / (W - 1)))
         canvas.paste(art, (0, 0), mask)
 
-    if EMBLEM.exists():
+    if WORDMARK.exists():
+        logo = Image.open(WORDMARK).convert("RGBA")
+        logo.thumbnail((116, 40), Image.Resampling.LANCZOS)
+        canvas.paste(logo, (W - logo.width - 10, (H - logo.height) // 2), logo)
+    elif EMBLEM.exists():
         logo = Image.open(EMBLEM).convert("RGBA")
         logo.thumbnail((40, 40), Image.Resampling.LANCZOS)
         canvas.paste(logo, (W - logo.width - 12, (H - logo.height) // 2), logo)

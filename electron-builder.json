@@ -1,6 +1,6 @@
 {
   "appId": "com.local.aoe2elooverlay",
-  "productName": "AoE2 ELO Overlay",
+  "productName": "Relic",
   "asar": true,
   "asarUnpack": [
     "node_modules/aoe2rec-js/**/*"
@@ -67,7 +67,7 @@
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
-    "shortcutName": "AoE2 ELO Overlay",
+    "shortcutName": "Relic",
     "differentialPackage": true,
     "installerSidebar": "build/installer-sidebar.bmp",
     "uninstallerSidebar": "build/installer-sidebar.bmp",

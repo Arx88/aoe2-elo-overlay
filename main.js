@@ -1588,10 +1588,10 @@ function createTray() {
   try {
     const image = nativeImage.createFromPath(ICON_PNG);
     tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image.resize({ width: 16, height: 16 }));
-    tray.setToolTip('AoE2 ELO Overlay');
+    tray.setToolTip('Relic');
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: `AoE2 ELO Overlay v${app.getVersion()}`, enabled: false },
+        { label: `Relic v${app.getVersion()}`, enabled: false },
         { type: 'separator' },
         { label: 'Configuración…', click: () => openSettings() },
         { label: 'Mostrar / ocultar panel', click: () => toggleOverlay() },
@@ -1869,7 +1869,7 @@ function openSettings() {
     height: 680,
     minWidth: 860,
     minHeight: 560,
-    title: 'Aoe2 Helper',
+    title: 'Relic',
     icon: ICON_PNG,
     backgroundColor: '#121211',
     autoHideMenuBar: true,
