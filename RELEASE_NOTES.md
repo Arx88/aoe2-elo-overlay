@@ -1,3 +1,12 @@
+## v2.3.1 · Nueva identidad visual
+
+- Cada pestaña del launcher y cada fase del overlay tiene una composición propia con el mismo estilo cartográfico.
+- La cuenta activa tiene una cabecera de perfil, con iniciales, alias, ID y origen de la cuenta.
+- Los cuadros de apertura de Prematch y Postmatch muestran un fondo que corresponde al tipo de apertura.
+- Encabezados, filas y controles tienen más espacio interior y separadores más suaves.
+
+---
+
 ## v2.3.0 · Prematch predictivo y Postmatch entrenador en tiempo real
 
 - **Prematch predictivo renovado:** clasificación por entropía del pool del rival (`Especialista`, `Foco` o `Random`), predicción Top-3 ponderada por mapa y recencia, perfil de eAPM frente a rivales reales, debilidades ajustadas por diferencia de ELO y tira editorial de telemetría (Perfil · Ladder · Racha · Mecánica).

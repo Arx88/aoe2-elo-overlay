@@ -65,6 +65,8 @@ const scoutF2Input = el('scoutF2');
 const postMatchInput = el('postMatch');
 const postMatchComparisonInput = el('postMatchComparison');
 const postMatchCompareModeInput = el('postMatchCompareMode');
+const postMatchCompareHelp = el('postMatchCompareHelp');
+let savedPostMatchCompareMode = 'both';
 const postMatchReplayInput = el('postMatchReplay');
 const postMatchReportEl = el('postMatchReport');
 const refreshPostMatchBtn = el('refreshPostMatch');
@@ -185,6 +187,15 @@ function renderFeatureList(target, features) {
   }
 }
 
+function paintPostmatchReference() {
+  if (!postMatchCompareModeInput) return;
+  const hasAccess = !postMatchComparisonInput.disabled;
+  const enabled = postMatchComparisonInput.checked && hasAccess;
+  postMatchCompareModeInput.disabled = !enabled;
+  postMatchCompareHelp.textContent = enabled ? 'Elegí qué referencia se muestra en el informe'
+    : hasAccess ? 'Activá «Comparar mi evolución» para elegir la referencia' : 'Disponible con ProMax.';
+}
+
 function renderProduct(product) {
   if (!product) return;
   currentProduct = product;
@@ -222,7 +233,7 @@ function renderProduct(product) {
   civHelpInput.disabled = !product.featureAccess.civHelp;
   tgBalanceInput.disabled = !product.featureAccess.tgBalance;
   postMatchComparisonInput.disabled = !proAccess;
-  if (postMatchCompareModeInput) postMatchCompareModeInput.disabled = !proAccess;
+  paintPostmatchReference();
   postMatchReplayInput.disabled = !replayAccess;
   smartBuildOrderInput.disabled = !product.featureAccess.smartBuildOrder;
   postMatchComparisonInput.title = proAccess ? '' : 'Disponible con ProMax.';
@@ -245,7 +256,8 @@ function renderProduct(product) {
   checkoutCommerce.disabled = !(commerce.checkout && commerce.checkout.enabled);
 }
 
-const EMPTY_POSTMATCH = '<div class="empty-report"><svg aria-hidden="true"><use href="#ic-chart" /></svg><h3>Tu próxima partida marca el comienzo.</h3><p>Al terminar, el informe aparecerá acá y en el overlay.</p></div>';
+const EMPTY_POSTMATCH = el('emptyPostmatchState').innerHTML;
+if (postMatchReportEl) postMatchReportEl.innerHTML = EMPTY_POSTMATCH;
 
 function paintPostMatch(payload) {
   const report = payload && Object.hasOwn(payload, 'report') ? payload.report : payload;
@@ -454,19 +466,28 @@ for (const [key, input, label] of [
   ['postMatchComparison', postMatchComparisonInput, 'Comparar mi evolución'],
   ['postMatchReplay', postMatchReplayInput, 'Análisis del replay y APM'],
 ]) {
-  input.addEventListener('change', () =>
-    applyToggle(input, (on) => window.settings.postMatchOption(key, on), label),
-  );
+  input.addEventListener('change', async () => {
+    try {
+      await applyToggle(input, (on) => window.settings.postMatchOption(key, on), label);
+    } catch (error) {
+      input.checked = !input.checked;
+      setStatus(error.message || 'No se pudo actualizar la opción.', true);
+    }
+    if (input === postMatchComparisonInput) paintPostmatchReference();
+  });
 }
 if (postMatchCompareModeInput) {
   postMatchCompareModeInput.addEventListener('change', async () => {
-    const val = postMatchCompareModeInput.value;
-    const res = await window.settings.postMatchOption('postMatchCompareMode', val);
-    if (!res || !res.ok) {
-      setStatus((res && res.error) || 'No se pudo cambiar la referencia del postmatch.', true);
-      return;
+    const value = postMatchCompareModeInput.value;
+    try {
+      const result = await window.settings.postMatchOption('postMatchCompareMode', value);
+      if (!result?.ok) throw new Error(result?.error || 'No se pudo cambiar la referencia del postmatch.');
+      savedPostMatchCompareMode = value;
+      setStatus('Referencia del postmatch actualizada.');
+    } catch (error) {
+      postMatchCompareModeInput.value = savedPostMatchCompareMode;
+      setStatus(error.message || 'No se pudo cambiar la referencia del postmatch.', true);
     }
-    setStatus('Referencia del postmatch actualizada.');
   });
 }
 
@@ -641,7 +662,11 @@ async function loadCurrent() {
   tgBalanceInput.checked = Boolean(info.tgBalance);
   postMatchInput.checked = info.postMatch !== false;
   postMatchComparisonInput.checked = Boolean(info.postMatchComparison);
-  if (postMatchCompareModeInput) postMatchCompareModeInput.value = info.postMatchCompareMode || 'both';
+  if (postMatchCompareModeInput) {
+    savedPostMatchCompareMode = [...postMatchCompareModeInput.options].some((option) => option.value === info.postMatchCompareMode)
+      ? info.postMatchCompareMode : 'both';
+    postMatchCompareModeInput.value = savedPostMatchCompareMode;
+  }
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
   smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
   if (typeof TacticalUI === 'object' && TacticalUI.configure) {
@@ -657,6 +682,10 @@ async function loadCurrent() {
   paintClock();
 
   currentProfileId = info.profileId || null;
+  el('accountProfile').classList.toggle('has-profile', Boolean(currentProfileId));
+  el('accountHint').textContent = currentProfileId
+    ? 'El overlay usa tu perfil para reconocerte en la partida y mostrar tu ELO de RM 1v1.'
+    : 'Detectá tu perfil del juego o buscá tu nombre abajo para activar el overlay.';
   if (info.profileId) {
     currentName.textContent = info.alias || `Perfil ${info.profileId}`;
     currentId.textContent = `#${info.profileId}`;
@@ -668,7 +697,7 @@ async function loadCurrent() {
     currentName.textContent = 'Todavía no hay cuenta elegida';
     currentId.textContent = '';
     currentOrigin.hidden = true;
-    accountAvatar.textContent = '?';
+    accountAvatar.textContent = '';
   }
 }
 
@@ -877,7 +906,12 @@ let activePage = 'player';
 function goTo(page) {
   if (!PAGE_META[page]) return;
   activePage = page;
-  for (const button of navButtons) button.classList.toggle('active', button.dataset.page === page);
+  for (const button of navButtons) {
+    const current = button.dataset.page === page;
+    button.classList.toggle('active', current);
+    if (current) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  }
   for (const section of pageSections) section.classList.toggle('active', section.dataset.page === page);
   pageTitle.textContent = PAGE_META[page].title;
   pageSub.textContent = PAGE_META[page].sub;

@@ -298,7 +298,8 @@ function op(playerId, ms, type, payload = {}) {
   assert.match(unifiedHtml, /class="pm-opening-bar/);
   assert.match(unifiedHtml, /class="pm-stages-v2"/);
   assert.match(unifiedHtml, /Alta Edad/);
-  assert.match(unifiedHtml, /class="pm-svg"/);
+  assert.match(unifiedHtml, /class="pm-icon-tile is-gold"><img class="product-icon" src="assets\/icons\/history\.png"/);
+  assert.match(unifiedHtml, /class="pm-opening-bar grade-S opening-art opening-art-scouts"/);
   assert.match(unifiedHtml, /pm-grade-stamp grade-S/);
   assert.match(unifiedHtml, /pm-icon-tile/);
   assert.match(unifiedHtml, /Tu evolución · vs tus últimas 4 partidas/);

@@ -714,11 +714,28 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
    Postmatch v2 · Evolución personal + Duelo Vos vs Rival (editorial)
    ===================================================================== */
 .pm-v2 {
+  --pm-accent: var(--accent);
+  --pm-positive: #a7c6ae;
+  --pm-negative: #d8a298;
+  --pm-caution: #d6b685;
+  --pm-rival: var(--muted);
+  --pm-surface: color-mix(in srgb, var(--text) 4%, transparent);
+  --pm-border: var(--head-border);
   display: flex;
   flex-direction: column;
   gap: 14px;
   font: var(--type-meta)/1.45 var(--interface-font);
   color: var(--text);
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .pm-v2 {
+  --muted: color-mix(in srgb, var(--text) 82%, transparent);
+  --pm-accent: color-mix(in srgb, var(--accent) 35%, var(--text));
+  --pm-positive: #3c624a;
+  --pm-negative: #934f43;
+  --pm-caution: #78561e;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .pm-icon-tile > .product-icon {
+  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--text) 75%, transparent));
 }
 .pm-v2 > * {
   animation: intel-rise 340ms cubic-bezier(.22, 1, .36, 1) both;
@@ -875,7 +892,7 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   border: 1px solid var(--head-border);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--text) 2.5%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 3.5%, transparent);
 }
 .pm-kpi.is-best {
   border-color: color-mix(in srgb, var(--accent) 44%, transparent);
@@ -1182,31 +1199,6 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   border: 1px solid var(--head-border);
   background: color-mix(in srgb, var(--text) 3%, transparent);
 }
-.pm-grade-stamp.grade-S {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-.pm-grade-stamp.grade-A {
-  color: #a7c6ae;
-  border-color: rgba(167, 198, 174, .42);
-  background: rgba(167, 198, 174, .09);
-}
-.pm-grade-stamp.grade-B {
-  color: var(--strong, var(--text));
-  border-color: color-mix(in srgb, var(--text) 24%, transparent);
-}
-.pm-grade-stamp.grade-C {
-  color: #d6b685;
-  border-color: rgba(214, 182, 133, .36);
-  background: rgba(214, 182, 133, .07);
-}
-.pm-grade-stamp.grade-D {
-  color: #d8a298;
-  border-color: rgba(216, 162, 152, .42);
-  background: rgba(216, 162, 152, .08);
-}
 .pm-stage-meta {
   display: flex;
   justify-content: space-between;
@@ -1221,8 +1213,8 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   font-weight: 650;
   white-space: nowrap;
 }
-.pm-st-delta.win { color: #a7c6ae; }
-.pm-st-delta.loss { color: #d8a298; }
+.pm-st-delta.win { color: var(--pm-positive); }
+.pm-st-delta.loss { color: var(--pm-negative); }
 .pm-stage-tip {
   margin: 0;
   font-size: 10.5px;
@@ -1233,8 +1225,8 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   border-color: color-mix(in srgb, var(--accent) 28%, var(--head-border));
 }
 .pm-badge.is-warn {
-  border-color: rgba(216, 162, 152, .28);
-  background: rgba(216, 162, 152, .04);
+  border-color: color-mix(in srgb, var(--pm-negative) 28%, transparent);
+  background: color-mix(in srgb, var(--pm-negative) 4%, transparent);
 }
 
 /* Pill de modo de referencia en el encabezado */
@@ -1400,7 +1392,7 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
 }
 .pm-queue-list li b { color: var(--strong, var(--text)); font-weight: 650; }
 .pm-queue-list li small { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.pm-queue-list li.is-warn small { color: #d8a298; font-weight: 600; }
+.pm-queue-list li.is-warn small { color: var(--pm-caution); font-weight: 600; }
 .pm-queue-empty { margin: 0; font-size: 11px; color: var(--muted); }
 .pm-comp-strip {
   display: flex;
@@ -1442,12 +1434,12 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   background: color-mix(in srgb, var(--text) 2%, transparent);
 }
 .pm-coach-row.is-ok {
-  border-color: rgba(167, 198, 174, .36);
-  background: rgba(167, 198, 174, .05);
+  border-color: color-mix(in srgb, var(--pm-positive) 36%, transparent);
+  background: color-mix(in srgb, var(--pm-positive) 5%, transparent);
 }
 .pm-coach-row.is-warn {
-  border-color: rgba(216, 162, 152, .3);
-  background: rgba(216, 162, 152, .04);
+  border-color: color-mix(in srgb, var(--pm-negative) 30%, transparent);
+  background: color-mix(in srgb, var(--pm-negative) 4%, transparent);
 }
 .pm-coach-k {
   font-size: 9px;
@@ -1456,8 +1448,8 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   text-transform: uppercase;
   color: var(--muted);
 }
-.pm-coach-row.is-ok .pm-coach-k { color: #a7c6ae; }
-.pm-coach-row.is-warn .pm-coach-k { color: #d8a298; }
+.pm-coach-row.is-ok .pm-coach-k { color: var(--pm-positive); }
+.pm-coach-row.is-warn .pm-coach-k { color: var(--pm-negative); }
 .pm-coach-row > b {
   font-size: 11px;
   font-weight: 600;
@@ -1470,21 +1462,8 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
  * Nivel 2 (Superficies calmas): Tarjetas obsidiana uniformes; color solo en el glifo/delta.
  * Nivel 3 (Datos de apoyo): Duelo oro vs acero, colas, bache TC y hábitos sin ruido.
  */
-.pm-v2 {
-  --pm-gold: #eab308;
-  --pm-gold-soft: #f5d061;
-  --pm-emerald: #22c55e;
-  --pm-emerald-soft: #4ade80;
-  --pm-sky: #38bdf8;
-  --pm-amber: #f59e0b;
-  --pm-rose: #f43f5e;
-  --pm-rose-soft: #fb7185;
-  --pm-rival: #64748b;
-  --pm-surface: rgba(255, 255, 255, .026);
-  --pm-border: rgba(255, 255, 255, .085);
-}
 
-/* Tiles SVG 100% centrados: contenedor neutro y sobrio, color limpio solo en el trazo */
+/* Pictogramas propios en las cajas originales del informe. */
 .pm-icon-tile {
   width: 36px;
   height: 36px;
@@ -1493,34 +1472,28 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, .045);
-  border: 1px solid rgba(255, 255, 255, .09);
-  color: #cbd5e1;
+  background: color-mix(in srgb, var(--text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--text);
 }
 .pm-icon-tile.sm {
   width: 30px;
   height: 30px;
   border-radius: 8px;
 }
-.pm-icon-tile .pm-svg { width: 18px; height: 18px; display: block; }
-.pm-icon-tile.sm .pm-svg { width: 15px; height: 15px; }
-.pm-icon-tile.is-gold { color: var(--pm-gold-soft); }
-.pm-icon-tile.is-emerald { color: var(--pm-emerald-soft); }
-.pm-icon-tile.is-sky { color: var(--pm-sky); }
-.pm-icon-tile.is-amber { color: var(--pm-amber); }
-.pm-icon-tile.is-rose { color: var(--pm-rose-soft); }
-.pm-icon-tile.is-slate { color: #64748b; }
+.pm-icon-tile > .product-icon { width: 18px; height: 18px; display: block; }
+.pm-icon-tile.sm > .product-icon { width: 15px; height: 15px; }
 
 /* Solo el banner protagonista conserva relleno cromático en su tile */
 .pm-trophy-banner .pm-icon-tile.is-emerald {
-  background: rgba(34, 197, 94, .18);
-  border-color: rgba(74, 222, 128, .48);
-  box-shadow: 0 0 16px rgba(34, 197, 94, .22);
+  background: color-mix(in srgb, var(--pm-positive) 18%, transparent);
+  border-color: color-mix(in srgb, var(--pm-positive) 48%, transparent);
+  box-shadow: none;
 }
 .pm-trophy-banner .pm-icon-tile.is-gold {
-  background: rgba(234, 179, 8, .18);
-  border-color: rgba(245, 208, 97, .48);
-  box-shadow: 0 0 16px rgba(234, 179, 8, .22);
+  background: color-mix(in srgb, var(--pm-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--pm-accent) 48%, transparent);
+  box-shadow: none;
 }
 .pm-mini-ico {
   width: 18px;
@@ -1529,18 +1502,18 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--pm-gold-soft);
+  color: var(--pm-accent);
 }
-.pm-mini-ico .pm-svg { width: 13px; height: 13px; display: block; }
+.pm-mini-ico > .product-icon { width: 13px; height: 13px; display: block; }
 
 /* Header sobrio y limpio */
 .pm-v2 .pm-head { background: none; padding: 0 0 10px; }
-.pm-v2 .review-result.win { color: var(--pm-emerald-soft); }
-.pm-v2 .review-result.loss { color: var(--pm-rose-soft); }
+.pm-v2 .review-result.win { color: var(--pm-positive); }
+.pm-v2 .review-result.loss { color: var(--pm-negative); }
 .pm-mode-tag {
-  color: #94a3b8;
-  border-color: rgba(255, 255, 255, .12);
-  background: rgba(255, 255, 255, .04);
+  color: var(--pm-rival);
+  border-color: color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
 }
 
 /* NIVEL 1 — Banner protagonista de Reto cumplido / Récord (el acento principal de la pantalla) */
@@ -1550,15 +1523,15 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   gap: 13px;
   padding: 11px 15px;
   border-radius: 10px;
-  border: 1px solid rgba(74, 222, 128, .44);
-  background: linear-gradient(95deg, rgba(34, 197, 94, .16) 0%, rgba(34, 197, 94, .05) 55%, rgba(255, 255, 255, .02) 100%);
-  box-shadow: 0 4px 20px rgba(34, 197, 94, .10);
+  border: 1px solid color-mix(in srgb, var(--pm-positive) 44%, transparent);
+  background: linear-gradient(95deg, color-mix(in srgb, var(--pm-positive) 16%, transparent) 0%, color-mix(in srgb, var(--pm-positive) 5%, transparent) 55%, color-mix(in srgb, var(--text) 2%, transparent) 100%);
+  box-shadow: none;
   animation: intel-rise 300ms cubic-bezier(.16, 1, .3, 1) both;
 }
 .pm-trophy-banner.is-record {
-  border-color: rgba(245, 208, 97, .48);
-  background: linear-gradient(95deg, rgba(234, 179, 8, .16) 0%, rgba(234, 179, 8, .04) 55%, rgba(255, 255, 255, .02) 100%);
-  box-shadow: 0 4px 20px rgba(234, 179, 8, .10);
+  border-color: color-mix(in srgb, var(--pm-accent) 48%, transparent);
+  background: linear-gradient(95deg, color-mix(in srgb, var(--pm-accent) 16%, transparent) 0%, color-mix(in srgb, var(--pm-accent) 4%, transparent) 55%, color-mix(in srgb, var(--text) 2%, transparent) 100%);
+  box-shadow: none;
 }
 .pm-trophy-banner.is-pending {
   border-color: var(--pm-border);
@@ -1572,25 +1545,25 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   font-weight: 800;
   letter-spacing: .12em;
   text-transform: uppercase;
-  color: var(--pm-emerald-soft);
+  color: var(--pm-positive);
 }
-.pm-trophy-banner.is-record .pm-trophy-pill { color: var(--pm-gold-soft); }
-.pm-trophy-banner.is-pending .pm-trophy-pill { color: #94a3b8; }
+.pm-trophy-banner.is-record .pm-trophy-pill { color: var(--pm-accent); }
+.pm-trophy-banner.is-pending .pm-trophy-pill { color: var(--pm-rival); }
 .pm-trophy-copy > b {
   display: block;
   margin-top: 2px;
   font-size: 13px;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text);
 }
 .pm-trophy-tag {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .09em;
-  color: #052e16;
+  color: var(--pm-positive);
   padding: 4px 11px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #4ade80, #22c55e);
+  background: color-mix(in srgb, var(--pm-positive) 18%, transparent);
   white-space: nowrap;
 }
 
@@ -1602,7 +1575,7 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   background: var(--pm-surface);
 }
 .pm-opening-bar.grade-S {
-  border-color: rgba(255, 255, 255, .12);
+  border-color: color-mix(in srgb, var(--text) 12%, transparent);
   background: var(--pm-surface);
 }
 .pm-stage-card {
@@ -1632,30 +1605,29 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   justify-content: center;
 }
 .pm-grade-stamp.grade-S {
-  color: #1c1302;
-  border: 1px solid #fde047;
-  background: linear-gradient(145deg, #fde047, #eab308);
-  box-shadow: 0 2px 10px rgba(234, 179, 8, .30);
+  color: var(--pm-accent);
+  border: 1px solid color-mix(in srgb, var(--pm-accent) 62%, transparent);
+  background: color-mix(in srgb, var(--pm-accent) 20%, transparent);
 }
 .pm-grade-stamp.grade-A {
-  color: var(--pm-emerald-soft);
-  border: 1px solid rgba(74, 222, 128, .45);
-  background: rgba(34, 197, 94, .12);
+  color: var(--pm-accent);
+  border: 1px solid color-mix(in srgb, var(--pm-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--pm-accent) 13%, transparent);
 }
 .pm-grade-stamp.grade-B {
-  color: var(--pm-sky);
-  border: 1px solid rgba(56, 189, 248, .38);
-  background: rgba(56, 189, 248, .10);
+  color: var(--pm-accent);
+  border: 1px solid color-mix(in srgb, var(--pm-accent) 34%, transparent);
+  background: color-mix(in srgb, var(--pm-accent) 9%, transparent);
 }
 .pm-grade-stamp.grade-C {
-  color: var(--pm-amber);
-  border: 1px solid rgba(245, 158, 11, .38);
-  background: rgba(245, 158, 11, .10);
+  color: var(--pm-accent);
+  border: 1px solid color-mix(in srgb, var(--pm-accent) 25%, transparent);
+  background: color-mix(in srgb, var(--pm-accent) 6%, transparent);
 }
 .pm-grade-stamp.grade-D {
-  color: var(--pm-rose-soft);
-  border: 1px solid rgba(251, 113, 133, .42);
-  background: rgba(244, 63, 94, .12);
+  color: var(--pm-accent);
+  border: 1px solid color-mix(in srgb, var(--pm-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--pm-accent) 3%, transparent);
 }
 .pm-st-delta {
   font-size: 10px;
@@ -1664,8 +1636,8 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   background: none;
   border: 0;
 }
-.pm-st-delta.win { color: var(--pm-emerald-soft); }
-.pm-st-delta.loss { color: var(--pm-rose-soft); }
+.pm-st-delta.win { color: var(--pm-positive); }
+.pm-st-delta.loss { color: var(--pm-negative); }
 
 /* Badges de Logros y Alertas: superficie neutra calma, color solo en micro-etiqueta + icono */
 .pm-badge {
@@ -1690,8 +1662,8 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   text-transform: uppercase;
   margin-bottom: 2px;
 }
-.pm-badge.is-good .pm-badge-tag { color: var(--pm-gold-soft); }
-.pm-badge.is-warn .pm-badge-tag { color: var(--pm-rose-soft); }
+.pm-badge.is-good .pm-badge-tag { color: var(--pm-accent); }
+.pm-badge.is-warn .pm-badge-tag { color: var(--pm-caution); }
 
 /* KPIs: superficie neutra sin rayas chillonas; el número blanco manda y el delta es sutil y claro */
 .pm-kpi {
@@ -1705,7 +1677,7 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   background: var(--pm-surface);
 }
 .pm-kpi.is-best {
-  border-color: rgba(245, 208, 97, .40);
+  border-color: color-mix(in srgb, var(--pm-accent) 40%, transparent);
 }
 .pm-kpi-top { align-items: center; gap: 6px; }
 .pm-kpi-top > span:first-child { white-space: nowrap; }
@@ -1719,31 +1691,31 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   border: 0;
 }
 .pm-delta.win {
-  color: var(--pm-emerald-soft);
-  background: rgba(34, 197, 94, .12);
+  color: var(--pm-positive);
+  background: color-mix(in srgb, var(--pm-positive) 12%, transparent);
 }
 .pm-delta.win.is-record {
-  color: #1c1302;
-  background: linear-gradient(135deg, #fde047, #eab308);
+  color: var(--pm-accent);
+  background: color-mix(in srgb, var(--pm-accent) 18%, transparent);
 }
 .pm-delta.loss {
-  color: var(--pm-rose-soft);
-  background: rgba(244, 63, 94, .11);
+  color: var(--pm-negative);
+  background: color-mix(in srgb, var(--pm-negative) 11%, transparent);
 }
 .pm-delta.muted {
-  color: #94a3b8;
-  background: rgba(148, 163, 184, .10);
+  color: var(--pm-rival);
+  background: color-mix(in srgb, var(--pm-rival) 10%, transparent);
 }
 /* Sparklines: trazo neutro calmo y solo el punto final lleva el color de tendencia */
-.pm-spark polygon { fill: rgba(148, 163, 184, .07); }
-.pm-spark polyline { stroke: #64748b; stroke-width: 1.6; }
-.pm-spark circle { fill: var(--pm-gold-soft); }
-.pm-spark.is-win polyline { stroke: rgba(74, 222, 128, .65); }
-.pm-spark.is-win circle { fill: var(--pm-emerald-soft); }
-.pm-spark.is-win polygon { fill: rgba(34, 197, 94, .08); }
-.pm-spark.is-loss polyline { stroke: rgba(251, 113, 133, .55); }
-.pm-spark.is-loss circle { fill: var(--pm-rose-soft); }
-.pm-spark.is-loss polygon { fill: rgba(244, 63, 94, .07); }
+.pm-spark polygon { fill: color-mix(in srgb, var(--pm-rival) 7%, transparent); }
+.pm-spark polyline { stroke: var(--pm-rival); stroke-width: 1.6; }
+.pm-spark circle { fill: var(--pm-accent); }
+.pm-spark.is-win polyline { stroke: color-mix(in srgb, var(--pm-positive) 65%, transparent); }
+.pm-spark.is-win circle { fill: var(--pm-positive); }
+.pm-spark.is-win polygon { fill: color-mix(in srgb, var(--pm-positive) 8%, transparent); }
+.pm-spark.is-loss polyline { stroke: color-mix(in srgb, var(--pm-negative) 55%, transparent); }
+.pm-spark.is-loss circle { fill: var(--pm-negative); }
+.pm-spark.is-loss polygon { fill: color-mix(in srgb, var(--pm-negative) 7%, transparent); }
 
 /* NIVEL 3 — Curva de ritmo, Duelo (oro vs acero limpio) y Colas */
 .pm-curve-wrap, .pm-duel, .pm-queue-box {
@@ -1751,31 +1723,31 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   border: 1px solid var(--pm-border);
   background: var(--pm-surface);
 }
-.pm-line-self { stroke: var(--pm-gold-soft); stroke-width: 2.2; }
-.pm-area-self { fill: rgba(234, 179, 8, .10); }
-.pm-dot-self { fill: var(--pm-gold-soft); }
-.pm-line-rival { stroke: #64748b; opacity: .9; stroke-width: 1.5; }
-.pm-dot-rival { fill: #94a3b8; }
-.pm-legend .leg-self { background: var(--pm-gold-soft); }
-.pm-legend .leg-rival { background: #94a3b8; opacity: 1; }
-.pm-side.is-self b { color: var(--pm-gold-soft); }
-.pm-side.is-rival b { color: #cbd5e1; }
+.pm-line-self { stroke: var(--pm-accent); stroke-width: 2.2; }
+.pm-area-self { fill: color-mix(in srgb, var(--pm-accent) 10%, transparent); }
+.pm-dot-self { fill: var(--pm-accent); }
+.pm-line-rival { stroke: var(--pm-rival); opacity: .9; stroke-width: 1.5; }
+.pm-dot-rival { fill: var(--pm-rival); }
+.pm-legend .leg-self { background: var(--pm-accent); }
+.pm-legend .leg-rival { background: var(--pm-rival); opacity: 1; }
+.pm-side.is-self b { color: var(--pm-accent); }
+.pm-side.is-rival b { color: var(--text); }
 .pm-side .civ-badge {
   width: 26px;
   height: 26px;
   border-radius: 6px;
   padding: 2px;
-  background: rgba(255, 255, 255, .05);
-  border: 1px solid rgba(255, 255, 255, .10);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
   box-sizing: border-box;
 }
-.pm-half { height: 5px; background: rgba(255, 255, 255, .07); }
-.pm-half.left > i { background: linear-gradient(270deg, #ca8a04, #f5d061); }
-.pm-half.right > i { background: #64748b; }
-.pm-duel-nums > b.is-accent { color: var(--pm-gold-soft); }
-.pm-duel-nums > b.is-r.is-lead { color: #e2e8f0; }
-.pm-queue-head > b { color: #e2e8f0; }
-.pm-queue-list li.is-warn small { color: var(--pm-rose-soft); }
+.pm-half { height: 5px; background: color-mix(in srgb, var(--text) 7%, transparent); }
+.pm-half.left > i { background: linear-gradient(270deg, var(--accent-dim), var(--pm-accent)); }
+.pm-half.right > i { background: var(--pm-rival); }
+.pm-duel-nums > b.is-accent { color: var(--pm-accent); }
+.pm-duel-nums > b.is-r.is-lead { color: var(--text); }
+.pm-queue-head > b { color: var(--text); }
+.pm-queue-list li.is-warn small { color: var(--pm-caution); }
 
 /* Mayor bache de TC (Nivel 3 sobrio) + Foco próxima (Nivel 1: acento dorado claro) */
 .pm-coach-row {
@@ -1791,12 +1763,12 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   border-color: var(--pm-border);
   background: var(--pm-surface);
 }
-.pm-coach-row.is-gap .pm-coach-k { color: var(--pm-rose-soft); }
+.pm-coach-row.is-gap .pm-coach-k { color: var(--pm-caution); }
 .pm-coach-row > div > b {
   display: block;
   font-size: 11.5px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text);
   line-height: 1.35;
 }
 .pm-focus {
@@ -1805,9 +1777,9 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   gap: 11px;
   padding: 11px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(245, 208, 97, .34);
-  border-left: 3px solid var(--pm-gold);
-  background: linear-gradient(95deg, rgba(234, 179, 8, .10), rgba(255, 255, 255, .02));
+  border: 1px solid color-mix(in srgb, var(--pm-accent) 34%, transparent);
+  border-left: 3px solid var(--pm-accent);
+  background: linear-gradient(95deg, color-mix(in srgb, var(--pm-accent) 10%, transparent), color-mix(in srgb, var(--text) 2%, transparent));
 }
 .pm-focus > div > span {
   display: block;
@@ -1815,19 +1787,19 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   font-weight: 800;
   letter-spacing: .11em;
   text-transform: uppercase;
-  color: var(--pm-gold-soft);
+  color: var(--pm-accent);
 }
 .pm-focus > div > b {
   display: block;
   margin-top: 2px;
   font-size: 12.5px;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text);
 }
 .pm-focus > div > p {
   margin: 3px 0 0;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--pm-rival);
   line-height: 1.4;
 }
 

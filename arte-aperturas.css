@@ -1,0 +1,57 @@
+.opening-art-scouts { --opening-art: url("assets/art/apertura-scouts.webp"); }
+.opening-art-archers { --opening-art: url("assets/art/apertura-archers.webp"); }
+.opening-art-militia { --opening-art: url("assets/art/apertura-militia.webp"); }
+.opening-art-swords { --opening-art: url("assets/art/apertura-swords.webp"); }
+.opening-art-castle { --opening-art: url("assets/art/apertura-castle.webp"); }
+.opening-art-boom { --opening-art: url("assets/art/apertura-boom.webp"); }
+.opening-art-monks { --opening-art: url("assets/art/apertura-monks.webp"); }
+.opening-art-tower { --opening-art: url("assets/art/apertura-tower.webp"); }
+.opening-art-pikes { --opening-art: url("assets/art/apertura-pikes.webp"); }
+.opening-art-elephants { --opening-art: url("assets/art/apertura-elephants.webp"); }
+.opening-art-siege { --opening-art: url("assets/art/apertura-siege.webp"); }
+.opening-art-serjeants { --opening-art: url("assets/art/apertura-serjeants.webp"); }
+.opening-art-scouts-archers { --opening-art: url("assets/art/apertura-scouts-archers.webp"); }
+.opening-art-drush-archers { --opening-art: url("assets/art/apertura-drush-archers.webp"); }
+.opening-art-drush-castle { --opening-art: url("assets/art/apertura-drush-castle.webp"); }
+.opening-art-swords-scouts { --opening-art: url("assets/art/apertura-swords-scouts.webp"); }
+.opening-art-swords-archers { --opening-art: url("assets/art/apertura-swords-archers.webp"); }
+.opening-art-drush-swords { --opening-art: url("assets/art/apertura-drush-swords.webp"); }
+.opening-art-hoang { --opening-art: url("assets/art/apertura-hoang.webp"); }
+.opening-art-castle-boom { --opening-art: url("assets/art/apertura-castle-boom.webp"); }
+.opening-art-archive { --opening-art: url("assets/art/overlay-postmatch.webp"); }
+.opening-art {
+  position: relative;
+  isolation: isolate;
+}
+.intel-block.opening-art:not(.tactical-block) {
+  padding: 12px 16px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.opening-art::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 43%;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--opening-art) right 40% / cover no-repeat;
+  mask-image: linear-gradient(90deg, transparent 13%, #000 81%);
+  opacity: .72;
+  pointer-events: none;
+}
+.opening-art .pm-grade-stamp {
+  background: color-mix(in srgb, var(--pm-accent) 16%, #202629);
+}
+body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"]) .opening-art::before {
+  opacity: .21;
+}
+body:is([data-theme="claro"], [data-theme="pergamino"]) .opening-art .pm-grade-stamp {
+  background: color-mix(in srgb, var(--pm-accent) 18%, #f4eddc);
+}
+@media (max-width: 370px) {
+  .opening-art::before {
+    inset-inline-start: 53%;
+    opacity: .44;
+  }
+}
+@media (prefers-contrast: more) { .opening-art::before { display: none; } }

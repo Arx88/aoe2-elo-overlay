@@ -1,0 +1,135 @@
+/* Propuesta de arte. Archivo local a la copia de revisión. */
+body {
+  --launcher-rail: 214px;
+  --launcher-heading-art: url("assets/art/cuenta.webp");
+  --launcher-art-position: right 44%;
+  --launcher-art-opacity: .73;
+  position: relative;
+  isolation: isolate;
+}
+body:has(.nav-item[data-page="overlay"].active) { --launcher-heading-art: url("assets/art/prematch.webp"); --launcher-art-position: right 59%; }
+body:has(.nav-item[data-page="tactics"].active) { --launcher-heading-art: url("assets/art/durante.webp"); --launcher-art-position: right 53%; }
+body:has(.nav-item[data-page="postmatch"].active) { --launcher-heading-art: url("assets/art/postmatch.webp"); --launcher-art-position: right 31%; }
+body:has(.nav-item[data-page="skins"].active) { --launcher-heading-art: url("assets/art/apariencia.webp"); --launcher-art-opacity: .60; --launcher-art-position: right 44%; }
+body:has(.nav-item[data-page="plans"].active) { --launcher-heading-art: url("assets/art/acceso.webp"); --launcher-art-opacity: .58; --launcher-art-position: right 51%; }
+body:has(.nav-item[data-page="updater"].active) { --launcher-heading-art: url("assets/art/actualizaciones.webp"); --launcher-art-opacity: .60; --launcher-art-position: right 54%; }
+body::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto var(--launcher-rail);
+  height: 170px;
+  background: linear-gradient(90deg, var(--ui-page) 12%, transparent 100%),
+    var(--launcher-heading-art) var(--launcher-art-position) / cover no-repeat;
+  mask-image: linear-gradient(180deg, #0005 0, #0009 42px, #000 76px, #000 112px, transparent 100%);
+  opacity: var(--launcher-art-opacity);
+  pointer-events: none;
+}
+.winbar {
+  position: relative;
+  background: linear-gradient(180deg, #12161ba6, transparent),
+    linear-gradient(180deg, #13181e, #171d1e) left / var(--launcher-rail) 100% no-repeat;
+  border-bottom-color: transparent;
+}
+.winbar-controls { background: linear-gradient(90deg, transparent, #12161b6b); }
+.winbar-context { color: #a1aaad; }
+.session-badge { color: #abb3b5; }
+.status-bar { border-top-color: transparent; background: linear-gradient(180deg, var(--ui-page), #101518); }
+.rail { border-right-color: transparent; }
+.launcher-rail-art {
+  flex: 1 1 0;
+  min-height: 0;
+  margin-inline: -12px;
+  background: url("assets/art/lateral.webp") center 89% / cover no-repeat;
+  mask-image: linear-gradient(180deg, transparent, #000 36%, #000 72%, transparent 100%);
+  opacity: .88;
+  pointer-events: none;
+}
+.rule, .group-head > i { background: transparent; }
+/* Labels retain their spacing and start each section with a surface cue. */
+.group-head { color: var(--text); }
+.section-banner {
+  border-bottom-color: transparent;
+  border-radius: var(--radius-surface);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 4%, transparent), transparent 78%);
+}
+.section-banner > .product-icon { border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.block { border-color: transparent; background: color-mix(in srgb, var(--ui-card) 97%, var(--text)); }
+.block > .row { border-bottom-color: transparent; padding-inline: var(--space-3); }
+.block > .row:nth-of-type(even) {
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text) 2.5%, transparent);
+}
+.nav-item.active { border-color: color-mix(in srgb, #514531 66%, transparent); }
+@media (max-width: 920px) { body { --launcher-rail: 190px; } }
+@media (prefers-contrast: more) { body::before, .launcher-rail-art { opacity: 0; } }
+
+
+/* Use a tone change for the access and update summaries. */
+.diag-details, .license-details, .commerce-actions { border-top-color: transparent; }
+.access-summary {
+  border-bottom-color: transparent;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-surface);
+  background: linear-gradient(110deg, color-mix(in srgb, var(--accent) 7%, var(--ui-card)), var(--ui-page));
+}
+.license-details { margin-top: var(--space-4); }
+.upd-card {
+  border-color: transparent;
+  border-radius: var(--radius-surface);
+  background: color-mix(in srgb, var(--ui-card) 94%, var(--accent));
+}
+.upd-divider { background: transparent; }
+.upd-download:has(#updPercent:empty) .upd-track { visibility: hidden; }
+
+.account-profile {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  gap: 18px;
+  align-content: space-between;
+  min-block-size: 152px;
+  padding: clamp(16px, 3vw, 26px);
+  border-radius: var(--radius-surface);
+  background: linear-gradient(115deg, #212824, #202724 51%, #23282b);
+}
+.account-profile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 24%;
+  z-index: -1;
+  background: url("assets/art/perfil.webp") 90% center / cover no-repeat;
+  mask-image: linear-gradient(90deg, transparent 10%, #000 64%);
+  opacity: .66;
+  pointer-events: none;
+}
+.account-profile .account-hero { gap: 16px; padding: 0; }
+.account-profile .avatar {
+  inline-size: 60px;
+  block-size: 60px;
+  border: 0;
+  border-radius: 19px;
+  clip-path: none;
+  background: radial-gradient(ellipse at 40% 0, #514630, #322e24 75%);
+  box-shadow: inset 0 0 0 1px #89755085;
+  color: #f0d7a3;
+  font-size: 21px;
+  font-weight: 650;
+}
+.account-profile:not(.has-profile) .avatar::before {
+  content: "";
+  inline-size: 28px;
+  block-size: 28px;
+  background: center / contain no-repeat url("assets/icons/shield.png");
+}
+.account-profile .account-name { margin: 0; font-size: clamp(18px, 2.8vw, 28px); line-height: 1.15; font-weight: 660; }
+.account-profile .account-meta { gap: 7px 12px; margin-top: 8px; }
+.account-profile .account-meta:has(#currentOrigin[hidden]) { display: none; }
+.account-profile .account-meta .chip { color: #bbcebe; font-size: 11px; }
+.account-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; }
+.account-profile .account-hint { margin: 0; padding: 0; flex: 1 1 240px; max-width: 42ch; color: #bfc8c4; }
+.account-profile .account-detect { background: #202825; border-color: #717a66; }
+.account-profile .account-detect:hover:not(:disabled) { background: #313a31; }
+@media (prefers-contrast: more) { .account-profile::before { display: none; } }

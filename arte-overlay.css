@@ -1,0 +1,55 @@
+/* Cada fase tiene su propia ilustración, sólo en la cabecera. */
+#panel #head { --overlay-motif: url("assets/art/overlay-durante.webp"); --overlay-motif-opacity: .52; }
+#panel.idle #head { --overlay-motif: url("assets/art/overlay-espera.webp"); --overlay-motif-opacity: .63; }
+#panel.lobby #head, #scouting .scout-head {
+  --overlay-motif: url("assets/art/overlay-prematch.webp");
+  --overlay-motif-opacity: .62;
+}
+#stage:has(> #scouting:not([hidden])) > #panel.lobby #head,
+#stage:has(> #civHelp:not([hidden]), > #smartBuildOrder:not([hidden])) > #panel:not(.lobby, .idle) #head,
+#stage:has(> #civHelp:not([hidden])) > #smartBuildOrder .smart-build > header { --overlay-motif-opacity: 0; }
+#civHelp .civhelp-head, #smartBuildOrder .smart-build > header {
+  --overlay-motif: url("assets/art/overlay-durante.webp");
+  --overlay-motif-opacity: .52;
+}
+#postMatch .pm-head, #postMatch .review-header { --overlay-motif: url("assets/art/overlay-postmatch.webp"); --overlay-motif-opacity: .58; }
+#postMatch:has(.review-scan) .review-header { --overlay-motif-opacity: 0; }
+#postMatch .review-scan { --overlay-motif: url("assets/art/actualizaciones.webp"); --overlay-motif-opacity: .34; }
+:is(#panel #head, #scouting .scout-head, #civHelp .civhelp-head, #smartBuildOrder .smart-build > header, #postMatch .pm-head, #postMatch .review-header, #postMatch .review-scan) {
+  position: relative;
+  isolation: isolate;
+}
+:is(#panel #head, #scouting .scout-head, #civHelp .civhelp-head, #smartBuildOrder .smart-build > header, #postMatch .pm-head, #postMatch .review-header, #postMatch .review-scan)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--overlay-motif) right 50% / 100% auto no-repeat;
+  mask-image: linear-gradient(90deg, transparent 48%, #000 73%, #000 86%, transparent 100%);
+  opacity: var(--overlay-motif-opacity, 0);
+  pointer-events: none;
+}
+#scouting .scout-head::after, #postMatch .review-scan::after { border-radius: inherit; }
+body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"]) :is(#panel #head, #scouting .scout-head, #civHelp .civhelp-head, #smartBuildOrder .smart-build > header, #postMatch .pm-head, #postMatch .review-header, #postMatch .review-scan)::after { opacity: calc(var(--overlay-motif-opacity, 0) * .18); }
+@media (max-width: 370px), (prefers-contrast: more) {
+  :is(#panel #head, #scouting .scout-head, #civHelp .civhelp-head, #smartBuildOrder .smart-build > header, #postMatch .pm-head, #postMatch .review-header, #postMatch .review-scan)::after { display: none; }
+}
+
+
+
+/* Keep data markers and graph strokes. Use tonal breaks between sections. */
+#panel #head, #panel #foot, #scouting .intel-source, #civHelp .civhelp-head, #postMatch .pm-foot { border-color: transparent; }
+#scouting .scout-head {
+  border-bottom-color: transparent;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 72%);
+}
+#scouting .intel-history-row { border-top-color: color-mix(in srgb, var(--head-border) 36%, transparent); }
+#scouting .intel-history-row.recent { border-top-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+#scouting .intel-history-row:nth-child(even) { background: color-mix(in srgb, var(--text) 2%, transparent); }
+#smartBuildOrder .build-checkpoints li { border-top-color: color-mix(in srgb, var(--head-border) 34%, transparent); }
+#postMatch .pm-v2 {
+  --pm-border: color-mix(in srgb, var(--head-border) 50%, transparent);
+  --pm-surface: color-mix(in srgb, var(--text) 4.6%, transparent);
+}
+#postMatch .pm-eyebrow { padding-inline: 8px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 72%); }
+#postMatch .pm-eyebrow > i { background: transparent; }

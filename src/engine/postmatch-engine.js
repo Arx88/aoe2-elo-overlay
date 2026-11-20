@@ -572,6 +572,7 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
   }
 
   const openingSummary = {
+    key: opening,
     name: openingTitle,
     grade: gradeFromScore(openingScore),
     score: openingScore,

@@ -2,6 +2,33 @@
   'use strict';
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const number = (value) => Number.isFinite(Number(value)) && value != null ? Number(value).toLocaleString('es-AR') : '—';
+  const openingArtKey = (name) => String(name || '').normalize('NFD').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const OPENING_ART = new Map([
+    ['scouts', 'Scout Rush', 'Scout Opening', 'Scouts', 'Apertura de scouts'],
+    ['archers', 'Archer Rush', 'Archer Opening', 'Arqueros', 'Rush de arqueros', 'Apertura de arqueros'],
+    ['militia', 'Drush'],
+    ['swords', 'M@A Rush', 'M@A', 'MAA rush', 'Man at arms rush', 'Rush de M@A'],
+    ['castle', 'Fast Castle', 'FC'],
+    ['boom', '2TC Feudal Boom', '2TC feudal', 'Boom de 2TC en feudal'],
+    ['monks', 'Monk Rush', 'Monjes', 'Rush de monjes'],
+    ['tower', 'Tower Rush', 'Torres'],
+    ['pikes', 'Pike Skirm', 'Pica + honda', 'Picas y honderos'],
+    ['elephants', 'Elephant Rush', 'Elefantes', 'Rush de elefantes'],
+    ['siege', 'Scorpions & Rams', 'Escorpiones', 'Escorpiones y arietes'],
+    ['serjeants', 'Serjeant Rush', 'Serjeants', 'Rush de serjeants'],
+    ['scouts-archers', 'Scouts into Archers', 'Scouts + arq.', 'Scouts hacia arqueros'],
+    ['drush-archers', 'Drush Archers', 'Drush arq.', 'Drush con arqueros'],
+    ['drush-castle', 'Drush FC', 'Drush fast castle', 'Drush → FC'],
+    ['swords-scouts', 'M@A Scouts', 'M@A con scouts'],
+    ['swords-archers', 'M@A Archers', 'M@A arq.', 'M@A con arqueros'],
+    ['drush-swords', 'Drush M@A', 'Drush con M@A'],
+    ['hoang', 'Hoang Rush', 'Hoang'],
+    ['castle-boom', 'FC Boom', 'Fast castle con boom'],
+    ['archive', 'Other', 'Otra', 'Otra apertura', 'Apertura estándar', 'Apertura sin clasificar'],
+  ].flatMap(([motif, ...names]) => names.map((name) => [openingArtKey(name), motif])));
+  function openingArtClass(name) {
+    return name ? ` opening-art opening-art-${OPENING_ART.get(openingArtKey(name)) || 'archive'}` : '';
+  }
   const CIV_ALIASES = { inca: 'incas', maya: 'mayans', indians: 'hindustanis', khitansmongols: 'khitans' };
   let civSlugs = null;
   let civAliases = CIV_ALIASES;
@@ -41,14 +68,14 @@
     return ownTeam === otherTeam ? 'ally' : 'opponent';
   }
   const ICONS = {
-    compass: 'eye', target: 'eye', map: 'map', history: 'history',
+    compass: 'eye', target: 'eye', map: 'map', history: 'history', trophy: 'trophy', crown: 'crown', objective: 'target',
     sword: 'sword', combat: 'combat', matchup: 'matchup',
     castle: 'castle', resources: 'gold', medal: 'medal', shield: 'shield',
     bow: 'archer', clock: 'clock', chart: 'trend', users: 'players', trend: 'trend',
     villager: 'villager', food: 'food', wood: 'wood', sheep: 'sheep', boar: 'boar',
     berries: 'berries', gold: 'gold', stone: 'stone', building: 'building',
     age: 'age', barracks: 'barracks', stable: 'stable', scout: 'scout',
-    archer: 'archer', blacksmith: 'blacksmith', market: 'market',
+    archer: 'archer', blacksmith: 'blacksmith', market: 'market', replay: 'replay',
     gunpowder: 'gunpowder', relic: 'relic',
   };
   function icon(name) {
@@ -103,7 +130,7 @@
     const pick = hasCiv ? o.mapCivFavorite : o.mapFavorite;
     const n = Number(hasCiv ? o.mapCivAnalyzed : o.mapAnalyzed) || 0;
     if (!pick || !n) return note(title, 'Sin aperturas clasificadas en este mapa.');
-    return section(title, `<div class="intel-opening"><b>${esc(pick.short || pick.name)}</b><span>${number(pick.count)} de ${number(n)} replays</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword');
+    return section(title, `<div class="intel-opening"><b>${esc(pick.short || pick.name)}</b><span>${number(pick.count)} de ${number(n)} replays</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword', openingArtClass(pick.name || pick.short).trim());
   }
   function h2hBlock(report) {
     const pending = dataState(report, 'Tu cara a cara'); if (pending) return pending;
@@ -207,7 +234,7 @@
     return section(title, read + `<p class="intel-signal-scope">${esc(scope)}</p>` +
       split + weaknessLine +
       (caveat ? `<p class="intel-muted">${esc(caveat)}</p>` : '') +
-      (question ? `<p class="intel-check">${icon('target')}${esc(question)}</p>` : '') + alternatives, 'scout', 'tactical-block');
+      (question ? `<p class="intel-check">${icon('target')}${esc(question)}</p>` : '') + alternatives, 'scout', 'tactical-block' + openingArtClass(opening.name || opening.short));
   }
   function historicalCivBlock(tip, map, report, options = {}) {
     const pred = report?.prediction?.status === 'ready' && report.prediction.top3?.length ? report.prediction
@@ -418,28 +445,6 @@
       <p>${arena ? 'En el replay, revisá qué inversión se concretó después y qué economía pudo sostenerla.' : 'En el replay, revisá qué ejército llegó a presionar y qué pudo seguir produciendo cada jugador.'}</p>
     </section>`;
   }
-  const PM_SVG = {
-    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/><path d="M8 6H5a2 2 0 0 0 2 4h1"/><path d="M16 6h3a2 2 0 0 1-2 4h-1"/><path d="M12 13v4"/><path d="M8.5 20h7"/><path d="M10 17h4"/>',
-    opening: '<path d="M5 21V4"/><path d="M5 4h11l-2.5 4.5L16 13H5"/>',
-    dark: '<path d="M3 10.5 12 4l9 6.5"/><path d="M5 9.5V19h14V9.5"/><path d="M10 19v-5h4v5"/>',
-    feudal: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="M5 14l4 4"/><path d="M7 17l-3 3"/>',
-    castle: '<path d="M4 20V7h3v3h2V7h6v3h2V7h3v13Z"/><path d="M9.5 20v-4.5a2.5 2.5 0 0 1 5 0V20"/><path d="M4 11h16"/>',
-    imperial: '<path d="M3 18h18l-1.5-10-4.5 4L12 5l-3 7-4.5-4L3 18Z"/><path d="M5 21h14"/>',
-    villager: '<path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14 2 9.27l7.1-1.01L12 2Z"/>',
-    sword: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/>',
-    combat: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
-    clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.8 2"/><path d="M9.5 2h5"/>',
-    market: '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-2.5 6a3 3 0 0 0 5 0L5 7Z"/><path d="M19 7l-2.5 6a3 3 0 0 0 5 0L19 7Z"/>',
-    building: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-4h6v4"/><path d="M9 11h.01M15 11h.01"/>',
-    shield: '<path d="M12 3 4 6.5v5.2c0 4.6 3.4 8.2 8 9.3 4.6-1.1 8-4.7 8-9.3V6.5L12 3Z"/>',
-    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
-    trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
-    medal: '<circle cx="12" cy="9" r="5.5"/><path d="M9 14l-1.5 7L12 18.5 16.5 21 15 14"/>',
-  };
-  function pmSvg(name) {
-    const body = PM_SVG[name] || PM_SVG.medal;
-    return `<svg class="pm-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
-  }
   function sparklineSvg(series, invert = false, tone = 'neutral') {
     const vals = (Array.isArray(series) ? series : []).filter((v) => Number.isFinite(v));
     if (vals.length < 2) return '';
@@ -526,6 +531,10 @@
     const tag = item.isBest ? ' ★ RÉCORD' : '';
     return `<span class="pm-delta ${good ? 'win' : 'loss'}${item.isBest ? ' is-record' : ''}">${arrow} ${sign}${val}${tag}</span>`;
   }
+  const REPORT_ICON_ALIASES = { opening: 'history', dark: 'building', feudal: 'barracks', imperial: 'crown', target: 'objective' };
+  function reportIcon(name) {
+    return icon(REPORT_ICON_ALIASES[name] || name) || icon('medal');
+  }
   function renderEnginePostMatch(report, access) {
     const c = report.context || {}, result = report.result || {}, eng = report.engine || {};
     const self = eng.self || {}, rival = eng.rival || null;
@@ -557,7 +566,7 @@
     // Banner protagonista de celebración arriba (Reto cumplido / Récord personal)
     const trophyBanner = (chal && chal.status === 'completed')
       ? `<section class="pm-trophy-banner is-win" aria-label="Reto cumplido">
-          <span class="pm-icon-tile is-emerald">${pmSvg('trophy')}</span>
+          <span class="pm-icon-tile is-emerald">${reportIcon('trophy')}</span>
           <div class="pm-trophy-copy">
             <span class="pm-trophy-pill">★ RETO CUMPLIDO</span>
             <b>${esc(chal.detail)}</b>
@@ -566,7 +575,7 @@
         </section>`
       : heroLine
         ? `<section class="pm-trophy-banner is-record" aria-label="Récord personal">
-            <span class="pm-icon-tile is-gold">${pmSvg('trophy')}</span>
+            <span class="pm-icon-tile is-gold">${reportIcon('trophy')}</span>
             <div class="pm-trophy-copy">
               <span class="pm-trophy-pill">★ DESTACADO PERSONAL</span>
               <b>${esc(heroLine)}</b>
@@ -574,7 +583,7 @@
           </section>`
         : (chal && chal.status === 'pending')
           ? `<section class="pm-trophy-banner is-pending" aria-label="Reto activo">
-              <span class="pm-icon-tile is-gold">${pmSvg('target')}</span>
+              <span class="pm-icon-tile is-gold">${reportIcon('target')}</span>
               <div class="pm-trophy-copy">
                 <span class="pm-trophy-pill">RETO EN CURSO</span>
                 <b>${esc(chal.detail)}</b>
@@ -582,7 +591,7 @@
             </section>`
           : '';
     const focusShort = eng.focus
-      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${pmSvg('trend')}</span><div><span>Foco próxima partida</span><b>${esc(eng.focus.title)}</b><p>${esc(eng.focus.detail)}</p></div></div>` : '';
+      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('target')}</span><div><span>Foco próxima partida</span><b>${esc(eng.focus.title)}</b><p>${esc(eng.focus.detail)}</p></div></div>` : '';
 
     // 1. Spotlight horizontal de Apertura detectada + nota S–D + consejo concreto
     const stageDeltas = evo?.stageDeltas || {};
@@ -590,8 +599,8 @@
     const opDelta = showPersonal && stageDeltas.opening && stageDeltas.opening.deltaScore !== 0
       ? `<span class="pm-st-delta ${stageDeltas.opening.deltaScore > 0 ? 'win' : 'loss'}">${stageDeltas.opening.deltaScore > 0 ? '▲ +' : '▼ −'}${Math.abs(stageDeltas.opening.deltaScore)} vs media</span>`
       : '';
-    const openingBar = op ? `<section class="pm-opening-bar${showCommunity && op.grade === 'S' ? ' grade-S' : ''}" aria-label="Apertura detectada">
-      <span class="pm-icon-tile is-gold">${pmSvg('opening')}</span>
+    const openingBar = op ? `<section class="pm-opening-bar${showCommunity && op.grade === 'S' ? ' grade-S' : ''}${openingArtClass(op.key || op.name)}" aria-label="Apertura detectada">
+      <span class="pm-icon-tile is-gold">${reportIcon('opening')}</span>
       <div class="pm-opening-copy">
         <div class="pm-opening-top"><span>Apertura detectada</span><b>${esc(op.name)}</b>${opDelta}</div>
         <p>${esc(op.tip || '')}</p>
@@ -614,7 +623,7 @@
         const tileTone = ready && showCommunity ? (STAGE_TONE[s.grade] || 'is-slate') : 'is-slate';
         return `<article class="pm-stage-card${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}">
           <div class="pm-stage-top">
-            <span class="pm-icon-tile ${tileTone} sm">${pmSvg(s.id)}</span>
+            <span class="pm-icon-tile ${tileTone} sm">${reportIcon(s.id)}</span>
             <div class="pm-stage-head">
               <span class="pm-stage-lbl">${esc(s.label)}</span>
               ${s.subtitle ? `<b class="pm-stage-sub">${esc(s.subtitle)}</b>` : ''}
@@ -628,7 +637,7 @@
 
     const badges = (eng.highlights || []).slice(0, 3).map((h) => {
       const warn = h.tone === 'warn';
-      return `<div class="pm-badge ${warn ? 'is-warn' : 'is-good'}"><span class="pm-icon-tile ${warn ? 'is-rose' : 'is-gold'} sm">${pmSvg(h.icon || 'medal')}</span><div><span class="pm-badge-tag">${warn ? '▼ A CORREGIR' : '★ LOGRO'}</span><b>${esc(h.title)}</b><small>${esc(h.detail)}</small></div></div>`;
+      return `<div class="pm-badge ${warn ? 'is-warn' : 'is-good'}"><span class="pm-icon-tile ${warn ? 'is-rose' : 'is-gold'} sm">${reportIcon(h.icon || 'medal')}</span><div><span class="pm-badge-tag">${warn ? '▼ A CORREGIR' : '★ LOGRO'}</span><b>${esc(h.title)}</b><small>${esc(h.detail)}</small></div></div>`;
     }).join('');
 
     const evoTitle = !showPersonal
@@ -727,7 +736,7 @@
     }).join('');
     const shortComp = (units) => (units || []).slice(0, 2).map((u) => `${esc(u.name)} (${number(u.count)})`).join(' + ') || 'Sin producción';
     const marketLine = self.marketProfile
-      ? `<div class="pm-market-note"><span class="pm-mini-ico">${pmSvg('market')}</span><span>${esc(self.marketProfile.note)}</span></div>` : '';
+      ? `<div class="pm-market-note"><span class="pm-mini-ico">${reportIcon('market')}</span><span>${esc(self.marketProfile.note)}</span></div>` : '';
     const queueBox = `<div class="pm-queue-box">
       <div class="pm-queue-head">
         <span>Colas y edificios militares</span>
@@ -743,10 +752,10 @@
 
     // 5. Bloque entrenador: Mayor bache exacto de TC + Patrón repetido + Foco (con SVGs centrados)
     const gapRow = self.biggestTcGap
-      ? `<div class="pm-coach-row is-gap"><span class="pm-icon-tile is-rose sm">${pmSvg('clock')}</span><div><span class="pm-coach-k">Mayor bache de TC</span><b>${esc(self.biggestTcGap.summary)}</b></div></div>` : '';
+      ? `<div class="pm-coach-row is-gap"><span class="pm-icon-tile is-rose sm">${reportIcon('clock')}</span><div><span class="pm-coach-k">Mayor bache de TC</span><b>${esc(self.biggestTcGap.summary)}</b></div></div>` : '';
     const pat = showPersonal ? evo?.recurringPattern : null;
     const patRow = pat
-      ? `<div class="pm-coach-row is-warn"><span class="pm-icon-tile is-amber sm">${pmSvg('target')}</span><div><span class="pm-coach-k">${esc(pat.title)}</span><b>${esc(pat.detail)}</b></div></div>` : '';
+      ? `<div class="pm-coach-row is-warn"><span class="pm-icon-tile is-amber sm">${reportIcon('target')}</span><div><span class="pm-coach-k">${esc(pat.title)}</span><b>${esc(pat.detail)}</b></div></div>` : '';
     const coachPanel = (gapRow || patRow || focusShort)
       ? `<div class="pm-coach-stack">${gapRow}${patRow}${focusShort}</div>` : '';
 
@@ -805,7 +814,7 @@
               : s.status === 'incomplete' ? 'Sin dato en el replay'
                 : 'Falta replay';
       const textValue = Boolean(s.valueLabel && !grade && s.valueSeconds == null);
-      return `<article class="review-stage ${s.status === 'ready' ? 'graded' : ''}${s.status === 'measured' ? 'measured' : ''}${textValue ? ' text' : ''}"><img src="assets/brand/${s.id}-v1.png" width="50" height="50" alt=""/><div><span>${esc(s.label)}</span><b class="review-grade">${esc(value)}</b><small>${esc(text)}</small></div></article>`;
+      return `<article class="review-stage ${s.status === 'ready' ? 'graded' : ''}${s.status === 'measured' ? 'measured' : ''}${textValue ? ' text' : ''}">${reportIcon(s.id)}<div><span>${esc(s.label)}</span><b class="review-grade">${esc(value)}</b><small>${esc(text)}</small></div></article>`;
     }).join('');
     const metrics = report.metrics || {};
     const metric = (key, label, time = false) => {
