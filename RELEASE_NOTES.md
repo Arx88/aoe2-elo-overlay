@@ -1,3 +1,11 @@
+## v2.2.4 · Espaciado y tipografía consistentes
+
+- La grilla, los márgenes, las esquinas y la escala de texto comparten medidas entre overlay y launcher.
+- Los escudos grandes se mantienen arriba del prematch. La civ actual del rival se muestra cuando se revela.
+- Se consolidaron los estilos de la carga del replay, las tarjetas de lectura y el episodio postmatch.
+
+---
+
 ## v2.2.3 · Escudos del historial a primera vista
 
 - El prematch muestra arriba los escudos grandes de las civs más jugadas por el rival en el mapa, con su recuento y muestra.

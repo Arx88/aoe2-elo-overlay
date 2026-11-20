@@ -5,7 +5,21 @@
   font-style: normal;
   font-display: swap;
 }
-:root { --interface-font: Inter, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; }
+:root {
+  --interface-font: Inter, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --type-meta: 12px;
+  --type-body: 14px;
+  --type-section: 16px;
+  --type-title: 24px;
+  --radius-control: 8px;
+  --radius-surface: 12px;
+}
 
 /* =====================================================================
    Diseños compartidos: overlay (index.html) y configuración (settings.html).
