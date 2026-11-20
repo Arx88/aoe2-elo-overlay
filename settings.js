@@ -5,6 +5,13 @@ const initialTheme = new URLSearchParams(location.search).get('theme') || 'clasi
 document.body.dataset.theme = initialTheme;
 
 const el = (id) => document.getElementById(id);
+function t(key, fallback, vars = null) {
+  if (typeof AppI18n === 'object' && AppI18n.t) {
+    const val = AppI18n.t(key, vars);
+    if (val && val !== key) return val;
+  }
+  return fallback;
+}
 
 const currentName = el('currentName');
 const currentId = el('currentId');
@@ -150,14 +157,14 @@ function clockShort(seconds) {
 
 function paintHideAt(seconds) {
   const value = Math.min(60, Math.max(10, Math.round(Number(seconds) || 20)));
+  const clock = clockShort(value);
   hideAtInput.value = String(value);
-  hideAtValue.textContent = clockShort(value);
+  hideAtValue.textContent = clock;
   hideAtInput.style.setProperty('--fill', `${((value - 10) / 50) * 100}%`);
-  enterWindowLabel.textContent = `Al entrar · 0:01 – ${clockShort(value)}`;
-  civHelpDesc.textContent =
-    `Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – ${clockShort(value)}`;
-  hideEloName.textContent = `Ocultar ELO a ${clockShort(value)}`;
-  hideEloDesc.textContent = `Se oculta a ${clockShort(value)} para no molestar · vuelve al terminar`;
+  enterWindowLabel.textContent = t('overlay.enterWindow', `Al entrar · 0:01 – ${clock}`, { time: clock });
+  civHelpDesc.textContent = t('overlay.civHelpDesc', `Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – ${clock}`, { time: clock });
+  hideEloName.textContent = t('overlay.hideEloTitle', `Ocultar ELO a ${clock}`, { time: clock });
+  hideEloDesc.textContent = t('overlay.hideEloDesc', `Se oculta a ${clock} para no molestar · vuelve al terminar`, { time: clock });
 }
 
 function paintOpacity(value) {
@@ -174,14 +181,14 @@ function renderFeatureList(target, features) {
     const item = document.createElement('li');
     if (!feature.allowed) item.classList.add('locked');
     const name = document.createElement('b');
-    name.textContent = feature.title;
+    name.textContent = t(`featureList.${feature.key}.title`, feature.title);
     const emblem = document.createElement('span');
     emblem.className = 'feature-icon';
     emblem.setAttribute('aria-hidden', 'true');
     if (typeof TacticalUI === 'object') emblem.innerHTML = TacticalUI.icon(feature.icon || 'compass');
     const description = document.createElement('span');
     description.className = 'feature-desc';
-    description.textContent = feature.description;
+    description.textContent = t(`featureList.${feature.key}.desc`, feature.description);
     item.append(emblem, name, description);
     target.append(item);
   }
@@ -192,8 +199,11 @@ function paintPostmatchReference() {
   const hasAccess = !postMatchComparisonInput.disabled;
   const enabled = postMatchComparisonInput.checked && hasAccess;
   postMatchCompareModeInput.disabled = !enabled;
-  postMatchCompareHelp.textContent = enabled ? 'Elegí qué referencia se muestra en el informe'
-    : hasAccess ? 'Activá «Comparar mi evolución» para elegir la referencia' : 'Disponible con ProMax.';
+  postMatchCompareHelp.textContent = enabled
+    ? t('postmatchPage.modeHelpOn', 'Elegí qué referencia se muestra en el informe')
+    : hasAccess
+      ? t('postmatchPage.modeHelpOff', 'Activá «Comparar mi evolución» para elegir la referencia')
+      : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
 }
 
 function renderProduct(product) {
@@ -203,26 +213,32 @@ function renderProduct(product) {
   const proAccess = Boolean(product.featureAccess && product.featureAccess.postMatchComparison);
   const replayAccess = Boolean(product.featureAccess && product.featureAccess.postMatchReplay);
 
-  railPlanLabel.textContent = product.label || 'Free';
-  planName.textContent = product.label || 'Free';
+  const planLabel = product.plan === 'beta' ? t('plans.beta', 'Acceso beta')
+    : product.plan === 'promax' ? t('plans.promax', 'ProMax')
+      : product.plan === 'pro' ? t('plans.pro', 'Pro')
+        : t('plans.free', 'Free');
+  railPlanLabel.textContent = planLabel;
+  planName.textContent = planLabel;
   if (product.accessSource === 'access-key') {
-    planDescription.textContent = 'Acceso de prueba ProMax por clave. No es una suscripción.';
+    planDescription.textContent = t('plansPage.descKey', 'Acceso de prueba ProMax por clave. No es una suscripción.');
   } else if (product.plan === 'pro' || product.plan === 'promax') {
-    planDescription.textContent = 'Licencia firmada verificada para las funciones de este plan.';
+    planDescription.textContent = t('plansPage.descVerified', 'Licencia firmada verificada para las funciones de este plan.');
   } else if (product.plan === 'beta') {
-    planDescription.textContent = 'Acceso beta explícito de esta versión. No es una suscripción activa.';
+    planDescription.textContent = t('plansPage.descBeta', 'Acceso beta explícito de esta versión. No es una suscripción activa.');
   } else {
-    planDescription.textContent = 'Las funciones esenciales para conocer la partida y a sus jugadores.';
+    planDescription.textContent = t('plansPage.descFree', 'Las funciones esenciales para conocer la partida y a sus jugadores.');
   }
+  const intlLoc = typeof AppI18n === 'object' ? AppI18n.getIntlLocale() : 'es-AR';
   if (product.subscriptionVerified && product.entitlement && product.entitlement.expiresAt) {
     const expires = new Date(product.entitlement.expiresAt);
-    planExpiry.textContent = `Vence el ${expires.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    const fmtDate = expires.toLocaleDateString(intlLoc, { day: '2-digit', month: 'short', year: 'numeric' });
+    planExpiry.textContent = t('plansPage.expDate', `Vence el ${fmtDate}`, { date: fmtDate });
   } else if (product.accessSource === 'access-key') {
-    planExpiry.textContent = 'Acceso por clave · sin suscripción';
+    planExpiry.textContent = t('plansPage.expKey', 'Acceso por clave · sin suscripción');
   } else if (product.plan === 'beta') {
-    planExpiry.textContent = 'Acceso beta · sin suscripción verificada';
+    planExpiry.textContent = t('plansPage.expBeta', 'Acceso beta · sin suscripción verificada');
   } else {
-    planExpiry.textContent = 'Sin suscripción verificada';
+    planExpiry.textContent = t('plansPage.expNone', 'Sin suscripción verificada');
   }
 
   renderFeatureList(freeFeatures, features.filter((feature) => feature.plan === 'free'));
@@ -236,40 +252,48 @@ function renderProduct(product) {
   paintPostmatchReference();
   postMatchReplayInput.disabled = !replayAccess;
   smartBuildOrderInput.disabled = !product.featureAccess.smartBuildOrder;
-  postMatchComparisonInput.title = proAccess ? '' : 'Disponible con ProMax.';
-  postMatchReplayInput.title = replayAccess ? '' : 'Disponible con ProMax.';
+  postMatchComparisonInput.title = proAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
+  postMatchReplayInput.title = replayAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
   scoutF2Input.closest('.row').hidden = true;
   scoutF2Input.disabled = true;
   for (const [key, input] of Object.entries(rivalInputs)) {
     const allowed = product.featureAccess && product.featureAccess[key] === true;
     input.disabled = !allowed;
     const tier = features.find((feature) => feature.key === key)?.plan;
-    input.title = allowed ? '' : `Disponible con ${tier === 'promax' ? 'ProMax' : 'Pro'}. Tu preferencia guardada se conserva.`;
+    const tierName = tier === 'promax' ? 'ProMax' : 'Pro';
+    input.title = allowed ? '' : t('plansPage.availableWith', `Disponible con ${tierName}. Tu preferencia guardada se conserva.`, { tier: tierName });
     const row = input.closest('.row');
     if (row) row.classList.toggle('feature-locked', !allowed);
   }
 
   const commerce = product.commerce || {};
-  commerceStatus.textContent = commerce.message || 'La contratación todavía no está habilitada.';
-  commerceTitle.textContent = 'Suscripciones';
+  commerceStatus.textContent = commerce.configured
+    ? t('plansPage.subsConfigured', 'La suscripción se gestiona en el sitio del producto.')
+    : t('plansPage.subsStatus', 'La contratación todavía no está habilitada.');
+  commerceTitle.textContent = t('plansPage.subsTitle', 'Suscripciones');
   accountCommerce.disabled = !(commerce.account && commerce.account.enabled);
   checkoutCommerce.disabled = !(commerce.checkout && commerce.checkout.enabled);
 }
 
-const EMPTY_POSTMATCH = el('emptyPostmatchState').innerHTML;
-if (postMatchReportEl) postMatchReportEl.innerHTML = EMPTY_POSTMATCH;
+function getEmptyPostmatchHtml() {
+  const tpl = el('emptyPostmatchState');
+  return tpl ? tpl.innerHTML : '';
+}
+if (postMatchReportEl) postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
 
+let lastPostMatchPayload = null;
 function paintPostMatch(payload) {
+  lastPostMatchPayload = payload;
   const report = payload && Object.hasOwn(payload, 'report') ? payload.report : payload;
   if (payload && payload.access) postMatchAccess = payload.access;
   if (payload && payload.product) renderProduct(payload.product);
   if (!postMatchReportEl) return;
   if (!report) {
-    postMatchReportEl.innerHTML = EMPTY_POSTMATCH;
+    postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
     return;
   }
   if (typeof TacticalUI !== 'object') {
-    postMatchReportEl.textContent = 'No se pudo dibujar el informe.';
+    postMatchReportEl.textContent = t('postmatchPage.drawError', 'No se pudo dibujar el informe.');
     return;
   }
   postMatchReportEl.innerHTML = TacticalUI.renderPostMatch(report, postMatchAccess);
@@ -283,7 +307,7 @@ async function loadPostMatch() {
   try {
     paintPostMatch(await window.settings.postmatchGet());
   } catch {
-    postMatchReportEl.innerHTML = EMPTY_POSTMATCH;
+    postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
   }
 }
 
@@ -318,24 +342,25 @@ opacityInput.addEventListener('input', () => {
 /* ---------- estado / diagnóstico ---------- */
 function paintPoll() {
   if (!lastDiag || !lastDiag.lastPollAt) {
-    diagPoll.textContent = 'esperando la primera consulta…';
+    diagPoll.textContent = t('account.diagWaiting', 'esperando la primera consulta…');
     return;
   }
   const secs = Math.max(0, Math.round((Date.now() - lastDiag.lastPollAt) / 1000));
   const labels = {
-    ongoing: 'en partida',
-    idle: 'sin partida',
-    error: 'error de red',
-    'no-profile': 'sin cuenta',
+    ongoing: t('account.diagOngoing', 'en partida'),
+    idle: t('account.diagIdle', 'sin partida'),
+    error: t('account.diagError', 'error de red'),
+    'no-profile': t('account.diagNoAccount', 'sin cuenta'),
   };
-  diagPoll.textContent = `hace ${secs}s · ${labels[lastDiag.lastPollStatus] || lastDiag.lastPollStatus}`;
+  const st = labels[lastDiag.lastPollStatus] || lastDiag.lastPollStatus;
+  diagPoll.textContent = t('account.diagAgo', `hace ${secs}s · ${st}`, { s: secs, state: st });
 }
 
 function renderDiag(diagnostics) {
   lastDiag = diagnostics;
   diagProfile.textContent = diagnostics.profileId
-    ? `${diagnostics.alias || 'perfil'} (#${diagnostics.profileId})`
-    : 'sin cuenta';
+    ? `${diagnostics.alias || t('account.profilePrefix', 'Perfil')} (#${diagnostics.profileId})`
+    : t('account.diagNoAccount', 'sin cuenta');
   diagMatch.textContent = diagnostics.lastMatch || '—';
   paintPoll();
 }
@@ -380,21 +405,27 @@ async function applyToggle(input, invoke, label) {
   const response = await invoke(wanted);
   if (!response || !response.ok) {
     input.checked = !wanted;
-    setStatus((response && response.error) || `No se pudo cambiar ${label}`, true);
+    setStatus((response && response.error) || `${label}`, true);
     return;
   }
-  setStatus(`${label}: ${wanted ? 'activado' : 'desactivado'}`);
+  setStatus(`${label}: ${wanted ? t('overlay.enabled', 'activado') : t('overlay.disabled', 'desactivado')}`);
 }
 
 /* Aviso al activar la Ayuda de civ: si el tiempo actual es corto, ofrecer
    dejarla visible hasta 0:40 para poder leerla antes de que se vaya. */
 function openCivHelpTip() {
   const current = Math.min(60, Math.max(10, Math.round(Number(hideAtInput.value) || 20)));
+  const cStr = clockShort(current);
   if (current >= 40) {
-    setStatus(`Ayuda de civ: activada · visible hasta ${clockShort(current)}`);
+    setStatus(t('overlay.civHelpVisibleUntil', `Ayuda de civ: activada · visible hasta ${cStr}`, { time: cStr }));
     return;
   }
-  civHelpTipTime.textContent = clockShort(current);
+  const tipBody = el('civHelpTipBody');
+  if (tipBody) {
+    tipBody.textContent = t('common.civTipBody', `La tarjeta se oculta a los ${cStr}. Si querés leerla con calma durante la partida, podés dejarla visible hasta los 0:40.`, { time: cStr });
+  } else if (civHelpTipTime) {
+    civHelpTipTime.textContent = cStr;
+  }
   civHelpTip.hidden = false;
   civHelpTipYes.focus();
 }
@@ -514,40 +545,45 @@ window.settings.onProduct((product) => { renderProduct(product); loadTactics(); 
 window.settings.onTactics((payload) => paintTactics(payload));
 window.settings.onBuildOrder((payload) => paintBuildOrder(payload));
 
+let lastBuildOrderPayload = null;
 function paintBuildOrder(payload) {
+  lastBuildOrderPayload = payload;
   if (!buildOrderReportEl || typeof TacticalUI !== 'object') return;
   buildOrderReportEl.innerHTML = TacticalUI.renderSmartBuildOrder(payload, { library: true });
   smartBuildOrderInput.checked = Boolean(payload?.enabled);
   smartBuildOrderInput.disabled = payload?.status === 'locked' || Boolean(payload?.ongoing);
-  smartBuildOrderInput.title = payload?.ongoing ? 'Se configura antes de buscar partida.'
-    : payload?.status === 'locked' ? 'Disponible con ProMax.' : '';
+  smartBuildOrderInput.title = payload?.ongoing ? t('tactics.configBeforeMatch', 'Se configura antes de buscar partida.')
+    : payload?.status === 'locked' ? t('postmatchPage.availableProMax', 'Disponible con ProMax.') : '';
 }
 
 async function loadBuildOrder() {
   try { paintBuildOrder(await window.settings.buildOrderGet()); }
-  catch { paintBuildOrder({ status: 'unavailable', reasons: ['No se pudo consultar la guía.'] }); }
+  catch { paintBuildOrder({ status: 'unavailable', reasons: [t('tactics.guideError', 'No se pudo consultar la guía.')] }); }
 }
 
 smartBuildOrderInput.addEventListener('change', async () => {
-  await applyToggle(smartBuildOrderInput, (on) => window.settings.smartBuildOrder(on), 'Smart Build Order');
+  await applyToggle(smartBuildOrderInput, (on) => window.settings.smartBuildOrder(on), t('tactics.sboTitle', 'Smart Build Order'));
   await loadBuildOrder();
 });
 
+let lastTacticsPayload = null;
 function paintTactics(payload) {
+  lastTacticsPayload = payload;
   if (!tacticalReportEl || typeof TacticalUI !== 'object') return;
   const tips = Array.isArray(payload?.tips) ? payload.tips : [];
   const content = tips.filter((tip) => tip.opportunityStages || tip.opportunities).map((tip) =>
-    `<article class="tactical-rival"><h3>${TacticalUI.esc(tip.name || 'Rival')}</h3>${TacticalUI.renderAutomaticOpportunities(tip.opportunityStages || [tip.opportunities], { detail: true })}</article>`).join('');
+    `<article class="tactical-rival"><h3>${TacticalUI.esc(tip.name || t('postmatch.rival', 'Rival'))}</h3>${TacticalUI.renderAutomaticOpportunities(tip.opportunityStages || [tip.opportunities], { detail: true })}</article>`).join('');
   const error = tips.find((tip) => tip.error)?.error;
   const message = payload?.message || error || (payload?.status === 'loading'
-    ? 'Actualizando el cruce de civilizaciones y el historial…' : 'Esperando ambas civilizaciones y datos de la partida.');
+    ? t('tactics.loadingMatchup', 'Actualizando el cruce de civilizaciones y el historial…')
+    : t('tactics.waitingBoth', 'Esperando ambas civilizaciones y datos de la partida.'));
   tacticalReportEl.innerHTML = content || `<div class="empty-report"><h3>${TacticalUI.esc(message)}</h3></div>`;
 }
 
 async function loadTactics() {
   await loadBuildOrder();
   try { paintTactics(await window.settings.tacticsGet()); }
-  catch { paintTactics({ status: 'error', message: 'No se pudo consultar el análisis. Podés reintentar.' }); }
+  catch { paintTactics({ status: 'error', message: t('tactics.loadError', 'No se pudo consultar el análisis. Podés reintentar.') }); }
 }
 
 
@@ -615,18 +651,22 @@ autoUpdateInput.addEventListener('change', () =>
 );
 
 /* ---------- posición ---------- */
+let lastPosInfo = { position: 'top-center', moving: false };
 function paintPosition(info) {
-  positionCustom = info.position === 'custom' && Number.isFinite(Number(info.x));
-  positionLabel.textContent = positionCustom ? 'Posición personalizada' : 'Arriba al centro';
+  lastPosInfo = info || lastPosInfo;
+  positionCustom = lastPosInfo.position === 'custom' && Number.isFinite(Number(lastPosInfo.x));
+  positionLabel.textContent = positionCustom
+    ? t('skins.posCustom', 'Posición personalizada')
+    : t('skins.posTopCenter', 'Arriba al centro');
   positionInfo.textContent = positionCustom
-    ? `Fija en ${Math.round(info.x)}, ${Math.round(info.y)} de la pantalla.`
-    : 'El panel aparece arriba al centro.';
-  moving = Boolean(info.moving);
+    ? t('skins.posCustomInfo', `Fija en ${Math.round(lastPosInfo.x)}, ${Math.round(lastPosInfo.y)} de la pantalla.`, { x: Math.round(lastPosInfo.x), y: Math.round(lastPosInfo.y) })
+    : t('skins.posTopCenterInfo', 'El panel aparece arriba al centro.');
+  moving = Boolean(lastPosInfo.moving);
   paintMoveButton();
 }
 
 function paintMoveButton() {
-  moveBtn.textContent = moving ? 'Listo' : 'Mover';
+  moveBtn.textContent = moving ? t('skins.posDone', 'Listo') : t('skins.posMove', 'Mover');
   moveBtn.classList.toggle('active', moving);
 }
 
@@ -635,21 +675,56 @@ async function setMoving(on) {
   moving = Boolean(response.moving);
   paintMoveButton();
   if (moving) {
-    positionLabel.textContent = 'Mové el panel';
-    setStatus('Arrastrá el panel a donde quieras y tocá "Listo" (o Esc).');
+    positionLabel.textContent = t('skins.posMovingTitle', 'Mové el panel');
+    setStatus(t('skins.posMovingHint', 'Arrastrá el panel a donde quieras y tocá "Listo" (o Esc).'));
     return;
   }
-  setStatus('Posición guardada: el panel queda ahí y no vuelve a moverse.');
+  setStatus(t('skins.posSaved', 'Posición guardada: el panel queda ahí y no vuelve a moverse.'));
   await loadCurrent();
 }
 
 moveBtn.addEventListener('click', () => setMoving(!moving));
 
 /* ---------- cuenta ---------- */
+let lastLoadedInfo = null;
+function paintAccountHeader(info) {
+  if (!info) return;
+  currentProfileId = info.profileId || null;
+  el('accountProfile').classList.toggle('has-profile', Boolean(currentProfileId));
+  el('accountHint').textContent = currentProfileId
+    ? t('account.hintLinked', 'El overlay usa tu perfil para reconocerte en la partida y mostrar tu ELO de RM 1v1.')
+    : t('account.hintEmpty', 'Detectá tu perfil del juego o buscá tu nombre abajo para activar el overlay.');
+  if (info.profileId) {
+    currentName.textContent = info.alias || `${t('account.profilePrefix', 'Perfil')} ${info.profileId}`;
+    currentId.textContent = `#${info.profileId}`;
+    currentOrigin.hidden = false;
+    currentOrigin.textContent = info.origin === 'manual'
+      ? t('account.originManual', 'elegida por vos')
+      : t('account.originAuto', 'detectada automáticamente');
+    accountAvatar.textContent = initialsOf(info.alias || `${t('account.profilePrefix', 'Perfil')} ${info.profileId}`);
+  } else {
+    currentName.textContent = t('account.none', 'Todavía no hay cuenta elegida');
+    currentId.textContent = '';
+    currentOrigin.hidden = true;
+    accountAvatar.textContent = '';
+  }
+}
+
 async function loadCurrent() {
   const info = await window.settings.get();
+  lastLoadedInfo = info;
   if (info.version) versionEl.textContent = `v${info.version}`;
 
+  if (typeof AppI18n === 'object' && info.i18nBundles) {
+    AppI18n.configure({ locale: info.activeLanguage || 'es-MX', allBundles: info.i18nBundles });
+  }
+  if (typeof TacticalUI === 'object' && TacticalUI.configure) {
+    TacticalUI.configure({
+      slugs: info.shields,
+      aliases: info.civAliases,
+      i18n: typeof AppI18n === 'object' ? AppI18n : null,
+    });
+  }
   applyTheme(info.theme || currentTheme);
   paintOpacity(Number(info.opacity) || 0.95);
   renderDiag(info.diagnostics || {});
@@ -669,18 +744,9 @@ async function loadCurrent() {
   }
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
   smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
-  if (typeof AppI18n === 'object' && info.i18nBundles) {
-    AppI18n.configure({ locale: info.activeLanguage || 'es-MX', allBundles: info.i18nBundles });
-    applyLanguageUi(info.activeLanguage || 'es-MX');
-  }
-  if (typeof TacticalUI === 'object' && TacticalUI.configure) {
-    TacticalUI.configure({
-      slugs: info.shields,
-      aliases: info.civAliases,
-      i18n: typeof AppI18n === 'object' ? AppI18n : null,
-    });
-  }
   if (info.product) renderProduct(info.product);
+  paintAccountHeader(info);
+  applyLanguageUi(info.activeLanguage || 'es-MX');
   await loadPostMatch();
   await loadBuildOrder();
   autoUpdateInput.checked = Boolean(info.autoUpdate);
@@ -688,25 +754,6 @@ async function loadCurrent() {
     ? info.matchStartedAt
     : null;
   paintClock();
-
-  currentProfileId = info.profileId || null;
-  el('accountProfile').classList.toggle('has-profile', Boolean(currentProfileId));
-  el('accountHint').textContent = currentProfileId
-    ? 'El overlay usa tu perfil para reconocerte en la partida y mostrar tu ELO de RM 1v1.'
-    : 'Detectá tu perfil del juego o buscá tu nombre abajo para activar el overlay.';
-  if (info.profileId) {
-    currentName.textContent = info.alias || `Perfil ${info.profileId}`;
-    currentId.textContent = `#${info.profileId}`;
-    currentOrigin.hidden = false;
-    currentOrigin.textContent =
-      info.origin === 'manual' ? 'elegida por vos' : 'detectada automáticamente';
-    accountAvatar.textContent = initialsOf(info.alias || `Perfil ${info.profileId}`);
-  } else {
-    currentName.textContent = typeof AppI18n === 'object' ? AppI18n.t('account.none') : 'Todavía no hay cuenta elegida';
-    currentId.textContent = '';
-    currentOrigin.hidden = true;
-    accountAvatar.textContent = '';
-  }
   syncWizardAccount(info);
   if (info.wizardCompleted === false && !wizardDismissed) {
     openWizard(1);
@@ -784,15 +831,15 @@ function paintSearchState(text) {
 }
 
 function paintSearchHelp(hasResults) {
-  searchHelpEl.innerHTML = hasResults
-    ? '<b>↑</b> <b>↓</b> para elegir · <b>Enter</b> para confirmar'
-    : 'Buscá por nombre o pegá tu profile ID.';
+  searchHelpEl.textContent = hasResults
+    ? t('account.searchHintArrows', '↑ ↓ para elegir · Enter para confirmar')
+    : t('account.searchHelp', 'Buscá por nombre o pegá tu profile ID.');
 }
 
 function paintManualButton(value) {
   const numeric = parseNumeric(value);
   manualBtn.hidden = !numeric;
-  if (numeric) manualBtn.textContent = `Usar ID #${numeric}`;
+  if (numeric) manualBtn.textContent = t('account.useIdBtn', `Usar ID #${numeric}`, { id: numeric });
 }
 
 searchInput.addEventListener('input', () => {
@@ -957,60 +1004,61 @@ let updaterState = null;
 function renderUpdater(snapshot) {
   if (!snapshot) return;
   updaterState = snapshot;
-  // Mensaje transitorio de versiones anteriores: nunca debe quedar colgado.
-  if (statusEl.textContent.startsWith('Buscando actualizaciones')) setStatus('');
   updCurrent.textContent = snapshot.current || '—';
   updLatest.textContent = snapshot.latest || '—';
 
   updPill.classList.remove('muted', 'error');
   if (snapshot.publishing) {
-    updPill.textContent = 'Publicándose…';
+    updPill.textContent = t('updater.pillPublishing', 'Publicándose…');
     updPill.classList.add('muted');
   } else if (snapshot.installDeferred) {
-    updPill.textContent = 'Instalación pospuesta';
+    updPill.textContent = t('updater.pillDeferredInstall', 'Instalación pospuesta');
     updPill.classList.add('muted');
   } else if (snapshot.error) {
-    updPill.textContent = 'Error de consulta';
+    updPill.textContent = t('updater.pillError', 'Error de consulta');
     updPill.classList.add('error');
   } else if (snapshot.skipped) {
-    updPill.textContent = 'Omitida en esta sesión';
+    updPill.textContent = t('updater.pillSkipped', 'Omitida en esta sesión');
     updPill.classList.add('muted');
   } else if (snapshot.ready) {
-    updPill.textContent = 'Lista para instalar';
+    updPill.textContent = t('updater.pillReady', 'Lista para instalar');
   } else if (snapshot.available) {
-    updPill.textContent = 'Actualización disponible';
+    updPill.textContent = t('updater.pillAvailable', 'Actualización disponible');
   } else if (snapshot.deferred) {
-    updPill.textContent = 'Consulta pospuesta';
+    updPill.textContent = t('updater.pillDeferred', 'Consulta pospuesta');
     updPill.classList.add('muted');
   } else if (!snapshot.active) {
-    updPill.textContent = 'Solo en la app instalada';
+    updPill.textContent = t('updater.pillInstalledOnly', 'Solo en la app instalada');
     updPill.classList.add('muted');
   } else {
-    updPill.textContent = 'Al día';
+    updPill.textContent = t('updater.upToDate', 'Al día');
   }
 
   const percent = Math.max(0, Math.min(100, Math.round(Number(snapshot.percent) || 0)));
   updFill.style.setProperty('width', `${percent}%`);
   updPercent.textContent = snapshot.downloading || snapshot.ready ? `${percent}%` : '';
 
-  if (snapshot.publishing) updPhase.textContent = 'El release se está publicando. Reintento automático en unos minutos.';
-  else if (snapshot.installDeferred) updPhase.textContent = 'Hay partida en curso: se instala sola apenas termines.';
+  const readyVer = snapshot.readyVersion || snapshot.latest || '';
+  if (snapshot.publishing) updPhase.textContent = t('updater.phasePublishing', 'El release se está publicando. Reintento automático en unos minutos.');
+  else if (snapshot.installDeferred) updPhase.textContent = t('updater.phaseDeferredInstall', 'Hay partida en curso: se instala sola apenas termines.');
   else if (snapshot.error) updPhase.textContent = snapshot.error;
-  else if (!snapshot.active) updPhase.textContent = 'Las actualizaciones se consultan al abrir la app instalada.';
-  else if (snapshot.skipped) updPhase.textContent = 'Omitida: no se instala al salir. Podés buscar una versión más nueva.';
-  else if (snapshot.ready) updPhase.textContent = `v${snapshot.readyVersion || snapshot.latest || ''} descargada. Se instala al salir.`;
-  else if (snapshot.downloading) updPhase.textContent = 'Descargando paquete de actualización…';
-  else if (snapshot.deferred) updPhase.textContent = 'Consulta pospuesta: hay partida en curso. Se reintenta solo.';
-  else if (snapshot.checking) updPhase.textContent = 'Buscando una versión nueva…';
-  else if (snapshot.available) updPhase.textContent = 'Hay una versión nueva disponible.';
-  else updPhase.textContent = 'Estás usando la última versión.';
+  else if (!snapshot.active) updPhase.textContent = t('updater.phaseInstalledOnly', 'Las actualizaciones se consultan al abrir la app instalada.');
+  else if (snapshot.skipped) updPhase.textContent = t('updater.phaseSkipped', 'Omitida: no se instala al salir. Podés buscar una versión más nueva.');
+  else if (snapshot.ready) updPhase.textContent = t('updater.phaseReady', `v${readyVer} descargada. Se instala al salir.`, { ver: readyVer });
+  else if (snapshot.downloading) updPhase.textContent = t('updater.phaseDownloading', 'Descargando paquete de actualización…');
+  else if (snapshot.deferred) updPhase.textContent = t('updater.phaseDeferred', 'Consulta pospuesta: hay partida en curso. Se reintenta solo.');
+  else if (snapshot.checking) updPhase.textContent = t('updater.checking', 'Buscando una versión nueva…');
+  else if (snapshot.available) updPhase.textContent = t('updater.phaseAvailable', 'Hay una versión nueva disponible.');
+  else updPhase.textContent = t('updater.phaseUpToDate', 'Estás usando la última versión.');
 
   const notes = Array.isArray(snapshot.notes) ? snapshot.notes.filter(Boolean) : [];
   updNotes.replaceChildren();
   if (!notes.length) {
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = snapshot.active ? 'Sin notas publicadas para esta versión.' : 'Sin notas para mostrar.';
+    li.textContent = snapshot.active
+      ? t('updater.noNotesPublished', 'Sin notas publicadas para esta versión.')
+      : t('updater.noNotesShow', 'Sin notas para mostrar.');
     updNotes.append(li);
   } else {
     for (const note of notes) {
@@ -1020,20 +1068,16 @@ function renderUpdater(snapshot) {
     }
   }
 
-  // Un solo botón busca: checkBtn. El primario únicamente descarga o instala
-  // y queda inactivo cuando no hay nada que hacer (antes también buscaba).
-  // El interruptor de automáticas solo tiene sentido en la app instalada
-  // (en desarrollo no hay updater).
   autoUpdateInput.disabled = !snapshot.active;
   updateBtn.disabled = !snapshot.active || !(snapshot.ready || snapshot.available);
   checkBtn.disabled = !snapshot.active || Boolean(snapshot.checking);
   skipBtn.disabled = !snapshot.active || Boolean(snapshot.skipped) || !(snapshot.available || snapshot.ready);
-  skipBtn.textContent = snapshot.skipped ? 'Omitida' : 'Omitir';
+  skipBtn.textContent = snapshot.skipped ? t('updater.skippedBtn', 'Omitida') : t('updater.skip', 'Omitir');
   updateBtn.textContent = !snapshot.active
-    ? 'No disponible'
+    ? t('updater.unavailable', 'No disponible')
     : snapshot.ready
-      ? 'Actualizar ahora'
-      : 'Descargar';
+      ? t('updater.installNow', 'Actualizar ahora')
+      : t('updater.download', 'Descargar');
 }
 
 window.settings.onUpdater(renderUpdater);
@@ -1109,25 +1153,34 @@ function applyLanguageUi(lang) {
     AppI18n.applyToDom(document);
   }
   const badge = el('sessionBadge');
-  if (badge && typeof AppI18n === 'object') {
-    const bTxt = AppI18n.t('plans.badgeConfig');
-    if (bTxt && bTxt !== 'plans.badgeConfig') badge.textContent = bTxt;
-  }
-  const locTitle = typeof AppI18n === 'object' ? AppI18n.t(`pages.${activePage}.title`) : null;
-  const locSub = typeof AppI18n === 'object' ? AppI18n.t(`pages.${activePage}.sub`) : null;
-  const locIdx = typeof AppI18n === 'object' ? AppI18n.t(`pages.${activePage}.index`) : null;
-  if (locTitle && locTitle !== `pages.${activePage}.title`) pageTitle.textContent = locTitle;
-  if (locSub && locSub !== `pages.${activePage}.sub`) pageSub.textContent = locSub;
-  if (locIdx && locIdx !== `pages.${activePage}.index`) pageIndex.textContent = locIdx;
+  if (badge) badge.textContent = t('plans.badgeConfig', 'CONFIGURACIÓN');
+  pageTitle.textContent = t(`pages.${activePage}.title`, PAGE_META[activePage].title);
+  pageSub.textContent = t(`pages.${activePage}.sub`, PAGE_META[activePage].sub);
+  pageIndex.textContent = t(`pages.${activePage}.index`, PAGE_META[activePage].index);
+  paintHideAt(Number(hideAtInput?.value) || 20);
+  paintPosition(lastPosInfo);
+  paintSoundToggle();
+  paintSearchHelp(Boolean(results.length));
+  paintPostmatchReference();
+  if (lastLoadedInfo) paintAccountHeader(lastLoadedInfo);
+  if (lastDiag) renderDiag(lastDiag);
+  if (currentProduct) renderProduct(currentProduct);
+  if (updaterState) renderUpdater(updaterState);
+  if (lastPostMatchPayload !== null) paintPostMatch(lastPostMatchPayload);
+  else if (postMatchReportEl) postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
+  if (lastBuildOrderPayload) paintBuildOrder(lastBuildOrderPayload);
+  if (lastTacticsPayload) paintTactics(lastTacticsPayload);
   renderLanguageSelectors();
   renderWizardStep();
 }
 
 async function chooseLanguage(code, persist = true) {
   applyLanguageUi(code);
+  setStatus(t('account.statusReady', 'Listo para preparar tu próxima partida.'));
   if (persist && window.settings?.setLanguage) {
     await window.settings.setLanguage(code).catch(() => {});
     if (activePage === 'postmatch') loadPostMatch();
+    if (activePage === 'tactics') loadTactics();
   }
 }
 
@@ -1191,7 +1244,9 @@ el('prefsPlanBtn')?.addEventListener('click', () => {
 function paintSoundToggle() {
   const btn = el('prefsSoundBtn');
   if (!btn || typeof UiSfx !== 'object') return;
-  btn.textContent = UiSfx.isEnabled() ? 'Sonidos de interfaz · Activos' : 'Sonidos de interfaz · Silenciados';
+  btn.textContent = UiSfx.isEnabled()
+    ? t('common.soundsOn', 'Sonidos de interfaz · Activos')
+    : t('common.soundsOff', 'Sonidos de interfaz · Silenciados');
 }
 el('prefsSoundBtn')?.addEventListener('click', () => {
   if (typeof UiSfx !== 'object') return;

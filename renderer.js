@@ -31,6 +31,14 @@ let postMatchAccess = { comparison: true, replay: true };
 const updateToastEl = document.getElementById('updateToast');
 const updateToastText = document.getElementById('updateToastText');
 
+function tr(key, fallback, vars = null) {
+  if (typeof AppI18n === 'object' && AppI18n.t) {
+    const val = AppI18n.t(key, vars);
+    if (val && val !== key) return val;
+  }
+  return fallback;
+}
+
 /* -------------------------------------------------------------------------
  * ICONOS DE LÍNEA
  * Set mínimo en SVG inline: la CSP del panel no permite recursos externos y
@@ -94,8 +102,8 @@ function showUpdateToast(payload) {
   }
   const version = payload.version || '';
   updateToastText.textContent = payload.kind === 'ready'
-    ? `Actualización v${version} lista · se instala al salir`
-    : `Actualización v${version} disponible · abrí Updater en la configuración`;
+    ? tr('hud.updateReady', `Actualización v${version} lista · se instala al salir`, { ver: version })
+    : tr('hud.updateAvail', `Actualización v${version} disponible · abrí Updater en la configuración`, { ver: version });
   updateToastEl.hidden = false;
   scheduleHeight();
   if (updateToastTimer) clearTimeout(updateToastTimer);
@@ -246,17 +254,23 @@ function summarize(value, max = 108, dropLast = true) {
 
 function civCard(civ) {
   const entry = (civ.slug && civGuide[civ.slug]) || {};
-  const name = entry.name || String(civ.raw || 'Civilización');
-  const role = entry.role || 'Sin datos de esta civilización';
+  const locName = (typeof AppI18n === 'object' && AppI18n.civName) ? AppI18n.civName(civ.raw || entry.name) : '';
+  const name = locName || entry.name || String(civ.raw || 'Civilización');
+  const role = entry.role || '—';
   const shield = civ.slug
     ? `<img class="civhelp-shield" src="assets/civs/${civ.slug}.png" alt="" draggable="false" />`
     : '<span class="civhelp-no-shield">?</span>';
   const relation = civ.relation || (civ.isYou ? 'you' : 'unknown');
-  const labels = { you: 'VOS', ally: 'ALIADO', opponent: 'RIVAL', unknown: 'JUGADOR' };
-  const tag = `<span class="civhelp-tag${relation === 'opponent' ? ' rival' : ''}">${labels[relation]}</span>`;
+  const labels = {
+    you: tr('hud.civYou', 'VOS'),
+    ally: tr('hud.civAlly', 'ALIADO'),
+    opponent: tr('hud.civRival', 'RIVAL'),
+    unknown: tr('hud.civPlayer', 'JUGADOR'),
+  };
+  const tag = `<span class="civhelp-tag${relation === 'opponent' ? ' rival' : ''}">${escapeHtml(labels[relation])}</span>`;
   const fact = (ico, label, value, kind, dropLast = true) =>
     `<div class="civhelp-fact ${kind}">` +
-    `<span class="civhelp-key">${icon(ico)}${label}</span>` +
+    `<span class="civhelp-key">${icon(ico)}${escapeHtml(label)}</span>` +
     `<span class="civhelp-val">${escapeHtml(summarize(value, 108, dropLast))}</span>` +
     '</div>';
 
@@ -267,9 +281,9 @@ function civCard(civ) {
     `<div class="civhelp-ident"><div class="civhelp-name">${escapeHtml(name)}${tag}</div>` +
     `<div class="civhelp-role">${escapeHtml(role)}</div></div>` +
     '</div>' +
-    fact('estrella', 'BONOS', entry.bonuses, 'good') +
-    fact('bandera', 'UNIDADES', entry.units, 'unit', false) +
-    fact('alerta', 'DEBILIDADES', entry.weaknesses, 'bad') +
+    fact('estrella', tr('hud.bonuses', 'BONOS'), entry.bonuses, 'good') +
+    fact('bandera', tr('hud.units', 'UNIDADES'), entry.units, 'unit', false) +
+    fact('alerta', tr('hud.weaknesses', 'DEBILIDADES'), entry.weaknesses, 'bad') +
     '</article>'
   );
 }
@@ -301,7 +315,7 @@ function renderCivHelp() {
   civHelpEl.classList.toggle('single', civs.length === 1);
   civHelpGrid.innerHTML = civs.some((civ) => civ.slug)
     ? civs.map(civCard).join('')
-    : '<div class="civhelp-empty">Esperando las civilizaciones de la partida…</div>';
+    : `<div class="civhelp-empty">${escapeHtml(tr('hud.waitingCivs', 'Esperando las civilizaciones de la partida…'))}</div>`;
   applyVisibility();
 }
 
@@ -1848,12 +1862,11 @@ function renderBalance(state) {
           ? `${fmtNumber(value)} (de ${fmtNumber(min)} a ${fmtNumber(max)})`
           : fmtNumber(value);
       };
-      // Si hay jugadores sin ladder 1v1, la mediana está incompleta: se avisa.
       const rated = teams.get(myTeam).length + teams.get(otherTeam).length;
-      const parcial = rated < players.length ? ' · parcial' : '';
+      const parcial = rated < players.length ? ` · ${tr('hud.partial', 'parcial')}` : '';
       content =
-        `<span class="bal-ic" title="Mediana de ELO RM 1v1 por equipo">${icon('balanza')}</span>` +
-        `<span>Mediana RM 1v1 · Tu equipo <b>${fmtTeam(myTeam)}</b> · Rival <b>${fmtTeam(otherTeam)}</b>${parcial}</span>`;
+        `<span class="bal-ic" title="${escapeHtml(tr('hud.teamMedian', 'Mediana RM 1v1'))}">${icon('balanza')}</span>` +
+        `<span>${escapeHtml(tr('hud.teamMedian', 'Mediana RM 1v1'))} · ${escapeHtml(tr('hud.yourTeam', 'Tu equipo'))} <b>${fmtTeam(myTeam)}</b> · ${escapeHtml(tr('hud.rivalTeam', 'Rival'))} <b>${fmtTeam(otherTeam)}</b>${escapeHtml(parcial)}</span>`;
     }
   }
   if (content == null) {
@@ -1866,41 +1879,36 @@ function renderBalance(state) {
 }
 
 function renderOngoing(state) {
-  // `ladder` es el MODO de la partida (RM team, EW 1v1, Unranked…). El ELO,
-  // el pico y el rank que se ven abajo son SIEMPRE de RM 1v1, por eso el tag.
   const ladder = state.ladder || { label: state.match.leaderboardName, source: 'ranked' };
   const eloLabel = (state.eloLadder && state.eloLadder.label) || 'RM 1v1';
   const inLobby = state.phase === 'lobby';
   const example = state.example || null;
-  // El modo se repite solo si NO es RM 1v1: cuando el tag de la derecha ya
-  // dice "ELO RM 1v1", volver a escribirlo en el título es ruido.
+  const locMap = (typeof AppI18n === 'object' && AppI18n.mapName) ? AppI18n.mapName(state.match.mapName) : state.match.mapName;
   const mode = !rosterDetailsAllowed || !ladder.label || ladder.label === 'RM 1v1' ? '' : ` · ${ladder.label}`;
-  const title = !rosterDetailsAllowed ? 'Rivales' : inLobby ? `Partida encontrada${mode}` : `${state.match.mapName}${mode}`;
-  // El Modo ejemplo se distingue a simple vista: los DATOS son reales, lo que
-  // se simula es el reloj. Hay que decirlo para no confundirlo con una partida.
+  const title = !rosterDetailsAllowed
+    ? tr('hud.rivalsHead', 'Rivales')
+    : inLobby
+      ? `${tr('hud.matchFound', 'Partida encontrada')}${mode}`
+      : `${locMap}${mode}`;
   const badge = example
-    ? '<span class="example-badge" title="Última partida real de este perfil · reloj de prueba">EJEMPLO</span>'
+    ? `<span class="example-badge">${escapeHtml(tr('hud.exampleBadge', 'EJEMPLO'))}</span>`
     : '';
   head.innerHTML =
     badge +
     `<span class="head-title">${escapeHtml(title)}</span>` +
     `<span class="elo-tag">ELO ${escapeHtml(eloLabel)}</span>`;
 
-  // El balance se calcula con el roster actual; si todavía no hay jugadores
-  // (aviso de "cola apareada") se oculta hasta que llegue.
   renderBalance(state);
 
-  // El pie muestra solo el modo y el pico (o el dato de la partida en ejemplo).
   const fecha = example ? shortDate(example.realStartedAt) : '';
   footText.textContent = !rosterDetailsAllowed ? '' : example
-    ? `partida real #${example.matchId ?? '—'}${fecha ? ` · ${fecha}` : ''} · reloj de prueba`
+    ? `#${example.matchId ?? '—'}${fecha ? ` · ${fecha}` : ''}`
     : inLobby
-      ? `${state.match.mapName !== '—' ? `${state.match.mapName} · ` : ''}empezando…`
-      : `${ladder.label} · pico ${eloLabel}`;
+      ? `${locMap !== '—' ? `${locMap} · ` : ''}${tr('hud.startingMatch', 'empezando…')}`
+      : `${ladder.label} · ${tr('hud.peakLabel', 'pico')} ${eloLabel}`;
 
-  // Aviso de "cola apareada" antes de que llegue el roster del rival (0ms).
   if (!Array.isArray(state.players) || !state.players.length) {
-    rowsEl.innerHTML = '<div class="hint">Partida encontrada · cargando rivales…</div>';
+    rowsEl.innerHTML = `<div class="hint">${escapeHtml(tr('hud.loadingRivals', 'Partida encontrada · cargando rivales…'))}</div>`;
     return;
   }
 
@@ -1911,20 +1919,16 @@ function renderOngoing(state) {
     .map((player) => {
       const divider = previousTeam !== null && player.team !== previousTeam ? '<div class="sep"></div>' : '';
       previousTeam = player.team;
-      const name = escapeHtml(player.name || 'Jugador');
-      const badge = player.isYou ? '<em>vos</em>' : '';
+      const name = escapeHtml(player.name || tr('hud.civPlayer', 'Jugador'));
+      const badge = player.isYou ? `<em>${escapeHtml(tr('hud.youBadge', 'vos'))}</em>` : '';
       const civ = rosterDetailsAllowed ? `<span class="civ">${inLobby && !player.isYou
-        ? '<span class="civ-hidden" title="Civilización sin revelar" aria-label="Civilización sin revelar">?</span>'
+        ? '<span class="civ-hidden">?</span>'
         : civMarkup(player.civ)}</span>` : '';
-      // Mientras llega el RM 1v1 se muestra "…", nunca el ELO del modo.
-      // "—" significa "este jugador no tiene ladder 1v1".
       const waiting = Boolean(state.pending) && !player.hasStats;
       const elo = player.rating != null ? fmtNumber(player.rating) : waiting ? '…' : '—';
       const rank = !rosterDetailsAllowed ? '' : player.rank
         ? `<span class="rank">#${player.rank}</span>`
         : `<span class="rank">${waiting ? '…' : ''}</span>`;
-      // Pico con flecha en vez de la palabra: se entiende igual y deja de
-      // repetirse "pico" en cada fila del panel.
       const peak = player.peak
         ? `${icon('sube')}${fmtNumber(player.peak)}`
         : waiting ? '…' : '—';
@@ -1935,13 +1939,11 @@ function renderOngoing(state) {
           ${civ}
           <span class="elo">${elo}</span>
           ${rank}
-          ${rosterDetailsAllowed ? `<span class="peak" title="Pico de ELO (RM 1v1)">${peak}</span>` : ''}
+          ${rosterDetailsAllowed ? `<span class="peak">${peak}</span>` : ''}
         </div>`;
     })
     .join('');
 
-  // El CSP del HTML bloquea atributos style inline: el color del equipo se
-  // aplica por CSSOM una vez renderizadas las filas.
   rowsEl.querySelectorAll('.dot').forEach((dot, index) => {
     const player = displayedPlayers[index];
     if (!player) return;
@@ -1955,32 +1957,33 @@ function renderRows(state) {
     return;
   }
 
-  // Sin partida (o error) no hay balance que mostrar.
   renderBalance(null);
   footText.textContent = '';
 
   if (state.status === 'idle') {
-    head.textContent = 'Sin partida';
+    head.textContent = tr('hud.noMatch', 'Sin partida');
+    const locMap = (typeof AppI18n === 'object' && AppI18n.mapName && state.lastMatch?.mapName)
+      ? AppI18n.mapName(state.lastMatch.mapName)
+      : state.lastMatch?.mapName;
     const last = state.lastMatch
-      ? `<div class="hint dim">última: ${escapeHtml(state.lastMatch.mapName)} · ${escapeHtml(state.lastMatch.leaderboardName)}</div>`
+      ? `<div class="hint dim">${escapeHtml(tr('hud.lastMatch', `última: ${locMap} · ${state.lastMatch.leaderboardName}`, { map: locMap, mode: state.lastMatch.leaderboardName }))}</div>`
       : '';
-    rowsEl.innerHTML = `<div class="hint">Esperando partida clasificatoria…</div>${last}`;
+    rowsEl.innerHTML = `<div class="hint">${escapeHtml(tr('hud.waitingRanked', 'Esperando partida clasificatoria…'))}</div>${last}`;
     return;
   }
 
   if (state.status === 'no-profile') {
-    // Sin cuenta no hay nada que mostrar: que se entienda de un vistazo.
-    head.textContent = 'No encontré tu cuenta';
+    head.textContent = tr('hud.noAccountHead', 'No encontré tu cuenta');
     rowsEl.innerHTML =
       '<div class="alert">' +
-      '<div class="alert-line">Abrí la configuración con <b>Ctrl+Alt+S</b><br />y buscá tu nombre en el juego.</div>' +
-      `<div class="alert-sub">o poné tu profile ID en<br /><span class="path">${escapeHtml(configPath)}</span></div>` +
+      `<div class="alert-line">${escapeHtml(tr('hud.noAccountLine', 'Abrí la configuración con Ctrl+Alt+S y buscá tu nombre en el juego.'))}</div>` +
+      `<div class="alert-sub">${escapeHtml(tr('hud.noAccountSub', 'o poné tu profile ID en'))}<br /><span class="path">${escapeHtml(configPath)}</span></div>` +
       '</div>';
     return;
   }
 
-  head.textContent = 'Sin conexión';
-  rowsEl.innerHTML = `<div class="hint">${escapeHtml(state.message || 'error de red')}<br /><span class="dim">reintentando…</span></div>`;
+  head.textContent = tr('hud.offline', 'Sin conexión');
+  rowsEl.innerHTML = `<div class="hint">${escapeHtml(state.message || 'error')}<br /><span class="dim">${escapeHtml(tr('hud.retrying', 'reintentando…'))}</span></div>`;
 }
 
 function render(state) {
@@ -2041,10 +2044,8 @@ function setMoving(on) {
   document.body.classList.toggle('moving', moving);
 
   if (moving) {
-    head.textContent = 'Mové el panel';
-    rowsEl.innerHTML =
-      '<div class="hint">Arrastralo donde quieras que quede.<br />' +
-      'Tocá <b>Listo</b> en la configuración o <b>Esc</b>.</div>';
+    head.textContent = tr('hud.moveHead', 'Mové el panel');
+    rowsEl.innerHTML = `<div class="hint">${escapeHtml(tr('hud.moveHint', 'Arrastralo donde quieras que quede. Tocá Listo en la configuración o Esc.'))}</div>`;
     footText.textContent = '';
   } else if (lastState) {
     render(lastState);
@@ -2062,6 +2063,7 @@ window.overlay.onConfig((config) => {
   if (config.civGuide) civGuide = config.civGuide;
   if (typeof AppI18n === 'object' && config.i18nBundle) {
     AppI18n.configure({ locale: config.language || config.i18nBundle.locale, bundle: config.i18nBundle });
+    AppI18n.applyToDom(document);
   }
   if (typeof TacticalUI === 'object' && TacticalUI.configure) {
     TacticalUI.configure({

@@ -29,10 +29,10 @@
           falta nada se oculta sola: en partida no queda nada animado.
         -->
         <div id="analysis" hidden aria-live="polite">
-          <span class="analysis-label" id="analysisLabel">Analizando…</span>
+          <span class="analysis-label" id="analysisLabel" data-i18n="hud.analyzing">Analizando…</span>
           <span class="analysis-track" aria-hidden="true"><i></i></span>
         </div>
-        <div id="rows"><div class="hint">Iniciando…</div></div>
+        <div id="rows"><div class="hint" data-i18n="hud.starting">Iniciando…</div></div>
         <div id="foot"><span id="foottext"></span></div>
       </div>
 
@@ -52,7 +52,7 @@
       -->
       <section id="civHelp" hidden aria-live="polite">
         <div class="civhelp-head">
-          <span class="civhelp-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.8 5.9v5.3c0 4.1 3 7.4 7.2 9.8 4.2-2.4 7.2-5.7 7.2-9.8V5.9L12 3Z"/></svg>Ayuda de civ</span>
+          <span class="civhelp-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.8 5.9v5.3c0 4.1 3 7.4 7.2 9.8 4.2-2.4 7.2-5.7 7.2-9.8V5.9L12 3Z"/></svg><span data-i18n="hud.civHelp">Ayuda de civ</span></span>
           <span class="civhelp-clock" id="civhelpClock">0:01 / 0:20</span>
         </div>
         <div class="civhelp-grid" id="civhelpGrid"></div>
@@ -69,10 +69,10 @@
       -->
       <section id="scouting" hidden aria-live="polite">
         <div class="scout-head">
-          <span class="scout-title"><img class="product-icon" src="assets/icons/eye.png" width="20" height="20" alt=""/>Lectura del rival</span>
+          <span class="scout-title"><img class="product-icon" src="assets/icons/eye.png" width="20" height="20" alt=""/><span data-i18n="hud.scouting">Lectura del rival</span></span>
           <span class="scout-context" id="scoutContext"></span>
           <!-- El overlay es click-through: el chip es SOLO la pista del atajo. -->
-          <span class="scout-toggle" id="scoutToggle">F2 · Ver todo</span>
+          <span class="scout-toggle" id="scoutToggle" data-i18n="hud.f2All">F2 · Ver todo</span>
         </div>
         <div class="scout-grid" id="scoutCards"></div>
         <!-- Honestidad de muestra y alcance: UNA vez por sección. -->
@@ -89,8 +89,8 @@
       -->
       <section id="rivalInfo" hidden aria-live="polite">
         <div class="rival-head">
-          <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/></svg>Informe del rival</span>
-          <span class="scout-toggle">F2 · Resumen</span>
+          <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/></svg><span data-i18n="hud.rivalInfo">Informe del rival</span></span>
+          <span class="scout-toggle" data-i18n="hud.f2Summary">F2 · Resumen</span>
         </div>
         <div class="rival-grid" id="rivalGrid"></div>
         <!-- Honestidad de muestra: UNA sola vez por sección, no por tarjeta. -->
@@ -105,8 +105,8 @@
       -->
       <section id="scoutInfo" hidden aria-live="polite">
         <div class="rival-head">
-          <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/></svg>Recomendaciones</span>
-          <span class="scout-toggle">F2 · Resumen</span>
+          <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/></svg><span data-i18n="hud.recommendations">Recomendaciones</span></span>
+          <span class="scout-toggle" data-i18n="hud.f2Summary">F2 · Resumen</span>
         </div>
         <div class="rival-grid" id="scoutGrid"></div>
       </section>

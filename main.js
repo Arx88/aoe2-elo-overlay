@@ -171,7 +171,7 @@ function accessKeyMatches(raw) {
   return digest.length === expected.length && crypto.timingSafeEqual(digest, expected);
 }
 function hasAccessKeyGrant() {
-  if (remoteLicenseState && remoteLicenseState.revoked === true) return false;
+  if (remoteLicenseState && (remoteLicenseState.revoked === true || remoteLicenseState.paywallEnabled === true)) return false;
   return String(config.accessKeyGrant || '') === ACCESS_KEY_HASH;
 }
 const DEMO_ARG = ARGV.find((arg) => arg === '--demo' || arg.startsWith('--demo='));
@@ -569,9 +569,9 @@ async function syncRemoteLicense(reason = 'startup') {
     refreshAccessPresentation();
   } else if (res.revoked || res.status === 'free') {
     const hadAccess = Boolean(productSession.entitlementToken || config.accessKeyGrant);
-    if (res.revoked && config.accessKeyGrant) persistConfig({ accessKeyGrant: null });
+    if ((res.revoked || res.paywallEnabled) && config.accessKeyGrant) persistConfig({ accessKeyGrant: null });
     productSession = { accountId: null, entitlementToken: null };
-    if (hadAccess || res.revoked) {
+    if (hadAccess || res.revoked || res.paywallEnabled) {
       log(`acceso remoto retirado (${res.reason || res.status}) · ${reason}`);
       refreshAccessPresentation();
     }
@@ -2962,6 +2962,9 @@ function registerIpc() {
   // Clave temporal de acceso Pro. La validación ocurre en main y solo se
   // persiste el hash de la clave; el renderer nunca decide el plan.
   ipcMain.handle('settings:activate-access-key', (_event, rawKey) => {
+    if (remoteLicenseState && (remoteLicenseState.paywallEnabled === true || remoteLicenseState.revoked === true)) {
+      return { ok: false, error: 'Las claves de prueba antiguas están desactivadas. Requiere acceso activo en el servidor.', product: productState() };
+    }
     if (!normalizeAccessKey(rawKey)) {
       return { ok: false, error: 'Ingresá la clave de acceso.', product: productState() };
     }

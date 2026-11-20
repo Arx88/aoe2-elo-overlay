@@ -138,24 +138,24 @@
     const civCoverage = Number.isFinite(choices) && choices > 0
       ? `<p class="intel-muted">Civilización identificada en <b>${number(choices)}</b> de ${number(m.sampleGames)} partidas revisadas.</p>`
       : '<p class="intel-muted">Sin elecciones de civ verificadas en la muestra.</p>';
-    return section(`En ${m.name || mapName || 'este mapa'}`,
+    return section(tr('postmatch.mapRecordIn', `En ${locMap(m.name || mapName) || 'este mapa'}`, { map: locMap(m.name || mapName) || mapName }),
       `<p class="intel-statline"><b>${value}</b> · ${number(wins)} victorias ${resultLabel} en ${number(known)} resultados conocidos${report.partial ? ' · parcial' : ''}</p>` +
       (detail ? civCoverage : ''), 'map');
   }
   function historyBlock(report) {
-    const title = 'Últimas 5 partidas';
+    const title = tr('postmatch.last5Title', 'Últimas 5 partidas');
     const pending = dataState(report, title); if (pending) return pending;
     const rows = Array.isArray(report.history) ? report.history.slice(0, 5) : [];
     if (!rows.length) return note(title, report.error ? 'El historial no está disponible ahora.' : 'Sin partidas recientes de este modo.');
     const entries = rows.map((row, index) => {
-      const outcome = row.won === true ? 'Victoria' : row.won === false ? 'Derrota' : 'Resultado pendiente';
-      return `<li class="intel-history-row${index === 0 ? ' recent' : ''}"><strong>${civLabel(row.civ)}</strong><small>${esc(row.mapName || 'Mapa sin dato')}</small><b class="result-letter ${row.won === true ? 'win' : row.won === false ? 'loss' : ''}" title="${outcome}" aria-label="${outcome}">${row.won === true ? 'V' : row.won === false ? 'D' : '—'}</b></li>`;
+      const outcome = row.won === true ? tr('postmatch.win', 'Victoria') : row.won === false ? tr('postmatch.loss', 'Derrota') : 'Resultado pendiente';
+      return `<li class="intel-history-row${index === 0 ? ' recent' : ''}"><strong>${civLabel(row.civ)}</strong><small>${esc(locMap(row.mapName) || 'Mapa sin dato')}</small><b class="result-letter ${row.won === true ? 'win' : row.won === false ? 'loss' : ''}" title="${outcome}" aria-label="${outcome}">${row.won === true ? 'V' : row.won === false ? 'D' : '—'}</b></li>`;
     }).join('');
-    return `<section class="intel-block history-block"><div class="intel-history-head"><h4>${icon('history')}${title}</h4><p class="intel-history-label">Más reciente arriba · mismo modo</p></div><ol class="intel-history-list">${entries}</ol></section>`;
+    return `<section class="intel-block history-block"><div class="intel-history-head"><h4>${icon('history')}${esc(title)}</h4><p class="intel-history-label">${esc(tr('postmatch.moreRecentTop', 'Más reciente arriba · mismo modo'))}</p></div><ol class="intel-history-list">${entries}</ol></section>`;
   }
   function openingBlock(report, currentCiv) {
     const hasCiv = Boolean(civSlug(currentCiv));
-    const title = hasCiv ? 'Aperturas de su civilización' : 'Aperturas del historial';
+    const title = hasCiv ? tr('postmatch.openingsCiv', 'Aperturas de su civilización') : tr('postmatch.openingsHistory', 'Aperturas del historial');
     const pending = dataState(report, title); if (pending) return pending;
     const o = report.openings;
     if (report.openingError || o?.error) return note(title, 'No se pudieron consultar los replays.');
@@ -166,15 +166,16 @@
     const pick = hasCiv ? o.mapCivFavorite : o.mapFavorite;
     const n = Number(hasCiv ? o.mapCivAnalyzed : o.mapAnalyzed) || 0;
     if (!pick || !n) return note(title, 'Sin aperturas clasificadas en este mapa.');
-    return section(title, `<div class="intel-opening"><b>${esc(pick.short || pick.name)}</b><span>${number(pick.count)} de ${number(n)} replays</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword', openingArtClass(pick.name || pick.short).trim());
+    return section(title, `<div class="intel-opening"><b>${esc(locOpening(pick.name, pick.short || pick.name))}</b><span>${esc(tr('postmatch.replaysOf', `${number(pick.count)} de ${number(n)} replays`, { a: number(pick.count), b: number(n) }))}</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword', openingArtClass(pick.name || pick.short).trim());
   }
   function h2hBlock(report) {
-    const pending = dataState(report, 'Tu cara a cara'); if (pending) return pending;
+    const title = tr('prematch.h2hTitle', 'Tu cara a cara');
+    const pending = dataState(report, title); if (pending) return pending;
     const h = report.h2h;
-    if (report.h2hPending || !h) return note('Tu cara a cara', 'Consultando tus enfrentamientos…', 'loading');
-    if (h.error) return note('Tu cara a cara', 'No se pudo consultar tu historial.');
-    if (h.modeUnavailable || h.modePending) return note('Tu cara a cara', h.modePending ? 'Esperando el modo confirmado.' : 'Sin historial compatible con este modo.');
-    return section('Tu cara a cara', `<div class="intel-h2h"><b>${number(h.wins)} <small>V</small> <i>—</i> ${number(h.losses)} <small>D</small></b><p>${h.games ? `${number(h.games)} enfrentamientos confirmados` : `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`}${h.asAllies ? ` · ${number(h.asAllies)} como aliados` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'combat');
+    if (report.h2hPending || !h) return note(title, 'Consultando tus enfrentamientos…', 'loading');
+    if (h.error) return note(title, 'No se pudo consultar tu historial.');
+    if (h.modeUnavailable || h.modePending) return note(title, h.modePending ? 'Esperando el modo confirmado.' : 'Sin historial compatible con este modo.');
+    return section(title, `<div class="intel-h2h"><b>${number(h.wins)} <small>V</small> <i>—</i> ${number(h.losses)} <small>D</small></b><p>${h.games ? `${number(h.games)} enfrentamientos confirmados` : `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`}${h.asAllies ? ` · ${number(h.asAllies)} como aliados` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'combat');
   }
   const OPENING_LABELS_ES = {
     'Scout rush': 'Scouts',
@@ -351,14 +352,14 @@
   }
   function renderAutomaticOpportunities(plans = [], { detail = false } = {}) {
     const ready = plans.filter((plan) => plan?.status === 'ready');
-    if (!ready.length) return note('Rutas de partida', plans.find((plan) => plan?.reason)?.reason || 'Esperando ambas civilizaciones y contexto confirmado.');
+    if (!ready.length) return note(tr('tactics.routesEmptyTitle', 'Rutas de partida'), plans.find((plan) => plan?.reason)?.reason || tr('tactics.waitingBoth', 'Esperando ambas civilizaciones y contexto confirmado.'));
     const context = ready[0];
-    return `<section class="opportunities automatic"><h4>${icon('target')}Rutas de referencia frente a ${civLabel(context.rivalCiv)}</h4><p class="opportunity-context">${civLabel(context.ownCiv)} · ${esc(context.mapName)}${detail ? ` · ${number(context.contextSample)} resultados de la muestra` : ''}</p>${(detail ? ready : ready.slice(0, 1)).map((plan) => {
+    return `<section class="opportunities automatic"><h4>${icon('target')}${esc(tr('tactics.routesTitle', 'Rutas de referencia frente a'))} ${civLabel(context.rivalCiv)}</h4><p class="opportunity-context">${civLabel(context.ownCiv)} · ${esc(locMap(context.mapName) || context.mapName)}${detail ? ` · ${esc(tr('tactics.sampleResults', `${number(context.contextSample)} resultados de la muestra`, { n: number(context.contextSample) }))}` : ''}</p>${(detail ? ready : ready.slice(0, 1)).map((plan) => {
       const best = plan.candidates[0];
       if (!best) return '';
-      const age = { feudal: 'Feudal', castle: 'Castillos', imperial: 'Imperial' }[plan.age];
-      return `<article class="opportunity-card"><header>${icon(best.icon)}<div><small>Opción de ${esc(age)}</small><b>${esc(best.label)}</b></div></header><p>${esc(best.condition)}</p>${detail ? `<p>${best.history.games >= 3 ? `${plan.data.teamResults ? 'Su equipo perdió' : 'Perdió'} ${best.history.losses}/${best.history.games} ante esta apertura en el contexto consultado.` : 'Orientación del árbol tecnológico con muestra insuficiente.'}</p>` : ''}</article>`;
-    }).join('')}<p class="opportunity-note">Referencia de civilizaciones. El ejército y la edad actuales no están medidos.</p></section>`;
+      const age = locAge(plan.age, { feudal: 'Feudal', castle: 'Castillos', imperial: 'Imperial' }[plan.age]);
+      return `<article class="opportunity-card"><header>${icon(best.icon)}<div><small>${esc(tr('tactics.optionOf', `Opción de ${age}`, { age }))}</small><b>${esc(best.label)}</b></div></header><p>${esc(best.condition)}</p>${detail ? `<p>${best.history.games >= 3 ? `${plan.data.teamResults ? 'Su equipo perdió' : 'Perdió'} ${best.history.losses}/${best.history.games} ante esta apertura en el contexto consultado.` : 'Orientación del árbol tecnológico con muestra insuficiente.'}</p>` : ''}</article>`;
+    }).join('')}<p class="opportunity-note">${esc(tr('tactics.routesNote', 'Referencia de civilizaciones. El ejército y la edad actuales no están medidos.'))}</p></section>`;
   }
   const RESOURCE_LABELS = { villager: 'Aldeanos', food: 'Comida', sheep: 'Ovejas', boar: 'Jabalí',
     wood: 'Madera', berries: 'Bayas', gold: 'Oro', stone: 'Piedra', building: 'Edificios',
@@ -372,9 +373,9 @@
     if (!payload) return '';
     if (payload.status === 'locked') return note('Smart Build Order', payload.message);
     const guide = payload.selected;
-    const selected = guide ? `<section class="smart-build"><header>${icon(guide.icon)}<div><span>PLAN SUGERIDO · ${civLabel(payload.ownCiv)}</span><h3>${esc(guide.label)}</h3></div><b>Smart Build Order</b></header><p class="build-reference">${esc(payload.referenceLabel)}</p>${buildGuide(guide)}<p class="build-condition">${esc(guide.condition)}</p>${library ? `<p class="build-reference">${(payload.reasons || []).map(esc).join(' ')} ${(guide.caveats || []).map(esc).join(' ')}</p>` : ''}</section>`
-      : note('Smart Build Order', payload.reasons?.[0] || 'Esperando una civilización y un contexto compatibles.');
-    const references = library ? `<div class="build-library"><h3>Cinco rutas de referencia</h3><p class="mini">Se elige una sugerencia automáticamente. Estas fichas explican las rutas; no miden tu progreso en la partida.</p>${(payload.guides || []).map((item) => `<details><summary>${icon(item.icon)}${esc(item.label)}${item.available ? '' : '<small>Variante sin validar para tu civ</small>'}</summary>${!item.available ? `<p class="build-condition">${esc(item.unavailableReason)}</p>` : ''}${buildGuide(item)}<p class="build-condition">${esc(item.condition)}</p></details>`).join('')}</div>` : '';
+    const selected = guide ? `<section class="smart-build"><header>${icon(guide.icon)}<div><span>${esc(tr('tactics.suggestedPlan', 'PLAN SUGERIDO'))} · ${civLabel(payload.ownCiv)}</span><h3>${esc(guide.label)}</h3></div><b>Smart Build Order</b></header><p class="build-reference">${esc(payload.referenceLabel)}</p>${buildGuide(guide)}<p class="build-condition">${esc(guide.condition)}</p>${library ? `<p class="build-reference">${(payload.reasons || []).map(esc).join(' ')} ${(guide.caveats || []).map(esc).join(' ')}</p>` : ''}</section>`
+      : note('Smart Build Order', payload.reasons?.[0] || tr('tactics.waitingCivContext', 'Esperando una civilización y un contexto compatibles.'));
+    const references = library ? `<div class="build-library"><h3>${esc(tr('tactics.libraryTitle', 'Cinco rutas de referencia'))}</h3><p class="mini">${esc(tr('tactics.librarySub', 'Se elige una sugerencia automáticamente. Estas fichas explican las rutas; no miden tu progreso en la partida.'))}</p>${(payload.guides || []).map((item) => `<details><summary>${icon(item.icon)}${esc(item.label)}${item.available ? '' : `<small>${esc(tr('tactics.unavailableVariant', 'Variante sin validar para tu civ'))}</small>`}</summary>${!item.available ? `<p class="build-condition">${esc(item.unavailableReason)}</p>` : ''}${buildGuide(item)}<p class="build-condition">${esc(item.condition)}</p></details>`).join('')}</div>` : '';
     return selected + references;
   }
   function renderRival({ entry, state, options = {}, detail = true } = {}) {
@@ -523,8 +524,8 @@
     const midClock = clock(list[Math.floor((list.length - 1) / 2)].seconds);
     return `<div class="pm-curve-wrap">
       <div class="pm-curve-head">
-        <span>Ritmo acumulado (Aldeanos + Ejército)</span>
-        <div class="pm-legend"><i class="leg-self"></i>Vos${rPts.length ? `<i class="leg-rival"></i>${esc(rivalName || 'Rival')}` : ''}</div>
+        <span>${esc(tr('postmatch.curveTitle', 'Ritmo acumulado (Aldeanos + Ejército)'))}</span>
+        <div class="pm-legend"><i class="leg-self"></i>${esc(tr('postmatch.you', 'Vos'))}${rPts.length ? `<i class="leg-rival"></i>${esc(rivalName || tr('postmatch.rival', 'Rival'))}` : ''}</div>
       </div>
       <svg class="pm-curve" viewBox="0 0 ${w} ${h}" role="img" aria-label="Curva de producción acumulada">
         <line class="pm-grid" x1="${padL}" y1="${padT + innerH}" x2="${w - padR}" y2="${padT + innerH}" />
@@ -554,9 +555,9 @@
     return `${m}m ${String(r).padStart(2, '0')}s`;
   }
   function fmtDelta(item, suffix = '', invertGood = false) {
-    if (!item || item.delta == null) return '<span class="pm-delta muted">Base inicial</span>';
+    if (!item || item.delta == null) return `<span class="pm-delta muted">${esc(tr('postmatch.initialBase', 'Base inicial'))}</span>`;
     const d = item.delta;
-    if (d === 0) return '<span class="pm-delta muted">= Media</span>';
+    if (d === 0) return `<span class="pm-delta muted">${esc(tr('postmatch.eqAvg', '= Media'))}</span>`;
     const sign = d > 0 ? '+' : '−';
     const abs = Math.abs(d);
     const val = suffix === ' s' ? fmtIdle(abs)
@@ -564,7 +565,7 @@
         : `${abs < 10 ? dec(abs, 1) : number(Math.round(abs * 10) / 10)}${suffix}`;
     const good = invertGood ? d < 0 : d > 0;
     const arrow = good ? '▲' : '▼';
-    const tag = item.isBest ? ' ★ RÉCORD' : '';
+    const tag = item.isBest ? ` ${tr('postmatch.recordTag', '★ RÉCORD')}` : '';
     return `<span class="pm-delta ${good ? 'win' : 'loss'}${item.isBest ? ' is-record' : ''}">${arrow} ${sign}${val}${tag}</span>`;
   }
   const REPORT_ICON_ALIASES = { opening: 'history', dark: 'building', feudal: 'barracks', imperial: 'crown', target: 'objective' };
@@ -697,8 +698,8 @@
         : !showPersonal
           ? ''
           : item?.sampleSize >= 2 && item.betterThanPct != null
-            ? `<small>Mejor que el ${item.betterThanPct}% de tus ${item.sampleSize} previas</small>`
-            : `<small>${item?.median != null ? `Tu media: ${suffix === ' s' ? fmtIdle(item.median) : `${dec(item.median, suffix === '/m' ? 2 : 1)}${suffix}`}` : 'Guardando base personal'}</small>`;
+            ? `<small>${esc(tr('postmatch.betterThan', `Mejor que el ${item.betterThanPct}% de tus ${item.sampleSize} previas`, { pct: item.betterThanPct, n: item.sampleSize }))}</small>`
+            : `<small>${item?.median != null ? esc(tr('postmatch.yourAvg', `Tu media: ${suffix === ' s' ? fmtIdle(item.median) : `${dec(item.median, suffix === '/m' ? 2 : 1)}${suffix}`}`, { val: suffix === ' s' ? fmtIdle(item.median) : `${dec(item.median, suffix === '/m' ? 2 : 1)}${suffix}` })) : esc(tr('postmatch.savingBase', 'Guardando base personal'))}</small>`;
       return `<article class="pm-kpi is-${tone}${showPersonal && item?.isBest ? ' is-best' : ''}">
         <div class="pm-kpi-top"><span>${esc(item?.label || '')}</span>${deltaBadge}</div>
         <div class="pm-kpi-mid"><b>${mainVal}</b>${spark}</div>
@@ -711,20 +712,20 @@
     const totalIdle = self.tcIdleTotalSeconds ?? self.tcIdleSeconds;
     const feudPerTc = self.tcIdleFeudalPerTcSeconds ?? self.tcIdleFeudalSeconds;
     const utilBreakdown = [
-      self.tcUtilizationDark != null ? `Alta ${dec(self.tcUtilizationDark, 1)}%` : null,
-      self.tcUtilizationFeudal != null ? `Feudal ${dec(self.tcUtilizationFeudal, 1)}%` : null,
+      self.tcUtilizationDark != null ? `${locAge('dark', 'Alta')} ${dec(self.tcUtilizationDark, 1)}%` : null,
+      self.tcUtilizationFeudal != null ? `${locAge('feudal', 'Feudal')} ${dec(self.tcUtilizationFeudal, 1)}%` : null,
     ].filter(Boolean).join(' · ') || null;
     const idleBreakdown = [
-      self.tcIdleDarkSeconds != null ? `Alta ${fmtIdle(self.tcIdleDarkSeconds)}` : null,
-      feudPerTc != null ? `Feudal ${fmtIdle(feudPerTc)}${(self.feudalActiveTcs || 1) > 1 ? '/TC' : ''}` : null,
+      self.tcIdleDarkSeconds != null ? `${locAge('dark', 'Alta')} ${fmtIdle(self.tcIdleDarkSeconds)}` : null,
+      feudPerTc != null ? `${locAge('feudal', 'Feudal')} ${fmtIdle(feudPerTc)}${(self.feudalActiveTcs || 1) > 1 ? '/TC' : ''}` : null,
       totalIdle != null ? `Total ${fmtIdle(totalIdle)}` : null,
     ].filter(Boolean).join(' · ') || null;
 
     const evoGrid = `<div class="pm-kpi-grid">
-      ${evoCard({ ...(em.tcUtilization || {}), label: 'Uso de TC' }, earlyUtil != null ? `${dec(earlyUtil, 1)}%` : '—', ' pts', false, utilBreakdown)}
-      ${evoCard({ ...(em.tcIdleSeconds || {}), label: 'Idle de TC' }, fmtIdle(self.tcIdleDarkSeconds != null && feudPerTc != null ? (self.tcIdleDarkSeconds + feudPerTc) : earlyIdle), ' s', true, idleBreakdown)}
-      ${evoCard(em.villagersPerMin || { label: 'Aldeanos / min' }, em.villagersPerMin ? dec(em.villagersPerMin.current, 2) : number(self.villagersOrdered), '/m')}
-      ${evoCard(em.eapm || { label: 'Ritmo eAPM' }, self.eapm != null ? dec(self.eapm, 1) : '—', '')}
+      ${evoCard({ ...(em.tcUtilization || {}), label: tr('postmatch.tcUsage', 'Uso de TC') }, earlyUtil != null ? `${dec(earlyUtil, 1)}%` : '—', ' pts', false, utilBreakdown)}
+      ${evoCard({ ...(em.tcIdleSeconds || {}), label: tr('postmatch.tcIdle', 'Idle de TC') }, fmtIdle(self.tcIdleDarkSeconds != null && feudPerTc != null ? (self.tcIdleDarkSeconds + feudPerTc) : earlyIdle), ' s', true, idleBreakdown)}
+      ${evoCard({ ...(em.villagersPerMin || {}), label: tr('postmatch.vilsPerMin', 'Aldeanos / min') }, em.villagersPerMin ? dec(em.villagersPerMin.current, 2) : number(self.villagersOrdered), '/m')}
+      ${evoCard({ ...(em.eapm || {}), label: tr('postmatch.eapm', 'Ritmo eAPM') }, self.eapm != null ? dec(self.eapm, 1) : '—', '')}
     </div>`;
 
     // 3. Duelo cara a cara con escudos de civilización a izquierda (Vos) y derecha (Rival) + barras espejadas
@@ -794,7 +795,7 @@
 
     // 5. Bloque entrenador: Mayor bache exacto de TC + Patrón repetido + Foco (con SVGs centrados)
     const gapRow = self.biggestTcGap
-      ? `<div class="pm-coach-row is-gap"><span class="pm-icon-tile is-rose sm">${reportIcon('clock')}</span><div><span class="pm-coach-k">Mayor bache de TC</span><b>${esc(self.biggestTcGap.summary)}</b></div></div>` : '';
+      ? `<div class="pm-coach-row is-gap"><span class="pm-icon-tile is-rose sm">${reportIcon('clock')}</span><div><span class="pm-coach-k">${esc(tr('postmatch.biggestGap', 'Mayor bache de TC'))}</span><b>${esc(self.biggestTcGap.summary)}</b></div></div>` : '';
     const pat = showPersonal ? evo?.recurringPattern : null;
     const patRow = pat
       ? `<div class="pm-coach-row is-warn"><span class="pm-icon-tile is-amber sm">${reportIcon('target')}</span><div><span class="pm-coach-k">${esc(pat.title)}</span><b>${esc(pat.detail)}</b></div></div>` : '';
@@ -807,9 +808,9 @@
     const tcCycleVal = cm.tcReturnSec != null ? `${number(cm.tcReturnSec)} s` : '—';
     const habitsStrip = `<div class="pm-habits">
       <div><span>APM / eAPM</span><b>${self.apm != null ? dec(self.apm, 1) : '—'} <small>/ ${self.eapm != null ? dec(self.eapm, 1) : '—'}</small></b></div>
-      <div><span>Micro combate</span><b>${microVal} ${microSub}</b></div>
-      <div><span>Ciclo TC</span><b>${tcCycleVal}</b></div>
-      <div><span>Mercado</span><b>${number(self.habits?.market || 0)} <small>ops</small></b></div>
+      <div><span>${esc(tr('postmatch.combatMicro', 'Micro combate'))}</span><b>${microVal} ${microSub}</b></div>
+      <div><span>${esc(tr('postmatch.tcCycle', 'Ciclo TC'))}</span><b>${tcCycleVal}</b></div>
+      <div><span>${esc(tr('postmatch.market', 'Mercado'))}</span><b>${number(self.habits?.market || 0)} <small>${esc(tr('postmatch.ops', 'ops'))}</small></b></div>
     </div>`;
 
     return `<div class="pm-v2 detail is-${result.status === 'won' ? 'won' : result.status === 'lost' ? 'lost' : 'neutral'}">
@@ -826,14 +827,14 @@
           ${habitsStrip}
         </section>
         <section class="pm-col">
-          <div class="pm-eyebrow"><span>Duelo de partida</span><i></i></div>
+          <div class="pm-eyebrow"><span>${esc(tr('postmatch.duelTitle', 'Duelo de partida'))}</span><i></i></div>
           ${duelBlock}
           ${queueBox}
           ${coachPanel}
         </section>
       </div>
       ${report.combat ? combatBlock(report.combat) : ''}
-      <footer class="pm-foot"><span>${esc(report.data?.sourceLabel || 'Replay local')}</span><span>${showPersonal && report.mapBenchmark?.games ? `${number(report.mapBenchmark.wins)} V · ${number(report.mapBenchmark.losses)} D en ${esc(c.mapName)}` : ''}</span></footer>
+      <footer class="pm-foot"><span>${esc(tr('postmatch.localReplay', report.data?.sourceLabel || 'Replay local'))}</span><span>${showPersonal && report.mapBenchmark?.games ? `${number(report.mapBenchmark.wins)} V · ${number(report.mapBenchmark.losses)} D · ${esc(locMap(c.mapName) || c.mapName)}` : ''}</span></footer>
     </div>`;
   }
   function renderPostMatch(report, access = {}) {

@@ -2,12 +2,13 @@
   'use strict';
 
   /**
-   * Micro-sonidos táctiles minimalistas para la interfaz (Web Audio API).
-   * Sin archivos externos ni peticiones de red (100% compatible con CSP estricta).
-   * Volumen muy sutil y envolventes suaves para nunca saturar.
+   * Micro-sonidos táctiles premium (estilo háptico / vidrio esmerilado).
+   * Síntesis Web Audio 100% local (compatible con CSP estricta, sin assets externos):
+   * impulsos cortos filtrados pasa-banda + senoidales cálidas muy suaves.
    */
   const STORAGE_KEY = 'aoe2helper.uiSounds';
   let ctx = null;
+  let noiseBuf = null;
   let lastKeyAt = 0;
   let enabled = true;
 
@@ -25,21 +26,62 @@
     return ctx;
   }
 
-  function tone(freqStart, freqEnd, duration, gainPeak, type = 'sine', delay = 0) {
+  function ensureNoise(ac) {
+    if (noiseBuf && noiseBuf.sampleRate === ac.sampleRate) return noiseBuf;
+    const length = Math.floor(ac.sampleRate * 0.03);
+    const buffer = ac.createBuffer(1, length, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      // Envolvente rápida exponencial para un chasquido orgánico sin siseo.
+      const env = Math.pow(1 - i / length, 3.2);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    noiseBuf = buffer;
+    return noiseBuf;
+  }
+
+  /** Pulso táctil ultra corto filtrado (sensación de clic háptico / cristal mate). */
+  function hapticTick(centerFreq, q, duration, gainPeak, delay = 0) {
+    const ac = ensureCtx();
+    if (!ac) return;
+    const t0 = ac.currentTime + delay;
+    const src = ac.createBufferSource();
+    src.buffer = ensureNoise(ac);
+    const filter = ac.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(centerFreq, t0);
+    filter.Q.setValueAtTime(q, t0);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gainPeak, t0 + 0.0018);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(ac.destination);
+    src.start(t0);
+    src.stop(t0 + duration + 0.005);
+  }
+
+  /** Nota cálida filtrada pasa-bajos, ataque aterciopelado y volumen muy discreto. */
+  function velvetTone(freqStart, freqEnd, duration, gainPeak, delay = 0, cutoff = 1800) {
     const ac = ensureCtx();
     if (!ac) return;
     const t0 = ac.currentTime + delay;
     const osc = ac.createOscillator();
+    const lp = ac.createBiquadFilter();
     const g = ac.createGain();
-    osc.type = type;
+    osc.type = 'sine';
     osc.frequency.setValueAtTime(freqStart, t0);
     if (freqEnd !== freqStart) {
-      osc.frequency.exponentialRampToValueAtTime(Math.max(40, freqEnd), t0 + duration);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(60, freqEnd), t0 + duration);
     }
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(cutoff, t0);
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.linearRampToValueAtTime(gainPeak, t0 + Math.min(0.008, duration * 0.25));
+    g.gain.linearRampToValueAtTime(gainPeak, t0 + Math.min(0.009, duration * 0.25));
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-    osc.connect(g);
+    osc.connect(lp);
+    lp.connect(g);
     g.connect(ac.destination);
     osc.start(t0);
     osc.stop(t0 + duration + 0.01);
@@ -49,23 +91,28 @@
     if (!enabled) return;
     try {
       if (kind === 'tab') {
-        tone(290, 195, 0.048, 0.036, 'triangle');
+        // Clic háptico sobrio y silencioso, sin zumbido grave ni "bloop".
+        hapticTick(1650, 2.2, 0.012, 0.014, 0);
+        velvetTone(640, 580, 0.024, 0.006, 0, 1400);
       } else if (kind === 'toggleOn') {
-        tone(420, 480, 0.05, 0.034, 'sine', 0);
-        tone(560, 620, 0.065, 0.032, 'sine', 0.028);
+        hapticTick(1800, 2.4, 0.010, 0.011, 0);
+        velvetTone(587.33, 620, 0.036, 0.009, 0.002, 1900);
+        velvetTone(880, 880, 0.055, 0.008, 0.026, 2100);
       } else if (kind === 'toggleOff') {
-        tone(440, 320, 0.06, 0.032, 'sine', 0);
+        hapticTick(1250, 2.0, 0.011, 0.010, 0);
+        velvetTone(520, 410, 0.042, 0.008, 0.002, 1400);
       } else if (kind === 'confirm') {
-        tone(523.25, 523.25, 0.09, 0.036, 'sine', 0);
-        tone(659.25, 659.25, 0.13, 0.032, 'sine', 0.045);
+        hapticTick(1900, 2.6, 0.010, 0.010, 0);
+        velvetTone(523.25, 523.25, 0.08, 0.010, 0.004, 1900);
+        velvetTone(783.99, 783.99, 0.11, 0.008, 0.042, 2200);
       } else if (kind === 'key') {
         const now = performance.now();
-        if (now - lastKeyAt < 48) return;
+        if (now - lastKeyAt < 52) return;
         lastKeyAt = now;
-        const jitter = 0.94 + Math.random() * 0.12;
-        tone(680 * jitter, 280 * jitter, 0.022, 0.018, 'triangle');
+        const jitter = 0.93 + Math.random() * 0.14;
+        hapticTick(2100 * jitter, 2.8, 0.008, 0.007, 0);
       } else if (kind === 'soft') {
-        tone(360, 280, 0.038, 0.024, 'sine');
+        hapticTick(1450, 2.0, 0.010, 0.010, 0);
       }
     } catch (_) { /* audio opcional */ }
   }
@@ -92,8 +139,6 @@
       } else if (btn.classList.contains('gold') || btn.classList.contains('primary') ||
           btn.classList.contains('wiz-lang-card') || btn.classList.contains('prefs-lang-item')) {
         play('confirm');
-      } else if (btn.classList.contains('winbtn')) {
-        play('soft');
       } else {
         play('soft');
       }

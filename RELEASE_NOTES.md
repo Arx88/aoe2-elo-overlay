@@ -1,3 +1,11 @@
+## v2.5.2 · Traducción integral 100%, acústica háptica premium y cierre total de claves antiguas
+
+- **Traducción completa 100% en toda la aplicación (`English`, `Español España`, `Español México` y `简体中文`):** todas las 7 pestañas del Centro de mando (**Cuenta**, **Prematch**, **Durante**, **Postmatch**, **Apariencia**, **Plan y acceso**, **Actualizaciones**), tarjetas de planes, modales, textos dinámicos, estados del actualizador y el **Overlay HUD** en vivo ahora cambian de idioma al instante sin restos sin traducir.
+- **Sonidos táctiles premium rediseñados:** se reemplazó el tono grave de las pestañas por micro-impulsos hápticos filtrados ultra sutiles y cálidos, a volumen muy discreto.
+- **Control estricto de claves antiguas al activar el modo de pago global:** cuando el servidor activa el control de pago global, las claves temporales compartidas de prueba quedan desactivadas automáticamente y solo conservan acceso las cuentas habilitadas en la base remota.
+
+---
+
 ## v2.5.1 · Multi-idioma oficial de AoE2 DE, asistente inicial, seguridad de licencias y pulido integral
 
 - **Multi-idioma oficial de Age of Empires II: DE (`English`, `Español España`, `Español México` y `简体中文`):** 256 unidades, 40 edificios, 62 civilizaciones, 44 mapas, edades y recursos sincronizados con los archivos oficiales del juego (respetando diferencias reales como *Knight / Caballero / Jinete / 骑士*).

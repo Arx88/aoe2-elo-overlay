@@ -48,6 +48,23 @@ async function run() {
   for (const code of i18n.SUPPORTED_LOCALES) {
     assert.match(AppI18n.flagSvg(code), /^<svg class="flag-svg"/);
   }
+  // Verificar que TODOS los atributos data-i18n de settings.html e index.html existen en los 4 idiomas
+  const htmlFiles = ['settings.html', 'index.html'];
+  const allKeys = new Set();
+  for (const fname of htmlFiles) {
+    const html = fs.readFileSync(path.join(__dirname, '..', fname), 'utf8');
+    for (const m of html.matchAll(/data-i18n(?:-(?:placeholder|title))?="([^"]+)"/g)) {
+      allKeys.add(m[1]);
+    }
+  }
+  assert.ok(allKeys.size >= 90, `se esperaban ≥90 claves data-i18n en HTML, hubo ${allKeys.size}`);
+  for (const code of i18n.SUPPORTED_LOCALES) {
+    AppI18n.configure({ locale: code, allBundles });
+    for (const key of allKeys) {
+      const val = AppI18n.t(key);
+      assert.ok(val && val !== key, `Falta traducción para "${key}" en ${code}`);
+    }
+  }
   AppI18n.configure({ locale: 'zh-CN', allBundles });
   TacticalUI.configure({ slugs: ['franks', 'mayans'], i18n: AppI18n });
   const zhHtml = TacticalUI.renderPostMatch({

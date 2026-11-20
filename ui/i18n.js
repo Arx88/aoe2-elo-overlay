@@ -202,6 +202,9 @@
       const translated = t(key);
       if (translated && translated !== key) node.setAttribute('title', translated);
     });
+    scope.querySelectorAll('template').forEach((tpl) => {
+      if (tpl.content) applyToDom(tpl.content);
+    });
   }
 
   const api = {

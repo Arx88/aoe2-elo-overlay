@@ -16,7 +16,7 @@
     <header class="winbar">
       <div class="winbar-brand">
         <img class="winbar-mark" src="assets/brand/double-h-v1.png" alt="" width="20" height="20" draggable="false" />
-        <span class="winbar-title">AoE2 Helper <span class="winbar-context">/ Ajustes</span></span>
+        <span class="winbar-title">AoE2 Helper <span class="winbar-context" data-i18n="nav.context">/ Ajustes</span></span>
       </div>
       <div class="winbar-controls">
         <button id="winMin" class="winbtn" type="button" aria-label="Minimizar" title="Minimizar">
@@ -148,21 +148,21 @@
 
           <!-- ============ OVERLAY ============ -->
           <section class="page" data-page="overlay">
-            <div class="workflow"><div><span>01</span><strong>Leé al rival</strong><small>Mapa · civs · aperturas</small></div><i aria-hidden="true"></i><div><span>02</span><strong>Elegí un plan</strong><small>Evidencia del mismo contexto</small></div><i aria-hidden="true"></i><div><span>03</span><strong>Entrá a jugar</strong><small>El overlay se aparta</small></div></div>
-            <p class="section-intro">Elegí qué información querés ver. Cada dato indica su muestra y cada consejo explica qué observación lo respalda.</p>
+            <div class="workflow"><div><span>01</span><strong data-i18n="overlay.wf1Title">Leé al rival</strong><small data-i18n="overlay.wf1Sub">Mapa · civs · aperturas</small></div><i aria-hidden="true"></i><div><span>02</span><strong data-i18n="overlay.wf2Title">Elegí un plan</strong><small data-i18n="overlay.wf2Sub">Evidencia del mismo contexto</small></div><i aria-hidden="true"></i><div><span>03</span><strong data-i18n="overlay.wf3Title">Entrá a jugar</strong><small data-i18n="overlay.wf3Sub">El overlay se aparta</small></div></div>
+            <p class="section-intro" data-i18n="overlay.intro">Elegí qué información querés ver. Cada dato indica su muestra y cada consejo explica qué observación lo respalda.</p>
             <div class="group-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><i></i><em>2</em></div>
             <div class="block">
-              <label class="row tog" for="civHelp" title="Tarjeta clara con los escudos de ambas civilizaciones y un resumen corto de bonos, unidades y debilidades. Aparece a 0:01 y se oculta al tiempo elegido.">
+              <label class="row tog" for="civHelp">
                 <span class="ric"><img class="product-icon" src="assets/icons/shield.png" alt="" draggable="false"></span>
                 <span class="tcopy">
-                  <span class="rname">Ayuda de civ</span>
+                  <span class="rname" data-i18n="overlay.civHelpTitle">Ayuda de civ</span>
                   <span class="rdesc" id="civHelpDesc">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
                 </span>
                 <input id="civHelp" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="hideEloAt20" title="El ELO sigue visible al empezar y se oculta al tiempo elegido para no molestar en el juego. Vuelve a aparecer cuando termina la partida.">
+              <label class="row tog" for="hideEloAt20">
                 <span class="ric"><img class="product-icon" src="assets/icons/clock.png" alt="" draggable="false"></span>
                 <span class="tcopy">
                   <span class="rname" id="hideEloName">Ocultar ELO a 0:20</span>
@@ -173,97 +173,97 @@
               </label>
 
               <div class="slider-row">
-                <label for="hideAtSeconds">Ocultar a los</label>
+                <label for="hideAtSeconds" data-i18n="overlay.hideAtLabel">Ocultar a los</label>
                 <input id="hideAtSeconds" type="range" min="10" max="60" step="5" value="20" />
                 <output id="hideAtSecondsValue" for="hideAtSeconds">0:20</output>
               </div>
 
               <div class="clock-row">
-                <span>Reloj de partida</span>
+                <span data-i18n="overlay.matchClock">Reloj de partida</span>
                 <span id="matchClock" class="mono">—</span>
               </div>
             </div>
 
-            <div class="group-head"><span>Datos del rival</span><i></i><em>7</em></div>
+            <div class="group-head"><span data-i18n="overlay.rivalGroup">Datos del rival</span><i></i><em>7</em></div>
             <div class="block">
-              <label class="row tog" for="rivalCivs" title="Las últimas 5 civilizaciones que jugó de verdad, con escudo, resultado (V/D) y mapa, del mismo modo de juego que la partida en curso.">
+              <label class="row tog" for="rivalCivs">
                 <span class="ric"><img class="product-icon" src="assets/icons/history.png" alt=""></span>
                 <span class="tcopy">
-                  <span class="rname">Últimas 5 civs del rival</span>
-                  <span class="rdesc">Historial real del mismo modo de juego</span>
+                  <span class="rname" data-i18n="overlay.rivalCivsTitle">Últimas 5 civs del rival</span>
+                  <span class="rdesc" data-i18n="overlay.rivalCivsDesc">Historial real del mismo modo de juego</span>
                 </span>
                 <input id="rivalCivs" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="rivalFavorites" title="En el mapa y modo de la partida: partidas y winrate del mapa, y civilización más usada en el historial que se logró analizar. Si el análisis es parcial, se indica la muestra.">
+              <label class="row tog" for="rivalFavorites">
                 <span class="ric"><img class="product-icon" src="assets/icons/map.png" alt=""></span>
                 <span class="tcopy">
-                  <span class="rname">Civ más usada en el mapa</span>
-                  <span class="rdesc">Winrate del mapa y civ más usada en el historial analizado</span>
+                  <span class="rname" data-i18n="overlay.rivalFavTitle">Civ más usada en el mapa</span>
+                  <span class="rdesc" data-i18n="overlay.rivalFavDesc">Winrate del mapa y civ más usada en el historial analizado</span>
                 </span>
                 <input id="rivalFavorites" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="rivalOpenings" title="Aperturas detectadas con la civilización que el rival lleva, en este mapa y modo.">
+              <label class="row tog" for="rivalOpenings">
                 <span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span>
                 <span class="tcopy">
-                  <span class="rname">Aperturas reales del rival</span>
-                  <span class="rdesc">Replays del mapa con su civilización actual</span>
+                  <span class="rname" data-i18n="overlay.rivalOpeningsTitle">Aperturas reales del rival</span>
+                  <span class="rdesc" data-i18n="overlay.rivalOpeningsDesc">Replays del mapa con su civilización actual</span>
                 </span>
                 <input id="rivalOpenings" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="smartTips" title="Frecuencia de aperturas del rival con su muestra durante el prematch. Las rutas por edad quedan en la pestaña Durante.">
+              <label class="row tog" for="smartTips">
                 <span class="ric"><img class="product-icon" src="assets/icons/scout.png" alt="" draggable="false"></span>
                 <span class="tcopy">
-                  <span class="rname">Lectura de apertura</span>
-                  <span class="rdesc">Apertura observada, muestra y una señal para confirmar al explorar</span>
+                  <span class="rname" data-i18n="overlay.smartTipsTitle">Lectura de apertura</span>
+                  <span class="rdesc" data-i18n="overlay.smartTipsDesc">Apertura observada, muestra y una señal para confirmar al explorar</span>
                 </span>
                 <input id="smartTips" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="rivalH2H" title="Tu V-D contra este rival, del propio historial de partidas y del mismo modo de juego. Las veces que jugaron como aliados se muestran aparte y no cuentan como enfrentamientos.">
+              <label class="row tog" for="rivalH2H">
                 <span class="ric"><img class="product-icon" src="assets/icons/combat.png" alt=""></span>
                 <span class="tcopy">
-                  <span class="rname">Enfrentamientos previos</span>
-                  <span class="rdesc">Tu V-D contra este rival · del mismo modo de juego</span>
+                  <span class="rname" data-i18n="overlay.rivalH2HTitle">Enfrentamientos previos</span>
+                  <span class="rdesc" data-i18n="overlay.rivalH2HDesc">Tu V-D contra este rival · del mismo modo de juego</span>
                 </span>
                 <input id="rivalH2H" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="civRecommender" title="Muestra sus elecciones históricas con denominador antes de revelarse su civilización. En 1v1, cuando se conocen ambas, muestra resultados del cruce en el mapa.">
+              <label class="row tog" for="civRecommender">
                 <span class="ric"><img class="product-icon" src="assets/icons/matchup.png" alt=""></span>
                 <span class="tcopy">
-                  <span class="rname">Historial y cruce de civilizaciones</span>
-                  <span class="rdesc">Elecciones observadas y resultados del cruce exacto</span>
+                  <span class="rname" data-i18n="overlay.civRecTitle">Historial y cruce de civilizaciones</span>
+                  <span class="rdesc" data-i18n="overlay.civRecDesc">Elecciones observadas y resultados del cruce exacto</span>
                 </span>
                 <input id="civRecommender" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
 
-              <label class="row tog" for="scoutF2" title="Desactivado (por defecto): el informe del rival se muestra COMPLETO y la tecla F2 queda libre para Windows y el resto de tus apps. Activado: el panel arranca en resumen (una tarjeta compacta por rival) y F2 alterna entre resumen y detalle. Ojo: con esto activo, mientras el overlay esté corriendo la tecla F2 queda capturada en todo el sistema.">
+              <label class="row tog" for="scoutF2">
                 <span class="ric"><img class="product-icon" src="assets/icons/layout.png" alt="" draggable="false"></span>
                 <span class="tcopy">
-                  <span class="rname">Resumen con F2</span>
-                  <span class="rdesc">Alterná resumen y detalle con F2 · al activarlo se reserva la tecla global</span>
+                  <span class="rname" data-i18n="overlay.scoutF2Title">Resumen con F2</span>
+                  <span class="rdesc" data-i18n="overlay.scoutF2Desc">Alterná resumen y detalle con F2 · al activarlo se reserva la tecla global</span>
                 </span>
                 <input id="scoutF2" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
             </div>
 
-            <div class="group-head"><span>Balance</span><i></i><em>1</em></div>
+            <div class="group-head"><span data-i18n="overlay.balanceGroup">Balance</span><i></i><em>1</em></div>
             <div class="block">
-              <label class="row tog" for="tgBalance" title="En team games, una línea con la mediana de ELO 1v1 de cada equipo (no el promedio: un smurf no tapa al resto) y si un equipo está muy disperso, su rango. No consulta nada: se calcula con el roster que ya está en pantalla.">
+              <label class="row tog" for="tgBalance">
                 <span class="ric"><img class="product-icon" src="assets/icons/players.png" alt=""></span>
                 <span class="tcopy">
-                  <span class="rname">Balance de equipos</span>
-                  <span class="rdesc">Mediana de ELO 1v1 por equipo en TG</span>
+                  <span class="rname" data-i18n="overlay.tgBalanceTitle">Balance de equipos</span>
+                  <span class="rdesc" data-i18n="overlay.tgBalanceDesc">Mediana de ELO 1v1 por equipo en TG</span>
                 </span>
                 <input id="tgBalance" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
@@ -272,78 +272,78 @@
           </section>
 
           <section class="page" data-page="tactics">
-            <div class="section-banner"><img class="product-icon" src="assets/icons/combat.png" alt="" draggable="false"><div><h2>Referencias por civilización</h2><p>Consultá las rutas de ambas civilizaciones y el historial del mapa cuando esté disponible.</p></div></div>
-            <p class="section-intro">Las rutas de Feudal, Castillos e Imperial se consultan acá. Representan opciones, no el estado actual de tu partida.</p>
-            <div class="group-head"><span>Guía de apertura</span><i></i></div>
-            <div class="block"><label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname">Smart Build Order</span><span class="rdesc">Guía por civ y mapa · en Ajustes o durante la partida · ProMax</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label></div>
+            <div class="section-banner"><img class="product-icon" src="assets/icons/combat.png" alt="" draggable="false"><div><h2 data-i18n="tactics.bannerTitle">Referencias por civilización</h2><p data-i18n="tactics.bannerDesc">Consultá las rutas de ambas civilizaciones y el historial del mapa cuando esté disponible.</p></div></div>
+            <p class="section-intro" data-i18n="tactics.intro">Las rutas de Feudal, Castillos e Imperial se consultan acá. Representan opciones, no el estado actual de tu partida.</p>
+            <div class="group-head"><span data-i18n="tactics.guideGroup">Guía de apertura</span><i></i></div>
+            <div class="block"><label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · ProMax</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label></div>
             <div id="buildOrderReport" class="tactics-report-slot" aria-live="polite"></div>
-            <div class="group-head"><span>Oportunidades frente al rival</span><i></i></div>
+            <div class="group-head"><span data-i18n="tactics.oppGroup">Oportunidades frente al rival</span><i></i></div>
             <div id="tacticalReport" class="tactics-report-slot" aria-live="polite"></div>
           </section>
 
           <!-- ============ POSTMATCH ============ -->
           <section class="page" data-page="postmatch">
-            <div class="section-banner"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><div><h2>Revisá tu partida</h2><p>Revisá un tramo de la partida y comparalo con tus partidas anteriores cuando haya datos compatibles.</p></div></div>
-            <div class="group-head"><span>Al terminar la partida</span><i></i></div>
+            <div class="section-banner"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><div><h2 data-i18n="postmatchPage.bannerTitle">Revisá tu partida</h2><p data-i18n="postmatchPage.bannerDesc">Revisá un tramo de la partida y comparalo con tus partidas anteriores cuando haya datos compatibles.</p></div></div>
+            <div class="group-head"><span data-i18n="postmatchPage.afterGroup">Al terminar la partida</span><i></i></div>
             <div class="block">
-              <label class="row tog" for="postMatch"><span class="ric"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname">Resumen postmatch</span><span class="rdesc">El overlay vuelve con el resultado confirmado y el resumen de la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-              <label class="row tog" for="postMatchComparison"><span class="ric"><img class="product-icon" src="assets/icons/trend.png" alt=""></span><span class="tcopy"><span class="rname">Comparar mi evolución</span><span class="rdesc">Habilita comparativas históricas y referencias por banda de ELO</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-              <label class="row select-row" for="postMatchCompareMode"><span class="ric"><img class="product-icon" src="assets/icons/medal.png" alt=""></span><span class="tcopy"><span class="rname">Referencia del Postmatch</span><span id="postMatchCompareHelp" class="rdesc">Activá «Comparar mi evolución» para elegir la referencia</span></span><select id="postMatchCompareMode" class="field" disabled aria-describedby="postMatchCompareHelp"><option value="both" selected>Mi historial + estándar Elo</option><option value="personal">Solo mi historial</option><option value="community">Solo estándar Elo</option></select></label>
-              <label class="row tog" for="postMatchReplay"><span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname">Análisis del replay</span><span class="rdesc">Hitos de apertura cuando hay evidencia, órdenes de avance y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              <label class="row tog" for="postMatch"><span class="ric"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.summaryTitle">Resumen postmatch</span><span class="rdesc" data-i18n="postmatchPage.summaryDesc">El overlay vuelve con el resultado confirmado y el resumen de la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              <label class="row tog" for="postMatchComparison"><span class="ric"><img class="product-icon" src="assets/icons/trend.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.compareTitle">Comparar mi evolución</span><span class="rdesc" data-i18n="postmatchPage.compareDesc">Habilita comparativas históricas y referencias por banda de ELO</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              <label class="row select-row" for="postMatchCompareMode"><span class="ric"><img class="product-icon" src="assets/icons/medal.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.modeTitle">Referencia del Postmatch</span><span id="postMatchCompareHelp" class="rdesc" data-i18n="postmatchPage.modeHelpOff">Activá «Comparar mi evolución» para elegir la referencia</span></span><select id="postMatchCompareMode" class="field" disabled aria-describedby="postMatchCompareHelp"><option value="both" selected data-i18n="postmatchPage.modeBoth">Mi historial + estándar Elo</option><option value="personal" data-i18n="postmatchPage.modePersonal">Solo mi historial</option><option value="community" data-i18n="postmatchPage.modeCommunity">Solo estándar Elo</option></select></label>
+              <label class="row tog" for="postMatchReplay"><span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.replayTitle">Análisis del replay</span><span class="rdesc" data-i18n="postmatchPage.replayDesc">Hitos de apertura cuando hay evidencia, órdenes de avance y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
             </div>
-            <div class="group-head"><span>Último informe</span><i></i><button id="refreshPostMatch" class="link-btn" type="button">Actualizar</button></div>
-            <div id="postMatchReport" class="postmatch-report" aria-live="polite"></div><template id="emptyPostmatchState"><div class="empty-report"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><h3>Tu próxima partida marca el comienzo.</h3><p>Al terminar, el informe aparecerá acá y en el overlay.</p></div></template>
+            <div class="group-head"><span data-i18n="postmatchPage.latestGroup">Último informe</span><i></i><button id="refreshPostMatch" class="link-btn" type="button" data-i18n="postmatchPage.refresh">Actualizar</button></div>
+            <div id="postMatchReport" class="postmatch-report" aria-live="polite"></div><template id="emptyPostmatchState"><div class="empty-report"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><h3 data-i18n="postmatchPage.emptyTitle">Tu próxima partida marca el comienzo.</h3><p data-i18n="postmatchPage.emptyDesc">Al terminar, el informe aparecerá acá y en el overlay.</p></div></template>
           </section>
 
           <!-- ============ PLAN Y ACCESO ============ -->
           <section class="page" data-page="plans">
-            <div class="access-summary"><div><span class="eyebrow">TU ACCESO ACTUAL</span><h2 id="planName">Cargando…</h2><p id="planDescription">Consultando las funciones disponibles de esta versión.</p><span id="planExpiry" class="access-expiry"></span></div><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"></div>
-            <details class="license-details" open><summary>Activar acceso de prueba ProMax</summary><form id="accessKeyForm" class="license-form"><p>Ingresá la clave temporal que te compartieron. Habilita las funciones ProMax en esta instalación; no es una suscripción.</p><label for="accessKey">Clave de acceso</label><input id="accessKey" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" /><div class="license-actions"><span id="accessKeyStatus" class="inline-status" role="status"></span><button id="activateAccessKey" class="btn gold" type="submit">Activar ProMax</button></div></form></details>
-            <div class="plans-grid"><article class="plan-card"><span class="eyebrow">EL CARA A CARA</span><h3>Free</h3><p>Nombre, ELO actual e historial entre ambos.</p><ul id="freeFeatures" class="plan-feature-list"></ul></article><article class="plan-card pro"><span class="eyebrow">CONOCÉ EL CONTEXTO</span><h3>Pro</h3><p>Perfil del rival, civilizaciones y resumen de resultados.</p><ul id="proFeatures" class="plan-feature-list"></ul><span class="includes-free">Incluye Free.</span></article><article class="plan-card pro"><span class="eyebrow">PREPARÁ · ADAPTÁ · MEJORÁ</span><h3>ProMax</h3><p>Oportunidades automáticas, replays y evolución medida.</p><ul id="proMaxFeatures" class="plan-feature-list"></ul><span class="includes-free">Incluye Free y Pro. Las métricas requieren datos medidos.</span></article></div>
-            <div class="commerce-actions"><div><strong id="commerceTitle">Suscripciones</strong><p id="commerceStatus">La contratación todavía no está habilitada.</p></div><div class="button-group"><button id="accountCommerce" class="btn" type="button" disabled>Gestionar cuenta</button><button id="checkoutCommerce" class="btn gold" type="button" disabled>Obtener Pro</button></div></div>
-            <details class="license-details"><summary>Activar una licencia existente</summary><form id="licenseForm" class="license-form"><p>Ingresá la cuenta y la credencial firmada que recibiste del servicio del producto.</p><label for="licenseAccount">Cuenta del producto</label><input id="licenseAccount" class="field" type="text" autocomplete="username" spellcheck="false" /><label for="licenseToken">Credencial de acceso</label><textarea id="licenseToken" class="field" rows="3" autocomplete="off" spellcheck="false" placeholder="v1.…"></textarea><div class="license-actions"><span id="licenseStatus" class="inline-status" role="status"></span><button id="activateLicense" class="btn" type="submit">Verificar acceso</button></div></form></details>
-            <p class="product-footnote">El plan habilita funciones. La disponibilidad de los datos depende de la muestra, el modo de juego y los replays analizados.</p>
+            <div class="access-summary"><div><span class="eyebrow" data-i18n="plansPage.eyebrow">TU ACCESO ACTUAL</span><h2 id="planName" data-i18n="plansPage.loading">Cargando…</h2><p id="planDescription" data-i18n="plansPage.loadingDesc">Consultando las funciones disponibles de esta versión.</p><span id="planExpiry" class="access-expiry"></span></div><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"></div>
+            <details class="license-details" open><summary data-i18n="plansPage.trialSummary">Activar acceso de prueba ProMax</summary><form id="accessKeyForm" class="license-form"><p data-i18n="plansPage.trialDesc">Ingresá la clave temporal que te compartieron. Habilita las funciones ProMax en esta instalación; no es una suscripción.</p><label for="accessKey" data-i18n="plansPage.trialLabel">Clave de acceso</label><input id="accessKey" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" /><div class="license-actions"><span id="accessKeyStatus" class="inline-status" role="status"></span><button id="activateAccessKey" class="btn gold" type="submit" data-i18n="plansPage.trialBtn">Activar ProMax</button></div></form></details>
+            <div class="plans-grid"><article class="plan-card"><span class="eyebrow" data-i18n="plansPage.freeEyebrow">EL CARA A CARA</span><h3>Free</h3><p data-i18n="plansPage.freeDesc">Nombre, ELO actual e historial entre ambos.</p><ul id="freeFeatures" class="plan-feature-list"></ul></article><article class="plan-card pro"><span class="eyebrow" data-i18n="plansPage.proEyebrow">CONOCÉ EL CONTEXTO</span><h3>Pro</h3><p data-i18n="plansPage.proDesc">Perfil del rival, civilizaciones y resumen de resultados.</p><ul id="proFeatures" class="plan-feature-list"></ul><span class="includes-free" data-i18n="plansPage.proIncludes">Incluye Free.</span></article><article class="plan-card pro"><span class="eyebrow" data-i18n="plansPage.promaxEyebrow">PREPARÁ · ADAPTÁ · MEJORÁ</span><h3>ProMax</h3><p data-i18n="plansPage.promaxDesc">Oportunidades automáticas, replays y evolución medida.</p><ul id="proMaxFeatures" class="plan-feature-list"></ul><span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free y Pro. Las métricas requieren datos medidos.</span></article></div>
+            <div class="commerce-actions"><div><strong id="commerceTitle" data-i18n="plansPage.subsTitle">Suscripciones</strong><p id="commerceStatus" data-i18n="plansPage.subsStatus">La contratación todavía no está habilitada.</p></div><div class="button-group"><button id="accountCommerce" class="btn" type="button" disabled data-i18n="plansPage.manageBtn">Gestionar cuenta</button><button id="checkoutCommerce" class="btn gold" type="button" disabled data-i18n="plansPage.getProBtn">Obtener Pro</button></div></div>
+            <details class="license-details"><summary data-i18n="plansPage.existingSummary">Activar una licencia existente</summary><form id="licenseForm" class="license-form"><p data-i18n="plansPage.existingDesc">Ingresá la cuenta y la credencial firmada que recibiste del servicio del producto.</p><label for="licenseAccount" data-i18n="plansPage.existingAcc">Cuenta del producto</label><input id="licenseAccount" class="field" type="text" autocomplete="username" spellcheck="false" /><label for="licenseToken" data-i18n="plansPage.existingTok">Credencial de acceso</label><textarea id="licenseToken" class="field" rows="3" autocomplete="off" spellcheck="false" placeholder="v1.…"></textarea><div class="license-actions"><span id="licenseStatus" class="inline-status" role="status"></span><button id="activateLicense" class="btn" type="submit" data-i18n="plansPage.existingBtn">Verificar acceso</button></div></form></details>
+            <p class="product-footnote" data-i18n="plansPage.footnote">El plan habilita funciones. La disponibilidad de los datos depende de la muestra, el modo de juego y los replays analizados.</p>
           </section>
 
           <!-- ============ SKINS ============ -->
           <section class="page" data-page="skins">
-            <div class="group-head"><span>Diseño del panel</span><i></i><em>11</em></div>
+            <div class="group-head"><span data-i18n="skins.designGroup">Diseño del panel</span><i></i><em>11</em></div>
             <div class="block">
               <div class="themes">
-                <button class="theme" type="button" data-theme="clasico" title="Pergamino oscuro y dorado, el de siempre"><span class="swatch" data-theme="clasico"></span><span class="tname">Clásico</span></button>
-                <button class="theme" type="button" data-theme="noche" title="Oscuro moderno, sin adornos"><span class="swatch" data-theme="noche"></span><span class="tname">Noche</span></button>
-                <button class="theme" type="button" data-theme="vidrio" title="Translúcido con desenfoque"><span class="swatch" data-theme="vidrio"></span><span class="tname">Vidrio</span></button>
-                <button class="theme" type="button" data-theme="claro" title="Blanco, tipografía fina"><span class="swatch" data-theme="claro"></span><span class="tname">Claro</span></button>
-                <button class="theme" type="button" data-theme="neon" title="Oscuro con acento cian"><span class="swatch" data-theme="neon"></span><span class="tname">Neón</span></button>
-                <button class="theme" type="button" data-theme="fantasma" title="El menos invasivo: compacto y casi sin fondo"><span class="swatch" data-theme="fantasma"></span><span class="tname">Fantasma</span></button>
-                <button class="theme" type="button" data-theme="aurora" title="Degradado violeta a turquesa"><span class="swatch" data-theme="aurora"></span><span class="tname">Aurora</span></button>
-                <button class="theme" type="button" data-theme="dorado" title="Negro y oro, premium"><span class="swatch" data-theme="dorado"></span><span class="tname">Dorado</span></button>
-                <button class="theme" type="button" data-theme="carbono" title="Mate oscuro con acento rojo"><span class="swatch" data-theme="carbono"></span><span class="tname">Carbono</span></button>
-                <button class="theme" type="button" data-theme="pergamino" title="Papel estilo AoE2, claro y temático"><span class="swatch" data-theme="pergamino"></span><span class="tname">Pergamino</span></button>
-                <button class="theme" type="button" data-theme="sakura" title="Ciruela oscuro con rosa"><span class="swatch" data-theme="sakura"></span><span class="tname">Sakura</span></button>
+                <button class="theme" type="button" data-theme="clasico"><span class="swatch" data-theme="clasico"></span><span class="tname" data-i18n="skins.themes.clasico">Clásico</span></button>
+                <button class="theme" type="button" data-theme="noche"><span class="swatch" data-theme="noche"></span><span class="tname" data-i18n="skins.themes.noche">Noche</span></button>
+                <button class="theme" type="button" data-theme="vidrio"><span class="swatch" data-theme="vidrio"></span><span class="tname" data-i18n="skins.themes.vidrio">Vidrio</span></button>
+                <button class="theme" type="button" data-theme="claro"><span class="swatch" data-theme="claro"></span><span class="tname" data-i18n="skins.themes.claro">Claro</span></button>
+                <button class="theme" type="button" data-theme="neon"><span class="swatch" data-theme="neon"></span><span class="tname" data-i18n="skins.themes.neon">Neón</span></button>
+                <button class="theme" type="button" data-theme="fantasma"><span class="swatch" data-theme="fantasma"></span><span class="tname" data-i18n="skins.themes.fantasma">Fantasma</span></button>
+                <button class="theme" type="button" data-theme="aurora"><span class="swatch" data-theme="aurora"></span><span class="tname" data-i18n="skins.themes.aurora">Aurora</span></button>
+                <button class="theme" type="button" data-theme="dorado"><span class="swatch" data-theme="dorado"></span><span class="tname" data-i18n="skins.themes.dorado">Dorado</span></button>
+                <button class="theme" type="button" data-theme="carbono"><span class="swatch" data-theme="carbono"></span><span class="tname" data-i18n="skins.themes.carbono">Carbono</span></button>
+                <button class="theme" type="button" data-theme="pergamino"><span class="swatch" data-theme="pergamino"></span><span class="tname" data-i18n="skins.themes.pergamino">Pergamino</span></button>
+                <button class="theme" type="button" data-theme="sakura"><span class="swatch" data-theme="sakura"></span><span class="tname" data-i18n="skins.themes.sakura">Sakura</span></button>
               </div>
-              <p class="mini">Se aplica al instante al overlay. El centro de mando conserva su identidad para que encuentres todo en el mismo lugar.</p>
+              <p class="mini" data-i18n="skins.designNote">Se aplica al instante al overlay. El centro de mando conserva su identidad para que encuentres todo en el mismo lugar.</p>
             </div>
 
-            <div class="group-head"><span>Opacidad</span><i></i></div>
+            <div class="group-head"><span data-i18n="skins.opacityGroup">Opacidad</span><i></i></div>
             <div class="block">
               <div class="slider-row">
-                <label for="opacity">Panel</label>
+                <label for="opacity" data-i18n="skins.opacityLabel">Panel</label>
                 <input id="opacity" type="range" min="15" max="100" step="5" value="95" />
                 <output id="opacityValue" for="opacity">95%</output>
               </div>
-              <p class="mini">Qué tanto se transparenta el panel sobre el juego. 95% es un buen punto.</p>
+              <p class="mini" data-i18n="skins.opacityNote">Qué tanto se transparenta el panel sobre el juego. 95% es un buen punto.</p>
             </div>
 
-            <div class="group-head"><span>Posición</span><i></i></div>
+            <div class="group-head"><span data-i18n="skins.positionGroup">Posición</span><i></i></div>
             <div class="block">
               <div class="position-row">
                 <span class="ric"><img class="product-icon" src="assets/icons/move.png" alt="" draggable="false"></span>
                 <div class="tcopy">
-                  <div class="rname" id="positionLabel">Arriba al centro</div>
-                  <div class="rdesc" id="positionInfo">El panel aparece arriba al centro.</div>
+                  <div class="rname" id="positionLabel" data-i18n="skins.posTopCenter">Arriba al centro</div>
+                  <div class="rdesc" id="positionInfo" data-i18n="skins.posTopCenterInfo">El panel aparece arriba al centro.</div>
                 </div>
-                <button id="moveBtn" class="btn" type="button">Mover</button>
+                <button id="moveBtn" class="btn" type="button" data-i18n="skins.moveBtn">Mover</button>
               </div>
             </div>
           </section>
@@ -352,63 +352,63 @@
           <section class="page" data-page="updater">
             <div class="upd-card">
               <div class="upd-cell">
-                <span class="upd-label">Versión instalada</span>
+                <span class="upd-label" data-i18n="updater.installed">Versión instalada</span>
                 <strong id="updCurrent">—</strong>
               </div>
               <span class="upd-divider" aria-hidden="true"></span>
               <div class="upd-cell">
-                <span class="upd-label">Última versión</span>
+                <span class="upd-label" data-i18n="updater.latest">Última versión</span>
                 <strong id="updLatest">—</strong>
               </div>
               <span class="upd-pill" id="updPill">—</span>
             </div>
 
             <div class="block">
-              <label class="row tog" for="autoUpdate" title="Si está activado, la app consulta GitHub Releases cada 30 minutos y, cuando hay una versión nueva, la descarga e instala sola (silenciosa, se reabre). Nunca lo hace en media partida: si estás jugando, espera a que termines.">
+              <label class="row tog" for="autoUpdate">
                 <span class="ric"><img class="product-icon" src="assets/icons/update.png" alt="" draggable="false"></span>
                 <span class="tcopy">
-                  <span class="rname">Actualizaciones automáticas</span>
-                  <span class="rdesc">Cada 30 min busca, descarga e instala sola</span>
+                  <span class="rname" data-i18n="updater.autoTitle">Actualizaciones automáticas</span>
+                  <span class="rdesc" data-i18n="updater.autoDesc">Cada 30 min busca, descarga e instala sola</span>
                 </span>
                 <input id="autoUpdate" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
-              <p class="mini">Nunca en media partida: si estás jugando, se aplica sola al terminar.</p>
+              <p class="mini" data-i18n="updater.autoNote">Nunca en media partida: si estás jugando, se aplica sola al terminar.</p>
             </div>
 
             <div class="upd-download">
               <div class="upd-row">
-                <span id="updPhase">Sin consultar todavía.</span>
+                <span id="updPhase" data-i18n="updater.notChecked">Sin consultar todavía.</span>
                 <span id="updPercent" class="mono"></span>
               </div>
               <div class="upd-track"><div class="upd-fill" id="updFill"></div></div>
             </div>
 
-            <div class="group-head"><span>Novedades</span><i></i></div>
-            <ul class="changelog" id="updNotes"><li class="empty">Todavía no hay notas.</li></ul>
+            <div class="group-head"><span data-i18n="updater.notesGroup">Novedades</span><i></i></div>
+            <ul class="changelog" id="updNotes"><li class="empty" data-i18n="updater.noNotes">Todavía no hay notas.</li></ul>
 
             <div class="upd-actions">
-              <button id="skipBtn" class="btn" type="button">Omitir</button>
-              <button id="checkBtn" class="btn" type="button">Buscar actualizaciones</button>
-              <button id="updateBtn" class="btn gold" type="button">Descargar</button>
+              <button id="skipBtn" class="btn" type="button" data-i18n="updater.skip">Omitir</button>
+              <button id="checkBtn" class="btn" type="button" data-i18n="updater.check">Buscar actualizaciones</button>
+              <button id="updateBtn" class="btn gold" type="button" data-i18n="updater.download">Descargar</button>
             </div>
           </section>
         </div>
 
-        <div class="status-bar"><span class="status-light" aria-hidden="true"></span><span id="status" class="status" role="status" aria-live="polite">Listo para preparar tu próxima partida.</span><span class="status-end">AOE II · DE</span></div>
+        <div class="status-bar"><span class="status-light" aria-hidden="true"></span><span id="status" class="status" role="status" aria-live="polite" data-i18n="account.statusReady">Listo para preparar tu próxima partida.</span><span class="status-end">AOE II · DE</span></div>
       </main>
     </div>
 
     <div id="civHelpTip" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="civHelpTipTitle">
       <div class="modal-card">
-        <h3 id="civHelpTipTitle">Ayuda de civ activada</h3>
-        <p>
+        <h3 id="civHelpTipTitle" data-i18n="common.civTipTitle">Ayuda de civ activada</h3>
+        <p id="civHelpTipBody">
           La tarjeta se oculta a los <strong id="civHelpTipTime">0:20</strong>.
           Si querés leerla con calma durante la partida, podés dejarla visible hasta los 0:40.
         </p>
         <div class="modal-actions">
-          <button id="civHelpTipNo" class="btn" type="button">No, gracias</button>
-          <button id="civHelpTipYes" class="btn gold" type="button">Aumentar visibilidad a 40 segundos</button>
+          <button id="civHelpTipNo" class="btn" type="button" data-i18n="common.civTipNo">No, gracias</button>
+          <button id="civHelpTipYes" class="btn gold" type="button" data-i18n="common.civTipYes">Aumentar visibilidad a 40 segundos</button>
         </div>
       </div>
     </div>
