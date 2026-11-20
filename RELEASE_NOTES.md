@@ -1,4 +1,4 @@
-## v2.5.0 · Multi-idioma oficial de AoE2 DE, asistente inicial, seguridad de licencias y pulido integral
+## v2.5.1 · Multi-idioma oficial de AoE2 DE, asistente inicial, seguridad de licencias y pulido integral
 
 - **Multi-idioma oficial de Age of Empires II: DE (`English`, `Español España`, `Español México` y `简体中文`):** 256 unidades, 40 edificios, 62 civilizaciones, 44 mapas, edades y recursos sincronizados con los archivos oficiales del juego (respetando diferencias reales como *Knight / Caballero / Jinete / 骑士*).
 - **Asistente de primer inicio unificado (pantalla completa):** selección de idioma con banderitas SVG nítidas y detección rápida de cuenta con la misma estética cartográfica del Launcher; cambiable en cualquier momento desde la tuerquita compacta debajo de tu plan.
