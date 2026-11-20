@@ -507,7 +507,7 @@ async function buildSnapshotFromLobby(lobby, { profileId, cache, cacheTtlMs = 15
   const players = sorted.map((p) => ({
     profileId: Number(p.profileId),
     name: p.name,
-    civ: p.civName || null,
+    civ: Number(p.profileId) === Number(profileId) ? p.civName || null : null,
     colorHex: p.colorHex || null,
     color: p.color != null ? p.color : null,
     team: p.team != null && p.team !== '' && Number.isFinite(Number(p.team)) ? p.team
@@ -616,7 +616,17 @@ function buildSnapshotFromMatch(item, options) {
   return buildSnapshotFromLobby(adaptMatchedToLobby(item, options && options.profileId), options);
 }
 
+// La fase lobby representa el intervalo anterior a la revelación. Un
+// snapshot histórico o un proveedor puede traer el pick resuelto igualmente.
+function hideLobbyCivs(state) {
+  if (state?.phase !== 'lobby' || !Array.isArray(state.players) ||
+      !state.players.some((player) => !player.isYou && player.civ != null)) return state;
+  return { ...state, players: state.players.map((player) =>
+    player.isYou || player.civ == null ? player : { ...player, civ: null }) };
+}
+
 module.exports = {
+  hideLobbyCivs,
   LADDERS,
   ELO_LADDER,
   resolveLadder,

@@ -1913,7 +1913,9 @@ function renderOngoing(state) {
       previousTeam = player.team;
       const name = escapeHtml(player.name || 'Jugador');
       const badge = player.isYou ? '<em>vos</em>' : '';
-      const civ = rosterDetailsAllowed ? `<span class="civ">${civMarkup(player.civ)}</span>` : '';
+      const civ = rosterDetailsAllowed ? `<span class="civ">${inLobby && !player.isYou
+        ? '<span class="civ-hidden" title="Civilización sin revelar" aria-label="Civilización sin revelar">?</span>'
+        : civMarkup(player.civ)}</span>` : '';
       // Mientras llega el RM 1v1 se muestra "…", nunca el ELO del modo.
       // "—" significa "este jugador no tiene ladder 1v1".
       const waiting = Boolean(state.pending) && !player.hasStats;

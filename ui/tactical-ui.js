@@ -91,19 +91,19 @@
     return `<section class="intel-block history-block"><div class="intel-history-head"><h4>${icon('history')}${title}</h4><p class="intel-history-label">Más reciente arriba · mismo modo</p></div><ol class="intel-history-list">${entries}</ol></section>`;
   }
   function openingBlock(report, currentCiv) {
-    const title = 'Aperturas de su civilización';
+    const hasCiv = Boolean(civSlug(currentCiv));
+    const title = hasCiv ? 'Aperturas de su civilización' : 'Aperturas del historial';
     const pending = dataState(report, title); if (pending) return pending;
     const o = report.openings;
-    if (!civSlug(currentCiv)) return note(title, 'Esperando la civilización del rival.');
     if (report.openingError || o?.error) return note(title, 'No se pudieron consultar los replays.');
-    if (!o || report.pendingOpenings || o.loading || civSlug(o.openingCiv) !== civSlug(currentCiv)) {
-      return note(title, 'Buscando replays de esta civilización en el mapa…', 'loading');
+    if (!o || report.pendingOpenings || o.loading || (hasCiv && civSlug(o.openingCiv) !== civSlug(currentCiv))) {
+      return note(title, 'Buscando replays en el mapa…', 'loading');
     }
     if (o.modeUnavailable) return note(title, 'No hay análisis de replays para este modo.');
-    const pick = o.mapCivFavorite;
-    const n = Number(o.mapCivAnalyzed) || 0;
-    if (!pick || !n) return note(title, 'Sin aperturas detectadas con esta civilización en el mapa.');
-    return section(title, `<div class="intel-opening"><b>${esc(pick.short || pick.name)}</b><span>${number(pick.count)} de ${number(n)} replays</span></div><p class="intel-muted">${civLabel(currentCiv)}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword');
+    const pick = hasCiv ? o.mapCivFavorite : o.mapFavorite;
+    const n = Number(hasCiv ? o.mapCivAnalyzed : o.mapAnalyzed) || 0;
+    if (!pick || !n) return note(title, 'Sin aperturas clasificadas en este mapa.');
+    return section(title, `<div class="intel-opening"><b>${esc(pick.short || pick.name)}</b><span>${number(pick.count)} de ${number(n)} replays</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword');
   }
   function h2hBlock(report) {
     const pending = dataState(report, 'Tu cara a cara'); if (pending) return pending;
@@ -213,7 +213,8 @@
     const { name, player, report, tip } = entry;
     const map = state && state.match && state.match.mapName;
     const r = report || null;
-    const civ = player ? player.civ : r?.civ;
+    const inLobby = state?.phase === 'lobby';
+    const civ = inLobby ? null : player ? player.civ : r?.civ;
     const ownCiv = state?.players?.find((p) => p.isYou)?.civ;
     const knownCiv = civSlug(civ) ? civ : null;
     const mode = state?.ladder?.id ?? state?.match?.leaderboardId ?? tip?.mode?.id;
@@ -223,7 +224,9 @@
       raw.map === mapKey(map) && (mode == null || String(raw.modeId) === String(mode)) ? raw : null;
     const content = [];
     if (options.smartTips) content.push(tacticalBlock(tip, detail, matchup, knownCiv, map));
-    if (options.rivalOpenings && !(options.smartTips && matchup?.openingsSample)) content.push(openingBlock(r, knownCiv));
+    const hasOpeningSignal = matchup?.openingsSample || (!knownCiv && tip?.context?.scope === 'map' &&
+      tip.likelyOpenings?.[0]?.sample > 0);
+    if (options.rivalOpenings && !(options.smartTips && hasOpeningSignal)) content.push(openingBlock(r, knownCiv));
     if (options.rivalCivs) content.push(historyBlock(r));
     if (options.civRecommender) content.push(matchupBlock(tip, matchup, ownCiv, knownCiv, map, r));
     if (options.rivalFavorites) content.push(mapBlock(r, map, detail));

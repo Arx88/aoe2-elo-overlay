@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { observeQueue, collectCastlesWindow } = require('../src/castles-window');
 const { buildPostMatchReport, recordFromMatch } = require('../src/postmatch');
 const { computeTips } = require('../src/scout');
-const { historyCutoff } = require('../src/aoe');
+const { historyCutoff, hideLobbyCivs } = require('../src/aoe');
 const { parseMapStats } = require('../src/rival');
 const { resolveMode } = require('../src/insights');
 const { renderRival, renderPostMatch, renderAutomaticOpportunities } = require('../ui/tactical-ui');
@@ -151,6 +151,23 @@ const independentOpening = renderRival({ state, options: { rivalOpenings: true }
     openings: { openingCiv: 'Poles', mapCivAnalyzed: 9, mapCivFavorite: { short: 'Arqueros', count: 6 } },
   } } });
 assert.match(independentOpening, /6 de 9 replays/);
+const lobby = { ...state, phase: 'lobby', players: [
+  { profileId: 1, isYou: true, civ: 'Franks' }, { profileId: 2, civ: 'Poles' },
+] };
+const masked = hideLobbyCivs(lobby);
+assert.equal(masked.players[0].civ, 'Franks');
+assert.equal(masked.players[1].civ, null);
+assert.equal(lobby.players[1].civ, 'Poles', 'no se altera el registro archivado');
+assert.strictEqual(hideLobbyCivs(state), state, 'se conservan las civs después de revelar');
+assert.doesNotMatch(currentRival('Poles', lobby), /Poles en Arabia|3\/5<\/b> derrotas|Antecedentes de este cruce/);
+const openingBeforeReveal = renderRival({ state: lobby, options: { rivalOpenings: true },
+  entry: { name: 'Rival', player: { civ: 'Poles' }, report: {
+    openings: { openingCiv: 'Poles', mapCivAnalyzed: 9, mapCivFavorite: { short: 'Arqueros', count: 6 },
+      mapAnalyzed: 20, mapFavorite: { short: 'Scouts', count: 7 } },
+  } } });
+assert.match(openingBeforeReveal, /7 de 20 replays/);
+assert.doesNotMatch(openingBeforeReveal, /Poles|6 de 9/);
+
 
 const recent = [true, false, null, true, false, true].map((won, index) => ({
   won, civ: ['Poles', 'Mongols', 'Franks', 'Huns', 'Turks', 'Magyars'][index],

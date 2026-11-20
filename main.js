@@ -26,6 +26,7 @@ const {
   fetchProfileIdentity,
   fetchMatchById,
   historyCutoff,
+  hideLobbyCivs,
 } = require('./src/aoe');
 const { detectProfile } = require('./src/detect');
 const { CIV_SLUGS, CIV_ALIASES, civSlug } = require('./src/civs');
@@ -2432,6 +2433,7 @@ async function startExample(rawQuery, clockMode = '3') {
     // Captura de pre-partida: el MISMO partido real, emitido como `lobby`.
     if (EXAMPLE_PHASE === 'lobby') {
       snapshot.phase = 'lobby';
+      snapshot.players = snapshot.players.map((player) => ({ ...player, civ: null }));
       snapshot.match = { ...snapshot.match, startedAt: null };
     }
 
@@ -3347,6 +3349,7 @@ function emit(state) {
   // prueba: ni el polling ni los sockets pueden reemplazarla por la partida
   // real del usuario. Solo pasan los estados marcados con `example`.
   if (exampleActive && !(state && state.example)) return false;
+  state = hideLobbyCivs(state);
   const signature = signatureOf(state);
   if (signature === lastSent) return false;
   lastSent = signature;

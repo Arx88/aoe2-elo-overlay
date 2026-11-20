@@ -382,3 +382,5 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   .review-scan[data-phase] .review-scan-track i { animation: none; transform: translateX(107%); }
   .review-scan-track i + i { display: none; }
 }
+
+.civ-hidden { color: var(--muted); font-size: 14px; font-weight: 650; }

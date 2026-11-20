@@ -1,3 +1,11 @@
+## v2.2.2 · Prematch antes de revelar civilizaciones
+
+- El roster oculta la civ rival durante el lobby. En modo ejemplo tampoco se anticipan las civs del resultado archivado.
+- En el prematch, las aperturas se resumen sobre el historial del mapa y el modo. Los cruces exactos requieren civilizaciones reveladas.
+- Incluye el launcher y la animación de carga de v2.2.1.
+
+---
+
 ## v2.2.1 · Lectura del rival y revisión del replay
 
 - Prematch con apertura observada, últimas cinco partidas y antecedentes con denominadores explícitos. Las civs frecuentes del historial se presentan como elecciones observadas.
