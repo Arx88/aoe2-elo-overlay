@@ -33,7 +33,15 @@ body::before {
 }
 .winbar-controls { background: linear-gradient(90deg, transparent, #12161b6b); }
 .winbar-context { color: #a1aaad; }
-.session-badge { color: #abb3b5; }
+.session-badge {
+  color: #cdd4d6;
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(14, 18, 21, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(4px);
+}
 .status-bar { border-top-color: transparent; background: linear-gradient(180deg, var(--ui-page), #101518); }
 .rail { border-right-color: transparent; }
 .launcher-rail-art {
@@ -47,16 +55,16 @@ body::before {
 }
 .rule, .group-head > i { background: transparent; }
 /* Labels retain their spacing and start each section with a surface cue. */
-.group-head { color: var(--text); }
+.group-head { color: var(--text); margin: 28px 0 var(--space-3); font-size: var(--type-xs); }
 .section-banner {
   border-bottom-color: transparent;
   border-radius: var(--radius-surface);
-  padding: var(--space-3) var(--space-4) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 4%, transparent), transparent 78%);
 }
 .section-banner > .product-icon { border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.block { border-color: transparent; background: color-mix(in srgb, var(--ui-card) 97%, var(--text)); }
-.block > .row { border-bottom-color: transparent; padding-inline: var(--space-3); }
+.block { border-color: transparent; padding: var(--space-2) var(--space-4); background: color-mix(in srgb, var(--ui-card) 97%, var(--text)); }
+.block > .row { border-bottom-color: transparent; padding: 13px var(--space-3); }
 .block > .row:nth-of-type(even) {
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--text) 2.5%, transparent);

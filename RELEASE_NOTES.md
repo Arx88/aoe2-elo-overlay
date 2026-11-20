@@ -1,3 +1,13 @@
+## v2.5.0 · Multi-idioma oficial de AoE2 DE, asistente inicial, seguridad de licencias y pulido integral
+
+- **Multi-idioma oficial de Age of Empires II: DE (`English`, `Español España`, `Español México` y `简体中文`):** 256 unidades, 40 edificios, 62 civilizaciones, 44 mapas, edades y recursos sincronizados con los archivos oficiales del juego (respetando diferencias reales como *Knight / Caballero / Jinete / 骑士*).
+- **Asistente de primer inicio unificado (pantalla completa):** selección de idioma con banderitas SVG nítidas y detección rápida de cuenta con la misma estética cartográfica del Launcher; cambiable en cualquier momento desde la tuerquita compacta debajo de tu plan.
+- **Control seguro de licencias y cuentas de pago:** verificación remota cifrada con firmas **Ed25519**, vinculación por dispositivo (`max_devices`), registro automático de cuentas activas, endurecimiento de seguridad en producción (`sandbox`, sin DevTools ni navegaciones externas) y consola de administración privada fuera del instalador público.
+- **Pulido estético, espaciado y micro-sonidos táctiles:** escala unificada de tipografía, márgenes y aire (incluyendo la pestaña **Durante**), desplegables oscuros personalizados, mejor contraste de etiquetas sobre ilustraciones y sonidos minimalistas sutiles con opción de silenciarlos en 1 clic.
+- **Instalador Windows (NSIS) con identidad del Launcher:** arte cartográfico lateral y cabecera con el emblema dorado y selector de los 4 idiomas.
+
+---
+
 ## v2.3.1 · Nueva identidad visual
 
 - Cada pestaña del launcher y cada fase del overlay tiene una composición propia con el mismo estilo cartográfico.

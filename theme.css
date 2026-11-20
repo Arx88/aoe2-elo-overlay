@@ -11,12 +11,15 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+  --type-xs: 11px;
   --type-meta: 12px;
-  --type-body: 14px;
-  --type-section: 16px;
-  --type-title: 24px;
+  --type-body: 13.5px;
+  --type-section: 15.5px;
+  --type-title: 26px;
+  --type-display: 30px;
   --radius-control: 8px;
   --radius-surface: 12px;
 }

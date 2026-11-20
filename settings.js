@@ -669,8 +669,16 @@ async function loadCurrent() {
   }
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
   smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
+  if (typeof AppI18n === 'object' && info.i18nBundles) {
+    AppI18n.configure({ locale: info.activeLanguage || 'es-MX', allBundles: info.i18nBundles });
+    applyLanguageUi(info.activeLanguage || 'es-MX');
+  }
   if (typeof TacticalUI === 'object' && TacticalUI.configure) {
-    TacticalUI.configure({ slugs: info.shields, aliases: info.civAliases });
+    TacticalUI.configure({
+      slugs: info.shields,
+      aliases: info.civAliases,
+      i18n: typeof AppI18n === 'object' ? AppI18n : null,
+    });
   }
   if (info.product) renderProduct(info.product);
   await loadPostMatch();
@@ -694,10 +702,14 @@ async function loadCurrent() {
       info.origin === 'manual' ? 'elegida por vos' : 'detectada automáticamente';
     accountAvatar.textContent = initialsOf(info.alias || `Perfil ${info.profileId}`);
   } else {
-    currentName.textContent = 'Todavía no hay cuenta elegida';
+    currentName.textContent = typeof AppI18n === 'object' ? AppI18n.t('account.none') : 'Todavía no hay cuenta elegida';
     currentId.textContent = '';
     currentOrigin.hidden = true;
     accountAvatar.textContent = '';
+  }
+  syncWizardAccount(info);
+  if (info.wizardCompleted === false && !wizardDismissed) {
+    openWizard(1);
   }
 }
 
@@ -913,9 +925,12 @@ function goTo(page) {
     else button.removeAttribute('aria-current');
   }
   for (const section of pageSections) section.classList.toggle('active', section.dataset.page === page);
-  pageTitle.textContent = PAGE_META[page].title;
-  pageSub.textContent = PAGE_META[page].sub;
-  pageIndex.textContent = PAGE_META[page].index.replace(/^\d+ \/ /, '');
+  const locTitle = typeof AppI18n === 'object' ? AppI18n.t(`pages.${page}.title`) : null;
+  const locSub = typeof AppI18n === 'object' ? AppI18n.t(`pages.${page}.sub`) : null;
+  const locIdx = typeof AppI18n === 'object' ? AppI18n.t(`pages.${page}.index`) : null;
+  pageTitle.textContent = (locTitle && locTitle !== `pages.${page}.title`) ? locTitle : PAGE_META[page].title;
+  pageSub.textContent = (locSub && locSub !== `pages.${page}.sub`) ? locSub : PAGE_META[page].sub;
+  pageIndex.textContent = (locIdx && locIdx !== `pages.${page}.index`) ? locIdx : PAGE_META[page].index;
   if (page === 'postmatch') loadPostMatch();
   if (page === 'tactics') loadTactics();
   if (pagesEl) pagesEl.scrollTop = 0;
@@ -1070,6 +1085,291 @@ checkBtn.addEventListener('click', async () => {
 skipBtn.addEventListener('click', async () => {
   renderUpdater(await window.settings.updaterSkip());
   setStatus('Omitida por ahora: no se instala al salir en esta sesión.');
+});
+
+/* ============================================================
+   Idioma (en, es-ES, es-MX, zh-CN) + Wizard de primer inicio
+   ============================================================ */
+const LANG_CARDS = [
+  { code: 'en', label: 'English', region: 'International', sample: 'Knight · Town Center' },
+  { code: 'es-ES', label: 'Español (España)', region: 'España', sample: 'Caballero · Centro urbano' },
+  { code: 'es-MX', label: 'Español (México)', region: 'México / LATAM', sample: 'Jinete · Centro urbano' },
+  { code: 'zh-CN', label: '简体中文', region: '中国大陆', sample: '骑士 · 城镇中心' },
+];
+
+let selectedLanguage = 'es-MX';
+let wizardStep = 1;
+let wizardDismissed = false;
+let lastAccountInfo = { profileId: null, alias: null };
+
+function applyLanguageUi(lang) {
+  selectedLanguage = lang || 'es-MX';
+  if (typeof AppI18n === 'object') {
+    AppI18n.setLocale(selectedLanguage);
+    AppI18n.applyToDom(document);
+  }
+  const badge = el('sessionBadge');
+  if (badge && typeof AppI18n === 'object') {
+    const bTxt = AppI18n.t('plans.badgeConfig');
+    if (bTxt && bTxt !== 'plans.badgeConfig') badge.textContent = bTxt;
+  }
+  const locTitle = typeof AppI18n === 'object' ? AppI18n.t(`pages.${activePage}.title`) : null;
+  const locSub = typeof AppI18n === 'object' ? AppI18n.t(`pages.${activePage}.sub`) : null;
+  const locIdx = typeof AppI18n === 'object' ? AppI18n.t(`pages.${activePage}.index`) : null;
+  if (locTitle && locTitle !== `pages.${activePage}.title`) pageTitle.textContent = locTitle;
+  if (locSub && locSub !== `pages.${activePage}.sub`) pageSub.textContent = locSub;
+  if (locIdx && locIdx !== `pages.${activePage}.index`) pageIndex.textContent = locIdx;
+  renderLanguageSelectors();
+  renderWizardStep();
+}
+
+async function chooseLanguage(code, persist = true) {
+  applyLanguageUi(code);
+  if (persist && window.settings?.setLanguage) {
+    await window.settings.setLanguage(code).catch(() => {});
+    if (activePage === 'postmatch') loadPostMatch();
+  }
+}
+
+function renderLanguageSelectors() {
+  const accountGrid = el('accountLangGrid');
+  if (accountGrid) {
+    accountGrid.innerHTML = LANG_CARDS.map((item) => {
+      const flag = typeof AppI18n === 'object' ? AppI18n.flagSvg(item.code) : '';
+      const active = item.code === selectedLanguage;
+      return `<button type="button" class="prefs-lang-item${active ? ' active' : ''}" role="radio" aria-checked="${active}" data-lang="${item.code}">
+        ${flag}
+        <span>${escapeHtml(item.label)}</span>
+        <em>${active ? '✓' : ''}</em>
+      </button>`;
+    }).join('');
+    accountGrid.querySelectorAll('.prefs-lang-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        chooseLanguage(btn.dataset.lang, true);
+        setPrefsPopover(false);
+      });
+    });
+  }
+
+  const wizGrid = el('wizLangGrid');
+  if (wizGrid) {
+    wizGrid.innerHTML = LANG_CARDS.map((item) => {
+      const flag = typeof AppI18n === 'object' ? AppI18n.flagSvg(item.code) : '';
+      const sel = item.code === selectedLanguage;
+      return `<button type="button" class="wiz-lang-card${sel ? ' selected' : ''}" role="radio" aria-checked="${sel}" data-lang="${item.code}">
+        ${flag}
+        <span class="wiz-lang-copy">
+          <strong>${escapeHtml(item.label)}</strong>
+          <span>${escapeHtml(item.region)}</span>
+          <small>${escapeHtml(item.sample)}</small>
+        </span>
+      </button>`;
+    }).join('');
+    wizGrid.querySelectorAll('.wiz-lang-card').forEach((btn) => {
+      btn.addEventListener('click', () => chooseLanguage(btn.dataset.lang, true));
+    });
+  }
+}
+
+function setPrefsPopover(open) {
+  const pop = el('appPrefsPopover');
+  const btn = el('appPrefsBtn');
+  if (!pop || !btn) return;
+  pop.hidden = !open;
+  btn.setAttribute('aria-expanded', String(Boolean(open)));
+}
+
+el('appPrefsBtn')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  const pop = el('appPrefsPopover');
+  setPrefsPopover(pop ? pop.hidden : false);
+});
+el('prefsPlanBtn')?.addEventListener('click', () => {
+  setPrefsPopover(false);
+  goTo('plans');
+});
+function paintSoundToggle() {
+  const btn = el('prefsSoundBtn');
+  if (!btn || typeof UiSfx !== 'object') return;
+  btn.textContent = UiSfx.isEnabled() ? 'Sonidos de interfaz · Activos' : 'Sonidos de interfaz · Silenciados';
+}
+el('prefsSoundBtn')?.addEventListener('click', () => {
+  if (typeof UiSfx !== 'object') return;
+  UiSfx.setEnabled(!UiSfx.isEnabled());
+  paintSoundToggle();
+});
+if (typeof UiSfx === 'object') {
+  UiSfx.attachAutoListeners(document);
+  paintSoundToggle();
+}
+el('prefsVerifyBtn')?.addEventListener('click', async () => {
+  setPrefsPopover(false);
+  if (!window.settings?.refreshLicense) return;
+  setStatus(typeof AppI18n === 'object' ? AppI18n.t('plans.checking') : 'Verificando licencia…');
+  try {
+    const res = await window.settings.refreshLicense();
+    if (res?.product) renderProduct(res.product);
+    setStatus(res?.ok
+      ? (typeof AppI18n === 'object' ? AppI18n.t('plans.verified') : 'Acceso verificado.')
+      : (typeof AppI18n === 'object' ? AppI18n.t('account.statusReady') : 'Estado actualizado.'));
+  } catch (_) {
+    setStatus('No se pudo verificar el acceso ahora.', true);
+  }
+});
+document.addEventListener('click', (event) => {
+  const pop = el('appPrefsPopover');
+  const btn = el('appPrefsBtn');
+  if (!pop || pop.hidden) return;
+  if (!pop.contains(event.target) && (!btn || !btn.contains(event.target))) {
+    setPrefsPopover(false);
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') setPrefsPopover(false);
+});
+
+function syncWizardAccount(info) {
+  lastAccountInfo = { profileId: info?.profileId || null, alias: info?.alias || null };
+  const nameEl = el('wizAccountName');
+  const metaEl = el('wizAccountMeta');
+  const avEl = el('wizAvatar');
+  if (!nameEl) return;
+  if (lastAccountInfo.profileId) {
+    const label = lastAccountInfo.alias || `Perfil ${lastAccountInfo.profileId}`;
+    nameEl.textContent = label;
+    metaEl.textContent = `#${lastAccountInfo.profileId}`;
+    avEl.textContent = initialsOf(label);
+  } else {
+    nameEl.textContent = typeof AppI18n === 'object' ? AppI18n.t('account.none') : 'Sin cuenta todavía';
+    metaEl.textContent = typeof AppI18n === 'object' ? AppI18n.t('wizard.accountDesc') : '';
+    avEl.textContent = '?';
+  }
+  renderWizardSummary();
+}
+
+function renderWizardSummary() {
+  const sumLang = el('wizSumLang');
+  const sumAcc = el('wizSumAccount');
+  if (!sumLang || !sumAcc) return;
+  const item = LANG_CARDS.find((c) => c.code === selectedLanguage) || LANG_CARDS[0];
+  const flag = typeof AppI18n === 'object' ? AppI18n.flagSvg(item.code) : '';
+  sumLang.innerHTML = `${flag}<span>${escapeHtml(item.label)}</span>`;
+  sumAcc.textContent = lastAccountInfo.profileId
+    ? `${lastAccountInfo.alias || 'AoE2'} (#${lastAccountInfo.profileId})`
+    : (typeof AppI18n === 'object' ? AppI18n.t('wizard.summaryNoAccount') : 'Sin vincular');
+}
+
+function renderWizardStep() {
+  const overlay = el('setupWizard');
+  if (!overlay) return;
+  overlay.querySelectorAll('.wiz-pane').forEach((p) => {
+    p.classList.toggle('active', Number(p.dataset.wizPane) === wizardStep);
+  });
+  overlay.querySelectorAll('[data-wiz-dot]').forEach((d) => {
+    const n = Number(d.dataset.wizDot);
+    d.classList.toggle('active', n === wizardStep);
+    d.classList.toggle('done', n < wizardStep);
+  });
+  const tr = (k, fb) => (typeof AppI18n === 'object' ? AppI18n.t(k) : fb);
+  const titleEl = el('wizTitle');
+  const subEl = el('wizSubtitle');
+  if (wizardStep === 1) {
+    titleEl.textContent = tr('wizard.langTitle', 'Elige tu idioma');
+    subEl.textContent = tr('wizard.langDesc', 'Las unidades, edificios y civilizaciones coincidirán con el juego.');
+  } else if (wizardStep === 2) {
+    titleEl.textContent = tr('wizard.accountTitle', 'Conecta tu cuenta de AoE2');
+    subEl.textContent = tr('wizard.accountDesc', 'Detecta tu perfil de Steam o búscalo por nombre.');
+  } else {
+    titleEl.textContent = tr('wizard.readyTitle', 'Todo listo para jugar');
+    subEl.textContent = tr('wizard.readyDesc', 'El overlay se oculta mientras juegas y analiza tus partidas.');
+  }
+  const backBtn = el('wizBackBtn');
+  const skipBtn = el('wizSkipBtn');
+  const nextBtn = el('wizNextBtn');
+  if (backBtn) backBtn.hidden = wizardStep <= 1;
+  if (skipBtn) skipBtn.hidden = wizardStep !== 2 || Boolean(lastAccountInfo.profileId);
+  if (nextBtn) {
+    nextBtn.textContent = wizardStep === 3
+      ? tr('wizard.finish', 'Abrir Centro de mando')
+      : tr('wizard.next', 'Continuar');
+  }
+  renderWizardSummary();
+}
+
+function openWizard(step = 1) {
+  wizardStep = step;
+  wizardDismissed = false;
+  const overlay = el('setupWizard');
+  if (overlay) overlay.hidden = false;
+  renderLanguageSelectors();
+  renderWizardStep();
+}
+
+async function finishWizard() {
+  wizardDismissed = true;
+  const overlay = el('setupWizard');
+  if (overlay) overlay.hidden = true;
+  if (window.settings?.completeWizard) {
+    await window.settings.completeWizard({ language: selectedLanguage }).catch(() => {});
+  }
+}
+
+el('reopenWizardBtn')?.addEventListener('click', () => {
+  setPrefsPopover(false);
+  openWizard(1);
+});
+el('wizBackBtn')?.addEventListener('click', () => {
+  if (wizardStep > 1) { wizardStep -= 1; renderWizardStep(); }
+});
+el('wizSkipBtn')?.addEventListener('click', () => {
+  wizardStep = 3;
+  renderWizardStep();
+});
+el('wizNextBtn')?.addEventListener('click', () => {
+  if (wizardStep < 3) { wizardStep += 1; renderWizardStep(); }
+  else finishWizard();
+});
+el('wizDetectBtn')?.addEventListener('click', async () => {
+  const btn = el('wizDetectBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await window.settings.auto();
+    if (res && res.profileId) {
+      syncWizardAccount(res);
+      await loadCurrent();
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+});
+
+let wizSearchTimer = null;
+el('wizSearch')?.addEventListener('input', () => {
+  clearTimeout(wizSearchTimer);
+  const q = el('wizSearch').value.trim();
+  const box = el('wizResults');
+  if (!box) return;
+  if (q.length < 2) { box.replaceChildren(); return; }
+  wizSearchTimer = setTimeout(async () => {
+    try {
+      const list = await window.settings.search(q);
+      box.replaceChildren();
+      for (const p of (list || []).slice(0, 5)) {
+        const row = document.createElement('div');
+        row.className = 'result';
+        row.innerHTML = `<span class="result-avatar">${escapeHtml(initialsOf(p.name))}</span>
+          <span class="result-copy"><span class="name">${escapeHtml(p.clan ? `${p.clan} | ${p.name}` : p.name)}</span>
+          <span class="tag">#${escapeHtml(p.profileId)}</span></span>`;
+        row.addEventListener('click', async () => {
+          const picked = await window.settings.pick(p.profileId);
+          syncWizardAccount(picked || { profileId: p.profileId, alias: p.name });
+          box.replaceChildren();
+          await loadCurrent();
+        });
+        box.appendChild(row);
+      }
+    } catch (_) { /* ignore */ }
+  }, 260);
 });
 
 paintThemes();

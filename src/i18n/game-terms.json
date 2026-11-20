@@ -1,0 +1,2594 @@
+{
+  "meta": {
+    "generatedBy": "tools/build-game-locales.js",
+    "source": "AoE2DE official key-value-strings-utf8.txt (en, es, mx, zh)",
+    "locales": [
+      "en",
+      "es-ES",
+      "es-MX",
+      "zh-CN"
+    ],
+    "counts": {
+      "units": 256,
+      "buildings": 40,
+      "civs": 62,
+      "maps": 44
+    }
+  },
+  "ages": {
+    "dark": {
+      "en": "Dark Age",
+      "es-ES": "Alta Edad Media",
+      "es-MX": "Alta Edad Media",
+      "zh-CN": "黑暗时代"
+    },
+    "feudal": {
+      "en": "Feudal Age",
+      "es-ES": "Edad Feudal",
+      "es-MX": "Edad Feudal",
+      "zh-CN": "封建时代"
+    },
+    "castle": {
+      "en": "Castle Age",
+      "es-ES": "Edad de los Castillos",
+      "es-MX": "Ed. Castillos",
+      "zh-CN": "城堡时代"
+    },
+    "imperial": {
+      "en": "Imperial Age",
+      "es-ES": "Edad Imperial",
+      "es-MX": "Edad Imperial",
+      "zh-CN": "帝王时代"
+    }
+  },
+  "resources": {
+    "food": {
+      "en": "Food",
+      "es-ES": "Comida",
+      "es-MX": "Comida",
+      "zh-CN": "食物"
+    },
+    "wood": {
+      "en": "Wood",
+      "es-ES": "Madera",
+      "es-MX": "Madera",
+      "zh-CN": "木材"
+    },
+    "gold": {
+      "en": "Gold",
+      "es-ES": "Oro",
+      "es-MX": "Oro",
+      "zh-CN": "黄金"
+    },
+    "stone": {
+      "en": "Stone",
+      "es-ES": "Piedra",
+      "es-MX": "Piedra",
+      "zh-CN": "石料"
+    }
+  },
+  "keyBuildings": {
+    "town_center": {
+      "en": "Town Center",
+      "es-ES": "Centro urbano",
+      "es-MX": "Centro urbano",
+      "zh-CN": "城镇中心"
+    },
+    "barracks": {
+      "en": "Barracks",
+      "es-ES": "Cuarteles",
+      "es-MX": "Cuarteles",
+      "zh-CN": "兵营"
+    },
+    "archery_range": {
+      "en": "Archery Range",
+      "es-ES": "Galería tiro con arco",
+      "es-MX": "Galería tiro con arco",
+      "zh-CN": "靶场"
+    },
+    "stable": {
+      "en": "Stable",
+      "es-ES": "Establo",
+      "es-MX": "Establo",
+      "zh-CN": "马厩"
+    },
+    "siege_workshop": {
+      "en": "Siege Workshop",
+      "es-ES": "Taller maq. de asedio",
+      "es-MX": "Taller maq. de asedio",
+      "zh-CN": "攻城武器厂"
+    },
+    "castle": {
+      "en": "Castle",
+      "es-ES": "Castillo",
+      "es-MX": "Castillo",
+      "zh-CN": "城堡"
+    },
+    "monastery": {
+      "en": "Monastery",
+      "es-ES": "Monasterio",
+      "es-MX": "Monasterio",
+      "zh-CN": "修道院"
+    },
+    "market": {
+      "en": "Market",
+      "es-ES": "Mercado",
+      "es-MX": "Mercado",
+      "zh-CN": "市场"
+    },
+    "blacksmith": {
+      "en": "Blacksmith",
+      "es-ES": "Herrería",
+      "es-MX": "Herrería",
+      "zh-CN": "铁匠铺"
+    },
+    "dock": {
+      "en": "Dock",
+      "es-ES": "Muelle",
+      "es-MX": "Muelle",
+      "zh-CN": "船坞"
+    },
+    "university": {
+      "en": "University",
+      "es-ES": "Universidad",
+      "es-MX": "Universidad",
+      "zh-CN": "大学"
+    },
+    "mill": {
+      "en": "Mill",
+      "es-ES": "Molino",
+      "es-MX": "Molino",
+      "zh-CN": "磨坊"
+    },
+    "house": {
+      "en": "House",
+      "es-ES": "Casa",
+      "es-MX": "Casa",
+      "zh-CN": "房屋"
+    },
+    "farm": {
+      "en": "Farm",
+      "es-ES": "Granja",
+      "es-MX": "Granja",
+      "zh-CN": "农田"
+    },
+    "watch_tower": {
+      "en": "Watch Tower",
+      "es-ES": "Atalaya",
+      "es-MX": "Atalaya",
+      "zh-CN": "瞭望箭塔"
+    },
+    "krepost": {
+      "en": "Krepost",
+      "es-ES": "Krepost",
+      "es-MX": "Krepost",
+      "zh-CN": "营垒"
+    },
+    "donjon": {
+      "en": "Donjon",
+      "es-ES": "Torre del homenaje",
+      "es-MX": "Donjon",
+      "zh-CN": "城楼"
+    }
+  },
+  "civs": {
+    "achaemenids": {
+      "en": "Achaemenids",
+      "es-ES": "Aqueménidas",
+      "es-MX": "Aqueménidas",
+      "zh-CN": "阿契美尼德"
+    },
+    "armenians": {
+      "en": "Armenians",
+      "es-ES": "Armenios",
+      "es-MX": "Armenios",
+      "zh-CN": "亚美尼亚"
+    },
+    "athenians": {
+      "en": "Athenians",
+      "es-ES": "Atenienses",
+      "es-MX": "Atenienses",
+      "zh-CN": "雅典"
+    },
+    "aztecs": {
+      "en": "Aztecs",
+      "es-ES": "Aztecas",
+      "es-MX": "Aztecas",
+      "zh-CN": "阿兹特克"
+    },
+    "bengalis": {
+      "en": "Bengalis",
+      "es-ES": "Bengalíes",
+      "es-MX": "Bengalíes",
+      "zh-CN": "孟加拉"
+    },
+    "berbers": {
+      "en": "Berbers",
+      "es-ES": "Bereberes",
+      "es-MX": "Bereberes",
+      "zh-CN": "柏柏尔"
+    },
+    "bohemians": {
+      "en": "Bohemians",
+      "es-ES": "Bohemios",
+      "es-MX": "Bohemios",
+      "zh-CN": "波希米亚"
+    },
+    "britons": {
+      "en": "Britons",
+      "es-ES": "Britanos",
+      "es-MX": "Britanos",
+      "zh-CN": "不列颠"
+    },
+    "bulgarians": {
+      "en": "Bulgarians",
+      "es-ES": "Búlgaros",
+      "es-MX": "Búlgaros",
+      "zh-CN": "保加利亚"
+    },
+    "burgundians": {
+      "en": "Burgundians",
+      "es-ES": "Borgoñeses",
+      "es-MX": "Borgoñones",
+      "zh-CN": "勃艮第"
+    },
+    "burmese": {
+      "en": "Burmese",
+      "es-ES": "Birmanos",
+      "es-MX": "Birmanos",
+      "zh-CN": "缅甸"
+    },
+    "byzantines": {
+      "en": "Byzantines",
+      "es-ES": "Bizantinos",
+      "es-MX": "Bizantinos",
+      "zh-CN": "拜占庭"
+    },
+    "celts": {
+      "en": "Celts",
+      "es-ES": "Celtas",
+      "es-MX": "Celtas",
+      "zh-CN": "凯尔特"
+    },
+    "chinese": {
+      "en": "Chinese",
+      "es-ES": "Chinos",
+      "es-MX": "Chinos",
+      "zh-CN": "中国"
+    },
+    "cumans": {
+      "en": "Cumans",
+      "es-ES": "Cumanos",
+      "es-MX": "Cumanos",
+      "zh-CN": "库曼"
+    },
+    "danes": {
+      "en": "Danes",
+      "es-ES": "Daneses",
+      "es-MX": "Daneses",
+      "zh-CN": "丹麦人"
+    },
+    "dravidians": {
+      "en": "Dravidians",
+      "es-ES": "Dravídicos",
+      "es-MX": "Dravídicos",
+      "zh-CN": "达罗毗荼"
+    },
+    "ethiopians": {
+      "en": "Ethiopians",
+      "es-ES": "Etíopes",
+      "es-MX": "Etíopes",
+      "zh-CN": "埃塞俄比亚"
+    },
+    "franks": {
+      "en": "Franks",
+      "es-ES": "Francos",
+      "es-MX": "Francos",
+      "zh-CN": "法兰克"
+    },
+    "georgians": {
+      "en": "Georgians",
+      "es-ES": "Georgianos",
+      "es-MX": "Georgianos",
+      "zh-CN": "格鲁吉亚"
+    },
+    "goths": {
+      "en": "Goths",
+      "es-ES": "Godos",
+      "es-MX": "Godos",
+      "zh-CN": "哥特"
+    },
+    "gurjaras": {
+      "en": "Gurjaras",
+      "es-ES": "Gurjara",
+      "es-MX": "Gurjaras",
+      "zh-CN": "瞿折罗"
+    },
+    "hindustanis": {
+      "en": "Hindustanis",
+      "es-ES": "Indostanos",
+      "es-MX": "Indostaníes",
+      "zh-CN": "印度斯坦"
+    },
+    "huns": {
+      "en": "Huns",
+      "es-ES": "Hunos",
+      "es-MX": "Hunos",
+      "zh-CN": "匈奴"
+    },
+    "incas": {
+      "en": "Inca",
+      "es-ES": "Inca",
+      "es-MX": "Incas",
+      "zh-CN": "印加"
+    },
+    "italians": {
+      "en": "Italians",
+      "es-ES": "Italianos",
+      "es-MX": "Italianos",
+      "zh-CN": "意大利"
+    },
+    "japanese": {
+      "en": "Japanese",
+      "es-ES": "Japoneses",
+      "es-MX": "Japoneses",
+      "zh-CN": "日本"
+    },
+    "jurchens": {
+      "en": "Jurchens",
+      "es-ES": "Yurchen",
+      "es-MX": "Jurchens",
+      "zh-CN": "女真"
+    },
+    "khitans": {
+      "en": "Khitans",
+      "es-ES": "Kitán",
+      "es-MX": "Kitáns",
+      "zh-CN": "契丹"
+    },
+    "khmer": {
+      "en": "Khmer",
+      "es-ES": "Jemeres",
+      "es-MX": "Jemeres",
+      "zh-CN": "高棉"
+    },
+    "koreans": {
+      "en": "Koreans",
+      "es-ES": "Coreanos",
+      "es-MX": "Coreanos",
+      "zh-CN": "高丽"
+    },
+    "lithuanians": {
+      "en": "Lithuanians",
+      "es-ES": "Lituanos",
+      "es-MX": "Lituanos",
+      "zh-CN": "立陶宛"
+    },
+    "macedonians": {
+      "en": "Macedonians",
+      "es-ES": "Macedonios",
+      "es-MX": "Macedonios",
+      "zh-CN": "马其顿人"
+    },
+    "magyars": {
+      "en": "Magyars",
+      "es-ES": "Magiares",
+      "es-MX": "Magiares",
+      "zh-CN": "马扎尔"
+    },
+    "malay": {
+      "en": "Malay",
+      "es-ES": "Malayos",
+      "es-MX": "Malayos",
+      "zh-CN": "马来"
+    },
+    "malians": {
+      "en": "Malians",
+      "es-ES": "Malíes",
+      "es-MX": "Malíes",
+      "zh-CN": "马里"
+    },
+    "mapuche": {
+      "en": "Mapuche",
+      "es-ES": "Mapuches",
+      "es-MX": "Mapuches",
+      "zh-CN": "马普切"
+    },
+    "mayans": {
+      "en": "Maya",
+      "es-ES": "Maya",
+      "es-MX": "Mayas",
+      "zh-CN": "玛雅"
+    },
+    "mongols": {
+      "en": "Mongols",
+      "es-ES": "Mongoles",
+      "es-MX": "Mongoles",
+      "zh-CN": "蒙古"
+    },
+    "muisca": {
+      "en": "Muisca",
+      "es-ES": "Muiscas",
+      "es-MX": "Muiscas",
+      "zh-CN": "穆伊斯卡"
+    },
+    "persians": {
+      "en": "Persians",
+      "es-ES": "Persas",
+      "es-MX": "Persas",
+      "zh-CN": "波斯"
+    },
+    "poles": {
+      "en": "Poles",
+      "es-ES": "Polacos",
+      "es-MX": "Polacos",
+      "zh-CN": "波兰"
+    },
+    "portuguese": {
+      "en": "Portuguese",
+      "es-ES": "Portugueses",
+      "es-MX": "Portugueses",
+      "zh-CN": "葡萄牙"
+    },
+    "puru": {
+      "en": "Puru",
+      "es-ES": "Purus",
+      "es-MX": "Puru",
+      "zh-CN": "普鲁人"
+    },
+    "romans": {
+      "en": "Romans",
+      "es-ES": "Romanos",
+      "es-MX": "Romanos",
+      "zh-CN": "罗马"
+    },
+    "saracens": {
+      "en": "Saracens",
+      "es-ES": "Sarracenos",
+      "es-MX": "Sarracenos",
+      "zh-CN": "萨拉森"
+    },
+    "saxons": {
+      "en": "Saxons",
+      "es-ES": "Sajones",
+      "es-MX": "Sajones",
+      "zh-CN": "撒克逊人"
+    },
+    "shu": {
+      "en": "Shu",
+      "es-ES": "Shu",
+      "es-MX": "Shu",
+      "zh-CN": "蜀"
+    },
+    "sicilians": {
+      "en": "Sicilians",
+      "es-ES": "Sicilianos",
+      "es-MX": "Sicilianos",
+      "zh-CN": "西西里"
+    },
+    "slavs": {
+      "en": "Slavs",
+      "es-ES": "Eslavos",
+      "es-MX": "Eslavos",
+      "zh-CN": "斯拉夫"
+    },
+    "spanish": {
+      "en": "Spanish",
+      "es-ES": "Españoles",
+      "es-MX": "Españoles",
+      "zh-CN": "西班牙"
+    },
+    "spartans": {
+      "en": "Spartans",
+      "es-ES": "Espartanos",
+      "es-MX": "Espartanos",
+      "zh-CN": "斯巴达"
+    },
+    "tatars": {
+      "en": "Tatars",
+      "es-ES": "Tártaros",
+      "es-MX": "Tártaros",
+      "zh-CN": "鞑靼"
+    },
+    "teutons": {
+      "en": "Teutons",
+      "es-ES": "Teutones",
+      "es-MX": "Teutones",
+      "zh-CN": "条顿"
+    },
+    "thracians": {
+      "en": "Thracians",
+      "es-ES": "Tracios",
+      "es-MX": "Tracios",
+      "zh-CN": "色雷斯人"
+    },
+    "tupi": {
+      "en": "Tupi",
+      "es-ES": "Tupís",
+      "es-MX": "Tupíes",
+      "zh-CN": "图皮"
+    },
+    "turks": {
+      "en": "Turks",
+      "es-ES": "Turcos",
+      "es-MX": "Turcos",
+      "zh-CN": "土耳其"
+    },
+    "varangians": {
+      "en": "Varangians",
+      "es-ES": "Varegos",
+      "es-MX": "Varegos",
+      "zh-CN": "瓦兰吉人"
+    },
+    "vietnamese": {
+      "en": "Vietnamese",
+      "es-ES": "Vietnamitas",
+      "es-MX": "Vietnamitas",
+      "zh-CN": "越南"
+    },
+    "vikings": {
+      "en": "Vikings",
+      "es-ES": "Vikingos",
+      "es-MX": "Vikingos",
+      "zh-CN": "维京"
+    },
+    "wei": {
+      "en": "Wei",
+      "es-ES": "Wei",
+      "es-MX": "Wei",
+      "zh-CN": "魏"
+    },
+    "wu": {
+      "en": "Wu",
+      "es-ES": "Wu",
+      "es-MX": "Wu",
+      "zh-CN": "吴"
+    }
+  },
+  "maps": {
+    "arabia": {
+      "en": "Arabia",
+      "es-ES": "Arabia",
+      "es-MX": "Arabia",
+      "zh-CN": "阿拉伯"
+    },
+    "arena": {
+      "en": "Arena",
+      "es-ES": "Arena",
+      "es-MX": "Arena",
+      "zh-CN": "竞技场"
+    },
+    "blackforest": {
+      "en": "Black Forest",
+      "es-ES": "Selva negra",
+      "es-MX": "Selva negra",
+      "zh-CN": "黑森林"
+    },
+    "nomad": {
+      "en": "Nomad",
+      "es-ES": "Nómada",
+      "es-MX": "Nómada",
+      "zh-CN": "游牧"
+    },
+    "islands": {
+      "en": "Islands",
+      "es-ES": "Islas",
+      "es-MX": "Islas",
+      "zh-CN": "岛屿"
+    },
+    "fourlakes": {
+      "en": "Four Lakes",
+      "es-ES": "Cuatro Lagos",
+      "es-MX": "Cuatro Lagos",
+      "zh-CN": "四片湖泊"
+    },
+    "goldrush": {
+      "en": "Gold Rush",
+      "es-ES": "Fiebre del oro",
+      "es-MX": "Fiebre del oro",
+      "zh-CN": "淘金潮"
+    },
+    "hideout": {
+      "en": "Hideout",
+      "es-ES": "Guaridas",
+      "es-MX": "Guaridas",
+      "zh-CN": "藏身之处"
+    },
+    "megarandom": {
+      "en": "MegaRandom",
+      "es-ES": "Megaaleatorio",
+      "es-MX": "Mega-Aleatorio",
+      "zh-CN": "超级随机"
+    },
+    "runestones": {
+      "en": "Runestones",
+      "es-ES": "Piedras rúnicas",
+      "es-MX": "Piedras rúnicas",
+      "zh-CN": "符文石群"
+    },
+    "socotra": {
+      "en": "Socotra",
+      "es-ES": "Socotra",
+      "es-MX": "Socotra",
+      "zh-CN": "索科特拉岛"
+    },
+    "coastal": {
+      "en": "Coastal",
+      "es-ES": "Costa",
+      "es-MX": "Costa",
+      "zh-CN": "沿海"
+    },
+    "continental": {
+      "en": "Continental",
+      "es-ES": "Continental",
+      "es-MX": "Continental",
+      "zh-CN": "大陆"
+    },
+    "highland": {
+      "en": "Highland",
+      "es-ES": "Tierras altas",
+      "es-MX": "Tierras altas",
+      "zh-CN": "高地"
+    },
+    "mediterranean": {
+      "en": "Mediterranean",
+      "es-ES": "Mediterráneo",
+      "es-MX": "Mediterráneo",
+      "zh-CN": "地中海"
+    },
+    "migration": {
+      "en": "Migration",
+      "es-ES": "Migración",
+      "es-MX": "Migración",
+      "zh-CN": "迁移"
+    },
+    "mongolia": {
+      "en": "Mongolia",
+      "es-ES": "Mongolia",
+      "es-MX": "Mongolia",
+      "zh-CN": "蒙古"
+    },
+    "oasis": {
+      "en": "Oasis",
+      "es-ES": "Oasis",
+      "es-MX": "Oasis",
+      "zh-CN": "绿洲"
+    },
+    "rivers": {
+      "en": "Rivers",
+      "es-ES": "Ríos",
+      "es-MX": "Ríos",
+      "zh-CN": "河流"
+    },
+    "saltmarsh": {
+      "en": "Salt Marsh",
+      "es-ES": "Marisma",
+      "es-MX": "Marisma",
+      "zh-CN": "盐碱沼泽"
+    },
+    "scandinavia": {
+      "en": "Scandinavia",
+      "es-ES": "Escandinavia",
+      "es-MX": "Escandinavia",
+      "zh-CN": "斯堪的纳维亚"
+    },
+    "teamislands": {
+      "en": "Team Islands",
+      "es-ES": "Islas de equipo",
+      "es-MX": "Islas de equipo",
+      "zh-CN": "团队岛屿"
+    },
+    "yucatan": {
+      "en": "Yucatan",
+      "es-ES": "Yucatán",
+      "es-MX": "Yucatán",
+      "zh-CN": "尤卡坦"
+    },
+    "acropolis": {
+      "en": "Acropolis",
+      "es-ES": "Acrópolis",
+      "es-MX": "Acrópolis",
+      "zh-CN": "雅典卫城"
+    },
+    "africanclearing": {
+      "en": "African Clearing",
+      "es-ES": "Claro africano",
+      "es-MX": "Claro africano",
+      "zh-CN": "非洲林中空地"
+    },
+    "baltic": {
+      "en": "Baltic",
+      "es-ES": "Báltico",
+      "es-MX": "Báltico",
+      "zh-CN": "波罗的海"
+    },
+    "cenotes": {
+      "en": "Cenotes",
+      "es-ES": "Cenotes",
+      "es-MX": "Cenotes",
+      "zh-CN": "岩坑池地"
+    },
+    "enclosed": {
+      "en": "Enclosed",
+      "es-ES": "Acotado",
+      "es-MX": "Encerrado",
+      "zh-CN": "与世隔绝"
+    },
+    "fortress": {
+      "en": "Fortress",
+      "es-ES": "Fortaleza",
+      "es-MX": "Fortaleza",
+      "zh-CN": "堡垒"
+    },
+    "ghostlake": {
+      "en": "Ghost Lake",
+      "es-ES": "Lago fantasma",
+      "es-MX": "Lago fantasma",
+      "zh-CN": "幽灵湖"
+    },
+    "goldenpit": {
+      "en": "Golden Pit",
+      "es-ES": "Cuenca del oro",
+      "es-MX": "Cuenca del oro",
+      "zh-CN": "金矿谷"
+    },
+    "haboob": {
+      "en": "Haboob",
+      "es-ES": "Tormenta de polvo",
+      "es-MX": "Haboob",
+      "zh-CN": "哈布风暴"
+    },
+    "hamburger": {
+      "en": "Hamburger",
+      "es-ES": "Hamburger",
+      "es-MX": "Hamburger",
+      "zh-CN": "汉堡包"
+    },
+    "kawasan": {
+      "en": "Kawasan",
+      "es-ES": "Kawasan",
+      "es-MX": "Kawasan",
+      "zh-CN": "卡瓦森"
+    },
+    "landnomad": {
+      "en": "Land Nomad",
+      "es-ES": "Nómada",
+      "es-MX": "Nómadas de tierra",
+      "zh-CN": "陆地游牧"
+    },
+    "lombardia": {
+      "en": "Lombardia",
+      "es-ES": "Lombardía",
+      "es-MX": "Lombardía",
+      "zh-CN": "伦巴第"
+    },
+    "lowland": {
+      "en": "Lowland",
+      "es-ES": "Tierras bajas",
+      "es-MX": "Tierras bajas",
+      "zh-CN": "低地"
+    },
+    "michi": {
+      "en": "Michi",
+      "es-ES": "Michi",
+      "es-MX": "Michi",
+      "zh-CN": "开道"
+    },
+    "mountainpass": {
+      "en": "Mountain Pass",
+      "es-ES": "Pasaje montañoso",
+      "es-MX": "Pasaje montañoso",
+      "zh-CN": "雪山地"
+    },
+    "niledelta": {
+      "en": "Nile Delta",
+      "es-ES": "Delta del Nilo",
+      "es-MX": "Delta del Nilo",
+      "zh-CN": "尼罗河三角洲"
+    },
+    "northernisles": {
+      "en": "Northern Isles",
+      "es-ES": "Islas del Norte",
+      "es-MX": "Islas del Norte",
+      "zh-CN": "北方群岛"
+    },
+    "steppe": {
+      "en": "Steppe",
+      "es-ES": "Estepa",
+      "es-MX": "Estepa",
+      "zh-CN": "干草原"
+    },
+    "valley": {
+      "en": "Valley",
+      "es-ES": "Valle",
+      "es-MX": "Valle",
+      "zh-CN": "峡谷"
+    },
+    "wade": {
+      "en": "Wade",
+      "es-ES": "Vado",
+      "es-MX": "Wade",
+      "zh-CN": "浅滩"
+    }
+  },
+  "units": {
+    "4": {
+      "en": "Archer",
+      "es-ES": "Arquero",
+      "es-MX": "Arquero",
+      "zh-CN": "步弓手"
+    },
+    "5": {
+      "en": "Hand Cannoneer",
+      "es-ES": "Artillero manual",
+      "es-MX": "Artillero manual",
+      "zh-CN": "火枪手"
+    },
+    "6": {
+      "en": "Elite Skirmisher",
+      "es-ES": "Hostigador de élite",
+      "es-MX": "Guerrillero de élite",
+      "zh-CN": "精锐掷矛手"
+    },
+    "7": {
+      "en": "Skirmisher",
+      "es-ES": "Hostigador",
+      "es-MX": "Hostigador",
+      "zh-CN": "掷矛手"
+    },
+    "8": {
+      "en": "Longbowman",
+      "es-ES": "Arquero con arco largo",
+      "es-MX": "Arquero con arco largo",
+      "zh-CN": "长弓兵"
+    },
+    "11": {
+      "en": "Mangudai",
+      "es-ES": "Mangudai",
+      "es-MX": "Mangudai",
+      "zh-CN": "蒙古突骑"
+    },
+    "13": {
+      "en": "Fishing Ship",
+      "es-ES": "Pesquero",
+      "es-MX": "Pesquero",
+      "zh-CN": "捕鱼船"
+    },
+    "17": {
+      "en": "Trade Cog",
+      "es-ES": "Barca mercante",
+      "es-MX": "Barca mercante",
+      "zh-CN": "贸易船"
+    },
+    "21": {
+      "en": "War Galley",
+      "es-ES": "Galera de guerra",
+      "es-MX": "Galera de guerra",
+      "zh-CN": "战船"
+    },
+    "24": {
+      "en": "Crossbowman",
+      "es-ES": "Ballestero",
+      "es-MX": "Ballestero",
+      "zh-CN": "弩手"
+    },
+    "25": {
+      "en": "Teutonic Knight",
+      "es-ES": "Cab. Orden Teutónica",
+      "es-MX": "Cab. Orden Teutónica",
+      "zh-CN": "条顿骑士"
+    },
+    "36": {
+      "en": "Bombard Cannon",
+      "es-ES": "Cañón de asedio",
+      "es-MX": "Cañón de asedio",
+      "zh-CN": "手推炮"
+    },
+    "38": {
+      "en": "Knight",
+      "es-ES": "Caballero",
+      "es-MX": "Jinete",
+      "zh-CN": "骑士"
+    },
+    "39": {
+      "en": "Cavalry Archer",
+      "es-ES": "Arquero a caballo",
+      "es-MX": "Arquero a caballo",
+      "zh-CN": "骑射手"
+    },
+    "40": {
+      "en": "Cataphract",
+      "es-ES": "Catafracta",
+      "es-MX": "Catafracta",
+      "zh-CN": "甲胄骑兵"
+    },
+    "41": {
+      "en": "Huskarl",
+      "es-ES": "Huscarle",
+      "es-MX": "Huscarle",
+      "zh-CN": "近卫军"
+    },
+    "42": {
+      "en": "Trebuchet",
+      "es-ES": "Lanzapiedras",
+      "es-MX": "Trebuchet",
+      "zh-CN": "巨型投石机"
+    },
+    "46": {
+      "en": "Janissary",
+      "es-ES": "Jenízaro",
+      "es-MX": "Jenízaro",
+      "zh-CN": "苏丹亲兵"
+    },
+    "73": {
+      "en": "Chu Ko Nu",
+      "es-ES": "Chu ko nu",
+      "es-MX": "Chu ko nu",
+      "zh-CN": "诸葛弩"
+    },
+    "74": {
+      "en": "Militia",
+      "es-ES": "Milicia",
+      "es-MX": "Milicia",
+      "zh-CN": "民兵"
+    },
+    "75": {
+      "en": "Man-at-Arms",
+      "es-ES": "Hombre de armas",
+      "es-MX": "Hombre de armas",
+      "zh-CN": "武士"
+    },
+    "77": {
+      "en": "Long Swordsman",
+      "es-ES": "Espad. espada larga",
+      "es-MX": "Espad. espada larga",
+      "zh-CN": "长剑士"
+    },
+    "83": {
+      "en": "Villager",
+      "es-ES": "Aldeano",
+      "es-MX": "Aldeano",
+      "zh-CN": "村民"
+    },
+    "93": {
+      "en": "Spearman",
+      "es-ES": "Lancero",
+      "es-MX": "Lancero",
+      "zh-CN": "长矛兵"
+    },
+    "125": {
+      "en": "Monk",
+      "es-ES": "Monje",
+      "es-MX": "Monje",
+      "zh-CN": "僧侣"
+    },
+    "128": {
+      "en": "Trade Cart (Empty)",
+      "es-ES": "Carreta de mercancías (vacía)",
+      "es-MX": "Carreta de mercancías (vacía)",
+      "zh-CN": "贸易车 (空)"
+    },
+    "185": {
+      "en": "Slinger",
+      "es-ES": "Hondero",
+      "es-MX": "Hondero",
+      "zh-CN": "投石手"
+    },
+    "207": {
+      "en": "Imperial Camel Rider",
+      "es-ES": "Jinete de camello imperial",
+      "es-MX": "Camello imperial",
+      "zh-CN": "帝王骆驼兵"
+    },
+    "232": {
+      "en": "Woad Raider",
+      "es-ES": "Incursor azul",
+      "es-MX": "Incursor azul",
+      "zh-CN": "靛蓝突袭者"
+    },
+    "239": {
+      "en": "War Elephant",
+      "es-ES": "Elefante de guerra",
+      "es-MX": "Elefante de guerra",
+      "zh-CN": "战象"
+    },
+    "250": {
+      "en": "Longship",
+      "es-ES": "Drakkar",
+      "es-MX": "Drakkar",
+      "zh-CN": "维京长船"
+    },
+    "279": {
+      "en": "Scorpion",
+      "es-ES": "Escorpión",
+      "es-MX": "Escorpión",
+      "zh-CN": "弩炮"
+    },
+    "280": {
+      "en": "Mangonel",
+      "es-ES": "Mangana",
+      "es-MX": "Mangana",
+      "zh-CN": "轻型投石车"
+    },
+    "281": {
+      "en": "Throwing Axeman",
+      "es-ES": "Lanzador de hachas",
+      "es-MX": "Lanzador de hachas",
+      "zh-CN": "掷斧兵"
+    },
+    "282": {
+      "en": "Mameluke",
+      "es-ES": "Mameluco",
+      "es-MX": "Mameluco",
+      "zh-CN": "马穆鲁克"
+    },
+    "283": {
+      "en": "Knight",
+      "es-ES": "Caballero",
+      "es-MX": "Jinete",
+      "zh-CN": "骑士"
+    },
+    "291": {
+      "en": "Samurai",
+      "es-ES": "Samurai",
+      "es-MX": "Samurai",
+      "zh-CN": "日本武士"
+    },
+    "293": {
+      "en": "Villager",
+      "es-ES": "Aldeano",
+      "es-MX": "Aldeano",
+      "zh-CN": "村民"
+    },
+    "329": {
+      "en": "Camel Rider",
+      "es-ES": "Jinete de camello",
+      "es-MX": "Camello",
+      "zh-CN": "骆驼兵"
+    },
+    "330": {
+      "en": "Heavy Camel Rider",
+      "es-ES": "Jinete de camello pesado",
+      "es-MX": "Camello con armadura",
+      "zh-CN": "重装骆驼兵"
+    },
+    "331": {
+      "en": "Trebuchet (Packed)",
+      "es-ES": "Lanzapiedras (desarmado)",
+      "es-MX": "Trebuchet (empaquetado)",
+      "zh-CN": "巨型投石机 (组装)"
+    },
+    "358": {
+      "en": "Pikeman",
+      "es-ES": "Piquero",
+      "es-MX": "Piquero",
+      "zh-CN": "长枪兵"
+    },
+    "359": {
+      "en": "Halberdier",
+      "es-ES": "Alabardero",
+      "es-MX": "Alabardero",
+      "zh-CN": "长戟兵"
+    },
+    "420": {
+      "en": "Cannon Galleon",
+      "es-ES": "Galeón artillado",
+      "es-MX": "Galeón artillado",
+      "zh-CN": "炮舰"
+    },
+    "422": {
+      "en": "Capped Ram",
+      "es-ES": "Ariete cubierto",
+      "es-MX": "Ariete cubierto",
+      "zh-CN": "中型冲车"
+    },
+    "440": {
+      "en": "Petard",
+      "es-ES": "Petardo",
+      "es-MX": "Petardo",
+      "zh-CN": "爆破兵"
+    },
+    "441": {
+      "en": "Hussar",
+      "es-ES": "Húsar",
+      "es-MX": "Húsar",
+      "zh-CN": "翼骑兵"
+    },
+    "442": {
+      "en": "Galleon",
+      "es-ES": "Galeón",
+      "es-MX": "Galeón",
+      "zh-CN": "大型战舰"
+    },
+    "448": {
+      "en": "Scout Cavalry",
+      "es-ES": "Cab. de exploración",
+      "es-MX": "Cab. de exploración",
+      "zh-CN": "斥候骑兵"
+    },
+    "473": {
+      "en": "Two-Handed Swordsman",
+      "es-ES": "Espad. de mandoble",
+      "es-MX": "Espad. de mandoble",
+      "zh-CN": "双手剑士"
+    },
+    "474": {
+      "en": "Heavy Cavalry Archer",
+      "es-ES": "Cab. pesada de arq.",
+      "es-MX": "Cab. pesada de arq.",
+      "zh-CN": "重装骑射手"
+    },
+    "492": {
+      "en": "Arbalester",
+      "es-ES": "Arbalestero",
+      "es-MX": "Arbalestero",
+      "zh-CN": "劲弩手"
+    },
+    "527": {
+      "en": "Demolition Ship",
+      "es-ES": "Buque de demolición",
+      "es-MX": "Buque de demolición",
+      "zh-CN": "爆破船"
+    },
+    "528": {
+      "en": "Heavy Demolition Ship",
+      "es-ES": "Buque dem. pesado",
+      "es-MX": "Buque dem. pesado",
+      "zh-CN": "重型爆破船"
+    },
+    "529": {
+      "en": "Fire Ship",
+      "es-ES": "Barco incendiario",
+      "es-MX": "Barco incendiario",
+      "zh-CN": "喷火船"
+    },
+    "530": {
+      "en": "Elite Longbowman",
+      "es-ES": "Arq. tiro largo élite",
+      "es-MX": "Arq. tiro largo élite",
+      "zh-CN": "精锐长弓兵"
+    },
+    "531": {
+      "en": "Elite Throwing Axeman",
+      "es-ES": "Lanzador hachas élite",
+      "es-MX": "Lanzador hachas élite",
+      "zh-CN": "精锐掷斧兵"
+    },
+    "532": {
+      "en": "Fast Fire Ship",
+      "es-ES": "Barco incendiario rápido",
+      "es-MX": "Barco incendiario rápido",
+      "zh-CN": "快速喷火船"
+    },
+    "533": {
+      "en": "Elite Longship",
+      "es-ES": "Drakkar de élite",
+      "es-MX": "Drakkar de élite",
+      "zh-CN": "精锐维京长船"
+    },
+    "534": {
+      "en": "Elite Woad Raider",
+      "es-ES": "Incursor azul de élite",
+      "es-MX": "Incursor azul de élite",
+      "zh-CN": "精锐靛蓝突袭者"
+    },
+    "539": {
+      "en": "Galley",
+      "es-ES": "Galera",
+      "es-MX": "Galera",
+      "zh-CN": "箭船"
+    },
+    "542": {
+      "en": "Heavy Scorpion",
+      "es-ES": "Escorpión pesado",
+      "es-MX": "Escorpión pesado",
+      "zh-CN": "重型弩炮"
+    },
+    "545": {
+      "en": "Transport Ship",
+      "es-ES": "Barco transporte",
+      "es-MX": "Barco transporte",
+      "zh-CN": "运输船"
+    },
+    "546": {
+      "en": "Light Cavalry",
+      "es-ES": "Caballería ligera",
+      "es-MX": "Caballería ligera",
+      "zh-CN": "轻型骑兵"
+    },
+    "548": {
+      "en": "Siege Ram",
+      "es-ES": "Ariete de asedio",
+      "es-MX": "Ariete de asedio",
+      "zh-CN": "重型冲车"
+    },
+    "550": {
+      "en": "Onager",
+      "es-ES": "Onagro",
+      "es-MX": "Onagro",
+      "zh-CN": "中型投石车"
+    },
+    "553": {
+      "en": "Elite Cataphract",
+      "es-ES": "Catafracta de élite",
+      "es-MX": "Catafracta de élite",
+      "zh-CN": "精锐甲胄骑兵"
+    },
+    "554": {
+      "en": "Elite Teutonic Knight",
+      "es-ES": "Cab O. Teutónica élite",
+      "es-MX": "Cab O. Teutónica élite",
+      "zh-CN": "精锐条顿骑士"
+    },
+    "555": {
+      "en": "Elite Huskarl",
+      "es-ES": "Huscarle de élite",
+      "es-MX": "Huscarle de élite",
+      "zh-CN": "精锐近卫军"
+    },
+    "556": {
+      "en": "Elite Mameluke",
+      "es-ES": "Mameluco de élite",
+      "es-MX": "Mameluco de élite",
+      "zh-CN": "精锐马穆鲁克"
+    },
+    "557": {
+      "en": "Elite Janissary",
+      "es-ES": "Jenízaro de élite",
+      "es-MX": "Jenízaro de élite",
+      "zh-CN": "精锐苏丹亲兵"
+    },
+    "558": {
+      "en": "Elite War Elephant",
+      "es-ES": "Elefante guerra élite",
+      "es-MX": "Elefante guerra élite",
+      "zh-CN": "精锐战象"
+    },
+    "559": {
+      "en": "Elite Chu Ko Nu",
+      "es-ES": "Chu ko nu de élite",
+      "es-MX": "Chu ko nu de élite",
+      "zh-CN": "精锐诸葛弩"
+    },
+    "560": {
+      "en": "Elite Samurai",
+      "es-ES": "Samurai de élite",
+      "es-MX": "Samurai de élite",
+      "zh-CN": "精锐日本武士"
+    },
+    "561": {
+      "en": "Elite Mangudai",
+      "es-ES": "Mangudai de élite",
+      "es-MX": "Mangudai de élite",
+      "zh-CN": "精锐蒙古突骑"
+    },
+    "567": {
+      "en": "Champion",
+      "es-ES": "Campeón",
+      "es-MX": "Campeón",
+      "zh-CN": "冠军剑士"
+    },
+    "569": {
+      "en": "Paladin",
+      "es-ES": "Paladín",
+      "es-MX": "Paladín",
+      "zh-CN": "游侠"
+    },
+    "588": {
+      "en": "Siege Onager",
+      "es-ES": "Onagro de asedio",
+      "es-MX": "Onagro de asedio",
+      "zh-CN": "重型投石车"
+    },
+    "691": {
+      "en": "Elite Cannon Galleon",
+      "es-ES": "Galeón artillado élite",
+      "es-MX": "Galeón artillado élite",
+      "zh-CN": "精锐炮舰"
+    },
+    "692": {
+      "en": "Berserk",
+      "es-ES": "Berserker",
+      "es-MX": "Berserker",
+      "zh-CN": "狂战士"
+    },
+    "694": {
+      "en": "Elite Berserk",
+      "es-ES": "Berserker de élite",
+      "es-MX": "Berserker de élite",
+      "zh-CN": "精锐狂战士"
+    },
+    "725": {
+      "en": "Jaguar Warrior",
+      "es-ES": "Guerrero jaguar",
+      "es-MX": "Guerrero jaguar",
+      "zh-CN": "豹勇士"
+    },
+    "726": {
+      "en": "Elite Jaguar Warrior",
+      "es-ES": "Guerrero jaguar de élite",
+      "es-MX": "Guerrero jaguar de élite",
+      "zh-CN": "精锐豹勇士"
+    },
+    "751": {
+      "en": "Eagle Scout",
+      "es-ES": "Explorador águila",
+      "es-MX": "Explorador águila",
+      "zh-CN": "鹰斥候"
+    },
+    "752": {
+      "en": "Elite Eagle Warrior",
+      "es-ES": "Guerrero águila de élite",
+      "es-MX": "Guerrero águila de élite",
+      "zh-CN": "精锐鹰勇士"
+    },
+    "753": {
+      "en": "Eagle Warrior",
+      "es-ES": "Guerrero águila",
+      "es-MX": "Guerrero Águila",
+      "zh-CN": "鹰勇士"
+    },
+    "755": {
+      "en": "Tarkan",
+      "es-ES": "Tarcano",
+      "es-MX": "Tarcano",
+      "zh-CN": "答刺罕骑兵"
+    },
+    "757": {
+      "en": "Elite Tarkan",
+      "es-ES": "Tarcano de élite",
+      "es-MX": "Tarcano de élite",
+      "zh-CN": "精锐答刺罕骑兵"
+    },
+    "759": {
+      "en": "Huskarl",
+      "es-ES": "Huscarle",
+      "es-MX": "Huscarle",
+      "zh-CN": "近卫军"
+    },
+    "761": {
+      "en": "Elite Huskarl",
+      "es-ES": "Huscarle de élite",
+      "es-MX": "Huscarle de élite",
+      "zh-CN": "精锐近卫军"
+    },
+    "763": {
+      "en": "Plumed Archer",
+      "es-ES": "Arquero emplumado",
+      "es-MX": "Arquero emplumado",
+      "zh-CN": "羽箭手"
+    },
+    "765": {
+      "en": "Plumed Archer",
+      "es-ES": "Arquero emplumado",
+      "es-MX": "Arquero emplumado",
+      "zh-CN": "羽箭手"
+    },
+    "771": {
+      "en": "Conquistador",
+      "es-ES": "Conquistador",
+      "es-MX": "Conquistador",
+      "zh-CN": "西班牙征服者"
+    },
+    "773": {
+      "en": "Elite Conquistador",
+      "es-ES": "Conquistador de élite",
+      "es-MX": "Conquistador de élite",
+      "zh-CN": "精锐西班牙征服者"
+    },
+    "775": {
+      "en": "Missionary",
+      "es-ES": "Misionero",
+      "es-MX": "Misionero",
+      "zh-CN": "传教士"
+    },
+    "827": {
+      "en": "War Wagon",
+      "es-ES": "Carreta de guerra",
+      "es-MX": "Carreta de guerra",
+      "zh-CN": "高丽战车"
+    },
+    "829": {
+      "en": "Elite War Wagon",
+      "es-ES": "Carreta de guerra de élite",
+      "es-MX": "Carreta de guerra de élite",
+      "zh-CN": "精锐高丽战车"
+    },
+    "831": {
+      "en": "Turtle Ship",
+      "es-ES": "Barco tortuga",
+      "es-MX": "Barco tortuga",
+      "zh-CN": "龟甲船"
+    },
+    "832": {
+      "en": "Elite Turtle Ship",
+      "es-ES": "Barco tortuga de élite",
+      "es-MX": "Barco tortuga de élite",
+      "zh-CN": "精锐龟甲船"
+    },
+    "866": {
+      "en": "Genoese Crossbowman",
+      "es-ES": "Genovés ballestero",
+      "es-MX": "Genovés ballestero",
+      "zh-CN": "热那亚弩手"
+    },
+    "868": {
+      "en": "Elite Genoese Crossbowman",
+      "es-ES": "Genovés ballestero de élite",
+      "es-MX": "Ballestero genovés de élite",
+      "zh-CN": "精锐热那亚弩手"
+    },
+    "869": {
+      "en": "Magyar Huszar",
+      "es-ES": "Huszár magiar",
+      "es-MX": "Huszár magiar",
+      "zh-CN": "马扎尔骠骑"
+    },
+    "871": {
+      "en": "Elite Magyar Huszar",
+      "es-ES": "Huszár magiar de élite",
+      "es-MX": "Huszár magiar de élite",
+      "zh-CN": "精锐马扎尔骠骑"
+    },
+    "873": {
+      "en": "Elephant Archer",
+      "es-ES": "Arquero en elefante",
+      "es-MX": "Elefante arquero",
+      "zh-CN": "骑象射手"
+    },
+    "875": {
+      "en": "Elite Elephant Archer",
+      "es-ES": "Arquero en elefante de élite",
+      "es-MX": "Elefante arquero de élite",
+      "zh-CN": "精锐骑象射手"
+    },
+    "876": {
+      "en": "Boyar",
+      "es-ES": "Boyardo",
+      "es-MX": "Boyardo",
+      "zh-CN": "贵族铁骑"
+    },
+    "878": {
+      "en": "Elite Boyar",
+      "es-ES": "Boyardo de élite",
+      "es-MX": "Boyardo de élite",
+      "zh-CN": "精锐贵族铁骑"
+    },
+    "879": {
+      "en": "Kamayuk",
+      "es-ES": "Kamayuk",
+      "es-MX": "Kamayuk",
+      "zh-CN": "印加枪兵长"
+    },
+    "881": {
+      "en": "Elite Kamayuk",
+      "es-ES": "Kamayuk de élite",
+      "es-MX": "Kamayuk de élite",
+      "zh-CN": "精锐印加枪兵长"
+    },
+    "882": {
+      "en": "Condottiero",
+      "es-ES": "Condotiero",
+      "es-MX": "Condotiero",
+      "zh-CN": "意大利佣兵"
+    },
+    "886": {
+      "en": "Tarkan",
+      "es-ES": "Tarcano",
+      "es-MX": "Tarcano",
+      "zh-CN": "答刺罕骑兵"
+    },
+    "887": {
+      "en": "Elite Tarkan",
+      "es-ES": "Tarcano de élite",
+      "es-MX": "Tarcano de élite",
+      "zh-CN": "精锐答刺罕骑兵"
+    },
+    "1001": {
+      "en": "Organ Gun",
+      "es-ES": "Cañón de salvas",
+      "es-MX": "Cañón de salvas",
+      "zh-CN": "风琴炮"
+    },
+    "1003": {
+      "en": "Elite Organ Gun",
+      "es-ES": "Cañón de salvas de élite",
+      "es-MX": "Cañón de salvas de élite",
+      "zh-CN": "精锐风琴炮"
+    },
+    "1004": {
+      "en": "Caravel",
+      "es-ES": "Carabela",
+      "es-MX": "Carabela",
+      "zh-CN": "卡拉维尔战舰"
+    },
+    "1006": {
+      "en": "Elite Caravel",
+      "es-ES": "Carabela de élite",
+      "es-MX": "Carabela de élite",
+      "zh-CN": "精锐卡拉维尔战舰"
+    },
+    "1007": {
+      "en": "Camel Archer",
+      "es-ES": "Arquero en camello",
+      "es-MX": "Camello arquero",
+      "zh-CN": "骆驼射手"
+    },
+    "1009": {
+      "en": "Elite Camel Archer",
+      "es-ES": "Arquero en camello de élite",
+      "es-MX": "Camello arquero de élite",
+      "zh-CN": "精锐骆驼射手"
+    },
+    "1010": {
+      "en": "Genitour",
+      "es-ES": "Escaramuzador zenete",
+      "es-MX": "Escaramuzador zenete",
+      "zh-CN": "标枪骑兵"
+    },
+    "1012": {
+      "en": "Elite Genitour",
+      "es-ES": "Escaramuzador zenete de élite",
+      "es-MX": "Escaramuzador zenete de élite",
+      "zh-CN": "精锐标枪骑兵"
+    },
+    "1013": {
+      "en": "Gbeto",
+      "es-ES": "Guardiana gbeto",
+      "es-MX": "Guardiana gbeto",
+      "zh-CN": "飞刀女兵"
+    },
+    "1015": {
+      "en": "Elite Gbeto",
+      "es-ES": "Guardiana gbeto de élite",
+      "es-MX": "Guardiana gbeto de élite",
+      "zh-CN": "精锐飞刀女兵"
+    },
+    "1016": {
+      "en": "Shotel Warrior",
+      "es-ES": "Shotelai",
+      "es-MX": "Shotelai",
+      "zh-CN": "弯刀勇士"
+    },
+    "1018": {
+      "en": "Elite Shotel Warrior",
+      "es-ES": "Shotelai de élite",
+      "es-MX": "Shotelai de élite",
+      "zh-CN": "精锐弯刀勇士"
+    },
+    "1103": {
+      "en": "Fire Galley",
+      "es-ES": "Galera incendiaria",
+      "es-MX": "Galeota incendiaria",
+      "zh-CN": "火艨艟"
+    },
+    "1104": {
+      "en": "Demolition Raft",
+      "es-ES": "Balsa de demolición",
+      "es-MX": "Balsa de demolición",
+      "zh-CN": "爆破筏"
+    },
+    "1105": {
+      "en": "Siege Tower",
+      "es-ES": "Torre de asedio",
+      "es-MX": "Torre de asedio",
+      "zh-CN": "攻城塔"
+    },
+    "1120": {
+      "en": "Ballista Elephant",
+      "es-ES": "Elefante con balista",
+      "es-MX": "Elefante con balista",
+      "zh-CN": "重弩战象"
+    },
+    "1122": {
+      "en": "Elite Ballista Elephant",
+      "es-ES": "Elefante con balista de élite",
+      "es-MX": "Elefante con balista de élite",
+      "zh-CN": "精锐重弩战象"
+    },
+    "1123": {
+      "en": "Karambit Warrior",
+      "es-ES": "Recluta con karambit",
+      "es-MX": "Recluta con karambit",
+      "zh-CN": "爪刀勇士"
+    },
+    "1125": {
+      "en": "Elite Karambit Warrior",
+      "es-ES": "Recluta con karambit de élite",
+      "es-MX": "Recluta con karambit de élite",
+      "zh-CN": "精锐爪刀勇士"
+    },
+    "1126": {
+      "en": "Arambai",
+      "es-ES": "Arambai",
+      "es-MX": "Arambai",
+      "zh-CN": "飞镖骑兵"
+    },
+    "1128": {
+      "en": "Elite Arambai",
+      "es-ES": "Arambai de élite",
+      "es-MX": "Arambai de élite",
+      "zh-CN": "精锐飞镖骑兵"
+    },
+    "1129": {
+      "en": "Rattan Archer",
+      "es-ES": "Arquero de ratán",
+      "es-MX": "Arquero de ratán",
+      "zh-CN": "藤弓兵"
+    },
+    "1131": {
+      "en": "Elite Rattan Archer",
+      "es-ES": "Arquero de ratán de élite",
+      "es-MX": "Arquero de ratán de élite",
+      "zh-CN": "精锐藤弓兵"
+    },
+    "1132": {
+      "en": "Battle Elephant",
+      "es-ES": "Elefante de combate",
+      "es-MX": "Elefante de combate",
+      "zh-CN": "象兵"
+    },
+    "1134": {
+      "en": "Elite Battle Elephant",
+      "es-ES": "Elefante de combate de élite",
+      "es-MX": "Elefante de combate de élite",
+      "zh-CN": "精锐象兵"
+    },
+    "1155": {
+      "en": "Imperial Skirmisher",
+      "es-ES": "Hostigador imperial",
+      "es-MX": "Guerrillero imperial",
+      "zh-CN": "帝王掷矛手"
+    },
+    "1225": {
+      "en": "Konnik",
+      "es-ES": "Konnik",
+      "es-MX": "Konnik",
+      "zh-CN": "保加利亚骑兵"
+    },
+    "1227": {
+      "en": "Elite Konnik",
+      "es-ES": "Konnik de élite",
+      "es-MX": "Konnik de élite",
+      "zh-CN": "精锐保加利亚骑兵"
+    },
+    "1228": {
+      "en": "Keshik",
+      "es-ES": "Keshik",
+      "es-MX": "Keshik",
+      "zh-CN": "怯薛骑兵"
+    },
+    "1230": {
+      "en": "Elite Keshik",
+      "es-ES": "Keshik de élite",
+      "es-MX": "Keshik de élite",
+      "zh-CN": "精锐怯薛骑兵"
+    },
+    "1231": {
+      "en": "Kipchak",
+      "es-ES": "Kipchak",
+      "es-MX": "Kipchak",
+      "zh-CN": "钦察"
+    },
+    "1233": {
+      "en": "Elite Kipchak",
+      "es-ES": "Kipchak de élite",
+      "es-MX": "Kipchak de élite",
+      "zh-CN": "精锐钦察"
+    },
+    "1234": {
+      "en": "Leitis",
+      "es-ES": "Leitis",
+      "es-MX": "Leitis",
+      "zh-CN": "烈堤司"
+    },
+    "1236": {
+      "en": "Elite Leitis",
+      "es-ES": "Leitis de élite",
+      "es-MX": "Leitis de élite",
+      "zh-CN": "精锐烈堤司"
+    },
+    "1252": {
+      "en": "Konnik (Dismounted)",
+      "es-ES": "Konnik (desmontado)",
+      "es-MX": "Konnik (desmontado)",
+      "zh-CN": "保加利亚骑兵 (下马)"
+    },
+    "1253": {
+      "en": "Elite Konnik (Dismounted)",
+      "es-ES": "Konnik de élite (desmontado)",
+      "es-MX": "Konnik de élite (desmontado)",
+      "zh-CN": "精锐保加利亚骑兵 (下马)"
+    },
+    "1254": {
+      "en": "Konnik",
+      "es-ES": "Konnik",
+      "es-MX": "Konnik",
+      "zh-CN": "保加利亚骑兵"
+    },
+    "1255": {
+      "en": "Elite Konnik",
+      "es-ES": "Konnik de élite",
+      "es-MX": "Konnik de élite",
+      "zh-CN": "精锐保加利亚骑兵"
+    },
+    "1258": {
+      "en": "Battering Ram",
+      "es-ES": "Ariete",
+      "es-MX": "Ariete",
+      "zh-CN": "攻城锤"
+    },
+    "1260": {
+      "en": "Elite Kipchak",
+      "es-ES": "Kipchak de élite",
+      "es-MX": "Kipchak de élite",
+      "zh-CN": "精锐钦察"
+    },
+    "1263": {
+      "en": "Flaming Camel",
+      "es-ES": "Camello llameante",
+      "es-MX": "Camello llameante",
+      "zh-CN": "火焰骆驼"
+    },
+    "1302": {
+      "en": "Dragon Ship",
+      "es-ES": "Bote dragón",
+      "es-MX": "Bote dragón",
+      "zh-CN": "龙舟"
+    },
+    "1370": {
+      "en": "Steppe Lancer",
+      "es-ES": "Lancero estepario",
+      "es-MX": "Lancero estepario",
+      "zh-CN": "草原枪兵"
+    },
+    "1372": {
+      "en": "Elite Steppe Lancer",
+      "es-ES": "Lancero estepario de élite",
+      "es-MX": "Lancero estepario de élite",
+      "zh-CN": "精锐草原枪兵"
+    },
+    "1570": {
+      "en": "Xolotl Warrior",
+      "es-ES": "Guerrero Xólotl",
+      "es-MX": "Guerrero Xólotl",
+      "zh-CN": "索洛托勇士"
+    },
+    "1655": {
+      "en": "Coustillier",
+      "es-ES": "Costiller",
+      "es-MX": "Coustillier",
+      "zh-CN": "马上轻装兵"
+    },
+    "1657": {
+      "en": "Elite Coustillier",
+      "es-ES": "Costiller de élite",
+      "es-MX": "Coustillier de élite",
+      "zh-CN": "精锐马上轻装兵"
+    },
+    "1658": {
+      "en": "Serjeant",
+      "es-ES": "Serjeant",
+      "es-MX": "Serjeant",
+      "zh-CN": "萨金特卫兵"
+    },
+    "1659": {
+      "en": "Elite Serjeant",
+      "es-ES": "Serjeant de élite",
+      "es-MX": "Serjeant de élite",
+      "zh-CN": "精锐萨金特卫兵"
+    },
+    "1660": {
+      "en": "Serjeant",
+      "es-ES": "Serjeant",
+      "es-MX": "Serjeant",
+      "zh-CN": "萨金特卫兵"
+    },
+    "1661": {
+      "en": "Elite Serjeant",
+      "es-ES": "Serjeant de élite",
+      "es-MX": "Serjeant de élite",
+      "zh-CN": "精锐萨金特卫兵"
+    },
+    "1699": {
+      "en": "Flemish Militia",
+      "es-ES": "Milicia flamenca",
+      "es-MX": "Milicia flamenca",
+      "zh-CN": "弗拉芒民兵"
+    },
+    "1701": {
+      "en": "Obuch",
+      "es-ES": "Martillo de guerra",
+      "es-MX": "Obuch",
+      "zh-CN": "奥布奇战锤兵"
+    },
+    "1703": {
+      "en": "Elite Obuch",
+      "es-ES": "Martillo de guerra de élite",
+      "es-MX": "Obuch de élite",
+      "zh-CN": "精锐奥布奇战锤兵"
+    },
+    "1704": {
+      "en": "Hussite Wagon",
+      "es-ES": "Carro de guerra husita",
+      "es-MX": "Vagón husita",
+      "zh-CN": "胡斯派战车"
+    },
+    "1706": {
+      "en": "Elite Hussite Wagon",
+      "es-ES": "Carro de guerra husita de élite",
+      "es-MX": "Vagón husita de élite",
+      "zh-CN": "精锐胡斯派战车"
+    },
+    "1707": {
+      "en": "Winged Hussar",
+      "es-ES": "Húsar alado",
+      "es-MX": "Húsar alado",
+      "zh-CN": "波兰翼骑兵"
+    },
+    "1709": {
+      "en": "Houfnice",
+      "es-ES": "Obús",
+      "es-MX": "Houfnice",
+      "zh-CN": "榴弹炮"
+    },
+    "1735": {
+      "en": "Urumi Swordsman",
+      "es-ES": "Espadachín urumi",
+      "es-MX": "Guerrero urumi",
+      "zh-CN": "乌鲁米剑士"
+    },
+    "1737": {
+      "en": "Elite Urumi Swordsman",
+      "es-ES": "Espadachín urumi de élite",
+      "es-MX": "Guerrero urumi de élite",
+      "zh-CN": "精锐乌鲁米剑士"
+    },
+    "1738": {
+      "en": "Ratha (Melee)",
+      "es-ES": "Ratha (cuerpo a cuerpo)",
+      "es-MX": "Ratha (cuerpo a cuerpo)",
+      "zh-CN": "战车 (近战)"
+    },
+    "1740": {
+      "en": "Elite Ratha (Melee)",
+      "es-ES": "Ratha de élite (cuerpo a cuerpo)",
+      "es-MX": "Ratha de élite (cuerpo a cuerpo)",
+      "zh-CN": "精锐战车 (近战)"
+    },
+    "1741": {
+      "en": "Chakram Thrower",
+      "es-ES": "Lanzador de chakrams",
+      "es-MX": "Lanzador de chakram",
+      "zh-CN": "飞轮刃投掷手"
+    },
+    "1743": {
+      "en": "Elite Chakram Thrower",
+      "es-ES": "Lanzador de chakrams de élite",
+      "es-MX": "Lanzador de chakram de élite",
+      "zh-CN": "精锐飞轮刃投掷手"
+    },
+    "1744": {
+      "en": "Armored Elephant",
+      "es-ES": "Elefante acorazado",
+      "es-MX": "Elefante acorazado",
+      "zh-CN": "披甲战象"
+    },
+    "1746": {
+      "en": "Siege Elephant",
+      "es-ES": "Elefante de asedio",
+      "es-MX": "Elefante de asedio",
+      "zh-CN": "攻城战象"
+    },
+    "1747": {
+      "en": "Ghulam",
+      "es-ES": "Ghulam",
+      "es-MX": "Ghulam",
+      "zh-CN": "古拉姆"
+    },
+    "1749": {
+      "en": "Elite Ghulam",
+      "es-ES": "Ghulam de élite",
+      "es-MX": "Ghulam de élite",
+      "zh-CN": "精锐古拉姆"
+    },
+    "1750": {
+      "en": "Thirisadai",
+      "es-ES": "Thirisadai",
+      "es-MX": "Thirisadai",
+      "zh-CN": "楼船"
+    },
+    "1751": {
+      "en": "Shrivamsha Rider",
+      "es-ES": "Jinete shrivamsha",
+      "es-MX": "Jinete de shrivamsha",
+      "zh-CN": "施里瓦姆沙骑手"
+    },
+    "1753": {
+      "en": "Elite Shrivamsha Rider",
+      "es-ES": "Jinete shrivamsha de élite",
+      "es-MX": "Jinete de shrivamsha de élite",
+      "zh-CN": "精锐施里瓦姆沙骑手"
+    },
+    "1755": {
+      "en": "Camel Scout",
+      "es-ES": "Explorador a camello",
+      "es-MX": "Explorador a camello",
+      "zh-CN": "骆驼斥候"
+    },
+    "1759": {
+      "en": "Ratha (Ranged)",
+      "es-ES": "Ratha (a distancia)",
+      "es-MX": "Ratha (a distancia)",
+      "zh-CN": "战车 (远程)"
+    },
+    "1761": {
+      "en": "Elite Ratha (Ranged)",
+      "es-ES": "Ratha de élite (a distancia)",
+      "es-MX": "Ratha de élite (a distancia)",
+      "zh-CN": "精锐战车 (远程)"
+    },
+    "1786": {
+      "en": "Spearman",
+      "es-ES": "Lancero",
+      "es-MX": "Lancero",
+      "zh-CN": "长矛兵"
+    },
+    "1787": {
+      "en": "Pikeman",
+      "es-ES": "Piquero",
+      "es-MX": "Piquero",
+      "zh-CN": "长枪兵"
+    },
+    "1788": {
+      "en": "Halberdier",
+      "es-ES": "Alabardero",
+      "es-MX": "Alabardero",
+      "zh-CN": "长戟兵"
+    },
+    "1790": {
+      "en": "Centurion",
+      "es-ES": "Centurión",
+      "es-MX": "Centurión",
+      "zh-CN": "百夫长"
+    },
+    "1792": {
+      "en": "Elite Centurion",
+      "es-ES": "Centurión de élite",
+      "es-MX": "Centurión de élite",
+      "zh-CN": "精英百夫长"
+    },
+    "1793": {
+      "en": "Legionary",
+      "es-ES": "Legionario",
+      "es-MX": "Legionario",
+      "zh-CN": "罗马军"
+    },
+    "1795": {
+      "en": "Dromon",
+      "es-ES": "Dromón",
+      "es-MX": "Dromon",
+      "zh-CN": "德罗蒙战舰"
+    },
+    "1800": {
+      "en": "Composite Bowman",
+      "es-ES": "Arquero con arco compuesto",
+      "es-MX": "Arquero Arco Compuesto",
+      "zh-CN": "复合弓箭手"
+    },
+    "1802": {
+      "en": "Elite Composite Bowman",
+      "es-ES": "Arquero con arco compuesto de élite",
+      "es-MX": "Arquero con arco compuesto de élite",
+      "zh-CN": "精锐复合弓箭手"
+    },
+    "1803": {
+      "en": "Monaspa",
+      "es-ES": "Monaspa",
+      "es-MX": "Monaspa",
+      "zh-CN": "莫纳斯帕"
+    },
+    "1805": {
+      "en": "Elite Monaspa",
+      "es-ES": "Monaspa de élite",
+      "es-MX": "Monaspa de élite",
+      "zh-CN": "精锐莫纳斯帕"
+    },
+    "1811": {
+      "en": "Warrior Priest",
+      "es-ES": "Sacerdote guerrero",
+      "es-MX": "Sacerdote guerrero",
+      "zh-CN": "牧师战士"
+    },
+    "1813": {
+      "en": "Savar",
+      "es-ES": "Savar",
+      "es-MX": "Savar",
+      "zh-CN": "萨瓦尔"
+    },
+    "1901": {
+      "en": "Fire Lancer",
+      "es-ES": "Lancero incendiario",
+      "es-MX": "Lancero incendiario",
+      "zh-CN": "火矛兵"
+    },
+    "1903": {
+      "en": "Elite Fire Lancer",
+      "es-ES": "Lancero incendiario de élite",
+      "es-MX": "Lancero incendiario de élite",
+      "zh-CN": "精锐火长矛骑兵"
+    },
+    "1904": {
+      "en": "Rocket Cart",
+      "es-ES": "Carro de cohetes",
+      "es-MX": "Carreta de cohetes",
+      "zh-CN": "火箭推车"
+    },
+    "1907": {
+      "en": "Heavy Rocket Cart",
+      "es-ES": "Carro de cohetes pesado",
+      "es-MX": "Carreta de cohetes pesada",
+      "zh-CN": "重型火箭推车"
+    },
+    "1908": {
+      "en": "Iron Pagoda",
+      "es-ES": "Pagoda de hierro",
+      "es-MX": "Pagoda de hierro",
+      "zh-CN": "铁浮屠"
+    },
+    "1910": {
+      "en": "Elite Iron Pagoda",
+      "es-ES": "Pagoda de hierro de élite",
+      "es-MX": "Pagoda de hierro de élite",
+      "zh-CN": "精锐铁浮屠"
+    },
+    "1911": {
+      "en": "Grenadier",
+      "es-ES": "Granadero",
+      "es-MX": "Granadero",
+      "zh-CN": "掷弹兵"
+    },
+    "1920": {
+      "en": "Liao Dao",
+      "es-ES": "Liao Dao",
+      "es-MX": "Liao Dao",
+      "zh-CN": "辽刀兵"
+    },
+    "1922": {
+      "en": "Elite Liao Dao",
+      "es-ES": "Liao Dao de élite",
+      "es-MX": "Liao Dao de élite",
+      "zh-CN": "精锐辽刀兵"
+    },
+    "1923": {
+      "en": "Mounted Trebuchet",
+      "es-ES": "Trebuchet montado",
+      "es-MX": "Trebuchet montado",
+      "zh-CN": "骆驼投石机"
+    },
+    "1942": {
+      "en": "Traction Trebuchet",
+      "es-ES": "Trebuchet de tracción",
+      "es-MX": "Trebuchet de tracción",
+      "zh-CN": "牵引抛石机"
+    },
+    "1944": {
+      "en": "Hei Guang Cavalry",
+      "es-ES": "Caballería de Hei Guang",
+      "es-MX": "Caballería Hei Guang",
+      "zh-CN": "黑光铠骑兵"
+    },
+    "1946": {
+      "en": "Heavy Hei Guang Cavalry",
+      "es-ES": "Caballería pesada de Hei Guang",
+      "es-MX": "Caballería Hei Guang pesada",
+      "zh-CN": "重装黑光铠骑兵"
+    },
+    "1948": {
+      "en": "Lou Chuan",
+      "es-ES": "Lou Chuan",
+      "es-MX": "Lou Chuan",
+      "zh-CN": "楼船"
+    },
+    "1949": {
+      "en": "Tiger Cavalry",
+      "es-ES": "Caballería tigresa",
+      "es-MX": "Caballería tigre",
+      "zh-CN": "虎豹骑"
+    },
+    "1951": {
+      "en": "Elite Tiger Cavalry",
+      "es-ES": "Caballería tigresa de élite",
+      "es-MX": "Caballería tigre de élite",
+      "zh-CN": "精锐虎豹骑"
+    },
+    "1952": {
+      "en": "Xianbei Raider",
+      "es-ES": "Saqueador xianbei",
+      "es-MX": "Asaltante Xianbei",
+      "zh-CN": "鲜卑掠骑兵"
+    },
+    "1954": {
+      "en": "Cao Cao",
+      "es-ES": "Cao Cao",
+      "es-MX": "Cao Cao",
+      "zh-CN": "曹操"
+    },
+    "1959": {
+      "en": "White Feather Guard",
+      "es-ES": "Guardia de la pluma blanca",
+      "es-MX": "Guardia de la pluma blanca",
+      "zh-CN": "白毦卫"
+    },
+    "1961": {
+      "en": "Elite White Feather Guard",
+      "es-ES": "Guardia de la pluma blanca de élite",
+      "es-MX": "Guardia de la pluma blanca de élite",
+      "zh-CN": "精锐白毦卫"
+    },
+    "1962": {
+      "en": "War Chariot (Focus Fire)",
+      "es-ES": "Carro de guerra (disparo concentrado)",
+      "es-MX": "Carro de guerra (disparo concentrado)",
+      "zh-CN": "战车 (集中射击)"
+    },
+    "1966": {
+      "en": "Liu Bei",
+      "es-ES": "Liu Bei",
+      "es-MX": "Liu Bei",
+      "zh-CN": "刘备"
+    },
+    "1968": {
+      "en": "Fire Archer",
+      "es-ES": "Arquero de fuego",
+      "es-MX": "Arquero de fuego",
+      "zh-CN": "火焰弓箭手"
+    },
+    "1970": {
+      "en": "Elite Fire Archer",
+      "es-ES": "Arquero de fuego de élite",
+      "es-MX": "Arquero de fuego de élite",
+      "zh-CN": "精锐火焰弓箭手"
+    },
+    "1974": {
+      "en": "Jian Swordsman",
+      "es-ES": "Espadachín de Jian",
+      "es-MX": "Espadachín Jian",
+      "zh-CN": "剑士"
+    },
+    "1978": {
+      "en": "Sun Jian",
+      "es-ES": "Sun Jian",
+      "es-MX": "Sun Jian",
+      "zh-CN": "孙坚"
+    },
+    "1980": {
+      "en": "War Chariot (Barrage)",
+      "es-ES": "Carro de guerra (barrera)",
+      "es-MX": "Carro de guerra (bombardeo)",
+      "zh-CN": "战车 (掩护)"
+    },
+    "2550": {
+      "en": "Champi Scout",
+      "es-ES": "Explorador champi",
+      "es-MX": "Explorador champi",
+      "zh-CN": "蔷琵侦察兵"
+    },
+    "2552": {
+      "en": "Champi Warrior",
+      "es-ES": "Guerrero champi",
+      "es-MX": "Guerrero champi",
+      "zh-CN": "蔷琵战士"
+    },
+    "2554": {
+      "en": "Elite Champi Warrior",
+      "es-ES": "Guerrero champi de élite",
+      "es-MX": "Guerrero champi de élite",
+      "zh-CN": "精锐蔷琵战士"
+    },
+    "2562": {
+      "en": "Guecha Warrior",
+      "es-ES": "Guerrero guecha",
+      "es-MX": "Guerrero guecha",
+      "zh-CN": "格查战士"
+    },
+    "2564": {
+      "en": "Elite Guecha Warrior",
+      "es-ES": "Guerrero guecha de élite",
+      "es-MX": "Guerrero guecha de élite",
+      "zh-CN": "精锐格查战士"
+    },
+    "2566": {
+      "en": "Kona",
+      "es-ES": "Kona",
+      "es-MX": "Kona",
+      "zh-CN": "科那"
+    },
+    "2568": {
+      "en": "Elite Kona",
+      "es-ES": "Kona de élite",
+      "es-MX": "Kona de élite",
+      "zh-CN": "精锐科那"
+    },
+    "2569": {
+      "en": "Bolas Rider",
+      "es-ES": "Jinete con boleadoras",
+      "es-MX": "Jinete con boleadoras",
+      "zh-CN": "掷石绳骑兵"
+    },
+    "2571": {
+      "en": "Elite Bolas Rider",
+      "es-ES": "Jinete con boleadoras de élite",
+      "es-MX": "Jinete bol. élite",
+      "zh-CN": "精锐掷石绳骑兵"
+    },
+    "2579": {
+      "en": "Blackwood Archer",
+      "es-ES": "Arquero de los bosques",
+      "es-MX": "Arquero ombú tupí",
+      "zh-CN": "黑檀木步弓手"
+    },
+    "2581": {
+      "en": "Elite Blackwood Archer",
+      "es-ES": "Arquero bosques élite",
+      "es-MX": "Arq. ombú tupí de élite",
+      "zh-CN": "精锐黑檀木步弓手"
+    },
+    "2582": {
+      "en": "Ibirapema Warrior",
+      "es-ES": "Guerrero ibirapema",
+      "es-MX": "Guerrero ibirapema",
+      "zh-CN": "伊比拉贝玛战士"
+    },
+    "2584": {
+      "en": "Elite Ibirapema Warrior",
+      "es-ES": "Guerrero ibirapema de élite",
+      "es-MX": "Guerrero ibirapema de élite",
+      "zh-CN": "精锐伊比拉贝玛战士"
+    },
+    "2586": {
+      "en": "Temple Guard",
+      "es-ES": "Guardia del templo",
+      "es-MX": "Guardia del templo",
+      "zh-CN": "神庙护卫"
+    },
+    "2587": {
+      "en": "Elite Temple Guard",
+      "es-ES": "Guardia templo élite",
+      "es-MX": "G. del templo de élite",
+      "zh-CN": "精锐神庙护卫"
+    },
+    "2588": {
+      "en": "Champi Runner",
+      "es-ES": "Corredor champi",
+      "es-MX": "Corredor champi",
+      "zh-CN": "蔷琵步兵"
+    },
+    "2626": {
+      "en": "Hulk",
+      "es-ES": "Urca",
+      "es-MX": "Barco viejo",
+      "zh-CN": "趸船"
+    },
+    "2627": {
+      "en": "War Hulk",
+      "es-ES": "Urca de guerra",
+      "es-MX": "Buque de guerra",
+      "zh-CN": "战争巨舰"
+    },
+    "2628": {
+      "en": "Carrack",
+      "es-ES": "Carracas",
+      "es-MX": "Carracas",
+      "zh-CN": "大帆船"
+    },
+    "2633": {
+      "en": "Catapult Galleon",
+      "es-ES": "Galeón con catapulta",
+      "es-MX": "Galeón con catapulta",
+      "zh-CN": "大型投石战舰"
+    },
+    "2700": {
+      "en": "Mounted Crossbowman",
+      "es-ES": "Ballestero montado",
+      "es-MX": "Ballestero montado",
+      "zh-CN": "骑马弩兵"
+    },
+    "2701": {
+      "en": "Heavy Mounted Crossbowman",
+      "es-ES": "Ballestero montado pesado",
+      "es-MX": "Ballestero montado pesado",
+      "zh-CN": "重装骑马弩兵"
+    },
+    "2703": {
+      "en": "Varangian Guard",
+      "es-ES": "Guardia varego",
+      "es-MX": "Guardia varega",
+      "zh-CN": "瓦兰吉卫队"
+    },
+    "2704": {
+      "en": "Elite Varangian Guard",
+      "es-ES": "Guardia varego de élite",
+      "es-MX": "Guardia Varega de élite",
+      "zh-CN": "精锐瓦兰吉卫队"
+    },
+    "2705": {
+      "en": "Hearth Troop",
+      "es-ES": "Tropas del hogar",
+      "es-MX": "Guardia doméstica",
+      "zh-CN": "扈从部队"
+    },
+    "2706": {
+      "en": "Elite Hearth Troop",
+      "es-ES": "T. del hogar de élite",
+      "es-MX": "G. doméstica de élite",
+      "zh-CN": "精锐扈从部队"
+    },
+    "2708": {
+      "en": "Jarl",
+      "es-ES": "Jarl",
+      "es-MX": "Jarl",
+      "zh-CN": "首领"
+    },
+    "2709": {
+      "en": "Elite Jarl",
+      "es-ES": "Jarl de élite",
+      "es-MX": "Jarl de élite",
+      "zh-CN": "精锐首领"
+    },
+    "2711": {
+      "en": "Jomsviking",
+      "es-ES": "Vikingo de Jomsborg",
+      "es-MX": "Jomsvikingo",
+      "zh-CN": "约姆斯维京"
+    },
+    "2712": {
+      "en": "Elite Jomsviking",
+      "es-ES": "Vikingo de Jomsborg de élite",
+      "es-MX": "Jomsvikingo de élite",
+      "zh-CN": "精锐约姆斯维京"
+    }
+  },
+  "buildings": {
+    "12": {
+      "en": "Barracks",
+      "es-ES": "Cuarteles",
+      "es-MX": "Cuarteles",
+      "zh-CN": "兵营"
+    },
+    "45": {
+      "en": "Dock",
+      "es-ES": "Muelle",
+      "es-MX": "Muelle",
+      "zh-CN": "船坞"
+    },
+    "49": {
+      "en": "Siege Workshop",
+      "es-ES": "Taller maq. de asedio",
+      "es-MX": "Taller maq. de asedio",
+      "zh-CN": "攻城武器厂"
+    },
+    "50": {
+      "en": "Farm",
+      "es-ES": "Granja",
+      "es-MX": "Granja",
+      "zh-CN": "农田"
+    },
+    "68": {
+      "en": "Mill",
+      "es-ES": "Molino",
+      "es-MX": "Molino",
+      "zh-CN": "磨坊"
+    },
+    "70": {
+      "en": "House",
+      "es-ES": "Casa",
+      "es-MX": "Casa",
+      "zh-CN": "房屋"
+    },
+    "71": {
+      "en": "Town Center",
+      "es-ES": "Centro urbano",
+      "es-MX": "Centro urbano",
+      "zh-CN": "城镇中心"
+    },
+    "72": {
+      "en": "Palisade Wall",
+      "es-ES": "Empalizada",
+      "es-MX": "Empalizada",
+      "zh-CN": "木栅栏"
+    },
+    "79": {
+      "en": "Watch Tower",
+      "es-ES": "Atalaya",
+      "es-MX": "Atalaya",
+      "zh-CN": "瞭望箭塔"
+    },
+    "82": {
+      "en": "Castle",
+      "es-ES": "Castillo",
+      "es-MX": "Castillo",
+      "zh-CN": "城堡"
+    },
+    "84": {
+      "en": "Market",
+      "es-ES": "Mercado",
+      "es-MX": "Mercado",
+      "zh-CN": "市场"
+    },
+    "87": {
+      "en": "Archery Range",
+      "es-ES": "Galería tiro con arco",
+      "es-MX": "Galería tiro con arco",
+      "zh-CN": "靶场"
+    },
+    "101": {
+      "en": "Stable",
+      "es-ES": "Establo",
+      "es-MX": "Establo",
+      "zh-CN": "马厩"
+    },
+    "103": {
+      "en": "Blacksmith",
+      "es-ES": "Herrería",
+      "es-MX": "Herrería",
+      "zh-CN": "铁匠铺"
+    },
+    "104": {
+      "en": "Monastery",
+      "es-ES": "Monasterio",
+      "es-MX": "Monasterio",
+      "zh-CN": "修道院"
+    },
+    "109": {
+      "en": "Town Center",
+      "es-ES": "Centro urbano",
+      "es-MX": "Centro urbano",
+      "zh-CN": "城镇中心"
+    },
+    "117": {
+      "en": "Stone Wall",
+      "es-ES": "Muro de piedra",
+      "es-MX": "Muro de piedra",
+      "zh-CN": "石墙"
+    },
+    "155": {
+      "en": "Fortified Wall",
+      "es-ES": "Muralla fortificada",
+      "es-MX": "Muralla fortificada",
+      "zh-CN": "垛墙"
+    },
+    "199": {
+      "en": "Fish Trap",
+      "es-ES": "Trampa para peces",
+      "es-MX": "Trampa para peces",
+      "zh-CN": "养鱼场"
+    },
+    "209": {
+      "en": "University",
+      "es-ES": "Universidad",
+      "es-MX": "Universidad",
+      "zh-CN": "大学"
+    },
+    "234": {
+      "en": "Guard Tower",
+      "es-ES": "Torre de guardia",
+      "es-MX": "Torre de guardia",
+      "zh-CN": "警戒箭塔"
+    },
+    "235": {
+      "en": "Keep",
+      "es-ES": "Fortaleza",
+      "es-MX": "Torre del homenaje",
+      "zh-CN": "城堡"
+    },
+    "236": {
+      "en": "Bombard Tower",
+      "es-ES": "Torre de bombardeo",
+      "es-MX": "Torre de bombardeo",
+      "zh-CN": "炮塔"
+    },
+    "276": {
+      "en": "Wonder",
+      "es-ES": "Maravilla",
+      "es-MX": "Maravilla",
+      "zh-CN": "世界奇观"
+    },
+    "487": {
+      "en": "Gate",
+      "es-ES": "Puerta",
+      "es-MX": "Puerta",
+      "zh-CN": "城门"
+    },
+    "562": {
+      "en": "Lumber Camp",
+      "es-ES": "Campamento maderero",
+      "es-MX": "Campamento maderero",
+      "zh-CN": "伐木场"
+    },
+    "584": {
+      "en": "Mining Camp",
+      "es-ES": "Campamento minero",
+      "es-MX": "Campamento minero",
+      "zh-CN": "采矿场"
+    },
+    "598": {
+      "en": "Outpost",
+      "es-ES": "Puesto de avanzada",
+      "es-MX": "Puesto de avanzada",
+      "zh-CN": "哨站"
+    },
+    "621": {
+      "en": "Town Center",
+      "es-ES": "Centro urbano",
+      "es-MX": "Centro urbano",
+      "zh-CN": "城镇中心"
+    },
+    "792": {
+      "en": "Palisade Gate",
+      "es-ES": "Portón de madera",
+      "es-MX": "Portón de madera",
+      "zh-CN": "木城门"
+    },
+    "1021": {
+      "en": "Feitoria",
+      "es-ES": "Factoría",
+      "es-MX": "Factoría",
+      "zh-CN": "大商站"
+    },
+    "1189": {
+      "en": "Harbor",
+      "es-ES": "Puerto",
+      "es-MX": "Puerto",
+      "zh-CN": "巨港"
+    },
+    "1251": {
+      "en": "Krepost",
+      "es-ES": "Krepost",
+      "es-MX": "Krepost",
+      "zh-CN": "营垒"
+    },
+    "1665": {
+      "en": "Donjon",
+      "es-ES": "Torre del homenaje",
+      "es-MX": "Donjon",
+      "zh-CN": "城楼"
+    },
+    "1734": {
+      "en": "Folwark",
+      "es-ES": "Folwark",
+      "es-MX": "Folwark",
+      "zh-CN": "大庄园"
+    },
+    "1754": {
+      "en": "Caravanserai",
+      "es-ES": "Caravasar",
+      "es-MX": "Caravasar",
+      "zh-CN": "商队旅馆"
+    },
+    "1806": {
+      "en": "Fortified Church",
+      "es-ES": "Iglesia fortificada",
+      "es-MX": "Iglesia fortificada",
+      "zh-CN": "强化教堂"
+    },
+    "1808": {
+      "en": "Mule Cart",
+      "es-ES": "Carro de mulas",
+      "es-MX": "Carreta de mulas",
+      "zh-CN": "骡车"
+    },
+    "1889": {
+      "en": "Pasture",
+      "es-ES": "Pastura",
+      "es-MX": "Pastura",
+      "zh-CN": "牧场"
+    },
+    "2556": {
+      "en": "Settlement",
+      "es-ES": "Asentamiento",
+      "es-MX": "Asentamiento",
+      "zh-CN": "聚落"
+    }
+  }
+}

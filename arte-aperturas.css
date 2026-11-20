@@ -31,12 +31,12 @@
 .opening-art::before {
   content: "";
   position: absolute;
-  inset: 0 0 0 43%;
+  inset: 0 0 0 46%;
   z-index: -1;
   border-radius: inherit;
   background: var(--opening-art) right 40% / cover no-repeat;
-  mask-image: linear-gradient(90deg, transparent 13%, #000 81%);
-  opacity: .72;
+  mask-image: linear-gradient(90deg, transparent 18%, #000 84%);
+  opacity: .68;
   pointer-events: none;
 }
 .opening-art .pm-grade-stamp {

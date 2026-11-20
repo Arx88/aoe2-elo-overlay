@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="settings.css" />
     <link rel="stylesheet" href="arte-launcher.css" />
     <link rel="stylesheet" href="arte-aperturas.css" />
+    <link rel="stylesheet" href="wizard.css" />
   </head>
   <body>
     <header class="winbar">
@@ -44,29 +45,50 @@
         <nav class="rail-nav" aria-label="Secciones">
           <button class="nav-item active" aria-current="page" data-page="player" type="button">
             <img class="product-icon" src="assets/icons/account.png" alt="" draggable="false">
-            <span>Cuenta</span>
+            <span data-i18n="nav.player">Cuenta</span>
           </button>
           <button class="nav-item" data-page="overlay" type="button">
             <img class="product-icon" src="assets/icons/eye.png" alt="">
-            <span>Prematch</span>
+            <span data-i18n="nav.overlay">Prematch</span>
           </button>
-          <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span>Durante</span></button>
-          <button class="nav-item" data-page="postmatch" type="button"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span>Postmatch</span></button>
+          <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Durante</span></button>
+          <button class="nav-item" data-page="postmatch" type="button"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span data-i18n="nav.postmatch">Postmatch</span></button>
           <button class="nav-item" data-page="skins" type="button">
             <img class="product-icon" src="assets/icons/palette.png" alt="" draggable="false">
-            <span>Apariencia</span>
+            <span data-i18n="nav.skins">Apariencia</span>
           </button>
-          <button class="nav-item" data-page="plans" type="button"><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"><span>Plan y acceso</span></button>
+          <button class="nav-item" data-page="plans" type="button"><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"><span data-i18n="nav.plans">Plan y acceso</span></button>
           <button class="nav-item" data-page="updater" type="button">
             <img class="product-icon" src="assets/icons/update.png" alt="" draggable="false">
-            <span>Actualizaciones</span>
+            <span data-i18n="nav.updater">Actualizaciones</span>
           </button>
         </nav>
 
         <div class="launcher-rail-art" aria-hidden="true"></div>
         <div class="rail-foot">
           <button id="railPlan" class="rail-plan" data-goto="plans" type="button"><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"><span id="railPlanLabel">Cargando acceso</span></button>
-          <div class="rail-build"><span id="version" class="rail-version"></span><span>By acido</span></div>
+          <div class="rail-build">
+            <span class="rail-build-meta"><span id="version" class="rail-version"></span><span>By acido</span></span>
+            <button id="appPrefsBtn" class="rail-gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Ajustes de la app e idioma" title="Idioma y ajustes de cuenta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.2"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+          </div>
+          <div id="appPrefsPopover" class="prefs-popover" hidden role="dialog" aria-label="Ajustes de la app e idioma">
+            <div class="prefs-pop-section">
+              <span class="prefs-pop-k" data-i18n="account.langTitle">Idioma</span>
+              <div id="accountLangGrid" class="prefs-lang-list" role="radiogroup" aria-label="Idioma"></div>
+            </div>
+            <div class="prefs-pop-divider"></div>
+            <div class="prefs-pop-actions">
+              <button id="prefsSoundBtn" class="prefs-pop-link" type="button">Sonidos de interfaz · Activos</button>
+              <button id="prefsPlanBtn" class="prefs-pop-link" type="button" data-i18n="nav.plans">Plan y acceso</button>
+              <button id="prefsVerifyBtn" class="prefs-pop-link" type="button" data-i18n="plans.refreshBtn">Verificar acceso</button>
+              <button id="reopenWizardBtn" class="prefs-pop-link" type="button" data-i18n="account.reopenWizard">Abrir asistente inicial</button>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -81,7 +103,7 @@
         <div class="pages">
           <!-- ============ PLAYER DETECTION ============ -->
           <section class="page active" data-page="player">
-            <div class="group-head"><span>Cuenta activa</span><i></i></div>
+            <div class="group-head"><span data-i18n="account.activeGroup">Cuenta activa</span><i></i></div>
             <div class="account-profile" id="accountProfile">
               <div class="account-hero">
                 <div class="avatar" id="accountAvatar" aria-hidden="true"></div>
@@ -95,32 +117,32 @@
               </div>
               <div class="account-footer">
                 <p class="mini account-hint" id="accountHint">El overlay usa tu perfil para reconocerte en la partida y mostrar tu ELO de RM 1v1.</p>
-                <button id="autoBtn" class="btn account-detect" type="button">Detectar cuenta</button>
+                <button id="autoBtn" class="btn account-detect" type="button" data-i18n="account.detect">Detectar cuenta</button>
               </div>
             </div>
 
-            <div class="group-head"><span>Cambiar de cuenta</span><i></i></div>
+            <div class="group-head"><span data-i18n="account.changeGroup">Cambiar de cuenta</span><i></i></div>
             <div class="block">
               <div class="search-box">
                 <img class="product-icon" src="assets/icons/search.png" alt="" draggable="false">
-                <label class="sr-only" for="search">Nombre en el juego o profile ID</label><input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" autocomplete="off" spellcheck="false" />
+                <label class="sr-only" for="search">Nombre en el juego o profile ID</label><input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" data-i18n-placeholder="account.searchPlaceholder" autocomplete="off" spellcheck="false" />
                 <span id="searchState" class="search-state"></span>
               </div>
               <div id="results" class="results" role="listbox" aria-label="Resultados"></div>
               <div class="search-hint">
-                <span id="searchHelp">Buscá por nombre o pegá tu profile ID.</span>
-                <button id="manualBtn" class="link-btn" type="button" hidden>Usar ese ID</button>
+                <span id="searchHelp" data-i18n="account.searchHelp">Buscá por nombre o pegá tu profile ID.</span>
+                <button id="manualBtn" class="link-btn" type="button" hidden data-i18n="account.useManual">Usar ese ID</button>
               </div>
             </div>
 
             <details class="diag-details">
-              <summary>Estado y diagnóstico</summary>
+              <summary data-i18n="account.diagSummary">Estado y diagnóstico</summary>
               <dl class="diag">
-                <div><dt>Cuenta</dt><dd id="diagProfile">—</dd></div>
-                <div><dt>Última consulta</dt><dd id="diagPoll">—</dd></div>
-                <div><dt>Partida</dt><dd id="diagMatch">—</dd></div>
+                <div><dt data-i18n="account.diagAccount">Cuenta</dt><dd id="diagProfile">—</dd></div>
+                <div><dt data-i18n="account.diagPoll">Última consulta</dt><dd id="diagPoll">—</dd></div>
+                <div><dt data-i18n="account.diagMatch">Partida</dt><dd id="diagMatch">—</dd></div>
               </dl>
-              <button id="logBtn" class="btn" type="button">Abrir carpeta del log</button>
+              <button id="logBtn" class="btn" type="button" data-i18n="account.openLog">Abrir carpeta del log</button>
             </details>
           </section>
 
@@ -251,11 +273,12 @@
 
           <section class="page" data-page="tactics">
             <div class="section-banner"><img class="product-icon" src="assets/icons/combat.png" alt="" draggable="false"><div><h2>Referencias por civilización</h2><p>Consultá las rutas de ambas civilizaciones y el historial del mapa cuando esté disponible.</p></div></div>
-            <p class="mini">Las rutas de Feudal, Castillos e Imperial se consultan acá. Representan opciones, no el estado actual de tu partida.</p>
+            <p class="section-intro">Las rutas de Feudal, Castillos e Imperial se consultan acá. Representan opciones, no el estado actual de tu partida.</p>
+            <div class="group-head"><span>Guía de apertura</span><i></i></div>
             <div class="block"><label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname">Smart Build Order</span><span class="rdesc">Guía por civ y mapa · en Ajustes o durante la partida · ProMax</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label></div>
-            <div id="buildOrderReport" aria-live="polite"></div>
+            <div id="buildOrderReport" class="tactics-report-slot" aria-live="polite"></div>
             <div class="group-head"><span>Oportunidades frente al rival</span><i></i></div>
-            <div id="tacticalReport" aria-live="polite"></div>
+            <div id="tacticalReport" class="tactics-report-slot" aria-live="polite"></div>
           </section>
 
           <!-- ============ POSTMATCH ============ -->
@@ -390,6 +413,79 @@
       </div>
     </div>
 
+    <!-- ============ FIRST-LAUNCH WIZARD ============ -->
+    <div id="setupWizard" class="wizard-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="wizTitle">
+      <div class="wizard-card">
+        <div class="wizard-top">
+          <div class="wizard-brand">
+            <img src="assets/brand/double-h-v1.png" alt="" draggable="false" />
+            <div>
+              <span class="wizard-eyebrow" id="wizEyebrow" data-i18n="wizard.eyebrow">PRIMER INICIO · CONFIGURACIÓN</span>
+              <strong>AoE2 Helper</strong>
+            </div>
+          </div>
+          <div class="wizard-steps" aria-hidden="true">
+            <span class="wiz-dot active" data-wiz-dot="1"><b>01</b><span data-i18n="wizard.step1">Idioma</span></span>
+            <span class="wiz-dot" data-wiz-dot="2"><b>02</b><span data-i18n="wizard.step2">Cuenta</span></span>
+            <span class="wiz-dot" data-wiz-dot="3"><b>03</b><span data-i18n="wizard.step3">Listo</span></span>
+          </div>
+        </div>
+
+        <div class="wizard-head">
+          <h2 id="wizTitle" data-i18n="wizard.title">Bienvenido a AoE2 Helper</h2>
+          <p id="wizSubtitle" data-i18n="wizard.subtitle">Elige tu idioma y conecta tu cuenta de Age of Empires II en menos de un minuto.</p>
+        </div>
+
+        <!-- Step 1: Language -->
+        <div class="wiz-pane active" data-wiz-pane="1">
+          <div id="wizLangGrid" class="wiz-lang-grid" role="radiogroup" aria-label="Idioma"></div>
+        </div>
+
+        <!-- Step 2: Account -->
+        <div class="wiz-pane" data-wiz-pane="2">
+          <div class="wiz-account-card">
+            <div class="wiz-account-info">
+              <div class="wiz-avatar" id="wizAvatar">?</div>
+              <div>
+                <strong id="wizAccountName">—</strong>
+                <span id="wizAccountMeta"></span>
+              </div>
+            </div>
+            <button id="wizDetectBtn" class="btn account-detect" type="button" data-i18n="wizard.detectBtn">Detectar automáticamente</button>
+          </div>
+          <div class="search-box">
+            <img class="product-icon" src="assets/icons/search.png" alt="" draggable="false">
+            <input id="wizSearch" class="field" type="text" placeholder="Nombre en el juego o profile ID" data-i18n-placeholder="wizard.searchPlaceholder" autocomplete="off" spellcheck="false" />
+          </div>
+          <div id="wizResults" class="results" role="listbox"></div>
+        </div>
+
+        <!-- Step 3: Ready -->
+        <div class="wiz-pane" data-wiz-pane="3">
+          <div class="wiz-summary">
+            <div class="wiz-sum-row">
+              <span data-i18n="wizard.summaryLang">Idioma</span>
+              <strong id="wizSumLang">—</strong>
+            </div>
+            <div class="wiz-sum-row">
+              <span data-i18n="wizard.summaryAccount">Cuenta conectada</span>
+              <strong id="wizSumAccount">—</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="wizard-foot">
+          <button id="wizBackBtn" class="btn" type="button" hidden data-i18n="wizard.back">Atrás</button>
+          <div class="wizard-foot-right">
+            <button id="wizSkipBtn" class="link-btn" type="button" hidden data-i18n="wizard.skip">Omitir por ahora</button>
+            <button id="wizNextBtn" class="btn gold" type="button" data-i18n="wizard.next">Continuar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="ui/i18n.js"></script>
+    <script src="ui/sfx.js"></script>
     <script src="ui/tactical-ui.js"></script>
     <script src="settings.js"></script>
   </body>

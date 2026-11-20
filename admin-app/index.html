@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AoE2 Helper · Consola Admin</title>
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <header class="winbar">
+      <div class="winbar-brand">
+        <span class="brand-crest">H</span>
+        <span class="winbar-title">AoE2 Helper <span class="muted">/ Consola Admin Privada</span></span>
+      </div>
+      <div class="winbar-controls">
+        <button id="winMin" class="winbtn" type="button" title="Minimizar">—</button>
+        <button id="winMax" class="winbtn" type="button" title="Maximizar">□</button>
+        <button id="winClose" class="winbtn close" type="button" title="Cerrar">×</button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="rail">
+        <div class="rail-head">
+          <div class="rail-badge">SOLO ADMINISTRADOR</div>
+          <h1>Control de licencias</h1>
+          <p>Activa o desactiva cuentas de pago en tiempo real con firma Ed25519.</p>
+        </div>
+
+        <nav class="rail-nav">
+          <button class="nav-item active" data-tab="accounts" type="button">Cuentas de pago</button>
+          <button class="nav-item" data-tab="audit" type="button">Registro de auditoría</button>
+          <button class="nav-item" data-tab="connection" type="button">Conexión y seguridad</button>
+        </nav>
+
+        <div class="rail-master">
+          <div class="master-row">
+            <div>
+              <strong>Control de pago global</strong>
+              <small id="paywallHint">Aplica a todos los usuarios</small>
+            </div>
+            <label class="sw-wrap">
+              <input id="paywallToggle" type="checkbox" checked />
+              <span class="sw"></span>
+            </label>
+          </div>
+          <div class="conn-pill" id="connPill">Modo desconectado</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <!-- TAB 1: ACCOUNTS -->
+        <section class="tab active" data-tab="accounts">
+          <header class="page-head">
+            <div>
+              <span class="eyebrow">01 / CUENTAS</span>
+              <h2>Cuentas y suscripciones</h2>
+            </div>
+            <div class="head-actions">
+              <button id="refreshBtn" class="btn ghost" type="button">Actualizar</button>
+              <button id="newAccountBtn" class="btn primary" type="button">+ Nueva cuenta</button>
+            </div>
+          </header>
+
+          <section class="kpis">
+            <article class="kpi"><span>Total cuentas</span><strong id="kpiTotal">0</strong></article>
+            <article class="kpi accent"><span>Pagas activas</span><strong id="kpiPaid">0</strong></article>
+            <article class="kpi"><span>ProMax</span><strong id="kpiPromax">0</strong></article>
+            <article class="kpi"><span>Desactivadas</span><strong id="kpiDisabled">0</strong></article>
+            <article class="kpi"><span>Activas 24h</span><strong id="kpiSeen">0</strong></article>
+          </section>
+
+          <div class="toolbar">
+            <div class="search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input id="searchInput" type="text" placeholder="Buscar por alias, Profile ID, email o nota…" />
+            </div>
+            <select id="filterPlan" class="field">
+              <option value="all">Todos los planes</option>
+              <option value="promax">Solo ProMax</option>
+              <option value="pro">Solo Pro</option>
+              <option value="free">Solo Free</option>
+              <option value="disabled">Solo desactivadas</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Jugador</th>
+                  <th>Plan</th>
+                  <th>Acceso</th>
+                  <th>Vencimiento</th>
+                  <th>PCs</th>
+                  <th>Actividad</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="accountsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB 2: AUDIT -->
+        <section class="tab" data-tab="audit">
+          <header class="page-head">
+            <div>
+              <span class="eyebrow">02 / AUDITORÍA</span>
+              <h2>Historial de cambios</h2>
+            </div>
+            <button id="refreshAuditBtn" class="btn ghost" type="button">Actualizar</button>
+          </header>
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead>
+                <tr><th>Fecha</th><th>Acción</th><th>Cuenta</th><th>Detalle</th></tr>
+              </thead>
+              <tbody id="auditBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB 3: CONNECTION -->
+        <section class="tab" data-tab="connection">
+          <header class="page-head">
+            <div>
+              <span class="eyebrow">03 / SEGURIDAD</span>
+              <h2>Conexión con Cloudflare Worker</h2>
+            </div>
+          </header>
+          <div class="card-form">
+            <p class="form-note">Tu <code>ADMIN_SECRET</code> se guarda cifrado localmente con Windows DPAPI (<code>safeStorage</code>) y nunca viaja en la app pública de los usuarios.</p>
+            <label class="f-label">URL del Worker de licencias (HTTPS)
+              <input id="apiUrlInput" class="field" type="url" value="https://aoe2-helper-licensing.aoe2helper-api.workers.dev" placeholder="https://aoe2-helper-licensing.aoe2helper-api.workers.dev" />
+            </label>
+            <label class="f-label">ADMIN_SECRET (Bearer token)
+              <input id="secretInput" class="field" type="password" placeholder="Dejar vacío para mantener el secreto guardado" />
+            </label>
+            <label class="check-row">
+              <input id="demoToggle" type="checkbox" />
+              <span>Activar modo demo local (sin servidor, para probar la interfaz)</span>
+            </label>
+            <div class="form-actions">
+              <button id="saveConnBtn" class="btn primary" type="button">Guardar y conectar</button>
+              <button id="testConnBtn" class="btn ghost" type="button">Probar conexión</button>
+              <span id="connStatus" class="status-msg"></span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- MODAL NUEVA / EDITAR CUENTA -->
+    <div id="modalBackdrop" class="modal-backdrop" hidden>
+      <div class="modal">
+        <header class="modal-head">
+          <h3 id="modalTitle">Nueva cuenta de pago</h3>
+          <button id="modalClose" class="winbtn" type="button">×</button>
+        </header>
+        <form id="accountForm" class="modal-body">
+          <div class="grid-2">
+            <label class="f-label">AoE2 Profile ID *
+              <input id="fProfileId" class="field" type="number" min="1" required placeholder="Ej: 25399083" />
+            </label>
+            <label class="f-label">Alias en el juego
+              <input id="fAlias" class="field" type="text" placeholder="Ej: PSX | Acido" />
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="f-label">Email / contacto
+              <input id="fEmail" class="field" type="email" placeholder="cliente@correo.com" />
+            </label>
+            <label class="f-label">Plan
+              <select id="fPlan" class="field select">
+                <option value="promax">ProMax (completo)</option>
+                <option value="pro">Pro</option>
+                <option value="free">Free</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="f-label">Duración
+              <select id="fDuration" class="field select">
+                <option value="30">30 días</option>
+                <option value="90">90 días</option>
+                <option value="365">1 año</option>
+                <option value="0">Sin vencimiento</option>
+              </select>
+            </label>
+            <label class="f-label">Máx. PCs simultáneas
+              <input id="fMaxDevices" class="field" type="number" min="1" max="10" value="2" />
+            </label>
+          </div>
+          <label class="f-label">Notas internas
+            <input id="fNotes" class="field" type="text" placeholder="Pago MercadoPago / Stripe / Becado…" />
+          </label>
+          <label class="check-row">
+            <input id="fEnabled" type="checkbox" checked />
+            <span>Cuenta habilitada inmediatamente</span>
+          </label>
+          <footer class="modal-foot">
+            <button id="modalCancel" class="btn ghost" type="button">Cancelar</button>
+            <button class="btn primary" type="submit">Guardar cuenta</button>
+          </footer>
+        </form>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+    <script src="admin.js"></script>
+  </body>
+</html>

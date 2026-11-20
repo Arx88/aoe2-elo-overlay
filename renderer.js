@@ -2060,8 +2060,15 @@ window.overlay.onConfig((config) => {
   if (Array.isArray(config.shields)) shieldSlugs = new Set(config.shields);
   if (config.civAliases) civAliases = config.civAliases;
   if (config.civGuide) civGuide = config.civGuide;
+  if (typeof AppI18n === 'object' && config.i18nBundle) {
+    AppI18n.configure({ locale: config.language || config.i18nBundle.locale, bundle: config.i18nBundle });
+  }
   if (typeof TacticalUI === 'object' && TacticalUI.configure) {
-    TacticalUI.configure({ slugs: config.shields, aliases: config.civAliases });
+    TacticalUI.configure({
+      slugs: config.shields,
+      aliases: config.civAliases,
+      i18n: typeof AppI18n === 'object' ? AppI18n : null,
+    });
   }
   if (config.theme) applyTheme(config.theme);
   for (const key of Object.keys(rivalOptions)) {

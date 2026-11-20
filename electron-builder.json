@@ -20,6 +20,7 @@
     "arte-launcher.css",
     "arte-overlay.css",
     "arte-aperturas.css",
+    "wizard.css",
     "ui/**/*",
     "settings.html",
     "settings.css",
@@ -28,6 +29,9 @@
     "src/**/*",
     "assets/**/*",
     "!assets/app-icon-source.png",
+    "!admin-app/**",
+    "!licensing-api/**",
+    "!build/**",
     "!tools/**",
     "!dist/**",
     "!run.log",
@@ -64,7 +68,19 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "shortcutName": "AoE2 ELO Overlay",
-    "differentialPackage": true
+    "differentialPackage": true,
+    "installerSidebar": "build/installer-sidebar.bmp",
+    "uninstallerSidebar": "build/installer-sidebar.bmp",
+    "installerHeader": "build/installer-header.bmp",
+    "installerHeaderIcon": "assets/icon.ico",
+    "include": "build/installer.nsh",
+    "displayLanguageSelector": true,
+    "installerLanguages": [
+      "en_US",
+      "es_ES",
+      "es_MX",
+      "zh_CN"
+    ]
   },
   "publish": [
     {

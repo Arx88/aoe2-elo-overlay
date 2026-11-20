@@ -326,7 +326,7 @@ function finalizePlayer(state, durationMs) {
     workshopWindow += span;
     const info = buildingInfo(ws.typeId);
     const bucket = workshopTypes.get(info.key) || {
-      key: info.key, name: info.name, count: 0, units: 0,
+      key: info.key, typeId: ws.typeId, name: info.name, count: 0, units: 0,
       peakQueue: 0, orders: 0, overloadedOrders: 0,
     };
     bucket.count += 1;
@@ -361,6 +361,7 @@ function finalizePlayer(state, durationMs) {
         : `Pico ${Math.round(peakQueue)} en cola · flujo parejo`;
       return {
         key: w.key,
+        typeId: w.typeId,
         name: w.name,
         count: w.count,
         units: w.units,
@@ -1004,7 +1005,7 @@ function analyzePostmatchEngine(operations, {
         state.militaryOrdered += amount;
         state.militaryEvents.push({ ms: info.ms, amount });
         if (state.firstMilitaryMs == null) state.firstMilitaryMs = info.ms;
-        const bucket = state.unitCounts.get(unit.key) || { key: unit.key, name: unit.name, count: 0 };
+        const bucket = state.unitCounts.get(unit.key) || { key: unit.key, unitId, name: unit.name, count: 0 };
         bucket.count += amount;
         state.unitCounts.set(unit.key, bucket);
 

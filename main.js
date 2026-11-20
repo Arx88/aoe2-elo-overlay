@@ -57,6 +57,8 @@ const { fetchReplayTelemetry } = require('./src/replay');
 const { createProductStateCache, effectivePreferences } = require('./src/product');
 const { buildSmartBuildOrder } = require('./src/build-orders');
 const { projectOverlayState, projectRivalPayload, projectScoutPayload } = require('./src/presentation');
+const i18n = require('./src/i18n');
+const licenseClient = require('./src/license-client');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
 // van a %APPDATA%\AoE2 ELO Overlay\. En desarrollo quedan junto al código.
@@ -133,6 +135,9 @@ const DEFAULT_CONFIG = {
   postMatchReplay: false,
   // Clave temporal de acceso Pro. Se guarda el hash, nunca la clave.
   accessKeyGrant: null,
+  // Idioma elegido en el wizard inicial o en Ajustes → Cuenta (en, es-ES, es-MX, zh-CN).
+  language: null,
+  wizardCompleted: false,
   debug: false,
 };
 
@@ -166,6 +171,7 @@ function accessKeyMatches(raw) {
   return digest.length === expected.length && crypto.timingSafeEqual(digest, expected);
 }
 function hasAccessKeyGrant() {
+  if (remoteLicenseState && remoteLicenseState.revoked === true) return false;
   return String(config.accessKeyGrant || '') === ACCESS_KEY_HASH;
 }
 const DEMO_ARG = ARGV.find((arg) => arg === '--demo' || arg.startsWith('--demo='));
@@ -526,6 +532,7 @@ let postMatchHideTimer = null;
 
 /** Claves públicas de licencia, si esta distribución las incluye. */
 function loadProductPublicKeys() {
+  const merged = { ...(licenseClient.RELEASE_PUBLIC_KEYS || {}) };
   const candidates = [
     process.env.AOE2_PRODUCT_KEYS_PATH,
     path.join(DATA_DIR, 'product-public-keys.json'),
@@ -534,14 +541,51 @@ function loadProductPublicKeys() {
   for (const file of candidates) {
     try {
       const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (data && typeof data === 'object' && !Array.isArray(data)) return data;
+      if (data && typeof data === 'object' && !Array.isArray(data)) Object.assign(merged, data);
     } catch {
-      /* sin claves: las licencias no se pueden verificar en esta versión */
+      /* sin claves externas */
     }
   }
-  return null;
+  return Object.keys(merged).length ? merged : null;
 }
 const PRODUCT_PUBLIC_KEYS = loadProductPublicKeys();
+let remoteLicenseState = { status: 'unconfigured', lastCheckAt: null, reason: null, revoked: false };
+let remoteLicenseTimer = null;
+
+async function syncRemoteLicense(reason = 'startup') {
+  const apiUrl = process.env.AOE2_LICENSE_API_URL || config.licenseApiUrl || licenseClient.DEFAULT_API_URL;
+  if (!apiUrl) return remoteLicenseState;
+  const res = await licenseClient.checkRemoteEntitlement({
+    apiUrl,
+    profileId: profileId || null,
+    alias: playerAlias || '',
+    appVersion: app.getVersion(),
+    publicKeys: PRODUCT_PUBLIC_KEYS || {},
+  });
+  remoteLicenseState = { ...res, lastCheckAt: Date.now(), checkReason: reason };
+  if (res.status === 'verified' && res.token && res.accountId) {
+    productSession = { accountId: res.accountId, entitlementToken: res.token };
+    log(`licencia remota verificada (${res.plan}) · ${reason}`);
+    refreshAccessPresentation();
+  } else if (res.revoked || res.status === 'free') {
+    const hadAccess = Boolean(productSession.entitlementToken || config.accessKeyGrant);
+    if (res.revoked && config.accessKeyGrant) persistConfig({ accessKeyGrant: null });
+    productSession = { accountId: null, entitlementToken: null };
+    if (hadAccess || res.revoked) {
+      log(`acceso remoto retirado (${res.reason || res.status}) · ${reason}`);
+      refreshAccessPresentation();
+    }
+  }
+  return remoteLicenseState;
+}
+
+function scheduleRemoteLicenseChecks() {
+  clearInterval(remoteLicenseTimer);
+  remoteLicenseTimer = setInterval(() => {
+    syncRemoteLicense('periodic').catch(() => {});
+  }, 15 * 60 * 1000);
+  remoteLicenseTimer.unref?.();
+}
 
 function productState() {
   const product = resolveProductState({
@@ -671,6 +715,8 @@ function overlayConfig() {
     postMatchComparison: Boolean(view.postMatchComparison),
     postMatchCompareMode: ['both', 'personal', 'community'].includes(config.postMatchCompareMode) ? config.postMatchCompareMode : 'both',
     postMatchReplay: Boolean(view.postMatchReplay),
+    language: i18n.getLocale(config.language),
+    i18nBundle: i18n.getBundle(config.language),
     product: productState(),
     example: Boolean(exampleActive && exampleInfo),
     moving,
@@ -1656,6 +1702,22 @@ function quitApp(reason) {
   app.quit();
 }
 
+function hardenWebContents(wc) {
+  if (!wc) return;
+  wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+  wc.on('will-navigate', (event, targetUrl) => {
+    if (!String(targetUrl || '').startsWith('file://')) event.preventDefault();
+  });
+  if (app.isPackaged) {
+    wc.on('before-input-event', (event, input) => {
+      const key = String(input.key || '').toLowerCase();
+      if (key === 'f12' || ((input.control || input.meta) && input.shift && ['i', 'j', 'c'].includes(key))) {
+        event.preventDefault();
+      }
+    });
+  }
+}
+
 function createWindow() {
   const width = Math.round(config.width * Number(config.scale || 1));
   const height = 140;
@@ -1687,9 +1749,12 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      devTools: !app.isPackaged,
       backgroundThrottling: false,
     },
   });
+  hardenWebContents(win.webContents);
 
   // Errores del panel al log: sin esto un fallo se ve como "Iniciando…" eterno.
   win.webContents.on('console-message', (_event, _level, message) => {
@@ -1819,8 +1884,11 @@ function openSettings() {
       preload: path.join(__dirname, 'settings-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      devTools: !app.isPackaged,
     },
   });
+  hardenWebContents(settingsWin.webContents);
 
   settingsWin.setMenuBarVisibility(false);
   settingsWin.setAlwaysOnTop(true, 'screen-saver');
@@ -1991,6 +2059,7 @@ function setRuntimeProfile(nextProfileId, alias) {
   intro = null;
   clearTimeout(introTimer);
   syncIntro(null, { force: true });
+  if (!DEV_SESSION) syncRemoteLicense('profile-selected').catch(() => {});
   refreshAccessPresentation();
   startLive();
   poll();
@@ -2571,6 +2640,11 @@ function registerIpc() {
     postMatchReplay: Boolean(config.postMatchReplay),
     shields: CIV_SLUGS,
     civAliases: CIV_ALIASES,
+    language: config.language ? i18n.getLocale(config.language) : null,
+    activeLanguage: i18n.getLocale(config.language),
+    wizardCompleted: Boolean(config.wizardCompleted),
+    i18nBundles: i18n.getAllBundles(),
+    remoteLicense: remoteLicenseState,
     product: productState(),
     matchStartedAt: intro && intro.engaged ? intro.startedAt : null,
     exampleClockElapsedMs:
@@ -2943,6 +3017,30 @@ function registerIpc() {
     } catch (err) {
       return { ok: false, error: `No se pudo abrir el enlace: ${err.message}` };
     }
+  });
+
+  ipcMain.handle('settings:language', (_event, rawLang) => {
+    const next = i18n.normalizeLocale(rawLang);
+    if (!next) return { ok: false, language: i18n.getLocale(config.language) };
+    persistConfig({ language: next });
+    send('overlay:config', overlayConfig());
+    log(`idioma cambiado a ${next}`);
+    return { ok: true, language: next, bundle: i18n.getBundle(next) };
+  });
+
+  ipcMain.handle('settings:wizard-complete', (_event, payload = {}) => {
+    const patch = { wizardCompleted: true };
+    const nextLang = i18n.normalizeLocale(payload && payload.language);
+    if (nextLang) patch.language = nextLang;
+    persistConfig(patch);
+    send('overlay:config', overlayConfig());
+    log(`wizard inicial completado (${i18n.getLocale(config.language)})`);
+    return { ok: true, language: i18n.getLocale(config.language), wizardCompleted: true };
+  });
+
+  ipcMain.handle('settings:license-refresh', async () => {
+    const remote = await syncRemoteLicense('manual');
+    return { ok: remote.status === 'verified', remote, product: productState() };
   });
 
   // Actualizaciones automáticas (pestaña Updater). Al activarlas se consulta
@@ -3847,7 +3945,15 @@ if (!gotLock) {
     }, 2 * 60 * 1000);
 
     registerIpc();
-    bootstrap().catch((err) => log(`bootstrap falló: ${(err && (err.stack || err.message)) || err}`));
+    bootstrap()
+      .then(() => {
+        if (!DEV_SESSION) {
+          scheduleRemoteLicenseChecks();
+          syncRemoteLicense('startup').catch(() => {});
+          if (!config.wizardCompleted) openSettings();
+        }
+      })
+      .catch((err) => log(`bootstrap falló: ${(err && (err.stack || err.message)) || err}`));
 
     globalShortcut.register('Control+Alt+E', () => {
       if (!win) return;

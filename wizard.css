@@ -1,0 +1,406 @@
+/* AoE2 Helper · Asistente de primer inicio + selector de idioma (estética v2.3.1) */
+
+.flag-svg {
+  width: 28px;
+  height: 20px;
+  flex: none;
+  border-radius: 3px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  display: block;
+  stroke: none;
+}
+.flag-svg path, .flag-svg rect, .flag-svg circle, .flag-svg polygon {
+  stroke-width: 0;
+}
+.flag-svg path[stroke] {
+  stroke-width: revert;
+}
+.flag-svg.sm {
+  width: 22px;
+  height: 16px;
+}
+
+/* Tuerquita compacta debajo del plan en el rail + popover flotante de preferencias de app */
+.rail-foot {
+  position: relative;
+}
+.rail-build {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 2px 0;
+}
+.rail-build-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--type-xs);
+  color: #788387;
+}
+.rail-gear {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(25, 31, 33, 0.9);
+  color: var(--muted);
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+.rail-gear svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.rail-gear:hover,
+.rail-gear[aria-expanded="true"] {
+  border-color: var(--brass-soft);
+  color: var(--accent);
+  background: #232a2d;
+}
+
+.prefs-popover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% - 10px);
+  width: 248px;
+  z-index: 45;
+  padding: 10px;
+  border-radius: 12px;
+  background: #161c20;
+  border: 1px solid rgba(199, 173, 118, 0.28);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.prefs-pop-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prefs-pop-k {
+  padding: 2px 6px 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.prefs-lang-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.prefs-lang-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  transition: background-color 130ms ease, border-color 130ms ease;
+}
+.prefs-lang-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.prefs-lang-item.active {
+  background: rgba(199, 173, 118, 0.13);
+  border-color: rgba(199, 173, 118, 0.34);
+  color: #f3dfae;
+}
+.prefs-lang-item .flag-svg {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+}
+.prefs-lang-item span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prefs-lang-item em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--accent);
+}
+.prefs-pop-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 2px 4px;
+}
+.prefs-pop-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.prefs-pop-link {
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+  transition: background-color 130ms ease, color 130ms ease;
+}
+.prefs-pop-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+/* =====================================================================
+   Wizard de primer inicio (pantalla completa sin ventana anidada)
+   ===================================================================== */
+.wizard-overlay {
+  position: fixed;
+  inset: 40px 0 0 0;
+  z-index: 60;
+  background: var(--ui-page);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 48px 40px;
+  overflow-y: auto;
+}
+.wizard-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 220px;
+  background: linear-gradient(90deg, var(--ui-page) 16%, transparent 100%),
+    url("assets/art/cuenta.webp") right 42% / cover no-repeat;
+  mask-image: linear-gradient(180deg, #000a 0%, #000 52%, transparent 100%);
+  opacity: 0.68;
+  pointer-events: none;
+}
+.wizard-card {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.wizard-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.wizard-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.wizard-brand img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+.wizard-eyebrow {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+.wizard-brand strong {
+  font-size: 15px;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+}
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wiz-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.wiz-dot b {
+  font-family: Consolas, monospace;
+  font-size: 10.5px;
+}
+.wiz-dot.active {
+  color: #f0d7a3;
+  background: rgba(199, 173, 118, 0.14);
+  border-color: rgba(199, 173, 118, 0.48);
+}
+.wiz-dot.done {
+  color: var(--success);
+  border-color: rgba(141, 197, 168, 0.34);
+}
+
+.wizard-head h2 {
+  font-size: 24px;
+  font-weight: 670;
+  letter-spacing: -0.025em;
+  line-height: 1.18;
+  margin-bottom: 6px;
+}
+.wizard-head p {
+  font-size: var(--type-body);
+  color: var(--muted);
+  max-width: 58ch;
+}
+
+.wiz-pane { display: none; flex-direction: column; gap: 16px; }
+.wiz-pane.active { display: flex; }
+
+.wiz-lang-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.wiz-lang-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(15, 19, 22, 0.78);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+.wiz-lang-card:hover {
+  border-color: rgba(199, 173, 118, 0.36);
+  background: rgba(28, 34, 38, 0.9);
+}
+.wiz-lang-card.selected {
+  border-color: rgba(199, 173, 118, 0.72);
+  background: linear-gradient(125deg, rgba(199, 173, 118, 0.15), rgba(26, 31, 34, 0.95));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.wiz-lang-card .flag-svg {
+  width: 36px;
+  height: 26px;
+  border-radius: 4px;
+}
+.wiz-lang-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wiz-lang-copy strong {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--strong);
+}
+.wiz-lang-copy span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.wiz-lang-copy small {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #cbb585;
+  opacity: 0.92;
+}
+
+.wiz-account-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid rgba(199, 173, 118, 0.22);
+  background: linear-gradient(115deg, #212824, #1e2524 54%, #21272a);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.wiz-account-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 36%;
+  z-index: -1;
+  background: url("assets/art/perfil.webp") 88% center / cover no-repeat;
+  mask-image: linear-gradient(90deg, transparent 8%, #000 68%);
+  opacity: 0.54;
+  pointer-events: none;
+}
+.wiz-account-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.wiz-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 40% 0, #514630, #322e24 75%);
+  box-shadow: inset 0 0 0 1px #89755085;
+  color: #f0d7a3;
+  font-size: 17px;
+  font-weight: 650;
+}
+.wiz-account-info strong { display: block; font-size: 16px; font-weight: 660; }
+.wiz-account-info span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.wiz-summary {
+  display: grid;
+  gap: 10px;
+}
+.wiz-sum-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: rgba(15, 19, 22, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.wiz-sum-row span { font-size: var(--type-meta); color: var(--muted); }
+.wiz-sum-row strong { display: inline-flex; align-items: center; gap: 8px; font-size: var(--type-body); color: var(--strong); }
+
+.wizard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.wizard-foot-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

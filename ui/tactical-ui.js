@@ -32,10 +32,46 @@
   const CIV_ALIASES = { inca: 'incas', maya: 'mayans', indians: 'hindustanis', khitansmongols: 'khitans' };
   let civSlugs = null;
   let civAliases = CIV_ALIASES;
+  let activeI18n = null;
+  const getI18n = () => activeI18n || (typeof root !== 'undefined' && root.AppI18n ? root.AppI18n : null);
+  const tr = (key, fallback, vars = null) => {
+    const api = getI18n();
+    if (!api || !api.t) return fallback;
+    const val = api.t(key, vars);
+    return val && val !== key ? val : fallback;
+  };
+  const locCiv = (name) => {
+    const api = getI18n();
+    return api && api.civName ? api.civName(name) : (name || '');
+  };
+  const locUnit = (u) => {
+    const api = getI18n();
+    return api && api.unitName ? api.unitName(u.unitId ?? u.name) : (u.name || '');
+  };
+  const locBuilding = (w) => {
+    const api = getI18n();
+    return api && api.buildingName ? api.buildingName(w.typeId ?? w.name) : (w.name || '');
+  };
+  const locAge = (id, fallback) => {
+    const api = getI18n();
+    return api && api.ageName && ['dark', 'feudal', 'castle', 'imperial'].includes(id) ? api.ageName(id) : fallback;
+  };
+  const locMap = (name) => {
+    const api = getI18n();
+    return api && api.mapName ? api.mapName(name) : (name || '');
+  };
+  const locOpening = (key, fallback) => {
+    const api = getI18n();
+    if (!api || !api.openingName) return fallback;
+    const translated = api.openingName(key || fallback);
+    return translated && translated !== key ? translated : fallback;
+  };
   /** El main entrega la misma lista de escudos que usa el roster. */
   function configure(options = {}) {
     if (Array.isArray(options.slugs)) civSlugs = new Set(options.slugs);
+    if (Array.isArray(options.civSlugs)) civSlugs = new Set(options.civSlugs);
     if (options.aliases && typeof options.aliases === 'object') civAliases = options.aliases;
+    if (options.i18n !== undefined) activeI18n = options.i18n;
   }
   function civSlug(name) {
     const raw = String(name || '')
@@ -49,11 +85,11 @@
   function civBadge(name) {
     const slug = civSlug(name);
     if (!slug) return '';
-    return `<img class="civ-badge" src="assets/civs/${slug}.png" alt="" title="${esc(name)}" draggable="false" loading="lazy" />`;
+    return `<img class="civ-badge" src="assets/civs/${slug}.png" alt="" title="${esc(locCiv(name) || name)}" draggable="false" loading="lazy" />`;
   }
   /** Nombre de civilización con su escudo, sin alterar el flujo del texto. */
   function civLabel(name, fallback = 'Civ sin dato') {
-    const value = name || fallback;
+    const value = name ? (locCiv(name) || name) : fallback;
     const badge = civBadge(name);
     return badge
       ? `<span class="intel-civ">${badge}<span>${esc(value)}</span></span>`
@@ -551,12 +587,17 @@
     const ratingChip = result.ratingDiff == null ? ''
       : `<strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}<small>ELO</small></strong>`;
     const modePill = compareOn
-      ? `<span class="pm-mode-tag">${modePref === 'personal' ? 'Solo tu historial' : modePref === 'community' ? 'Estándar por ELO' : 'Personal + Estándar ELO'}</span>`
+      ? `<span class="pm-mode-tag">${esc(modePref === 'personal' ? tr('postmatch.modePersonal', 'Solo tu historial') : modePref === 'community' ? tr('postmatch.modeCommunity', 'Estándar por ELO') : tr('postmatch.modeBoth', 'Personal + Estándar ELO'))}</span>`
       : '';
+    const outcomeText = result.status === 'won'
+      ? tr('postmatch.win', result.label || 'Victoria')
+      : result.status === 'lost'
+        ? tr('postmatch.loss', result.label || 'Derrota')
+        : tr('postmatch.match', result.label || 'Partida');
     const header = `<header class="pm-head">
       <div class="pm-head-main">
-        <div class="pm-title-row"><h2>${esc(result.label || 'Partida')}</h2>${dur ? `<span class="pm-dur">${esc(dur)}</span>` : ''}${modePill}</div>
-        <p class="pm-sub">${esc(c.mapName)}${mode ? ` · ${esc(mode)}` : ''} · ${vsCivs}</p>
+        <div class="pm-title-row"><h2>${esc(outcomeText)}</h2>${dur ? `<span class="pm-dur">${esc(dur)}</span>` : ''}${modePill}</div>
+        <p class="pm-sub">${esc(locMap(c.mapName) || c.mapName)}${mode ? ` · ${esc(mode)}` : ''} · ${vsCivs}</p>
       </div>
       ${ratingChip}
     </header>`;
@@ -568,16 +609,16 @@
       ? `<section class="pm-trophy-banner is-win" aria-label="Reto cumplido">
           <span class="pm-icon-tile is-emerald">${reportIcon('trophy')}</span>
           <div class="pm-trophy-copy">
-            <span class="pm-trophy-pill">★ RETO CUMPLIDO</span>
+            <span class="pm-trophy-pill">${esc(tr('postmatch.challengeDone', '★ RETO CUMPLIDO'))}</span>
             <b>${esc(chal.detail)}</b>
           </div>
-          <span class="pm-trophy-tag">▲ MEJORA</span>
+          <span class="pm-trophy-tag">${esc(tr('postmatch.improveTag', '▲ MEJORA'))}</span>
         </section>`
       : heroLine
         ? `<section class="pm-trophy-banner is-record" aria-label="Récord personal">
             <span class="pm-icon-tile is-gold">${reportIcon('trophy')}</span>
             <div class="pm-trophy-copy">
-              <span class="pm-trophy-pill">★ DESTACADO PERSONAL</span>
+              <span class="pm-trophy-pill">${esc(tr('postmatch.personalBest', '★ DESTACADO PERSONAL'))}</span>
               <b>${esc(heroLine)}</b>
             </div>
           </section>`
@@ -585,30 +626,30 @@
           ? `<section class="pm-trophy-banner is-pending" aria-label="Reto activo">
               <span class="pm-icon-tile is-gold">${reportIcon('target')}</span>
               <div class="pm-trophy-copy">
-                <span class="pm-trophy-pill">RETO EN CURSO</span>
+                <span class="pm-trophy-pill">${esc(tr('postmatch.challengeActive', 'RETO EN CURSO'))}</span>
                 <b>${esc(chal.detail)}</b>
               </div>
             </section>`
           : '';
     const focusShort = eng.focus
-      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('target')}</span><div><span>Foco próxima partida</span><b>${esc(eng.focus.title)}</b><p>${esc(eng.focus.detail)}</p></div></div>` : '';
+      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('target')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(eng.focus.title)}</b><p>${esc(eng.focus.detail)}</p></div></div>` : '';
 
     // 1. Spotlight horizontal de Apertura detectada + nota S–D + consejo concreto
     const stageDeltas = evo?.stageDeltas || {};
     const op = eng.openingSummary || null;
     const opDelta = showPersonal && stageDeltas.opening && stageDeltas.opening.deltaScore !== 0
-      ? `<span class="pm-st-delta ${stageDeltas.opening.deltaScore > 0 ? 'win' : 'loss'}">${stageDeltas.opening.deltaScore > 0 ? '▲ +' : '▼ −'}${Math.abs(stageDeltas.opening.deltaScore)} vs media</span>`
+      ? `<span class="pm-st-delta ${stageDeltas.opening.deltaScore > 0 ? 'win' : 'loss'}">${stageDeltas.opening.deltaScore > 0 ? '▲ +' : '▼ −'}${Math.abs(stageDeltas.opening.deltaScore)} ${esc(tr('postmatch.vsAvg', 'vs media'))}</span>`
       : '';
     const openingBar = op ? `<section class="pm-opening-bar${showCommunity && op.grade === 'S' ? ' grade-S' : ''}${openingArtClass(op.key || op.name)}" aria-label="Apertura detectada">
       <span class="pm-icon-tile is-gold">${reportIcon('opening')}</span>
       <div class="pm-opening-copy">
-        <div class="pm-opening-top"><span>Apertura detectada</span><b>${esc(op.name)}</b>${opDelta}</div>
+        <div class="pm-opening-top"><span>${esc(tr('postmatch.openingDetected', 'Apertura detectada'))}</span><b>${esc(locOpening(op.key, op.name))}</b>${opDelta}</div>
         <p>${esc(op.tip || '')}</p>
       </div>
       ${showCommunity && op.grade ? `<strong class="pm-grade-stamp grade-${op.grade}">${esc(op.grade)}</strong>` : ''}
     </section>` : '';
 
-    // 2. Tira de 4 Edades explícitas: Alta Edad · Feudal · Castillos · Imperial (SVGs vectoriales centrados)
+    // 2. Tira de 4 Edades explícitas: Alta Edad · Feudal · Castillos · Imperial
     const STAGE_TONE = { S: 'is-gold', A: 'is-emerald', B: 'is-sky', C: 'is-amber', D: 'is-rose' };
     const stageStrip = (eng.stages || []).length
       ? `<section class="pm-stages-v2" aria-label="Calificación por edad">${eng.stages.map((s) => {
@@ -625,7 +666,7 @@
           <div class="pm-stage-top">
             <span class="pm-icon-tile ${tileTone} sm">${reportIcon(s.id)}</span>
             <div class="pm-stage-head">
-              <span class="pm-stage-lbl">${esc(s.label)}</span>
+              <span class="pm-stage-lbl">${esc(locAge(s.id, s.label))}</span>
               ${s.subtitle ? `<b class="pm-stage-sub">${esc(s.subtitle)}</b>` : ''}
             </div>
             ${stampHtml}
@@ -637,14 +678,14 @@
 
     const badges = (eng.highlights || []).slice(0, 3).map((h) => {
       const warn = h.tone === 'warn';
-      return `<div class="pm-badge ${warn ? 'is-warn' : 'is-good'}"><span class="pm-icon-tile ${warn ? 'is-rose' : 'is-gold'} sm">${reportIcon(h.icon || 'medal')}</span><div><span class="pm-badge-tag">${warn ? '▼ A CORREGIR' : '★ LOGRO'}</span><b>${esc(h.title)}</b><small>${esc(h.detail)}</small></div></div>`;
+      return `<div class="pm-badge ${warn ? 'is-warn' : 'is-good'}"><span class="pm-icon-tile ${warn ? 'is-rose' : 'is-gold'} sm">${reportIcon(h.icon || 'medal')}</span><div><span class="pm-badge-tag">${esc(warn ? tr('postmatch.fixTag', '▼ A CORREGIR') : tr('postmatch.achieveTag', '★ LOGRO'))}</span><b>${esc(h.title)}</b><small>${esc(h.detail)}</small></div></div>`;
     }).join('');
 
     const evoTitle = !showPersonal
-      ? 'Métricas de esta partida'
+      ? tr('postmatch.evolutionBenchmark', 'Métricas de esta partida')
       : evo?.sampleSize > 0
-        ? `Tu evolución · vs tus últimas ${number(evo.sampleSize)} partidas`
-        : 'Tu rendimiento · primera referencia local';
+        ? tr('postmatch.evolutionTitle', `Tu evolución · vs tus últimas ${number(evo.sampleSize)} partidas`, { n: number(evo.sampleSize) })
+        : tr('postmatch.evolutionFirst', 'Tu rendimiento · primera referencia local');
     const evoCard = (item, mainVal, suffix, invert = false, customNote = null) => {
       const tone = !showPersonal || !item || item.delta == null || item.delta === 0
         ? 'neutral'
@@ -690,9 +731,9 @@
     const selfCrest = civBadge(c.civ);
     const rivalCrest = civBadge(eng.rivalCiv);
     const duelFaceHead = `<div class="pm-duel-face">
-      <div class="pm-side is-self">${selfCrest}<div><b>Vos</b><small>${esc(c.civ || '')}</small></div></div>
+      <div class="pm-side is-self">${selfCrest}<div><b>${esc(tr('postmatch.you', 'Vos'))}</b><small>${esc(locCiv(c.civ) || c.civ || '')}</small></div></div>
       <span class="pm-vs-pill">VS</span>
-      <div class="pm-side is-rival"><div><b>${esc(rivalLabel)}</b><small>${esc(eng.rivalCiv || '')}</small></div>${rivalCrest}</div>
+      <div class="pm-side is-rival"><div><b>${esc(rivalLabel)}</b><small>${esc(locCiv(eng.rivalCiv) || eng.rivalCiv || '')}</small></div>${rivalCrest}</div>
     </div>`;
     const duelRow = (label, aVal, bVal, aTxt, bTxt, lowerWins = false) => {
       const max = Math.max(1, Number(aVal) || 0, Number(bVal) || 0);
@@ -720,29 +761,30 @@
     const rivalTotalIdle = rival ? (rival.tcIdleTotalSeconds ?? rival.tcIdleSeconds) : null;
     const duelBlock = `<div class="pm-duel">
       ${duelFaceHead}
-      ${duelRow('Aldeanos', self.villagersOrdered, rival?.villagersOrdered, `${number(self.villagersOrdered)} · ${self.townCenters} TC`, rival ? `${number(rival.villagersOrdered)} · ${rival.townCenters} TC` : '')}
-      ${selfEarlyDisplay != null ? duelRow('Idle TC · Alta + Feudal', selfEarlyDisplay, rivalEarlyDisplay, fmtIdle(selfEarlyDisplay), rivalEarlyDisplay != null ? fmtIdle(rivalEarlyDisplay) : '', true) : ''}
-      ${totalIdle != null ? duelRow('Idle TC · Total', totalIdle, rivalTotalIdle, fmtIdle(totalIdle), rivalTotalIdle != null ? fmtIdle(rivalTotalIdle) : '', true) : ''}
-      ${duelRow('Ejército encargado', self.militaryOrdered, rival?.militaryOrdered, number(self.militaryOrdered), rival ? number(rival.militaryOrdered) : '')}
+      ${duelRow(tr('postmatch.duelVils', 'Aldeanos'), self.villagersOrdered, rival?.villagersOrdered, `${number(self.villagersOrdered)} · ${self.townCenters} TC`, rival ? `${number(rival.villagersOrdered)} · ${rival.townCenters} TC` : '')}
+      ${selfEarlyDisplay != null ? duelRow(tr('postmatch.duelIdleEarly', 'Idle TC · Alta + Feudal'), selfEarlyDisplay, rivalEarlyDisplay, fmtIdle(selfEarlyDisplay), rivalEarlyDisplay != null ? fmtIdle(rivalEarlyDisplay) : '', true) : ''}
+      ${totalIdle != null ? duelRow(tr('postmatch.duelIdleTotal', 'Idle TC · Total'), totalIdle, rivalTotalIdle, fmtIdle(totalIdle), rivalTotalIdle != null ? fmtIdle(rivalTotalIdle) : '', true) : ''}
+      ${duelRow(tr('postmatch.duelArmy', 'Ejército encargado'), self.militaryOrdered, rival?.militaryOrdered, number(self.militaryOrdered), rival ? number(rival.militaryOrdered) : '')}
     </div>`;
 
     // 4. Producción y colas militares (saturación + edificios recomendados + Mercado decodificado + composición)
     const wsRows = (self.topWorkshops || []).slice(0, 3).map((w) => {
       const sat = w.status === 'saturated';
+      const wName = locBuilding(w);
       const tag = sat
-        ? `Pico ${Math.round(w.peakQueue || 0)} · faltaron ~${Math.max(1, (w.recommendedCount || (w.count + 1)) - w.count)}`
-        : `Pico ${Math.round(w.peakQueue || 1)} en cola`;
-      return `<li class="${sat ? 'is-warn' : ''}"><span><b>${esc(w.name)}</b> ×${number(w.count)}</span><small>${esc(tag)} · ${number(w.units)} uds</small></li>`;
+        ? `${tr('postmatch.peakQueue', `Pico ${Math.round(w.peakQueue || 0)}`, { n: Math.round(w.peakQueue || 0) })} · ${tr('postmatch.missingBld', `faltaron ~${Math.max(1, (w.recommendedCount || (w.count + 1)) - w.count)}`, { n: Math.max(1, (w.recommendedCount || (w.count + 1)) - w.count) })}`
+        : `${tr('postmatch.peakQueue', `Pico ${Math.round(w.peakQueue || 1)}`, { n: Math.round(w.peakQueue || 1) })} ${tr('postmatch.inQueue', 'en cola')}`;
+      return `<li class="${sat ? 'is-warn' : ''}"><span><b>${esc(wName)}</b> ×${number(w.count)}</span><small>${esc(tag)} · ${number(w.units)}</small></li>`;
     }).join('');
-    const shortComp = (units) => (units || []).slice(0, 2).map((u) => `${esc(u.name)} (${number(u.count)})`).join(' + ') || 'Sin producción';
+    const shortComp = (units) => (units || []).slice(0, 2).map((u) => `${esc(locUnit(u))} (${number(u.count)})`).join(' + ') || '—';
     const marketLine = self.marketProfile
       ? `<div class="pm-market-note"><span class="pm-mini-ico">${reportIcon('market')}</span><span>${esc(self.marketProfile.note)}</span></div>` : '';
     const queueBox = `<div class="pm-queue-box">
       <div class="pm-queue-head">
-        <span>Colas y edificios militares</span>
-        <b>${self.workshopUtilization != null ? `${self.workshopUtilization}% uso · ${self.workshopsCount} edif.` : `${self.workshopsCount} edificios`}</b>
+        <span>${esc(tr('postmatch.queuesTitle', 'Colas y edificios militares'))}</span>
+        <b>${self.workshopUtilization != null ? `${self.workshopUtilization}% · ${tr('postmatch.buildingsCount', `${self.workshopsCount} edificios`, { n: self.workshopsCount })}` : tr('postmatch.buildingsCount', `${self.workshopsCount} edificios`, { n: self.workshopsCount })}</b>
       </div>
-      ${wsRows ? `<ul class="pm-queue-list">${wsRows}</ul>` : '<p class="pm-queue-empty">Sin producción militar registrada.</p>'}
+      ${wsRows ? `<ul class="pm-queue-list">${wsRows}</ul>` : '<p class="pm-queue-empty">—</p>'}
       ${marketLine}
       <div class="pm-comp-strip">
         <div>${selfCrest}<span>${shortComp(self.topUnits)}</span></div>
