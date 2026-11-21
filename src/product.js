@@ -13,9 +13,10 @@ const FEATURE_ICONS = { elo: 'users', rivalCivs: 'history', rivalFavorites: 'map
   rivalOpenings: 'bow', smartTips: 'target', rivalH2H: 'sword', civRecommender: 'castle',
   postMatchComparison: 'trend', postMatchReplay: 'clock', smartBuildOrder: 'villager' };
 const FEATURE_PLANS = { elo: 'free', rivalH2H: 'free', rosterDetails: 'pro',
-  rivalCivs: 'pro', rivalFavorites: 'pro', civHelp: 'pro', tgBalance: 'pro', postMatch: 'pro',
-  rivalOpenings: 'promax', smartTips: 'promax', civRecommender: 'promax',
-  postMatchComparison: 'promax', postMatchReplay: 'promax', smartBuildOrder: 'promax' };
+  rivalCivs: 'pro', rivalFavorites: 'pro', civHelp: 'pro', tgBalance: 'pro',
+  rivalOpenings: 'pro', smartTips: 'pro', civRecommender: 'pro',
+  smartBuildOrder: 'promax', postMatch: 'promax',
+  postMatchComparison: 'promax', postMatchReplay: 'promax' };
 const PLAN_RANK = { free: 0, pro: 1, promax: 2, beta: 2 };
 
 const FEATURES = Object.freeze([

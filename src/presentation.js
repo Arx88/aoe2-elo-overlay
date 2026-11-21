@@ -30,7 +30,15 @@ function projectRivalPayload(payload, product) {
 }
 
 function projectScoutPayload(payload, product) {
-  return allowsFeature(product, 'smartTips') || allowsFeature(product, 'civRecommender') ? payload : null;
+  if (!payload) return null;
+  if (!allowsFeature(product, 'smartTips') && !allowsFeature(product, 'civRecommender')) return null;
+  if (!allowsFeature(product, 'smartBuildOrder') && Array.isArray(payload.tips)) {
+    return {
+      ...payload,
+      tips: payload.tips.map((t) => ({ ...t, opportunities: null, opportunityStages: null })),
+    };
+  }
+  return payload;
 }
 
 module.exports = { projectOverlayState, projectRivalPayload, projectScoutPayload };

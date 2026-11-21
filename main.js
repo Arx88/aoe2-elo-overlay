@@ -1149,7 +1149,7 @@ function scoutSignature(state) {
 
 function tacticalPayload() {
   const product = productState();
-  if (!product.featureAccess.smartTips) return { status: 'locked', tips: [], message: 'El análisis de oportunidades está incluido en ProMax.' };
+  if (!product.featureAccess.smartBuildOrder) return { status: 'locked', tips: [], message: 'El análisis de oportunidades durante la partida está incluido en ProMax.' };
   if (!viewConfig().smartTips) return { status: 'disabled', tips: [], message: 'Activá Lectura de apertura en Prematch para analizar las oportunidades.' };
   if (!lastGood || lastGood.status !== 'ongoing' || !scoutPayload || String(scoutPayload.matchId) !== String(lastGood.match?.matchId)) {
     return { status: 'pending', tips: [], message: 'El análisis aparecerá cuando se confirme una partida.' };

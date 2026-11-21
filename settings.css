@@ -55,8 +55,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
 body.maximized .winbtn .restore-icon { display: block; margin: auto; }
 .shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 214px minmax(0, 1fr); }
 .rail { background: linear-gradient(165deg, #171d1e, #111617 46%, #0e1214); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: var(--space-6) var(--space-4) var(--space-4); min-height: 0; }
-.rail-brand { display: flex; align-items: center; justify-content: flex-start; gap: var(--space-3); padding: 4px 2px var(--space-5); }
-.rail-logo { width: 138px; max-width: 100%; height: auto; object-fit: contain; display: block; filter: drop-shadow(0 3px 10px rgba(0, 0, 0, .48)); }
+.rail-brand { display: flex; align-items: center; justify-content: center; gap: var(--space-3); padding: 4px 0 var(--space-5); }
+.rail-logo { width: 138px; max-width: 100%; height: auto; margin-inline: auto; object-fit: contain; display: block; filter: drop-shadow(0 3px 10px rgba(0, 0, 0, .48)); }
 .rail-mark { width: 48px; height: 48px; object-fit: contain; flex: none; }
 .rail-name { font-size: var(--type-section); font-weight: 650; letter-spacing: -.035em; }
 .rail-caption { margin-top: 3px; font-size: 10.5px; color: var(--brass-soft); }
@@ -280,7 +280,10 @@ input[type='range']::-webkit-slider-thumb { appearance: none; width: 13px; heigh
 .plan-card { background: #191f22; border: 1px solid #354045; border-radius: 4px; padding: 19px 18px; }
 .plan-card.pro { border-color: #625943; background: #20231f; }
 .plan-card > .eyebrow { font-size: 8px; letter-spacing: .12em; }
+.plan-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 5px 0 6px; }
 .plan-card h3 { margin: 5px 0 6px; font-size: 24px; font-weight: 550; }
+.plan-head-row h3 { margin: 0; }
+.plan-price { font-size: 19px; font-weight: 650; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -.02em; padding: 2px 8px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent); }
 .plan-card > p { color: #a1afb4; font-size: 12px; min-height: 36px; }
 .plan-feature-list { list-style: none; display: flex; flex-direction: column; gap: 10px; padding-top: 18px; margin-top: 15px; border-top: 1px solid #344046; }
 .plan-feature-list li { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; font-size: 11.5px; color: #c6d0d3; }
@@ -290,6 +293,7 @@ input[type='range']::-webkit-slider-thumb { appearance: none; width: 13px; heigh
 .plan-feature-list li.locked .feature-icon { color: #7f8b90; }
 .plan-feature-list .feature-desc { flex-basis: 100%; margin-left: 25px; color: #8fa0a6; font-size: 10.5px; line-height: 1.45; }
 .row.feature-locked .rname::after { content: 'PRO'; display: inline-block; margin-left: 7px; font-size: 9px; color: var(--accent); border: 1px solid var(--line); padding: 1px 4px; vertical-align: middle; }
+.row.feature-locked[data-tier="PROMAX"] .rname::after { content: 'PROMAX'; }
 .pro .plan-feature-list { border-color: #44483c; }
 .includes-free { display: block; color: #9d9f8e; font-size: 10px; margin-top: 18px; }
 .tactical-controls { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 12px; }

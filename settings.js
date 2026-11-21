@@ -252,18 +252,32 @@ function renderProduct(product) {
   paintPostmatchReference();
   postMatchReplayInput.disabled = !replayAccess;
   smartBuildOrderInput.disabled = !product.featureAccess.smartBuildOrder;
+  postMatchInput.title = product.featureAccess.postMatch ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
   postMatchComparisonInput.title = proAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
   postMatchReplayInput.title = replayAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
   scoutF2Input.closest('.row').hidden = true;
   scoutF2Input.disabled = true;
-  for (const [key, input] of Object.entries(rivalInputs)) {
+  const gatedInputs = [
+    ...Object.entries(rivalInputs),
+    ['civHelp', civHelpInput],
+    ['tgBalance', tgBalanceInput],
+    ['smartBuildOrder', smartBuildOrderInput],
+    ['postMatch', postMatchInput],
+    ['postMatchComparison', postMatchComparisonInput],
+    ['postMatchReplay', postMatchReplayInput],
+  ];
+  for (const [key, input] of gatedInputs) {
+    if (!input) continue;
     const allowed = product.featureAccess && product.featureAccess[key] === true;
     input.disabled = !allowed;
     const tier = features.find((feature) => feature.key === key)?.plan;
     const tierName = tier === 'promax' ? 'ProMax' : 'Pro';
     input.title = allowed ? '' : t('plansPage.availableWith', `Disponible con ${tierName}. Tu preferencia guardada se conserva.`, { tier: tierName });
     const row = input.closest('.row');
-    if (row) row.classList.toggle('feature-locked', !allowed);
+    if (row) {
+      row.classList.toggle('feature-locked', !allowed);
+      row.dataset.tier = tierName.toUpperCase();
+    }
   }
 
   const commerce = product.commerce || {};

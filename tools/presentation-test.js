@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { getProductState } = require('../src/product');
 const { projectOverlayState, projectRivalPayload, projectScoutPayload } = require('../src/presentation');
 const free = getProductState();
-const pro = { featureAccess: { ...free.featureAccess, rosterDetails: true } };
+const pro = { featureAccess: { ...free.featureAccess, rosterDetails: true, rivalOpenings: true, smartTips: true, civRecommender: true } };
 const max = getProductState({ accessKeyGranted: true });
 const state = { status: 'ongoing', phase: 'lobby', profileId: 7,
   match: { matchId: 100, mapName: 'Arabia', players: [{ civ: 'Franks' }] },
@@ -24,9 +24,9 @@ const stripped = projectRivalPayload(payload, free);
 assert.equal(stripped.reports[0].h2h.games, 3);
 assert.equal(stripped.reports[0].civ, undefined);
 assert.equal(stripped.reports[0].h2h.recent, undefined);
-assert.equal(projectRivalPayload(payload, pro).reports[0].openings, null);
+assert.ok(projectRivalPayload(payload, pro).reports[0].openings);
 assert.ok(projectRivalPayload(payload, max).reports[0].openings);
 assert.equal(projectScoutPayload({ tips: [{ opportunities: {} }] }, free), null);
-assert.equal(projectScoutPayload({ tips: [] }, pro), null);
-assert.ok(projectScoutPayload({ tips: [] }, max));
-console.log('Presentación: Free solo nombre/ELO/H2H, Pro sin replay y ProMax con análisis; caché intacta OK.');
+assert.equal(projectScoutPayload({ tips: [{ opportunities: { status: 'ready' }, opportunityStages: [1] }] }, pro).tips[0].opportunities, null);
+assert.ok(projectScoutPayload({ tips: [{ opportunities: { status: 'ready' } }] }, max).tips[0].opportunities);
+console.log('Presentación: Free solo nombre/ELO/H2H, Pro con Prematch completo y ProMax con Durante + Postmatch; caché intacta OK.');

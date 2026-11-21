@@ -1,3 +1,13 @@
+## v2.5.11 · Estructura de planes (Free · Pro $1 · ProMax $1.99) y centrado del logotipo
+
+- **Logo lateral centrado en la barra:** el logotipo de Relic (`138 px`) ahora queda perfectamente centrado en el eje horizontal de la barra lateral.
+- **Planes claros por etapa de partida y precios oficiales:**
+  - **Free (`Gratis`):** Nombre, ELO actual e historial cara a cara entre ambos.
+  - **Pro (`$1`):** Todo lo de Gratis + **Prematch** completo (roster ampliado, guía de civ, últimas 5 civs, perfil del mapa, aperturas reales, lectura de apertura, elección de civ y balance TG).
+  - **ProMax (`$1.99`):** **Prematch** + **Durante** (Smart Build Order y rutas de oportunidad) + **Postmatch** (resumen, evolución en el mapa y análisis local del replay).
+
+---
+
 ## v2.5.10 · Ajuste fino del logotipo lateral
 
 - **Logo lateral un 10% más compacto (`138 px`):** mayor aire visual en la barra izquierda del Centro de mando.
