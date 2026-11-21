@@ -3624,7 +3624,31 @@ function armIntroTimer() {
 function syncIntro(state, options = {}) {
   const previousKey = intro && intro.key;
   const view = viewConfig();
-  intro = trackIntro(intro, state, clockNow());
+  const now = clockNow();
+  let effectiveState = state;
+  if (
+    !exampleActive &&
+    !DEMO &&
+    state &&
+    state.status === 'ongoing' &&
+    state.phase !== 'lobby' &&
+    state.match &&
+    Number.isFinite(state.match.startedAt)
+  ) {
+    const matchId = String(state.match.matchId ?? 'sin-id');
+    const isNewMatchIntro = !intro || intro.matchId !== matchId;
+    const rawElapsed = now - state.match.startedAt;
+    // La pantalla de carga de AoE2 DE + indexación de Companion suele tardar 15–35 s
+    // desde `raw.started`. Anclar al primer avistamiento garantiza que los 20 s de
+    // visibilidad del Overlay y Ayuda de civ nunca nazcan ya vencidos.
+    if (isNewMatchIntro && rawElapsed > 1000 && rawElapsed <= 90 * 1000) {
+      effectiveState = {
+        ...state,
+        match: { ...state.match, startedAt: now - 1000 },
+      };
+    }
+  }
+  intro = trackIntro(intro, effectiveState, now);
 
   if (intro && intro.engaged && previousKey !== intro.key) {
     log(

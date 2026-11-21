@@ -40,8 +40,8 @@ const SOCKET_BASE = process.env.AOE_COMPANION_SOCKET || 'wss://socket.aoe2compan
 
 const RECONNECT_MIN_MS = 2000;
 const RECONNECT_MAX_MS = 60000;
-// Si en 2 minutos no llegó ni un mensaje (ni pong), la conexión está zombie.
-const WATCHDOG_MS = 120000;
+// Si en 45 segundos no llegó ni un mensaje (ni pong), la conexión está zombie.
+const WATCHDOG_MS = 45000;
 
 /*
  * CARRIL RÁPIDO (por qué existe)
@@ -426,7 +426,10 @@ class FastLane {
     const query = this.inQueue
       ? { handler: 'queueing', language: 'en' }
       : { handler: 'queueing', language: 'en', profile_ids: this.profileId };
-    const events = await this.readSnapshot(query, this.inQueue ? FAST_TIMEOUT_MS : 3000);
+    let events = await this.readSnapshot(query, this.inQueue ? FAST_TIMEOUT_MS : 3000);
+    if (!events && this.inQueue && !this.closed && !this.paused) {
+      events = await this.readSnapshot({ handler: 'queueing', language: 'en', profile_ids: this.profileId }, 3000);
+    }
     if (this.closed || this.paused) return;
     if (!events) return; // red lenta o servidor mudo: se reintenta en el próximo tick
     this.polls += 1;
@@ -445,11 +448,15 @@ class FastLane {
       );
       this.onQueue(true);
       if (!matched) return; // en cola: el próximo tick (1,5 s) trae el global
-      // Ya apareada: se pide el snapshot global AHORA, sin esperar el tick.
+      // Ya apareada: se pide el snapshot global AHORA, sin esperar el tick;
+      // si el global (~100 KB) expira en una red lenta, usamos `events` filtrado
+      // que ya incluye el `matched` con todos los jugadores.
       const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
-      if (this.closed || this.paused || !full || !full.length) return;
+      if (this.closed || this.paused) return;
+      const chosen = full && full.length ? full : events;
+      if (!chosen || !chosen.length) return;
       this.polls += 1;
-      this.onSnapshot(full);
+      this.onSnapshot(chosen);
       return;
     }
 

@@ -1,3 +1,11 @@
+## v2.5.8 · Endurecimiento de detección de partida en vivo
+
+- **Inmunidad a desfase de reloj de Windows:** la validación de partida en curso ahora calibra la hora contra el encabezado `Date` del servidor, evitando que un reloj de PC desincronizado ignore la partida.
+- **El temporizador de "Ocultar Overlay 20 segundos" ya no nace vencido tras pantallas de carga largas:** si la pantalla de carga del juego tarda más de 20 s antes de que la API reporte el inicio, la cuenta regresiva de 20 s arranca al detectar la partida en vez de ocultarla en el segundo 0.
+- **Fallback rápido en redes con latencia:** si el snapshot global de matchmaking (~100 KB) demora, el carril rápido entrega directamente el evento `matched` del snapshot filtrado (~400 B) con todos los jugadores y reconecta sockets mudos a los 45 s.
+
+---
+
 ## v2.5.7 · Licencia compartida en la misma PC y ajuste visual del logotipo
 
 - **Licencia por PC (1 activación simultánea):** si tu PC ya tiene un plan activo, podés cambiar a cualquier cuenta de Steam/AoE2 en esa misma computadora sin bajar a Free.

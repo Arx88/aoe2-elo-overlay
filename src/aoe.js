@@ -26,6 +26,11 @@ const COMPANION_BASE = process.env.AOE_COMPANION_BASE || 'https://data.aoe2compa
 const USER_AGENT = 'aoe2-elo-overlay/0.2 (overlay de escritorio local)';
 
 const ONGOING_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+let serverOffsetMs = 0;
+
+function serverNow() {
+  return Date.now() + serverOffsetMs;
+}
 
 /** Ladders de rating de AoE2 DE (leaderboard_id del backend de World's Edge). */
 const LADDERS = {
@@ -82,6 +87,11 @@ async function getJson(url, timeoutMs = 12000) {
       headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
       signal: controller.signal,
     });
+    const dateHdr = res.headers && res.headers.get ? res.headers.get('date') : null;
+    if (dateHdr) {
+      const serverTs = Date.parse(dateHdr);
+      if (Number.isFinite(serverTs)) serverOffsetMs = serverTs - Date.now();
+    }
     if (!res.ok) {
       const error = new Error(`HTTP ${res.status} en ${new URL(url).pathname}`);
       error.status = res.status;
@@ -179,7 +189,7 @@ function normalizeMatch(raw) {
 
   const startedAt = raw.started ? Date.parse(raw.started) : null;
   const finishedAt = raw.finished ? Date.parse(raw.finished) : null;
-  const age = startedAt ? Date.now() - startedAt : Number.POSITIVE_INFINITY;
+  const age = startedAt ? serverNow() - startedAt : 0;
   const ladderId = raw.leaderboardId != null ? raw.leaderboardId : raw.leaderboard;
 
   return {
@@ -189,7 +199,7 @@ function normalizeMatch(raw) {
     leaderboardName: raw.leaderboardName || String(ladderId || 'Partida'),
     startedAt,
     finishedAt,
-    ongoing: finishedAt == null && age > -5 * 60 * 1000 && age < ONGOING_MAX_AGE_MS,
+    ongoing: finishedAt == null && age > -15 * 60 * 1000 && age < ONGOING_MAX_AGE_MS,
     players,
   };
 }
