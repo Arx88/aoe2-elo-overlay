@@ -53,3 +53,38 @@ body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"])
 }
 #postMatch .pm-eyebrow { padding-inline: 8px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 72%); }
 #postMatch .pm-eyebrow > i { background: transparent; }
+#postMatch :is(.pm-focus, .pm-coach-row.is-warn, .pm-badge.is-warn) .pm-icon-tile > .product-icon {
+  width: 18px;
+  height: 18px;
+}
+
+@media (min-width: 781px) {
+  #postMatch .pm-v2 { gap: 12px; }
+  #postMatch .pm-col { gap: 10px; }
+  #postMatch .pm-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+  }
+  #postMatch .pm-stage-sub { white-space: normal; }
+}
+
+@media (min-width: 1000px) {
+  #postMatch .pm-v2:has(> .pm-opening-bar) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #postMatch .pm-v2:has(> .pm-opening-bar) > * { grid-column: 1 / -1; }
+  #postMatch .pm-v2 > .pm-head { align-self: stretch; margin: 0; }
+  #postMatch .pm-v2:has(> .pm-opening-bar) > .pm-head { grid-area: 1 / 1; }
+  #postMatch .pm-v2:has(> .pm-opening-bar) > .pm-opening-bar { grid-area: 1 / 2; }
+  #postMatch .pm-columns { grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr); }
+  #postMatch .pm-columns > .pm-col:has(> .pm-duel):has(> .pm-queue-box) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  #postMatch .pm-col > :is(.pm-eyebrow, .pm-coach-stack) { grid-column: 1 / -1; }
+  #postMatch .pm-duel-nums { gap: 4px; }
+  #postMatch .pm-duel-nums > span { font-size: 9px; }
+  #postMatch .pm-queue-head { flex-wrap: wrap; gap: 2px 8px; }
+}

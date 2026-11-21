@@ -3137,6 +3137,9 @@ function applyHeight(height) {
   if (!win) return;
   const display = screen.getDisplayMatching(win.getBounds());
   const workArea = display.workArea;
+  const reviewing = reviewVisible() && !moving;
+  const overlayWidth = Math.round(config.width * Number(config.scale || 1));
+  const reviewWidth = Math.max(320, Math.min(1120, workArea.width - 40));
 
   // Techo ADAPTATIVO al monitor, no un número fijo. El tope viejo (640 px)
   // venía de cuando el panel era solo el roster: con el informe del rival,
@@ -3153,13 +3156,27 @@ function applyHeight(height) {
     );
   }
   const [currentWidth] = win.getContentSize();
-  win.setContentSize(currentWidth, target);
+  const width = moving ? currentWidth : reviewing ? reviewWidth : overlayWidth;
+  win.setContentSize(width, target);
+
+  if (reviewing) {
+    const x = Math.round(workArea.x + (workArea.width - width) / 2);
+    win.setPosition(x, Math.round(workArea.y + Number(config.offsetY || 0)));
+    return;
+  }
 
   // Si el usuario eligió el lugar, no se mueve solo nunca más.
-  if (moving || config.position === 'custom') return;
+  if (moving) return;
+  if (config.position === 'custom') {
+    if (currentWidth !== width) {
+      const position = initialPosition(width, target);
+      win.setPosition(position.x, position.y);
+    }
+    return;
+  }
 
   const x = Math.round(
-    workArea.x + (workArea.width - currentWidth) / 2 + Number(config.offsetX || 0),
+    workArea.x + (workArea.width - width) / 2 + Number(config.offsetX || 0),
   );
   win.setPosition(x, Math.round(workArea.y + Number(config.offsetY || 0)));
 }
@@ -3328,6 +3345,7 @@ function dismissPostMatch(reason = 'cerrado') {
   postMatchOverlayDismissed = true;
   clearPostMatchHide();
   send('postmatch:update', null);
+  if (win && !win.isDestroyed()) applyHeight(win.getContentSize()[1]);
   syncReviewInteraction();
   log(`postmatch: informe cerrado (${reason})`);
   return true;
@@ -3337,6 +3355,7 @@ function broadcastPostMatch() {
   // El panel recibe null cuando el informe ya se cerró; Ajustes conserva el
   // último informe para poder consultarlo o actualizarlo por separado.
   send('postmatch:update', overlayPostMatchPayload());
+  if (win && !win.isDestroyed()) applyHeight(win.getContentSize()[1]);
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.webContents.send('postmatch:update', postMatchPayload());
   }

@@ -157,6 +157,7 @@ function op(playerId, ms, type, payload = {}) {
         villagersOrdered: vils,
         townCenters: 3,
         tcIdleSeconds: tcIdle,
+        tcIdleTotalSeconds: tcIdle + 30,
         tcUtilization: tcUtil,
         tcIdleRatio: Math.round((1 - tcUtil / 100) * 1000) / 1000,
         militaryOrdered: mil,
@@ -174,6 +175,7 @@ function op(playerId, ms, type, payload = {}) {
         villagersOrdered: 62,
         townCenters: 2,
         tcIdleSeconds: 132,
+        tcIdleTotalSeconds: 165,
         tcUtilization: 86.2,
         tcIdleRatio: 0.138,
         militaryOrdered: 48,
@@ -304,8 +306,8 @@ function op(playerId, ms, type, payload = {}) {
   assert.match(unifiedHtml, /pm-icon-tile/);
   assert.match(unifiedHtml, /Tu evolución · vs tus últimas 4 partidas/);
   assert.match(unifiedHtml, /Uso de TC/);
-  assert.match(unifiedHtml, /Idle de TC/);
-  assert.match(unifiedHtml, /Idle TC · Total/);
+  assert.match(unifiedHtml, /TC inactivo est\./);
+  assert.match(unifiedHtml, /TC est\. · hasta últ\. uso/);
   assert.match(unifiedHtml, /Récord personal/);
   assert.match(unifiedHtml, /Feudal/);
   assert.match(unifiedHtml, /class="pm-spark/);

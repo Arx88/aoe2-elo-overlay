@@ -300,15 +300,12 @@ function buildPersonalEvolution(telemetry, records, current) {
   const minsOf = (eng, fallbackDur) => Math.max(1, ((eng.durationSeconds || fallbackDur || 600) / 60));
   const extract = (eng, fallbackDur) => {
     const mins = minsOf(eng, fallbackDur);
-    const earlyIdlePerTc = (eng.self.tcIdleDarkSeconds != null && eng.self.tcIdleFeudalPerTcSeconds != null)
-      ? rounded(eng.self.tcIdleDarkSeconds + eng.self.tcIdleFeudalPerTcSeconds)
-      : (eng.self.tcIdleEarlySeconds ?? eng.self.tcIdleSeconds);
     return {
       tcUtilization: eng.self.tcUtilizationEarly ?? eng.self.tcUtilization,
-      tcIdleSeconds: earlyIdlePerTc,
+      tcIdleSeconds: eng.self.tcIdleEarlySeconds ?? eng.self.tcIdleSeconds,
       tcIdleDarkSeconds: eng.self.tcIdleDarkSeconds,
-      tcIdleFeudalSeconds: eng.self.tcIdleFeudalPerTcSeconds ?? eng.self.tcIdleFeudalSeconds,
-      tcIdleTotalSeconds: eng.self.tcIdleTotalSeconds ?? eng.self.tcIdleSeconds,
+      tcIdleFeudalSeconds: eng.self.tcIdleFeudalSeconds,
+      tcIdleTotalSeconds: eng.self.tcIdleTotalSeconds,
       villagersPerMin: rounded(eng.self.villagersOrdered / mins, 2),
       militaryPerMin: rounded(eng.self.militaryOrdered / mins, 2),
       eapm: eng.self.eapm,

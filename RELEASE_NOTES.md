@@ -1,3 +1,12 @@
+## v2.5.12 · Postmatch horizontal y métricas más claras
+
+- En pantallas con espacio, el informe se abre más ancho, con las edades en una fila y el duelo junto a tu evolución. Al cerrar, el overlay recupera su ancho habitual.
+- Pictogramas nuevos para el foco de la próxima partida y los consejos.
+- El informe distingue los pedidos de unidades de los recuentos de población. La tasa de aldeanos pedidos se calcula incluso si la comparación personal está desactivada.
+- El TC inactivo temprano mantiene el mismo criterio acumulado en el duelo y en la comparación personal. Se identifica como estimación y se indica el recorte del acumulado hasta el último uso.
+
+---
+
 ## v2.5.11 · Estructura de planes (Free · Pro $1 · ProMax $1.99) y centrado del logotipo
 
 - **Logo lateral centrado en la barra:** el logotipo de Relic (`138 px`) ahora queda perfectamente centrado en el eje horizontal de la barra lateral.

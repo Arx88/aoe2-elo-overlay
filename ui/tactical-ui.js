@@ -113,6 +113,7 @@
     age: 'age', barracks: 'barracks', stable: 'stable', scout: 'scout',
     archer: 'archer', blacksmith: 'blacksmith', market: 'market', replay: 'replay',
     gunpowder: 'gunpowder', relic: 'relic',
+    reviewFocus: 'postmatch-focus', reviewAdvice: 'postmatch-advice',
   };
   function icon(name) {
     const asset = ICONS[name];
@@ -524,10 +525,10 @@
     const midClock = clock(list[Math.floor((list.length - 1) / 2)].seconds);
     return `<div class="pm-curve-wrap">
       <div class="pm-curve-head">
-        <span>${esc(tr('postmatch.curveTitle', 'Ritmo acumulado (Aldeanos + Ejército)'))}</span>
+        <span>${esc(tr('postmatch.curveTitle', 'Pedidos acumulados · aldeanos y otras unidades'))}</span>
         <div class="pm-legend"><i class="leg-self"></i>${esc(tr('postmatch.you', 'Vos'))}${rPts.length ? `<i class="leg-rival"></i>${esc(rivalName || tr('postmatch.rival', 'Rival'))}` : ''}</div>
       </div>
-      <svg class="pm-curve" viewBox="0 0 ${w} ${h}" role="img" aria-label="Curva de producción acumulada">
+      <svg class="pm-curve" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(tr('postmatch.curveTitle', 'Pedidos acumulados'))}">
         <line class="pm-grid" x1="${padL}" y1="${padT + innerH}" x2="${w - padR}" y2="${padT + innerH}" />
         <line class="pm-grid" x1="${padL}" y1="${padT + innerH / 2}" x2="${w - padR}" y2="${padT + innerH / 2}" />
         <polygon class="pm-area-self" points="${sArea}" />
@@ -568,7 +569,8 @@
     const tag = item.isBest ? ` ${tr('postmatch.recordTag', '★ RÉCORD')}` : '';
     return `<span class="pm-delta ${good ? 'win' : 'loss'}${item.isBest ? ' is-record' : ''}">${arrow} ${sign}${val}${tag}</span>`;
   }
-  const REPORT_ICON_ALIASES = { opening: 'history', dark: 'building', feudal: 'barracks', imperial: 'crown', target: 'objective' };
+  const REPORT_ICON_ALIASES = { opening: 'history', dark: 'building', feudal: 'barracks',
+    imperial: 'crown', target: 'reviewAdvice', focus: 'reviewFocus' };
   function reportIcon(name) {
     return icon(REPORT_ICON_ALIASES[name] || name) || icon('medal');
   }
@@ -633,7 +635,7 @@
             </section>`
           : '';
     const focusShort = eng.focus
-      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('target')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(eng.focus.title)}</b><p>${esc(eng.focus.detail)}</p></div></div>` : '';
+      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('focus')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(eng.focus.title)}</b><p>${esc(eng.focus.detail)}</p></div></div>` : '';
 
     // 1. Spotlight horizontal de Apertura detectada + nota S–D + consejo concreto
     const stageDeltas = evo?.stageDeltas || {};
@@ -679,7 +681,8 @@
 
     const badges = (eng.highlights || []).slice(0, 3).map((h) => {
       const warn = h.tone === 'warn';
-      return `<div class="pm-badge ${warn ? 'is-warn' : 'is-good'}"><span class="pm-icon-tile ${warn ? 'is-rose' : 'is-gold'} sm">${reportIcon(h.icon || 'medal')}</span><div><span class="pm-badge-tag">${esc(warn ? tr('postmatch.fixTag', '▼ A CORREGIR') : tr('postmatch.achieveTag', '★ LOGRO'))}</span><b>${esc(h.title)}</b><small>${esc(h.detail)}</small></div></div>`;
+      const pictogram = warn ? 'target' : h.icon || 'medal';
+      return `<div class="pm-badge ${warn ? 'is-warn' : 'is-good'}"><span class="pm-icon-tile ${warn ? 'is-rose' : 'is-gold'} sm">${reportIcon(pictogram)}</span><div><span class="pm-badge-tag">${esc(warn ? tr('postmatch.fixTag', '▼ A CORREGIR') : tr('postmatch.achieveTag', '★ LOGRO'))}</span><b>${esc(h.title)}</b><small>${esc(h.detail)}</small></div></div>`;
     }).join('');
 
     const evoTitle = !showPersonal
@@ -709,22 +712,24 @@
 
     const earlyUtil = self.tcUtilizationEarly ?? self.tcUtilization;
     const earlyIdle = self.tcIdleEarlySeconds ?? self.tcIdleSeconds;
-    const totalIdle = self.tcIdleTotalSeconds ?? self.tcIdleSeconds;
-    const feudPerTc = self.tcIdleFeudalPerTcSeconds ?? self.tcIdleFeudalSeconds;
+    const totalIdle = self.tcIdleTotalSeconds;
+    const minutes = (eng.durationSeconds || result.durationSeconds) / 60;
+    const villagerOrdersPerMinute = em.villagersPerMin?.current ??
+      (Number.isFinite(minutes) && minutes > 0 && Number.isFinite(self.villagersOrdered)
+        ? self.villagersOrdered / Math.max(1, minutes) : null);
     const utilBreakdown = [
       self.tcUtilizationDark != null ? `${locAge('dark', 'Alta')} ${dec(self.tcUtilizationDark, 1)}%` : null,
       self.tcUtilizationFeudal != null ? `${locAge('feudal', 'Feudal')} ${dec(self.tcUtilizationFeudal, 1)}%` : null,
     ].filter(Boolean).join(' · ') || null;
     const idleBreakdown = [
       self.tcIdleDarkSeconds != null ? `${locAge('dark', 'Alta')} ${fmtIdle(self.tcIdleDarkSeconds)}` : null,
-      feudPerTc != null ? `${locAge('feudal', 'Feudal')} ${fmtIdle(feudPerTc)}${(self.feudalActiveTcs || 1) > 1 ? '/TC' : ''}` : null,
-      totalIdle != null ? `Total ${fmtIdle(totalIdle)}` : null,
+      self.tcIdleFeudalSeconds != null ? `${locAge('feudal', 'Feudal')} ${fmtIdle(self.tcIdleFeudalSeconds)}` : null,
     ].filter(Boolean).join(' · ') || null;
 
     const evoGrid = `<div class="pm-kpi-grid">
       ${evoCard({ ...(em.tcUtilization || {}), label: tr('postmatch.tcUsage', 'Uso de TC') }, earlyUtil != null ? `${dec(earlyUtil, 1)}%` : '—', ' pts', false, utilBreakdown)}
-      ${evoCard({ ...(em.tcIdleSeconds || {}), label: tr('postmatch.tcIdle', 'Idle de TC') }, fmtIdle(self.tcIdleDarkSeconds != null && feudPerTc != null ? (self.tcIdleDarkSeconds + feudPerTc) : earlyIdle), ' s', true, idleBreakdown)}
-      ${evoCard({ ...(em.villagersPerMin || {}), label: tr('postmatch.vilsPerMin', 'Aldeanos / min') }, em.villagersPerMin ? dec(em.villagersPerMin.current, 2) : number(self.villagersOrdered), '/m')}
+      ${evoCard({ ...(em.tcIdleSeconds || {}), label: tr('postmatch.tcIdle', 'TC inactivo est.') }, fmtIdle(earlyIdle), ' s', true, idleBreakdown)}
+      ${evoCard({ ...(em.villagersPerMin || {}), label: tr('postmatch.vilsPerMin', 'Ald. pedidos / min') }, villagerOrdersPerMinute != null ? dec(villagerOrdersPerMinute, 2) : '—', '/m')}
       ${evoCard({ ...(em.eapm || {}), label: tr('postmatch.eapm', 'Ritmo eAPM') }, self.eapm != null ? dec(self.eapm, 1) : '—', '')}
     </div>`;
 
@@ -754,18 +759,14 @@
         </div>
       </div>`;
     };
-    const selfEarlyDisplay = self.tcIdleDarkSeconds != null && feudPerTc != null ? (self.tcIdleDarkSeconds + feudPerTc) : earlyIdle;
-    const rivalFeudPerTc = rival ? (rival.tcIdleFeudalPerTcSeconds ?? rival.tcIdleFeudalSeconds) : null;
-    const rivalEarlyDisplay = rival
-      ? (rival.tcIdleDarkSeconds != null && rivalFeudPerTc != null ? (rival.tcIdleDarkSeconds + rivalFeudPerTc) : (rival.tcIdleEarlySeconds ?? rival.tcIdleSeconds))
-      : null;
-    const rivalTotalIdle = rival ? (rival.tcIdleTotalSeconds ?? rival.tcIdleSeconds) : null;
+    const rivalEarlyIdle = rival?.tcIdleEarlySeconds ?? rival?.tcIdleSeconds;
+    const rivalTotalIdle = rival?.tcIdleTotalSeconds;
     const duelBlock = `<div class="pm-duel">
       ${duelFaceHead}
-      ${duelRow(tr('postmatch.duelVils', 'Aldeanos'), self.villagersOrdered, rival?.villagersOrdered, `${number(self.villagersOrdered)} · ${self.townCenters} TC`, rival ? `${number(rival.villagersOrdered)} · ${rival.townCenters} TC` : '')}
-      ${selfEarlyDisplay != null ? duelRow(tr('postmatch.duelIdleEarly', 'Idle TC · Alta + Feudal'), selfEarlyDisplay, rivalEarlyDisplay, fmtIdle(selfEarlyDisplay), rivalEarlyDisplay != null ? fmtIdle(rivalEarlyDisplay) : '', true) : ''}
-      ${totalIdle != null ? duelRow(tr('postmatch.duelIdleTotal', 'Idle TC · Total'), totalIdle, rivalTotalIdle, fmtIdle(totalIdle), rivalTotalIdle != null ? fmtIdle(rivalTotalIdle) : '', true) : ''}
-      ${duelRow(tr('postmatch.duelArmy', 'Ejército encargado'), self.militaryOrdered, rival?.militaryOrdered, number(self.militaryOrdered), rival ? number(rival.militaryOrdered) : '')}
+      ${duelRow(tr('postmatch.duelVils', 'Aldeanos pedidos'), self.villagersOrdered, rival?.villagersOrdered, `${number(self.villagersOrdered)} · ${self.townCenters} TC`, rival ? `${number(rival.villagersOrdered)} · ${rival.townCenters} TC` : '')}
+      ${earlyIdle != null ? duelRow(tr('postmatch.duelIdleEarly', 'TC est. · Alta y Feudal'), earlyIdle, rivalEarlyIdle, fmtIdle(earlyIdle), rivalEarlyIdle != null ? fmtIdle(rivalEarlyIdle) : '', true) : ''}
+      ${totalIdle != null ? duelRow(tr('postmatch.duelIdleTotal', 'TC est. · hasta últ. uso'), totalIdle, rivalTotalIdle, fmtIdle(totalIdle), rivalTotalIdle != null ? fmtIdle(rivalTotalIdle) : '', true) : ''}
+      ${duelRow(tr('postmatch.duelArmy', 'Pedidos de unidades'), self.militaryOrdered, rival?.militaryOrdered, number(self.militaryOrdered), rival ? number(rival.militaryOrdered) : '')}
     </div>`;
 
     // 4. Producción y colas militares (saturación + edificios recomendados + Mercado decodificado + composición)
