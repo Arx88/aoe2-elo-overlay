@@ -135,7 +135,7 @@
     "enterWindow": "开局展示 · 0:01 – {time}",
     "civHelpTitle": "文明速查卡",
     "civHelpDesc": "双方文明徽章及加成、特色单位与弱点简报 · 0:01 – {time}",
-    "hideEloTitle": "{time} 后隐藏分数",
+    "hideEloTitle": "{seconds} 秒后隐藏浮窗",
     "hideEloDesc": "在 {time} 自动隐藏避免干扰 · 对局结束后重新显示",
     "hideAtLabel": "隐藏时间",
     "matchClock": "对局计时",
@@ -162,7 +162,7 @@
     "civHelpVisibleUntil": "文明速查卡：已开启 · 显示至 {time}",
     "civHelpHidesAt": "文明速查卡：将于 {time} 自动隐藏",
     "civHelpExtended": "文明速查卡：显示至 0:40",
-    "hideAtSaved": "ELO 与文明卡将于 {time} 隐藏"
+    "hideAtSaved": "浮窗与文明卡将于 {seconds} 秒后隐藏"
   },
   "tactics": {
     "bannerTitle": "文明战术参考",

@@ -1,3 +1,10 @@
+## v2.5.5 · Pulido de textos y asistente inicial de Relic
+
+- **Etiqueta más clara en Prematch:** la opción de ocultado automático ahora dice **"Ocultar Overlay 20 segundos"** (actualizada en los 4 idiomas: español, inglés y chino).
+- **Asistente inicial e instalador 100% unificados con el nuevo logo geométrico de Relic:** se incorporó el logotipo horizontal en el asistente inicial, se fijaron los íconos explícitos de instalador/desinstalador NSIS y se eliminaron restos del logotipo anterior.
+
+---
+
 ## v2.5.4 · Nuevo logotipo geométrico oficial de Relic
 
 - **Nuevo logotipo y símbolo `R` de Relic:** integrado en el Centro de mando, barra de ventana, ícono de aplicación (`.ico`), bandeja del sistema, asistente inicial e instalador Windows NSIS.

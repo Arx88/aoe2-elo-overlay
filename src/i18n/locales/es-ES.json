@@ -135,7 +135,7 @@
     "enterWindow": "Al entrar · 0:01 – {time}",
     "civHelpTitle": "Ayuda de civ",
     "civHelpDesc": "Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – {time}",
-    "hideEloTitle": "Ocultar ELO a {time}",
+    "hideEloTitle": "Ocultar Overlay {seconds} segundos",
     "hideEloDesc": "Se oculta a {time} para no molestar · vuelve al terminar",
     "hideAtLabel": "Ocultar a los",
     "matchClock": "Reloj de partida",
@@ -162,7 +162,7 @@
     "civHelpVisibleUntil": "Ayuda de civ: activada · visible hasta {time}",
     "civHelpHidesAt": "Ayuda de civ: se oculta a los {time}",
     "civHelpExtended": "Ayuda de civ: visible hasta 0:40",
-    "hideAtSaved": "Ocultar ELO y ayuda a los {time}"
+    "hideAtSaved": "Ocultar Overlay y ayuda a los {seconds} segundos"
   },
   "tactics": {
     "bannerTitle": "Referencias por civilización",

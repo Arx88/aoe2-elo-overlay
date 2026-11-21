@@ -161,10 +161,10 @@ function paintHideAt(seconds) {
   hideAtInput.value = String(value);
   hideAtValue.textContent = clock;
   hideAtInput.style.setProperty('--fill', `${((value - 10) / 50) * 100}%`);
-  enterWindowLabel.textContent = t('overlay.enterWindow', `Al entrar · 0:01 – ${clock}`, { time: clock });
-  civHelpDesc.textContent = t('overlay.civHelpDesc', `Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – ${clock}`, { time: clock });
-  hideEloName.textContent = t('overlay.hideEloTitle', `Ocultar ELO a ${clock}`, { time: clock });
-  hideEloDesc.textContent = t('overlay.hideEloDesc', `Se oculta a ${clock} para no molestar · vuelve al terminar`, { time: clock });
+  enterWindowLabel.textContent = t('overlay.enterWindow', `Al entrar · 0:01 – ${clock}`, { time: clock, seconds: value });
+  civHelpDesc.textContent = t('overlay.civHelpDesc', `Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – ${clock}`, { time: clock, seconds: value });
+  hideEloName.textContent = t('overlay.hideEloTitle', `Ocultar Overlay ${value} segundos`, { time: clock, seconds: value });
+  hideEloDesc.textContent = t('overlay.hideEloDesc', `Se oculta a ${clock} para no molestar · vuelve al terminar`, { time: clock, seconds: value });
 }
 
 function paintOpacity(value) {
@@ -456,7 +456,7 @@ civHelpTipYes.addEventListener('click', async () => {
   setStatus('Ayuda de civ: visible hasta 0:40');
 });
 hideEloInput.addEventListener('change', () =>
-  applyToggle(hideEloInput, (on) => window.settings.hideEloAt20(on), 'Ocultar ELO'),
+  applyToggle(hideEloInput, (on) => window.settings.hideEloAt20(on), hideEloName.textContent || 'Ocultar Overlay'),
 );
 
 hideAtInput.addEventListener('input', () => {
@@ -470,7 +470,9 @@ hideAtInput.addEventListener('input', () => {
       return;
     }
     paintHideAt(response.hideAtSeconds);
-    setStatus(`Ocultar ELO y ayuda a los ${clockShort(response.hideAtSeconds)}`);
+    const secs = Math.round(Number(response.hideAtSeconds) || value);
+    const cStr = clockShort(secs);
+    setStatus(t('overlay.hideAtSaved', `Ocultar Overlay y ayuda a los ${secs} segundos`, { time: cStr, seconds: secs }));
   }, 120);
 });
 

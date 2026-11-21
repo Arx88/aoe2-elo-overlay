@@ -209,13 +209,15 @@
 }
 .wizard-brand {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
-.wizard-brand img {
-  width: 38px;
-  height: 38px;
+.wizard-brand-logo {
+  width: auto;
+  height: 28px;
   object-fit: contain;
+  display: block;
 }
 .wizard-eyebrow {
   display: block;

@@ -135,7 +135,7 @@
     "enterWindow": "On match start · 0:01 – {time}",
     "civHelpTitle": "Civ guide",
     "civHelpDesc": "Both civ crests and short summary of bonuses, units & weaknesses · 0:01 – {time}",
-    "hideEloTitle": "Hide ELO at {time}",
+    "hideEloTitle": "Hide Overlay ({seconds}s)",
     "hideEloDesc": "Hides at {time} to stay out of the way · returns after the match",
     "hideAtLabel": "Hide after",
     "matchClock": "Match clock",
@@ -162,7 +162,7 @@
     "civHelpVisibleUntil": "Civ guide: enabled · visible until {time}",
     "civHelpHidesAt": "Civ guide: hides at {time}",
     "civHelpExtended": "Civ guide: visible until 0:40",
-    "hideAtSaved": "Hide ELO and civ guide at {time}"
+    "hideAtSaved": "Hide Overlay and civ guide after {seconds}s"
   },
   "tactics": {
     "bannerTitle": "Civilization references",
