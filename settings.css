@@ -2811,3 +2811,68 @@ main.content {
   flex-wrap: wrap;
   gap: 8px 12px;
 }
+
+/* ============ CUENTA RELIC (GOOGLE OAUTH + DISPOSITIVOS + REDEEM KEYS) ============ */
+.relic-auth-card {
+  margin: 14px 0 18px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(209, 176, 108, 0.28);
+  background: linear-gradient(180deg, rgba(24, 29, 39, 0.88), rgba(14, 18, 25, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.relic-auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.relic-auth-copy { flex: 1; min-width: 240px; }
+.relic-auth-copy h3 { margin: 4px 0 4px; font-size: 16px; font-weight: 700; color: #f3ede0; }
+.relic-auth-copy p { margin: 0; font-size: 12.5px; line-height: 1.48; color: #9ea8b8; }
+.relic-auth-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.relic-google-btn { display: inline-flex; align-items: center; gap: 9px; padding: 9px 16px; font-weight: 650; }
+.relic-google-btn .g-mark {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(13, 16, 22, 0.82); color: #f4d68c; font-weight: 800; font-size: 12px;
+}
+.relic-auth-signed { display: flex; flex-direction: column; gap: 14px; }
+.relic-auth-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.relic-user-pill { display: flex; align-items: center; gap: 11px; }
+.relic-user-avatar {
+  width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(209, 176, 108, 0.18); border: 1px solid rgba(209, 176, 108, 0.45);
+  color: #f4d68c; font-weight: 700; font-size: 14px; overflow: hidden;
+}
+.relic-user-pill strong { display: block; font-size: 14px; color: #f3ede0; }
+.relic-user-pill small { display: block; font-size: 11.5px; color: #9ea8b8; }
+.relic-auth-head-actions { display: flex; align-items: center; gap: 8px; }
+.relic-seats-badge {
+  padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  color: #e7c97f; background: rgba(209, 176, 108, 0.14); border: 1px solid rgba(209, 176, 108, 0.3);
+}
+.relic-limit-alert {
+  padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.45;
+  background: rgba(220, 82, 82, 0.12); border: 1px solid rgba(220, 82, 82, 0.36); color: #f5c2c2;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.relic-sub-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: #9ea8b8; }
+.relic-devices-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.relic-device-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 11px; border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(10, 13, 19, 0.55);
+}
+.relic-device-meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.relic-device-meta b { font-size: 12.5px; color: #f0ece2; display: flex; align-items: center; gap: 6px; }
+.relic-device-meta small { font-size: 11px; color: #8c96a7; }
+.relic-this-pc {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: 999px; background: rgba(88, 214, 141, 0.14); color: #7ce3a6; border: 1px solid rgba(88, 214, 141, 0.3);
+}
+.relic-redeem-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.relic-redeem-row .field { flex: 1; min-width: 220px; }

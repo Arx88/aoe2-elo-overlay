@@ -2161,3 +2161,145 @@ paintOpacity(0.95);
 paintSearchHelp(false);
 goTo('player');
 loadCurrent();
+
+
+/* ============ CUENTA RELIC · GOOGLE OAUTH, DISPOSITIVOS Y CLAVES PREPAGAS ============ */
+(function initRelicAuthUi() {
+  const signedOutEl = el('relicAuthSignedOut');
+  const signedInEl = el('relicAuthSignedIn');
+  const loginBtn = el('googleLoginBtn');
+  const logoutBtn = el('googleLogoutBtn');
+  const authStatusEl = el('relicAuthStatus');
+  const userAvatarEl = el('relicUserAvatar');
+  const userNameEl = el('relicUserName');
+  const userEmailEl = el('relicUserEmail');
+  const seatsBadgeEl = el('relicSeatsBadge');
+  const limitAlertEl = el('relicDeviceLimitAlert');
+  const devicesListEl = el('relicDevicesList');
+  const redeemForm = el('redeemKeyForm');
+  const redeemInput = el('redeemKeyInput');
+  const redeemBtn = el('redeemKeyBtn');
+  const redeemStatusEl = el('redeemKeyStatus');
+
+  if (!signedOutEl || !signedInEl || !window.settings?.authStatus) return;
+
+  function fmtRelTime(tsSec) {
+    if (!tsSec) return '—';
+    const diff = Math.max(0, Math.floor(Date.now() / 1000) - Number(tsSec));
+    if (diff < 60) return 'ahora';
+    if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
+    if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
+    return `hace ${Math.floor(diff / 86400)} d`;
+  }
+
+  function paintAuth(auth) {
+    if (!auth || !auth.signedIn || !auth.user) {
+      signedOutEl.hidden = false;
+      signedInEl.hidden = true;
+      return;
+    }
+    signedOutEl.hidden = true;
+    signedInEl.hidden = false;
+    const u = auth.user;
+    if (userNameEl) userNameEl.textContent = u.displayName || u.email || 'Usuario Relic';
+    if (userEmailEl) userEmailEl.textContent = u.email || '';
+    if (userAvatarEl) {
+      const initial = String(u.displayName || u.email || 'R').trim().charAt(0).toUpperCase() || 'R';
+      userAvatarEl.textContent = initial;
+    }
+    const activeDevices = (Array.isArray(auth.devices) ? auth.devices : []).filter((d) => d.active);
+    const maxDev = Number(u.maxDevices || 2);
+    if (seatsBadgeEl) seatsBadgeEl.textContent = `${activeDevices.length}/${maxDev} PCs activas`;
+    if (limitAlertEl) limitAlertEl.hidden = Boolean(auth.currentMachineAuthorized);
+
+    if (devicesListEl) {
+      devicesListEl.replaceChildren();
+      if (!activeDevices.length) {
+        const empty = document.createElement('li');
+        empty.className = 'relic-device-item';
+        empty.innerHTML = '<div class="relic-device-meta"><small>Sin PCs registradas todavía.</small></div>';
+        devicesListEl.appendChild(empty);
+      } else {
+        for (const dev of activeDevices) {
+          const isCurrent = dev.machineHash === auth.currentMachineHash;
+          const li = document.createElement('li');
+          li.className = 'relic-device-item';
+          const meta = document.createElement('div');
+          meta.className = 'relic-device-meta';
+          meta.innerHTML = `<b>${escapeHtml(dev.deviceName || 'PC')}${isCurrent ? '<span class="relic-this-pc">Esta PC</span>' : ''}</b>` +
+            `<small>${escapeHtml([dev.appVersion ? `v${dev.appVersion}` : null, `última vez ${fmtRelTime(dev.lastSeenAt)}`].filter(Boolean).join(' · '))}</small>`;
+          const kickBtn = document.createElement('button');
+          kickBtn.type = 'button';
+          kickBtn.className = 'btn';
+          kickBtn.textContent = isCurrent ? 'Desvincular' : 'Desconectar';
+          kickBtn.addEventListener('click', async () => {
+            kickBtn.disabled = true;
+            try {
+              const res = await window.settings.authRevokeDevice(dev.machineHash);
+              if (res?.auth) paintAuth(res.auth);
+              if (res?.product) paintProduct(res.product);
+            } finally {
+              kickBtn.disabled = false;
+            }
+          });
+          li.append(meta, kickBtn);
+          devicesListEl.appendChild(li);
+        }
+      }
+    }
+  }
+
+  loginBtn?.addEventListener('click', async () => {
+    loginBtn.disabled = true;
+    if (authStatusEl) authStatusEl.textContent = 'Abriendo Google en tu navegador…';
+    try {
+      const res = await window.settings.authGoogleLogin();
+      if (res?.ok) {
+        if (authStatusEl) authStatusEl.textContent = '';
+        if (res.auth) paintAuth(res.auth);
+        if (res.product) paintProduct(res.product);
+      } else if (authStatusEl) {
+        authStatusEl.textContent = res?.error || 'No se pudo iniciar sesión.';
+      }
+    } catch (err) {
+      if (authStatusEl) authStatusEl.textContent = err?.message || 'Error al iniciar sesión.';
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
+
+  logoutBtn?.addEventListener('click', async () => {
+    logoutBtn.disabled = true;
+    try {
+      const res = await window.settings.authLogout();
+      if (res?.auth) paintAuth(res.auth);
+      if (res?.product) paintProduct(res.product);
+    } finally {
+      logoutBtn.disabled = false;
+    }
+  });
+
+  redeemForm?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const code = String(redeemInput?.value || '').trim();
+    if (!code) return;
+    if (redeemBtn) redeemBtn.disabled = true;
+    if (redeemStatusEl) redeemStatusEl.textContent = 'Verificando clave…';
+    try {
+      const res = await window.settings.authRedeemKey(code);
+      if (res?.ok) {
+        if (redeemInput) redeemInput.value = '';
+        if (redeemStatusEl) redeemStatusEl.textContent = `¡Plan ${String(res.plan || '').toUpperCase()} activado (+${res.durationDays} días)!`;
+        if (res.auth) paintAuth(res.auth);
+        if (res.product) paintProduct(res.product);
+      } else if (redeemStatusEl) {
+        redeemStatusEl.textContent = res?.error || 'Clave inválida.';
+      }
+    } finally {
+      if (redeemBtn) redeemBtn.disabled = false;
+    }
+  });
+
+  window.settings.onAuth?.((auth) => paintAuth(auth));
+  window.settings.authStatus().then((res) => { if (res?.auth) paintAuth(res.auth); }).catch(() => {});
+})();

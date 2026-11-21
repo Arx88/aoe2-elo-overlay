@@ -13,8 +13,10 @@ const {
   nativeImage,
   dialog,
   powerMonitor,
+  safeStorage,
 } = require('electron');
 const fs = require('node:fs');
+const http = require('node:http');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
@@ -588,17 +590,92 @@ function loadProductPublicKeys() {
   return Object.keys(merged).length ? merged : null;
 }
 const PRODUCT_PUBLIC_KEYS = loadProductPublicKeys();
+const SESSION_TOKEN_PATH = path.join(DATA_DIR, 'session.enc');
 let remoteLicenseState = { status: 'unconfigured', lastCheckAt: null, reason: null, revoked: false };
 let remoteLicenseTimer = null;
+let cachedAuthProfile = null;
+let activeAuthServer = null;
+
+function licenseApiUrl() {
+  return process.env.AOE2_LICENSE_API_URL || config.licenseApiUrl || licenseClient.DEFAULT_API_URL;
+}
+
+function loadSessionToken() {
+  try {
+    if (!fs.existsSync(SESSION_TOKEN_PATH)) return null;
+    const raw = fs.readFileSync(SESSION_TOKEN_PATH, 'utf8').trim();
+    if (!raw) return null;
+    if (raw.startsWith('dpapi:')) {
+      if (!safeStorage || !safeStorage.isEncryptionAvailable()) return null;
+      return safeStorage.decryptString(Buffer.from(raw.slice(6), 'base64'));
+    }
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function saveSessionToken(token) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const clean = String(token || '').trim();
+    if (!clean) { clearSessionToken(); return; }
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      const enc = safeStorage.encryptString(clean).toString('base64');
+      fs.writeFileSync(SESSION_TOKEN_PATH, `dpapi:${enc}`, 'utf8');
+    } else {
+      fs.writeFileSync(SESSION_TOKEN_PATH, clean, 'utf8');
+    }
+  } catch (err) {
+    log(`no pude guardar la sesión cifrada: ${err.message}`);
+  }
+}
+
+function clearSessionToken() {
+  cachedAuthProfile = null;
+  try {
+    if (fs.existsSync(SESSION_TOKEN_PATH)) fs.unlinkSync(SESSION_TOKEN_PATH);
+  } catch {
+    /* ya no existía */
+  }
+}
+
+function broadcastAuthState(payload) {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.webContents.send('auth:update', payload);
+  }
+}
+
+async function fetchCurrentAuthState() {
+  const token = loadSessionToken();
+  const apiUrl = licenseApiUrl();
+  if (!token) {
+    cachedAuthProfile = { signedIn: false, user: null, devices: [], activeDeviceCount: 0, currentMachineAuthorized: false };
+    return cachedAuthProfile;
+  }
+  const res = await licenseClient.fetchAccountMe({ apiUrl, sessionToken: token });
+  if (res.unauthorized) {
+    clearSessionToken();
+    cachedAuthProfile = { signedIn: false, user: null, devices: [], activeDeviceCount: 0, currentMachineAuthorized: false, expired: true };
+    return cachedAuthProfile;
+  }
+  if (!res.ok) {
+    return cachedAuthProfile || { signedIn: true, offline: true, error: res.error, user: null, devices: [] };
+  }
+  cachedAuthProfile = { signedIn: true, ...res.data };
+  return cachedAuthProfile;
+}
 
 async function syncRemoteLicense(reason = 'startup') {
-  const apiUrl = process.env.AOE2_LICENSE_API_URL || config.licenseApiUrl || licenseClient.DEFAULT_API_URL;
+  const apiUrl = licenseApiUrl();
   if (!apiUrl) return remoteLicenseState;
+  const sessionToken = loadSessionToken();
   const res = await licenseClient.checkRemoteEntitlement({
     apiUrl,
     profileId: profileId || null,
     alias: playerAlias || '',
     appVersion: app.getVersion(),
+    sessionToken,
     publicKeys: PRODUCT_PUBLIC_KEYS || {},
   });
   remoteLicenseState = { ...res, lastCheckAt: Date.now(), checkReason: reason };
@@ -3729,7 +3806,179 @@ function registerIpc() {
 
   ipcMain.handle('settings:license-refresh', async () => {
     const remote = await syncRemoteLicense('manual');
-    return { ok: remote.status === 'verified', remote, product: productState() };
+    const auth = await fetchCurrentAuthState();
+    broadcastAuthState(auth);
+    return { ok: remote.status === 'verified', remote, auth, product: productState() };
+  });
+
+  ipcMain.handle('auth:status', async () => {
+    const auth = await fetchCurrentAuthState();
+    return { ok: true, auth, product: productState() };
+  });
+
+  ipcMain.handle('auth:googleLogin', async () => {
+    const apiUrl = licenseApiUrl();
+    if (!apiUrl) return { ok: false, error: 'Servicio de cuentas no configurado.' };
+    if (activeAuthServer) {
+      try { activeAuthServer.close(); } catch {}
+      activeAuthServer = null;
+    }
+    return new Promise((resolve) => {
+      let finished = false;
+      const done = (result) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeout);
+        if (activeAuthServer) {
+          try { activeAuthServer.close(); } catch {}
+          activeAuthServer = null;
+        }
+        resolve(result);
+      };
+      const expectedState = crypto.randomBytes(16).toString('hex');
+      const server = http.createServer(async (req, res) => {
+        try {
+          const parsed = new URL(req.url || '/', 'http://127.0.0.1');
+          if (parsed.pathname !== '/auth/callback') {
+            res.writeHead(404);
+            res.end();
+            return;
+          }
+          const code = parsed.searchParams.get('code');
+          const returnedState = parsed.searchParams.get('state');
+          const directToken = parsed.searchParams.get('token');
+          const errParam = parsed.searchParams.get('error');
+          if (errParam) {
+            res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
+            res.end('<h2>Inicio de sesión cancelado</h2><p>Podés cerrar esta pestaña y volver a Relic.</p>');
+            done({ ok: false, error: 'Inicio de sesión cancelado.' });
+            return;
+          }
+          let sessionToken = directToken;
+          let deviceLimit = parsed.searchParams.get('deviceLimit') === '1';
+          if (!sessionToken && code) {
+            if (returnedState !== expectedState) {
+              res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
+              res.end('<h2>Estado inválido</h2><p>Volvé a intentarlo desde Relic.</p>');
+              done({ ok: false, error: 'Estado OAuth inválido.' });
+              return;
+            }
+            const { port } = server.address();
+            const exchanged = await licenseClient.exchangeGoogleCode({
+              apiUrl,
+              code,
+              redirectUri: `http://127.0.0.1:${port}/auth/callback`,
+              profileId: profileId || null,
+              alias: playerAlias || '',
+              appVersion: app.getVersion(),
+            });
+            if (!exchanged.ok || !exchanged.sessionToken) {
+              res.writeHead(502, { 'content-type': 'text/html; charset=utf-8' });
+              res.end('<h2>No se pudo completar el acceso</h2><p>Volvé a intentarlo desde Relic.</p>');
+              done({ ok: false, error: exchanged.error || 'No se pudo validar con Google.' });
+              return;
+            }
+            sessionToken = exchanged.sessionToken;
+            deviceLimit = Boolean(exchanged.deviceLimit);
+          }
+          if (!sessionToken) {
+            res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
+            res.end('<h2>Error al iniciar sesión</h2><p>Volvé a intentarlo desde Relic.</p>');
+            done({ ok: false, error: 'Google no devolvió sesión válida.' });
+            return;
+          }
+          saveSessionToken(sessionToken);
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+          res.end('<!doctype html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0d1016;color:#e9e4d9;font-family:system-ui,sans-serif;"><div style="text-align:center;padding:28px;border:1px solid rgba(209,176,108,.4);border-radius:12px;background:#141821;"><div style="color:#d1b06c;font-size:11px;font-weight:700;letter-spacing:.12em;">RELIC</div><h2 style="margin:8px 0;">¡Listo! Sesión conectada</h2><p style="color:#9da5b4;font-size:13px;">Ya podés cerrar esta pestaña y volver a Relic.</p></div></body></html>');
+          log('sesión de Google iniciada y guardada con DPAPI');
+          const [auth] = await Promise.all([
+            fetchCurrentAuthState(),
+            syncRemoteLicense('google-login'),
+          ]);
+          broadcastAuthState(auth);
+          if (settingsWin && !settingsWin.isDestroyed()) {
+            if (settingsWin.isMinimized()) settingsWin.restore();
+            settingsWin.focus();
+          }
+          done({ ok: true, auth, deviceLimit, product: productState() });
+        } catch (err) {
+          res.writeHead(500);
+          res.end();
+          done({ ok: false, error: err.message });
+        }
+      });
+      activeAuthServer = server;
+      const timeout = setTimeout(() => {
+        done({ ok: false, error: 'Tiempo agotado esperando el inicio de sesión en el navegador.' });
+      }, 3 * 60 * 1000);
+      server.on('error', (err) => done({ ok: false, error: err.message }));
+      server.listen(0, '127.0.0.1', () => {
+        const { port } = server.address();
+        const startUrl = licenseClient.buildGoogleDesktopAuthUrl({
+          port,
+          state: expectedState,
+        });
+        shell.openExternal(startUrl).catch((err) => done({ ok: false, error: err.message }));
+      });
+    });
+  });
+
+  ipcMain.handle('auth:logout', async () => {
+    const token = loadSessionToken();
+    if (token) {
+      await licenseClient.logoutRemoteSession({ apiUrl: licenseApiUrl(), sessionToken: token }).catch(() => {});
+    }
+    clearSessionToken();
+    productSession = { accountId: null, entitlementToken: null };
+    await syncRemoteLicense('logout').catch(() => {});
+    refreshAccessPresentation();
+    const auth = { signedIn: false, user: null, devices: [], activeDeviceCount: 0, currentMachineAuthorized: false };
+    broadcastAuthState(auth);
+    return { ok: true, auth, product: productState() };
+  });
+
+  ipcMain.handle('auth:revokeDevice', async (_event, machineHash) => {
+    const token = loadSessionToken();
+    if (!token) return { ok: false, error: 'Iniciá sesión primero.' };
+    const res = await licenseClient.revokeOwnDevice({
+      apiUrl: licenseApiUrl(),
+      sessionToken: token,
+      machineHash: String(machineHash || ''),
+    });
+    if (!res.ok) return { ok: false, error: res.error || 'No se pudo desconectar la PC.' };
+    // Si esta PC no estaba autorizada por límite, reclamar el asiento liberado automáticamente.
+    await licenseClient.claimCurrentDevice({
+      apiUrl: licenseApiUrl(),
+      sessionToken: token,
+      appVersion: app.getVersion(),
+    }).catch(() => {});
+    await syncRemoteLicense('device-revoked');
+    const auth = await fetchCurrentAuthState();
+    broadcastAuthState(auth);
+    return { ok: true, auth, product: productState() };
+  });
+
+  ipcMain.handle('auth:redeemKey', async (_event, rawCode) => {
+    const token = loadSessionToken();
+    if (!token) return { ok: false, error: 'Iniciá sesión con Google antes de canjear una clave.' };
+    const res = await licenseClient.redeemLicenseKey({
+      apiUrl: licenseApiUrl(),
+      sessionToken: token,
+      code: String(rawCode || ''),
+    });
+    if (!res.ok) {
+      const map = {
+        'invalid-key': 'Formato de clave inválido.',
+        'key-not-found': 'Clave no encontrada o revocada.',
+        'key-already-used': 'Esa clave ya fue canjeada.',
+      };
+      return { ok: false, error: map[res.error] || res.error || 'No se pudo canjear la clave.' };
+    }
+    await syncRemoteLicense('key-redeemed');
+    const auth = await fetchCurrentAuthState();
+    broadcastAuthState(auth);
+    log(`clave prepaga canjeada (${res.data.plan}, +${res.data.durationDays} días)`);
+    return { ok: true, ...res.data, auth, product: productState() };
   });
 
   // Actualizaciones automáticas (pestaña Updater). Al activarlas se consulta

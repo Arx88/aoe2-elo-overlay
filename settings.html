@@ -365,6 +365,56 @@
           <!-- ============ PLAN Y ACCESO ============ -->
           <section class="page" data-page="plans">
             <div class="access-summary"><div><span class="eyebrow" data-i18n="plansPage.eyebrow">TU ACCESO ACTUAL</span><h2 id="planName" data-i18n="plansPage.loading">Cargando…</h2><p id="planDescription" data-i18n="plansPage.loadingDesc">Consultando las funciones disponibles de esta versión.</p><span id="planExpiry" class="access-expiry"></span></div><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"></div>
+
+            <!-- Cuenta Relic (Google OAuth + Mis PCs activas + Canje de claves) -->
+            <div id="relicAuthCard" class="relic-auth-card" aria-live="polite">
+              <div id="relicAuthSignedOut" class="relic-auth-row">
+                <div class="relic-auth-copy">
+                  <span class="eyebrow">CUENTA RELIC · SINCRONIZACIÓN Y DISPOSITIVOS</span>
+                  <h3>Iniciá sesión con Google</h3>
+                  <p>Vinculá tu suscripción a tu cuenta, administrá en qué PCs está activa (hasta 2 equipos) y canjeá claves prepagas.</p>
+                </div>
+                <div class="relic-auth-actions">
+                  <button id="googleLoginBtn" class="btn gold relic-google-btn" type="button">
+                    <span class="g-mark" aria-hidden="true">G</span>
+                    <span>Continuar con Google</span>
+                  </button>
+                  <span id="relicAuthStatus" class="inline-status" role="status"></span>
+                </div>
+              </div>
+
+              <div id="relicAuthSignedIn" class="relic-auth-signed" hidden>
+                <div class="relic-auth-head">
+                  <div class="relic-user-pill">
+                    <span id="relicUserAvatar" class="relic-user-avatar">R</span>
+                    <div>
+                      <strong id="relicUserName">—</strong>
+                      <small id="relicUserEmail">—</small>
+                    </div>
+                  </div>
+                  <div class="relic-auth-head-actions">
+                    <span id="relicSeatsBadge" class="relic-seats-badge">0/2 PCs</span>
+                    <button id="googleLogoutBtn" class="btn" type="button">Cerrar sesión</button>
+                  </div>
+                </div>
+
+                <div id="relicDeviceLimitAlert" class="relic-limit-alert" hidden>
+                  <strong>Alcanzaste el límite de PCs activas.</strong>
+                  <span>Desconectá una PC vieja abajo para activar automáticamente este equipo.</span>
+                </div>
+
+                <div class="relic-devices-section">
+                  <div class="relic-sub-head"><span>Mis PCs activas</span><small>Sesión cifrada con Windows DPAPI</small></div>
+                  <ul id="relicDevicesList" class="relic-devices-list"></ul>
+                </div>
+
+                <form id="redeemKeyForm" class="relic-redeem-row">
+                  <input id="redeemKeyInput" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="Canjear clave · RELIC-XXXX-XXXX-XXXX" />
+                  <button id="redeemKeyBtn" class="btn gold" type="submit">Canjear clave</button>
+                  <span id="redeemKeyStatus" class="inline-status" role="status"></span>
+                </form>
+              </div>
+            </div>
             <div class="plans-grid">
               <article class="plan-card" data-plan-card="free">
                 <div class="plan-card-top">
