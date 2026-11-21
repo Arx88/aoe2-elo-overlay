@@ -72,9 +72,11 @@
         <div class="scout-head">
           <span class="scout-title"><img class="product-icon" src="assets/icons/eye.png" width="20" height="20" alt=""/><span data-i18n="hud.scouting">Lectura del rival</span></span>
           <span class="scout-context" id="scoutContext"></span>
+          <div class="scout-carousel-pills" id="scoutCarouselPills" hidden aria-hidden="true"></div>
           <!-- El overlay es click-through: el chip es SOLO la pista del atajo. -->
           <span class="scout-toggle" id="scoutToggle" data-i18n="hud.f2All">F2 · Ver todo</span>
         </div>
+        <div class="scout-carousel-track" id="scoutCarouselTrack" hidden aria-hidden="true"><i id="scoutCarouselFill"></i></div>
         <div class="scout-grid" id="scoutCards"></div>
         <!-- Honestidad de muestra y alcance: UNA vez por sección. -->
         <p class="scout-footnote" id="scoutFootnote" hidden></p>

@@ -149,4 +149,95 @@ const randomHtml = renderRival({
 assert.match(randomHtml, /Jugador Random/);
 assert.match(randomHtml, /No counter-pickees una civ puntual/);
 
-console.log('Prematch predict: entropía, especialista vs random, eAPM, debilidad ajustada por ELO, forma y CSP OK.');
+const tgHtml = renderRival({
+  state: {
+    phase: 'lobby',
+    match: { mapName: 'Arena', leaderboardId: 4 },
+    players: [
+      { profileId: 1, isYou: true, team: 1, civ: 'Mayans', rating: 1250 },
+      { profileId: 2, team: 1, civ: 'Franks', rating: 1220 },
+      { ...rows[0], profileId: 3, team: 2, rating: 1340 },
+      { profileId: 4, team: 2, civ: 'Britons', rating: 1290 },
+    ],
+  },
+  options: {
+    rosterDetails: true,
+    smartTips: true,
+    civRecommender: true,
+    rivalFavorites: true,
+    rivalH2H: true,
+    rivalCivs: true,
+  },
+  entry: {
+    name: 'RivalTG',
+    player: { ...rows[0], rating: 1340 },
+    report: {
+      prediction: specPred,
+      mode: resolveMode(4),
+      mapStats: { name: 'Arena', games: 20, resultGames: 20, wins: 12, winRate: 60 },
+      h2h: { games: 3, wins: 2, losses: 1 },
+      history: [
+        { civ: 'Franks', mapName: 'Arena', won: true },
+        { civ: 'Magyars', mapName: 'Arabia', won: false },
+      ],
+    },
+    tip: tips,
+  },
+});
+assert.match(tgHtml, /intel-rival is-tg/);
+assert.match(tgHtml, /tg-open-card/);
+assert.match(tgHtml, /tg-civ-pills/);
+assert.match(tgHtml, /tg-kpi-pair/);
+assert.match(tgHtml, /tg-last5-strip/);
+assert.doesNotMatch(tgHtml, /style="/, 'sin inline styles en TG por CSP');
+
+// 5) Recomendador de civilización con cruce de 3 factores (mapa + tu WR + civs y aperturas que le duelen)
+const { buildCivRecommendation } = require('../src/mine');
+const tripleRec = buildCivRecommendation({
+  weakAgainst: [
+    { civ: 'Ethiopians', games: 5, losses: 4, lossRate: 80 },
+    { civ: 'Franks', games: 6, losses: 4, lossRate: 67 },
+  ],
+  myCivs: [
+    { civ: 'Ethiopians', slug: 'ethiopians', games: 12, wins: 8, winRate: 67, scope: 'map', scopeLabel: 'en Arabia' },
+    { civ: 'Mayans', slug: 'mayans', games: 10, wins: 7, winRate: 70, scope: 'map', scopeLabel: 'en Arabia' },
+    { civ: 'Franks', slug: 'franks', games: 8, wins: 6, winRate: 75, scope: 'map', scopeLabel: 'en Arabia' },
+  ],
+  openingsAgainst: [
+    { name: 'Archer rush', short: 'Archer rush', games: 8, losses: 6, lossRate: 75, scopeLabel: 'en Arabia' },
+  ],
+  rivalContext: { scope: 'map', scopeLabel: 'en Arabia' },
+  mapName: 'Arabia',
+  modeLabel: 'RM 1v1',
+});
+assert.equal(tripleRec[0].civ, 'Ethiopians', '3 factores (tu WR + rival sufre vs civ + apertura Arqueros) lidera el ranking');
+assert.equal(tripleRec[0].factors, 3);
+assert.equal(tripleRec[0].basis, 'combined');
+assert.equal(tripleRec[0].openingMatch.key, 'archers');
+assert.equal(tripleRec[1].civ, 'Franks', '2 factores directos (tu WR + rival sufre vs civ) queda segundo');
+assert.equal(tripleRec[2].civ, 'Mayans', 'sinergia de apertura (tu WR + Arqueros) entra tercera aunque no haya muestra directa vs civ');
+assert.equal(tripleRec[2].basis, 'opening-synergy');
+
+const recHtml = renderRival({
+  state: { phase: 'ongoing', example: true, previewPhase: 'prematch', match: { mapName: 'Arabia', leaderboardId: 3 }, players: [{ isYou: true, civ: 'Mayans' }, rows[0]] },
+  options: { rosterDetails: true, smartTips: true, civRecommender: true, civCounterPick: true, rivalFavorites: true },
+  entry: { name: 'Rival', player: rows[0], report: { prediction: specPred, mode: resolveMode(3) }, tip: { ...tips, recommend: tripleRec } },
+});
+assert.match(recHtml, /Predicción · Arabia/, 'mantiene intactos los escudos de predicción del rival');
+assert.match(recHtml, /lobby-counter is-triple/);
+assert.match(recHtml, /Cruce 3\/3/);
+assert.match(recHtml, /Tu historial/);
+assert.match(recHtml, /Apertura que le duele/);
+assert.match(recHtml, /Alternativas/);
+assert.doesNotMatch(recHtml, /style="/, 'recomendador sin inline styles por CSP');
+
+const randomWithRecHtml = renderRival({
+  state: { phase: 'lobby', match: { mapName: 'Arabia', leaderboardId: 3 }, players: [{ isYou: true, civ: 'Mayans' }, rows[0]] },
+  options: { rosterDetails: true, smartTips: true, civRecommender: true, civCounterPick: true },
+  entry: { name: 'Rival', player: rows[0], report: { prediction: randPred, mode: resolveMode(3) }, tip: { ...tips, recommend: tripleRec } },
+});
+assert.match(randomWithRecHtml, /Rival impredecible \(Random\)/);
+assert.match(randomWithRecHtml, /Tu mejor pick vs Random · Arabia/);
+assert.doesNotMatch(randomWithRecHtml, /No counter-pickees una civ puntual/, 'no contradice el bloque de recomendación propio');
+
+console.log('Prematch predict: entropía, especialista vs random, eAPM, debilidad ajustada por ELO, recomendador 3-factores, forma y CSP OK.');

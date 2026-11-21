@@ -61,9 +61,12 @@ const WATCHDOG_MS = 45000;
  * El snapshot global se le entrega a QueueWatcher.handleEvents(..., true), así
  * la detección, el dedupe y los avisos siguen viviendo en un solo lugar.
  */
-const FAST_IDLE_MS = 6000; // sin cola: ping filtrado (300 B)
-const FAST_QUEUE_MS = 1500; // en cola: snapshot global con el roster
-const FAST_TIMEOUT_MS = 4000;
+const FAST_IDLE_MS = 15000; // sin cola: ping filtrado liviano (300 B) sin saturar sockets
+const FAST_QUEUE_MS = 2500; // en cola: snapshot global con el roster
+const FAST_TIMEOUT_MS = 4500;
+const QUIET_WATCHDOG_MS = 180000; // sockets filtrados sin tráfico (lobbies) no se cortan cada 45s
+const KEEPALIVE_PING_MS = 30000; // mantiene viva la conexión a través de NAT/firewall
+const PENDING_MATCH_TTL_MS = 35000; // si un lobby se cancela antes de llegar roster, expira solo
 // Después de terminar una partida se sondea seguido 3 minutos: lo habitual es
 // volver a la cola enseguida.
 const HOT_IDLE_MS = 3 * 60 * 1000;
@@ -194,18 +197,21 @@ function applyEvents(lobbies, events, filtered) {
 
 /** Una conexión con reconexión y watchdog, usada para los dos handlers. */
 class Socket {
-  constructor(name, query, onEvents, log, onClose, onOpen) {
+  constructor(name, query, onEvents, log, onClose, onOpen, options = {}) {
     this.name = name;
     this.query = query;
     this.onEvents = onEvents;
     this.onClose = onClose;
     this.onOpen = onOpen;
     this.log = log;
+    this.watchdogMs = Number(options.watchdogMs) || WATCHDOG_MS;
     this.ws = null;
     this.closedByUs = false;
     this.retries = 0;
     this.reconnectTimer = null;
     this.watchdog = null;
+    this.pingTimer = null;
+    this.lastMessageAt = 0;
     this.firstMessage = true;
   }
 
@@ -233,11 +239,14 @@ class Socket {
 
     ws.onopen = () => {
       this.retries = 0;
+      this.lastMessageAt = Date.now();
       this.log(`socket ${this.name}: conectado`);
-      this.armWatchdog(WATCHDOG_MS);
+      this.armWatchdog(this.watchdogMs);
+      this.startKeepalive();
     };
     ws.onmessage = (event) => {
-      this.armWatchdog();
+      this.lastMessageAt = Date.now();
+      this.armWatchdog(this.watchdogMs);
       let message;
       try {
         message = JSON.parse(String(event.data));
@@ -258,13 +267,29 @@ class Socket {
     };
     ws.onclose = (event) => {
       if (this.closedByUs) return;
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
       this.log(`socket ${this.name}: cerrado (código ${event.code})`);
       if (this.onClose) this.onClose();
       this.scheduleReconnect();
     };
   }
 
-  armWatchdog(timeoutMs = WATCHDOG_MS) {
+  startKeepalive() {
+    clearInterval(this.pingTimer);
+    this.pingTimer = setInterval(() => {
+      try {
+        if (this.ws && this.ws.readyState === 1) {
+          this.ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      } catch {
+        /* el watchdog/onclose maneja la reconexión */
+      }
+    }, KEEPALIVE_PING_MS);
+    if (typeof this.pingTimer.unref === 'function') this.pingTimer.unref();
+  }
+
+  armWatchdog(timeoutMs = this.watchdogMs) {
     clearTimeout(this.watchdog);
     this.watchdog = setTimeout(() => {
       this.log(`socket ${this.name}: ${Math.round(timeoutMs / 1000)}s sin respuesta, reconectando`);
@@ -291,7 +316,9 @@ class Socket {
   clearTimers() {
     clearTimeout(this.watchdog);
     clearTimeout(this.reconnectTimer);
+    clearInterval(this.pingTimer);
     this.reconnectTimer = null;
+    this.pingTimer = null;
   }
 
   close() {
@@ -516,6 +543,9 @@ class LobbyWatcher {
       { handler: 'lobbies', language: 'en', profile_ids: this.profileId },
       (events, isSnapshot) => this.handleOwnEvents(events, isSnapshot),
       this.log,
+      null,
+      null,
+      { watchdogMs: QUIET_WATCHDOG_MS },
     );
     this.profileSocket.connect();
   }
@@ -570,6 +600,9 @@ class LobbyWatcher {
       { handler: 'lobbies', language: 'en', match_ids: matchId },
       (events, isSnapshot) => this.handleFullEvents(events, isSnapshot),
       this.log,
+      null,
+      null,
+      { watchdogMs: QUIET_WATCHDOG_MS },
     );
     this.matchSocket.connect();
   }
@@ -624,6 +657,7 @@ class QueueWatcher {
     this.log = log;
     this.items = new Map(); // id -> item (search o matched)
     this.matchedId = null;
+    this.matchedAtLocal = 0;
     this.lastMatchedJson = '';
     this.wasSearching = false;
     this.searchMode = '';
@@ -633,6 +667,7 @@ class QueueWatcher {
     // y ese evento trae el matchId en el mismo lote que el item m_<matchId>.
     this.ownQueueIds = new Set();
     this.pendingMatchId = null;
+    this.pendingMatchAt = 0;
     // El dashboard oficial se conecta sin profile_ids y filtra en cliente.
     // Eso evita depender de que el servidor filtre también los deltas.
     this.useFilter = process.env.AOE_QUEUE_FILTER === '1';
@@ -707,6 +742,7 @@ class QueueWatcher {
             event.data.matchId != null
           ) {
             this.pendingMatchId = Number(event.data.matchId);
+            this.pendingMatchAt = Date.now();
             this.log(`cola apareada: matchId ${this.pendingMatchId} · aviso instantáneo`);
             this.onFound(this.pendingMatchId);
           }
@@ -772,7 +808,9 @@ class QueueWatcher {
     if (mine) {
       const json = JSON.stringify(mine);
       this.matchedId = String(mine.id);
+      this.matchedAtLocal = Date.now();
       this.pendingMatchId = null;
+      this.pendingMatchAt = 0;
       if (json !== this.lastMatchedJson) {
         this.lastMatchedJson = json;
         this.onMatched(mine);
@@ -780,14 +818,30 @@ class QueueWatcher {
       return;
     }
 
+    // Si un snapshot del carril rápido (quiet) llega justo 0–15 s después de
+    // que el socket principal ya vio la partida apareada, no borramos la sala
+    // por una pequeña diferencia de replicación entre nodos.
+    const recentMatchGuard = Boolean(options.quiet && this.matchedAtLocal && Date.now() - this.matchedAtLocal < 15000);
     // Solo se da por terminada con evidencia: snapshot sin la sala, o un
     // queueingRemoved explícito. Un mensaje de otros jugadores no la borra.
-    if (this.matchedId && (isSnapshot || removedMatched)) {
+    if (this.matchedId && !recentMatchGuard && (isSnapshot || removedMatched)) {
       const gone = this.matchedId;
       this.matchedId = null;
+      this.matchedAtLocal = 0;
       this.lastMatchedJson = '';
       this.onGone(gone);
     }
+  }
+
+  /** ¿El WebSocket de matchmaking está conectado y recibiendo tráfico reciente? */
+  get isHealthy() {
+    return Boolean(
+      this.socket &&
+        this.socket.ws &&
+        this.socket.ws.readyState === 1 &&
+        this.socket.lastMessageAt > 0 &&
+        Date.now() - this.socket.lastMessageAt < WATCHDOG_MS,
+    );
   }
 
   /** Partida apareada y vigente (o null). */
@@ -806,11 +860,16 @@ class QueueWatcher {
 
   /**
    * Ya avisamos "encontré rival" (reason:'matched') pero el roster todavía no
-   * llegó. main lo usa para no dejar que el REST borre el panel mientras se
-   * arma la pre-partida.
+   * llegó. Expira a los 35 s si el lobby fue cancelado sin publicar roster.
    */
   get awaitingRoster() {
-    return this.pendingMatchId != null;
+    if (this.pendingMatchId == null) return false;
+    if (this.pendingMatchAt && Date.now() - this.pendingMatchAt > PENDING_MATCH_TTL_MS) {
+      this.pendingMatchId = null;
+      this.pendingMatchAt = 0;
+      return false;
+    }
+    return true;
   }
 }
 

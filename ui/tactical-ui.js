@@ -7,8 +7,8 @@
     ['scouts', 'Scout Rush', 'Scout Opening', 'Scouts', 'Apertura de scouts'],
     ['archers', 'Archer Rush', 'Archer Opening', 'Arqueros', 'Rush de arqueros', 'Apertura de arqueros'],
     ['militia', 'Drush'],
-    ['swords', 'M@A Rush', 'M@A', 'MAA rush', 'Man at arms rush', 'Rush de M@A'],
-    ['castle', 'Fast Castle', 'FC'],
+    ['swords', 'M@A Rush', 'M@A', 'MAA rush', 'Man at arms rush', 'Rush de M@A', 'Hombres de Armas', 'Hombres de armas'],
+    ['castle', 'Fast Castle', 'FC', 'Castillos rápido', 'Castillos rapido'],
     ['boom', '2TC Feudal Boom', '2TC feudal', 'Boom de 2TC en feudal'],
     ['monks', 'Monk Rush', 'Monjes', 'Rush de monjes'],
     ['tower', 'Tower Rush', 'Torres'],
@@ -134,13 +134,13 @@
     const known = m.resultGames == null ? m.games : m.resultGames;
     const wins = m.wins;
     const value = known < 5 ? `${number(wins)}/${number(known)}` : m.winRate == null ? '—' : `${number(m.winRate)}%`;
-    const resultLabel = report.mode?.size === 'team' ? 'de su equipo' : 'del rival';
+    const resultLabel = report.mode?.size === 'team' ? tr('prematch.whoTeam', 'de su equipo') : tr('prematch.whoRival', 'del rival');
     const choices = m.civSampleGames;
     const civCoverage = Number.isFinite(choices) && choices > 0
       ? `<p class="intel-muted">Civilización identificada en <b>${number(choices)}</b> de ${number(m.sampleGames)} partidas revisadas.</p>`
       : '<p class="intel-muted">Sin elecciones de civ verificadas en la muestra.</p>';
     return section(tr('postmatch.mapRecordIn', `En ${locMap(m.name || mapName) || 'este mapa'}`, { map: locMap(m.name || mapName) || mapName }),
-      `<p class="intel-statline"><b>${value}</b> · ${number(wins)} victorias ${resultLabel} en ${number(known)} resultados conocidos${report.partial ? ' · parcial' : ''}</p>` +
+      `<p class="intel-statline"><b>${value}</b> · ${esc(tr('prematch.mapWinsLine', `${number(wins)} victorias ${resultLabel} en ${number(known)} resultados conocidos`, { wins: number(wins), who: resultLabel, known: number(known) }))}${report.partial ? ' · parcial' : ''}</p>` +
       (detail ? civCoverage : ''), 'map', '', 'rivalFavorites');
   }
   function historyBlock(report) {
@@ -148,9 +148,11 @@
     const pending = dataState(report, title, 'rivalCivs'); if (pending) return pending;
     const rows = Array.isArray(report.history) ? report.history.slice(0, 5) : [];
     if (!rows.length) return note(title, report.error ? 'El historial no está disponible ahora.' : 'Sin partidas recientes de este modo.', 'empty', 'rivalCivs');
+    const wLetter = tr('prematch.winLetter', 'V');
+    const lLetter = tr('prematch.lossLetter', 'D');
     const entries = rows.map((row, index) => {
       const outcome = row.won === true ? tr('postmatch.win', 'Victoria') : row.won === false ? tr('postmatch.loss', 'Derrota') : 'Resultado pendiente';
-      return `<li class="intel-history-row${index === 0 ? ' recent' : ''}"><strong>${civLabel(row.civ)}</strong><small>${esc(locMap(row.mapName) || 'Mapa sin dato')}</small><b class="result-letter ${row.won === true ? 'win' : row.won === false ? 'loss' : ''}" title="${outcome}" aria-label="${outcome}">${row.won === true ? 'V' : row.won === false ? 'D' : '—'}</b></li>`;
+      return `<li class="intel-history-row${index === 0 ? ' recent' : ''}"><strong>${civLabel(row.civ)}</strong><small>${esc(locMap(row.mapName) || 'Mapa sin dato')}</small><b class="result-letter ${row.won === true ? 'win' : row.won === false ? 'loss' : ''}" title="${outcome}" aria-label="${outcome}">${row.won === true ? esc(wLetter) : row.won === false ? esc(lLetter) : '—'}</b></li>`;
     }).join('');
     return `<section class="intel-block history-block" data-feature="rivalCivs"><div class="intel-history-head"><h4>${icon('history')}${esc(title)}</h4><p class="intel-history-label">${esc(tr('postmatch.moreRecentTop', 'Más reciente arriba · mismo modo'))}</p></div><ol class="intel-history-list">${entries}</ol></section>`;
   }
@@ -161,13 +163,13 @@
     const o = report.openings;
     if (report.openingError || o?.error) return note(title, 'No se pudieron consultar los replays.', 'empty', 'rivalOpenings');
     if (!o || report.pendingOpenings || o.loading || (hasCiv && civSlug(o.openingCiv) !== civSlug(currentCiv))) {
-      return note(title, 'Buscando replays en el mapa…', 'loading', 'rivalOpenings');
+      return note(title, tr('prematch.searchingMapReplays', 'Buscando replays en el mapa…'), 'loading', 'rivalOpenings');
     }
     if (o.modeUnavailable) return note(title, 'No hay análisis de replays para este modo.', 'empty', 'rivalOpenings');
     const pick = hasCiv ? o.mapCivFavorite : o.mapFavorite;
     const n = Number(hasCiv ? o.mapCivAnalyzed : o.mapAnalyzed) || 0;
-    if (!pick || !n) return note(title, 'Sin aperturas clasificadas en este mapa.', 'empty', 'rivalOpenings');
-    return section(title, `<div class="intel-opening"><b>${esc(locOpening(pick.name, pick.short || pick.name))}</b><span>${esc(tr('postmatch.replaysOf', `${number(pick.count)} de ${number(n)} replays`, { a: number(pick.count), b: number(n) }))}</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword', openingArtClass(pick.name || pick.short).trim(), 'rivalOpenings');
+    if (!pick || !n) return note(title, tr('prematch.noMapOpenings', 'Sin aperturas clasificadas en este mapa.'), 'empty', 'rivalOpenings');
+    return section(title, `<div class="intel-opening"><b>${esc(locOpening(pick.name, pick.short || pick.name))}</b><span>${esc(tr('postmatch.replaysOf', `${number(pick.count)} de ${number(n)} replays`, { a: number(pick.count), b: number(n) }))}</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : esc(tr('prematch.allTheirCivsMap', 'Todas sus civs en este mapa'))}${n < 6 ? ` · ${esc(tr('prematch.smallSample', 'muestra chica'))}` : ''}</p>`, 'sword', openingArtClass(pick.name || pick.short).trim(), 'rivalOpenings');
   }
   function h2hBlock(report) {
     const title = tr('prematch.h2hTitle', 'Tu cara a cara');
@@ -176,7 +178,9 @@
     if (report.h2hPending || !h) return note(title, 'Consultando tus enfrentamientos…', 'loading', 'rivalH2H');
     if (h.error) return note(title, 'No se pudo consultar tu historial.', 'empty', 'rivalH2H');
     if (h.modeUnavailable || h.modePending) return note(title, h.modePending ? 'Esperando el modo confirmado.' : 'Sin historial compatible con este modo.', 'empty', 'rivalH2H');
-    return section(title, `<div class="intel-h2h"><b>${number(h.wins)} <small>V</small> <i>—</i> ${number(h.losses)} <small>D</small></b><p>${h.games ? `${number(h.games)} enfrentamientos confirmados` : `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`}${h.asAllies ? ` · ${number(h.asAllies)} como aliados` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'combat', '', 'rivalH2H');
+    const wLetter = tr('prematch.winLetter', 'V');
+    const lLetter = tr('prematch.lossLetter', 'D');
+    return section(title, `<div class="intel-h2h"><b>${number(h.wins)} <small>${esc(wLetter)}</small> <i>—</i> ${number(h.losses)} <small>${esc(lLetter)}</small></b><p>${h.games ? esc(tr('prematch.h2hConfirmed', `${number(h.games)} enfrentamientos confirmados`, { n: number(h.games) })) : esc(tr('prematch.h2hNoneScanned', `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`, { n: number(h.scanned || 0) }))}${h.asAllies ? ` · ${esc(tr('prematch.h2hAsAllies', `${number(h.asAllies)} como aliados`, { n: number(h.asAllies) }))}` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'combat', '', 'rivalH2H');
   }
   const OPENING_LABELS_ES = {
     'Scout rush': 'Scouts',
@@ -192,6 +196,13 @@
     'Man at arms rush': 'Al explorar, ¿aparecen milicias tempranas?',
     Drush: 'Al explorar, ¿aparecen milicias antes de Feudal?',
   };
+  function locPoolLabel(pool) {
+    if (!pool) return '';
+    if (pool.poolType === 'specialist') return tr('prematch.poolSpecialist', pool.label || 'Especialista');
+    if (pool.poolType === 'focused') return tr('prematch.poolFocused', pool.label || 'Pool acotado');
+    if (pool.poolType === 'random') return tr('prematch.poolRandom', pool.label || 'Jugador Random');
+    return tr('prematch.poolInitial', pool.label || 'Muestra inicial');
+  }
   function tacticalChipsBlock(player, report, tip) {
     const cells = [];
     const pred = report?.prediction?.status === 'ready' ? report.prediction
@@ -199,9 +210,9 @@
     const pool = pred?.pool;
     if (pool && pool.poolType && pool.poolType !== 'insufficient') {
       const sub = pool.distinctCivs && pool.sampleGames
-        ? `${number(pool.distinctCivs)} civs · ${number(pool.sampleGames)} pj`
+        ? tr('prematch.civsInGames', `${number(pool.distinctCivs)} civs · ${number(pool.sampleGames)} pj`, { civs: number(pool.distinctCivs), games: number(pool.sampleGames) })
         : '';
-      cells.push(`<div class="intel-kv${pool.poolType === 'specialist' ? ' is-accent' : ''}"><span>Perfil</span><b>${esc(pool.label)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`);
+      cells.push(`<div class="intel-kv${pool.poolType === 'specialist' ? ' is-accent' : ''}"><span>${esc(tr('prematch.profile', 'Perfil'))}</span><b>${esc(locPoolLabel(pool))}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`);
     }
     const topPct = Number(player?.ladderPercentile);
     if (Number.isFinite(topPct) && topPct > 0) {
@@ -209,27 +220,29 @@
       const peakDelta = Number.isFinite(Number(player?.peakDelta)) ? Number(player.peakDelta)
         : Number.isFinite(Number(player?.peak)) && Number.isFinite(Number(player?.rating))
           ? Math.round(Number(player.peak) - Number(player.rating)) : null;
-      const sub = peakDelta != null && peakDelta >= 120 ? `−${number(peakDelta)} del pico` : 'ladder 1v1';
-      cells.push(`<div class="intel-kv"><span>Ladder</span><b>${esc(label)}</b><small>${esc(sub)}</small></div>`);
+      const sub = peakDelta != null && peakDelta >= 120 ? tr('prematch.offPeak', `−${number(peakDelta)} del pico`, { n: number(peakDelta) }) : 'ladder 1v1';
+      cells.push(`<div class="intel-kv"><span>${esc(tr('prematch.ladder', 'Ladder'))}</span><b>${esc(label)}</b><small>${esc(sub)}</small></div>`);
     } else {
       const peakDelta = Number.isFinite(Number(player?.peakDelta)) ? Number(player.peakDelta)
         : Number.isFinite(Number(player?.peak)) && Number.isFinite(Number(player?.rating))
           ? Math.round(Number(player.peak) - Number(player.rating)) : null;
       if (peakDelta != null && peakDelta >= 120) {
-        cells.push(`<div class="intel-kv"><span>Pico</span><b>−${number(peakDelta)}</b><small>debajo del pico</small></div>`);
+        cells.push(`<div class="intel-kv"><span>${esc(tr('prematch.peak', 'Pico'))}</span><b>−${number(peakDelta)}</b><small>${esc(tr('prematch.belowPeak', 'debajo del pico'))}</small></div>`);
       }
     }
     const streak = Number(player?.streak);
     if (Number.isFinite(streak) && Math.abs(streak) >= 3) {
       const cls = streak > 0 ? 'win' : 'loss';
-      const sub = streak > 0 ? 'victorias seguidas' : 'derrotas seguidas';
-      cells.push(`<div class="intel-kv"><span>Racha</span><b class="${cls}">${streak > 0 ? `+${streak}` : streak}</b><small>${sub}</small></div>`);
+      const sub = streak > 0 ? tr('prematch.winStreak', 'victorias seguidas') : tr('prematch.lossStreak', 'derrotas seguidas');
+      cells.push(`<div class="intel-kv"><span>${esc(tr('prematch.streak', 'Racha'))}</span><b class="${cls}">${streak > 0 ? `+${streak}` : streak}</b><small>${esc(sub)}</small></div>`);
     }
     const eapm = tip?.eapm;
     if (eapm && Number.isFinite(eapm.value)) {
-      const paceText = eapm.pace === 'fast' ? 'Rápido' : eapm.pace === 'deliberate' ? 'Pausado' : 'Estándar';
-      const sub = eapm.peerMedian ? `${paceText} · vs ${number(eapm.peerMedian)}` : `${paceText} · ${number(eapm.sample)} pj`;
-      cells.push(`<div class="intel-kv${eapm.pace === 'fast' ? ' is-accent' : ''}"><span>Mecánica</span><b>${number(eapm.value)} eAPM</b><small>${esc(sub)}</small></div>`);
+      const paceText = eapm.pace === 'fast' ? tr('prematch.paceFast', 'Rápido')
+        : eapm.pace === 'deliberate' ? tr('prematch.paceSteady', 'Pausado')
+          : tr('prematch.paceStandard', 'Estándar');
+      const sub = eapm.peerMedian ? `${paceText} · vs ${number(eapm.peerMedian)}` : `${paceText} · ${number(eapm.sample)} ${tr('prematch.gamesShort', 'pj')}`;
+      cells.push(`<div class="intel-kv${eapm.pace === 'fast' ? ' is-accent' : ''}"><span>${esc(tr('prematch.mechanics', 'Mecánica'))}</span><b>${number(eapm.value)} eAPM</b><small>${esc(sub)}</small></div>`);
     }
     if (!cells.length) return '';
     return `<div class="intel-dossier-strip" aria-label="Perfil táctico del rival">${cells.join('')}</div>`;
@@ -239,11 +252,11 @@
     const agro = Math.max(0, Math.min(100, Math.round((style.aggressive / style.analyzed) * 100)));
     const fc = Math.max(0, Math.min(100 - agro, Math.round((style.boom / style.analyzed) * 100)));
     const hyb = Math.max(0, 100 - agro - fc);
-    return `<div class="intel-style-split"><div class="intel-style-labels"><span>Presión temprana <b>${agro}%</b></span><span>Castillos rápido <b>${fc}%</b></span></div><div class="intel-style-track"><i class="seg-agro" data-w="${agro}"></i><i class="seg-hyb" data-w="${hyb}"></i><i class="seg-fc" data-w="${fc}"></i></div></div>`;
+    return `<div class="intel-style-split"><div class="intel-style-labels"><span>${esc(tr('prematch.earlyPressure', 'Presión temprana'))} <b>${agro}%</b></span><span>${esc(tr('prematch.fastCastle', 'Castillos rápido'))} <b>${fc}%</b></span></div><div class="intel-style-track"><i class="seg-agro" data-w="${agro}"></i><i class="seg-hyb" data-w="${hyb}"></i><i class="seg-fc" data-w="${fc}"></i></div></div>`;
   }
   function tacticalBlock(tip, detail, matchup, civ, map) {
-    const title = 'Aperturas del historial';
-    if (!tip || tip.loading) return note(title, 'Buscando aperturas del rival…', 'loading', 'smartTips');
+    const title = tr('prematch.openingsHistory', 'Aperturas del historial');
+    if (!tip || tip.loading) return note(title, tr('prematch.searchingOpenings', 'Buscando aperturas del rival…'), 'loading', 'smartTips');
     if (tip.modePending || tip.modeUnavailable) return note(title, tip.modePending ? 'Esperando el modo confirmado.' : 'Este modo todavía no tiene replays compatibles.', 'empty', 'smartTips');
     if (tip.error && !tip.sample) return note(title, 'La fuente de replays no respondió.', 'empty', 'smartTips');
     const c = tip.tacticalPlan?.context || tip.context;
@@ -251,23 +264,23 @@
     const openings = current ? matchup.openings : tip.likelyOpenings || [];
     const opening = openings[0];
     if (!c || !opening?.sample || !opening.games) {
-      return note(title, 'Sin aperturas clasificadas en el historial consultado.', 'empty', 'smartTips');
+      return note(title, tr('prematch.noClassifiedOpenings', 'Sin aperturas clasificadas en el historial consultado.'), 'empty', 'smartTips');
     }
-    const read = `<div class="intel-opening-signal"><b>${esc(opening.short || opening.name)}</b><span>${number(opening.games)} de ${number(opening.sample)} replays clasificados</span></div>`;
-    const scope = [current ? `${civ} en ${map}` : c.scopeLabel, c.modeLabel,
-      current ? (opening.sample < 6 ? 'muestra chica' : null) : 'todas sus civs',
+    const read = `<div class="intel-opening-signal"><b>${esc(locOpening(opening.name, opening.short || opening.name))}</b><span>${esc(tr('prematch.classifiedReplays', `${number(opening.games)} de ${number(opening.sample)} replays clasificados`, { a: number(opening.games), b: number(opening.sample) }))}</span></div>`;
+    const scope = [current ? tr('prematch.civOnMap', `${locCiv(civ) || civ} en ${locMap(map) || map}`, { civ: locCiv(civ) || civ, map: locMap(map) || map }) : c.scopeLabel, c.modeLabel,
+      current ? (opening.sample < 6 ? tr('prematch.smallSample', 'muestra chica') : null) : tr('prematch.allTheirCivs', 'todas sus civs'),
       tip.stale ? 'datos guardados' : tip.provisional ? 'muestra inicial' : null].filter(Boolean).join(' · ');
     const question = (current || (!civ && c.scope === 'map')) && opening.games >= 4 && opening.sample >= 6
       ? OPENING_CHECKS[opening.name] : null;
     const caveat = current ? '' : [civ ? `Sin aperturas de ${civ} en este mapa en la muestra.` : null,
       c.fallbackReason].filter(Boolean).join(' ');
     const alternatives = detail && current && openings.length > 1
-      ? `<p class="intel-muted">También registró ${openings.slice(1, 3).map((row) =>
-        `${esc(row.short || row.name)} (${number(row.games)}/${number(row.sample)})`).join(' · ')}</p>` : '';
+      ? `<p class="intel-muted">${openings.slice(1, 3).map((row) =>
+        `${esc(locOpening(row.name, row.short || row.name))} (${number(row.games)}/${number(row.sample)})`).join(' · ')}</p>` : '';
     const split = !current ? styleBarMarkup(tip.style) : '';
     const weakOp = !current && tip.eloWeakness?.openings?.[0];
     const weaknessLine = weakOp
-      ? `<p class="intel-weakness"><span>Vulnerabilidad observada</span><b>${esc(OPENING_LABELS_ES[weakOp.name] || weakOp.name)}</b> · ${number(weakOp.losses)}/${number(weakOp.games)} derrotas${weakOp.excessLossPct != null ? ` (+${number(weakOp.excessLossPct)}% sobre ELO)` : ''}</p>`
+      ? `<p class="intel-weakness"><span>${esc(tr('prematch.observedWeakness', 'Vulnerabilidad observada'))}</span><b>${esc(openingDisplay(weakOp))}</b> · ${number(weakOp.losses)}/${number(weakOp.games)} ${esc(tr('prematch.losses', 'derrotas'))}${weakOp.excessLossPct != null ? ` (+${number(weakOp.excessLossPct)}% ELO)` : ''}</p>`
       : '';
     return section(title, read + `<p class="intel-signal-scope">${esc(scope)}</p>` +
       split + weaknessLine +
@@ -280,31 +293,34 @@
     if (pred) {
       const pool = pred.pool || {};
       const isRandom = pool.poolType === 'random';
-      const title = isRandom ? 'Perfil de selección' : `Predicción · ${map && map !== '—' ? map : 'el mapa'}`;
-      const confLabel = pool.poolType === 'specialist' ? 'Confianza alta'
-        : pool.poolType === 'focused' ? 'Pool acotado'
-          : isRandom ? 'Jugador Random' : 'Muestra inicial';
+      const locMapLabel = map && map !== '—' ? (locMap(map) || map) : 'el mapa';
+      const title = isRandom ? tr('prematch.pickProfile', 'Perfil de selección') : tr('prematch.predictionMap', `Predicción · ${locMapLabel}`, { map: locMapLabel });
+      const confLabel = pool.poolType === 'specialist' ? tr('prematch.highConfidence', 'Confianza alta')
+        : pool.poolType === 'focused' ? tr('prematch.poolFocused', 'Pool acotado')
+          : isRandom ? tr('prematch.poolRandom', 'Jugador Random') : tr('prematch.poolInitial', 'Muestra inicial');
       const scopeParts = [
-        pool.scope === 'map' && map ? map : 'historial reciente',
+        pool.scope === 'map' && map ? locMapLabel : tr('prematch.recentHistory', 'historial reciente'),
         report?.mode?.label || tip?.context?.modeLabel,
-        `${number(pool.distinctCivs)} civs en ${number(pool.sampleGames)} pj`,
+        tr('prematch.civsInGamesLong', `${number(pool.distinctCivs)} civs en ${number(pool.sampleGames)} pj`, { civs: number(pool.distinctCivs), games: number(pool.sampleGames) }),
         report?.partial ? 'en carga' : null,
       ].filter(Boolean).join(' · ');
       const randomBanner = isRandom
-        ? `<div class="pred-random-note"><b>No counter-pickees una civ puntual</b><p>Juega variedad alta (${number(pool.distinctCivs)} civs distintas). Elegí tu civ cómoda y enfocate en su patrón de apertura.</p></div>`
+        ? (options.civCounterPick
+            ? `<div class="pred-random-note"><b>${esc(tr('prematch.randomUnpredictableTitle', 'Rival impredecible (Random)'))}</b><p>${esc(tr('prematch.randomUnpredictableBody', `Juega variedad alta (${number(pool.distinctCivs)} civs distintas): no busques adivinar su civ; abajo priorizamos tu mejor pick y las aperturas que le duelen.`, { n: number(pool.distinctCivs) }))}</p></div>`
+            : `<div class="pred-random-note"><b>${esc(tr('prematch.randomNoCounterTitle', 'No counter-pickees una civ puntual'))}</b><p>${esc(tr('prematch.randomNoCounterBody', `Juega variedad alta (${number(pool.distinctCivs)} civs distintas). Elegí tu civ cómoda y enfocate en su patrón de apertura.`, { n: number(pool.distinctCivs) }))}</p></div>`)
         : '';
       const cards = pred.top3.filter((row) => civSlug(row.civ)).slice(0, 3).map((row, idx) => {
         const sub = row.mapGames > 0 && row.mapSample > 0
-          ? `${number(row.mapGames)}/${number(row.mapSample)} en mapa`
-          : `${number(row.recentGames)} recientes`;
+          ? tr('prematch.onMapSub', `${number(row.mapGames)}/${number(row.mapSample)} en mapa`, { a: number(row.mapGames), b: number(row.mapSample) })
+          : tr('prematch.recentSub', `${number(row.recentGames)} recientes`, { n: number(row.recentGames) });
         return `<li class="${idx === 0 && !isRandom ? 'pred-lead' : ''}"><span class="pred-crest">${civBadge(row.civ)}</span>
-          <strong>${esc(row.civ)}</strong>
+          <strong>${esc(locCiv(row.civ) || row.civ)}</strong>
           <b class="pred-pct">${number(row.probability)}%</b>
           <div class="pred-bar"><i data-w="${Math.max(4, Math.min(100, row.probability))}"></i></div>
           <span>${esc(sub)}</span></li>`;
       }).join('');
       const threat = pred.threat?.threat
-        ? `<p class="pred-threat">${icon('sword')}<span><b>${esc(pred.top3[0].civ)}</b> — ${esc(pred.threat.threat)}</span></p>`
+        ? `<p class="pred-threat">${icon('sword')}<span><b>${esc(locCiv(pred.top3[0].civ) || pred.top3[0].civ)}</b> — ${esc(pred.threat.threat)}</span></p>`
         : '';
       return `<section class="intel-block civ-picks predicted" data-feature="civRecommender"><div class="pred-head"><h4>${icon('matchup')}${esc(title)}</h4><span class="pred-conf${pool.poolType === 'specialist' ? ' is-accent' : ''}">${esc(confLabel)}</span></div><p class="civ-picks-scope">${esc(scopeParts)}</p>${randomBanner}<ul class="civ-picks-list">${cards}</ul>${threat}</section>`;
     }
@@ -330,13 +346,134 @@
     return render(choices, [map, context.modeLabel, 'replays consultados',
       tip.stale ? 'datos guardados' : tip.provisional ? 'muestra inicial' : null].filter(Boolean).join(' · '));
   }
-  function lobbyRecommendBlock(tip, map) {
-    const rec = Array.isArray(tip?.recommend) ? tip.recommend.find((entry) => entry && entry.basis === 'combined' && civSlug(entry.civ)) : null;
+  function pickBestRecommendations(tip) {
+    const raw = Array.isArray(tip?.recommend)
+      ? tip.recommend.filter((entry) => entry && civSlug(entry.civ))
+      : [];
+    if (!raw.length) return [];
+    const multi = raw.filter((entry) =>
+      entry.basis === 'combined' || entry.basis === 'opening-synergy' || entry.basis === 'rival-opening');
+    if (multi.length) return multi.slice(0, 3);
+    const strongSingle = raw.filter((entry) =>
+      (entry.mine && Number(entry.mine.games) >= 3 && Number(entry.mine.winRate) >= 52) ||
+      (entry.vsRival && Number(entry.vsRival.games) >= 3 && Number(entry.vsRival.lossRate) >= 58));
+    return (strongSingle.length ? strongSingle : raw).slice(0, 3);
+  }
+  function recommendBasisTag(rec, isRandom = false) {
     if (!rec) return '';
-    return `<section class="intel-block lobby-counter" data-feature="civRecommender"><div class="lobby-counter-row"><span class="lobby-counter-crest">${civBadge(rec.civ)}</span><div class="lobby-counter-copy"><span>Counter-pick sugerido</span><b>${esc(rec.civ)}</b><p>Vos ${number(rec.mine?.winRate)}% (${number(rec.mine?.games)} pj) · Rival pierde ${number(rec.vsRival?.lossRate)}% (${number(rec.vsRival?.games)} pj)${map ? ` en ${esc(map)}` : ''}</p></div></div></section>`;
+    if (rec.factors === 3 || (rec.basis === 'combined' && rec.openingMatch)) return tr('prematch.badgeTriple', 'Cruce 3/3');
+    if (rec.basis === 'combined') return tr('prematch.badgeCombined', 'Cruce directo');
+    if (rec.basis === 'opening-synergy') return isRandom ? tr('prematch.badgeComfortOpening', 'Confort + apertura') : tr('prematch.badgeOpeningSynergy', 'Sinergia apertura');
+    if (rec.basis === 'rival-opening') return tr('prematch.badgeRivalOpening', 'Debilidad rival');
+    if (rec.basis === 'own-history') return tr('prematch.badgeOwnBest', 'Tu mejor pick');
+    if (rec.basis === 'rival-history') return tr('prematch.badgeRivalWeak', 'Rival sufre');
+    return tr('prematch.counterSuggested', 'Sugerencia');
+  }
+  function openingDisplay(op) {
+    if (!op) return '';
+    const api = getI18n();
+    const translated = api && api.openingName ? locOpening(op.name, null) : null;
+    if (translated) return translated;
+    return OPENING_LABELS_ES[op.name] || op.short || op.name;
+  }
+  function lobbyRecommendBlock(tip, map, { showEmpty = false, isRandom = false } = {}) {
+    const mapLabel = locMap(map) || map || '';
+    const kicker = isRandom
+      ? (mapLabel ? tr('prematch.recRandomMap', `Tu mejor pick vs Random · ${mapLabel}`, { map: mapLabel }) : tr('prematch.recRandomDefault', 'Tu mejor pick vs rival Random'))
+      : (mapLabel ? tr('prematch.recKickerMap', `Recomendación · ${mapLabel}`, { map: mapLabel }) : tr('prematch.recKickerDefault', 'Recomendación de civilización'));
+    if (!tip || tip.loading || tip.recommendPending) {
+      return `<section class="intel-block lobby-counter is-loading" data-feature="civCounterPick">` +
+        `<div class="lobby-counter-head">` +
+          `<span class="lobby-counter-crest is-skeleton">${icon('matchup')}</span>` +
+          `<div class="lobby-counter-copy">` +
+            `<span>${esc(kicker)}</span>` +
+            `<b>${esc(tr('prematch.recLoadingTitle', 'Analizando tu mejor opción…'))}</b>` +
+            `<p>${esc(tr('prematch.recLoadingBody', 'Cruzando tu winrate, debilidades del rival y aperturas que le duelen'))}</p>` +
+          `</div>` +
+        `</div>` +
+      `</section>`;
+    }
+    const picks = pickBestRecommendations(tip);
+    if (!picks.length) {
+      if (!showEmpty) return '';
+      return `<section class="intel-block lobby-counter is-empty" data-feature="civCounterPick">` +
+        `<div class="lobby-counter-head">` +
+          `<span class="lobby-counter-crest is-muted">${icon('matchup')}</span>` +
+          `<div class="lobby-counter-copy">` +
+            `<span>${esc(kicker)}</span>` +
+            `<b>${esc(tr('prematch.recEmptyTitle', 'Sin counter-pick concluyente'))}</b>` +
+            `<p>${esc(tr('prematch.recEmptyBody', 'Todavía falta muestra suficiente en este mapa para cruzar ambos historiales.'))}</p>` +
+          `</div>` +
+        `</div>` +
+      `</section>`;
+    }
+    const rec = picks[0];
+    const alts = picks.slice(1, 3);
+    const civName = locCiv(rec.civ) || rec.civ;
+    const tag = recommendBasisTag(rec, isRandom);
+    const isTriple = rec.factors === 3 || (rec.basis === 'combined' && Boolean(rec.openingMatch));
+    const lLetter = tr('prematch.lossLetter', 'D');
+    const gamesWord = tr('prematch.gamesShort', 'pj');
+    const tiles = [];
+    if (rec.mine) {
+      const tone = Number(rec.mine.winRate) >= 55 ? ' is-win' : '';
+      const mineScopeText = rec.mine.scope === 'map' && mapLabel ? mapLabel : (tip?.context?.modeLabel || rec.mine.scopeLabel || '');
+      tiles.push(
+        `<div class="lobby-factor">` +
+          `<span class="lobby-factor-k">${esc(tr('prematch.factorYourRecord', 'Tu historial'))}</span>` +
+          `<b class="lobby-factor-v${tone}">${number(rec.mine.winRate)}% WR</b>` +
+          `<small>${number(rec.mine.wins)}/${number(rec.mine.games)} ${esc(gamesWord)}${mineScopeText ? ` · ${esc(mineScopeText)}` : ''}</small>` +
+        `</div>`,
+      );
+    }
+    if (rec.vsRival) {
+      tiles.push(
+        `<div class="lobby-factor">` +
+          `<span class="lobby-factor-k">${esc(tr('prematch.factorRivalVs', `Rival vs ${civName}`, { civ: civName }))}</span>` +
+          `<b class="lobby-factor-v is-accent">${number(rec.vsRival.lossRate)}% ${esc(lLetter)}</b>` +
+          `<small>${number(rec.vsRival.losses)}/${number(rec.vsRival.games)} ${esc(tr('prematch.losses', 'derrotas'))}</small>` +
+        `</div>`,
+      );
+    }
+    if (rec.openingMatch) {
+      const opName = openingDisplay(rec.openingMatch);
+      tiles.push(
+        `<div class="lobby-factor">` +
+          `<span class="lobby-factor-k">${esc(tr('prematch.factorWeakOpening', 'Apertura que le duele'))}</span>` +
+          `<b class="lobby-factor-v is-accent">${esc(opName)}</b>` +
+          `<small>${number(rec.openingMatch.losses)}/${number(rec.openingMatch.games)} ${esc(lLetter)} (${number(rec.openingMatch.lossRate)}%)</small>` +
+        `</div>`,
+      );
+    }
+    const altHtml = alts.length
+      ? `<div class="lobby-counter-alts">` +
+          `<span class="lobby-alts-k">${esc(tr('prematch.alternatives', 'Alternativas'))}</span>` +
+          `<div class="lobby-alts-list">${alts.map((alt) => {
+            const altName = locCiv(alt.civ) || alt.civ;
+            const stat = alt.mine
+              ? `${number(alt.mine.winRate)}% WR`
+              : alt.vsRival
+                ? `${number(alt.vsRival.lossRate)}% ${lLetter}`
+                : '';
+            return `<span class="lobby-alt-pill">${civBadge(alt.civ)}<b>${esc(altName)}</b>${stat ? `<small>${esc(stat)}</small>` : ''}</span>`;
+          }).join('')}</div>` +
+        `</div>`
+      : '';
+    return `<section class="intel-block lobby-counter${isTriple ? ' is-triple' : ''}" data-feature="civCounterPick">` +
+      `<div class="lobby-counter-head">` +
+        `<span class="lobby-counter-crest">${civBadge(rec.civ)}</span>` +
+        `<div class="lobby-counter-copy">` +
+          `<span>${esc(kicker)}</span>` +
+          `<b>${esc(civName)}</b>` +
+        `</div>` +
+        `<span class="lobby-counter-badge${isTriple ? ' is-gold' : ''}">${esc(tag)}</span>` +
+      `</div>` +
+      (tiles.length ? `<div class="lobby-counter-factors" data-cols="${tiles.length}">${tiles.join('')}</div>` : '') +
+      altHtml +
+    `</section>`;
   }
   function matchupBlock(tip, matchup, ownCiv, rivalCiv, map, report) {
-    const title = 'Antecedentes de este cruce';
+    const title = tr('prematch.matchupTitle', 'Antecedentes de este cruce');
     if (!civSlug(rivalCiv)) return historicalCivBlock(tip, map, report);
     if (!civSlug(ownCiv)) return note(title, 'Esperando tu civilización.', 'empty', 'civRecommender');
     if (!tip || tip.loading) return note(title, 'Buscando el cruce para este mapa…', 'loading', 'civRecommender');
@@ -344,7 +481,7 @@
     if (tip.error) return note(title, 'La fuente de replays no respondió.', 'empty', 'civRecommender');
     if (!matchup) return note(title, 'Esperando datos del cruce actual.', 'loading', 'civRecommender');
     if (matchup.teamGame) return note(title, 'El resultado de equipo no mide este mano a mano.', 'empty', 'civRecommender');
-    if (!matchup.games) return note(title, 'Sin resultados para este cruce en el mapa.', 'empty', 'civRecommender');
+    if (!matchup.games) return note(title, tr('prematch.matchupNoResults', 'Sin resultados para este cruce en el mapa.'), 'empty', 'civRecommender');
     const against = (matchup.against || []).map((row) => `<p class="intel-muted">Ante ${esc(row.name)} · ${number(row.losses)}/${number(row.games)} derrotas</p>`).join('');
     return section(title, `<p class="intel-matchup">${civLabel(ownCiv)} <span>vs</span> ${civLabel(rivalCiv)}</p>
       <p class="intel-statline"><b>${number(matchup.losses)}/${number(matchup.games)}</b> derrotas del rival en el mapa</p>
@@ -379,7 +516,308 @@
     const references = library ? `<div class="build-library"><h3>${esc(tr('tactics.libraryTitle', 'Cinco rutas de referencia'))}</h3><p class="mini">${esc(tr('tactics.librarySub', 'Se elige una sugerencia automáticamente. Estas fichas explican las rutas; no miden tu progreso en la partida.'))}</p>${(payload.guides || []).map((item) => `<details><summary>${icon(item.icon)}${esc(item.label)}${item.available ? '' : `<small>${esc(tr('tactics.unavailableVariant', 'Variante sin validar para tu civ'))}</small>`}</summary>${!item.available ? `<p class="build-condition">${esc(item.unavailableReason)}</p>` : ''}${buildGuide(item)}<p class="build-condition">${esc(item.condition)}</p></details>`).join('')}</div>` : '';
     return selected + references;
   }
+  function renderTeamRival({ entry, state, options = {} } = {}) {
+    const { name, player, report, tip } = entry;
+    const map = state && state.match && state.match.mapName;
+    const locMapName = locMap(map) || map || 'este mapa';
+    const r = report || null;
+    const inLobby = state?.phase === 'lobby';
+    const civ = inLobby ? null : player ? player.civ : r?.civ;
+    const ownCiv = state?.players?.find((p) => p.isYou)?.civ;
+    const knownCiv = civSlug(civ) ? civ : null;
+    const mode = state?.ladder?.id ?? state?.match?.leaderboardId ?? tip?.mode?.id;
+    const mapKey = (n) => String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const raw = tip?.matchup;
+    const matchup = raw && raw.rival === civSlug(knownCiv) && raw.own === civSlug(ownCiv) &&
+      raw.map === mapKey(map) && (mode == null || String(raw.modeId) === String(mode)) ? raw : null;
+
+    // 1) Cabecera compacta + fila fija de tags (nunca cambia de alto al cargar)
+    const pills = [];
+    const headerLoading = (!r || r.loading) && (!tip || tip.loading);
+    if (options.rosterDetails !== false) {
+      const pred = r?.prediction?.status === 'ready' ? r.prediction
+        : tip?.prediction?.status === 'ready' ? tip.prediction : null;
+      const pool = pred?.pool;
+      if (pool && pool.poolType && pool.poolType !== 'insufficient') {
+        pills.push(`<span class="tg-pill${pool.poolType === 'specialist' ? ' is-gold' : ''}">${esc(pool.label)}</span>`);
+      }
+      const eapm = tip?.eapm;
+      if (eapm && Number.isFinite(eapm.value)) {
+        pills.push(`<span class="tg-pill${eapm.pace === 'fast' ? ' is-gold' : ''}">${number(eapm.value)} eAPM</span>`);
+      }
+      const streak = Number(player?.streak);
+      if (Number.isFinite(streak) && Math.abs(streak) >= 3) {
+        pills.push(`<span class="tg-pill ${streak > 0 ? 'is-win' : 'is-loss'}">Racha ${streak > 0 ? `+${streak}` : streak}</span>`);
+      } else {
+        const topPct = Number(player?.ladderPercentile);
+        if (Number.isFinite(topPct) && topPct > 0 && topPct <= 25) {
+          const lbl = topPct < 1 ? 'Top 1%' : `Top ${Math.round(topPct)}%`;
+          pills.push(`<span class="tg-pill">${esc(lbl)}</span>`);
+        }
+      }
+      if (!pills.length) {
+        if (headerLoading) {
+          pills.push('<span class="tg-pill is-skeleton">Perfil…</span><span class="tg-pill is-skeleton">eAPM…</span>');
+        } else {
+          const peakText = Number.isFinite(Number(player?.peak)) ? `Pico ${number(Math.round(Number(player.peak)))}` : 'ELO RM 1v1';
+          pills.push(`<span class="tg-pill">${esc(peakText)}</span>`);
+        }
+      }
+    }
+    const eloChip = Number.isFinite(Number(player?.rating))
+      ? `<b class="tg-rival-elo">${number(Math.round(Number(player.rating)))}</b>`
+      : '<b class="tg-rival-elo is-skeleton">…</b>';
+    const civHeaderBadge = options.rosterDetails === false
+      ? ''
+      : knownCiv
+        ? `<span class="tg-rival-civ">${civLabel(knownCiv)}</span>`
+        : `<span class="tg-rival-civ is-pending">${esc(tr('hud.civPendingShort', 'Civ oculta'))}</span>`;
+
+    const blocks = [];
+
+    // 2) Apertura + Estilo en estructura fija de 3 filas (no salta ni se deforma al cargar)
+    if (options.smartTips || options.rivalOpenings) {
+      const feat = options.smartTips ? 'smartTips' : 'rivalOpenings';
+      const current = matchup?.openings?.length > 0;
+      const tipOpenings = current ? matchup.openings : tip?.likelyOpenings || [];
+      const tipOpen = tipOpenings[0];
+      const o = r?.openings;
+      const repPick = knownCiv ? o?.mapCivFavorite : o?.mapFavorite;
+      const repN = Number(knownCiv ? o?.mapCivAnalyzed : o?.mapAnalyzed) || 0;
+
+      const bestName = (options.smartTips && tipOpen?.sample && tipOpen?.games)
+        ? (tipOpen.short || tipOpen.name)
+        : (repPick && repN)
+          ? locOpening(repPick.name, repPick.short || repPick.name)
+          : null;
+      const bestCount = (options.smartTips && tipOpen?.sample && tipOpen?.games)
+        ? `${number(tipOpen.games)}/${number(tipOpen.sample)} replays`
+        : (repPick && repN)
+          ? `${number(repPick.count)}/${number(repN)} replays`
+          : null;
+
+      const style = tip?.style;
+      const hasStyle = Boolean(options.smartTips && style && style.analyzed >= 6);
+      const agro = hasStyle ? Math.max(0, Math.min(100, Math.round((style.aggressive / style.analyzed) * 100))) : 50;
+      const fc = hasStyle ? Math.max(0, Math.min(100 - agro, Math.round((style.boom / style.analyzed) * 100))) : 50;
+      const hyb = hasStyle ? Math.max(0, 100 - agro - fc) : 0;
+      const weakOp = options.smartTips && !current && tip?.eloWeakness?.openings?.[0];
+
+      const isLoading = (options.smartTips && (!tip || tip.loading || tip.provisional)) ||
+        (!options.smartTips && options.rivalOpenings && (!r || r.loading || r.pendingOpenings || !o || o.loading));
+
+      const headlineText = bestName ? bestName : isLoading ? 'Analizando replays…' : 'Apertura variada';
+      const sampleText = bestCount ? bestCount : isLoading ? 'Consultando…' : 'Sin patrón fijo';
+      const agroText = hasStyle ? `${agro}%` : isLoading ? '…' : '—';
+      const fcText = hasStyle ? `${fc}%` : isLoading ? '…' : '—';
+      const weakLineHtml = weakOp
+        ? `${icon('target')}<span>${esc(tr('prematch.tgSuffersVs', 'Sufre vs'))} <b>${esc(openingDisplay(weakOp))}</b> (${number(weakOp.losses)}/${number(weakOp.games)} ${esc(tr('prematch.lossLetter', 'D'))})</span>`
+        : isLoading
+          ? `${icon('history')}<span>${esc(tr('prematch.recLoadingBody', 'Cruzando aperturas y vulnerabilidades…'))}</span>`
+          : bestName
+            ? `${icon('target')}<span>${esc(tr('prematch.tgUsualOpening', 'Apertura habitual'))} · ${esc(locMapName)}</span>`
+            : `${icon('sword')}<span>${esc(tr('prematch.noMapOpenings', 'Sin vulnerabilidad crítica en la muestra'))}</span>`;
+
+      const rawOpeningKey = (options.smartTips && tipOpen?.sample && tipOpen?.games)
+        ? (tipOpen.name || tipOpen.short)
+        : (repPick && repN)
+          ? (repPick.name || repPick.short)
+          : null;
+      const artCls = openingArtClass(rawOpeningKey || bestName || 'archive');
+
+      blocks.push(
+        `<section class="tg-block tg-open-card${artCls}${isLoading && !bestName ? ' is-loading' : ''}" data-feature="${feat}">` +
+          `<div class="tg-open-main">` +
+            `<span class="tg-open-kicker">${icon('sword')}${esc(tr('prematch.tgUsualOpening', 'Apertura habitual'))}</span>` +
+            `<b class="tg-open-name">${esc(headlineText)}</b>` +
+            `<span class="tg-open-sample">${esc(sampleText)}</span>` +
+          `</div>` +
+          `<div class="tg-style-bar${hasStyle ? '' : ' is-placeholder'}">` +
+            `<div class="tg-style-labels"><span>Agro <b>${agroText}</b></span><span>FC/Boom <b>${fcText}</b></span></div>` +
+            `<div class="intel-style-track"><i class="seg-agro" data-w="${agro}"></i><i class="seg-hyb" data-w="${hyb}"></i><i class="seg-fc" data-w="${fc}"></i></div>` +
+          `</div>` +
+          `<div class="tg-weak-line">${weakLineHtml}</div>` +
+        `</section>`,
+      );
+    }
+
+    // 3) Civs más probables / Cruce en estructura fija de 3 slots horizontales + 1 línea inferior
+    if (options.civRecommender || options.civCounterPick || (!knownCiv && options.rivalFavorites)) {
+      const pred = r?.prediction?.status === 'ready' && r.prediction.top3?.length ? r.prediction
+        : options.smartTips && tip?.prediction?.status === 'ready' && tip.prediction.top3?.length ? tip.prediction : null;
+      const rec = options.civCounterPick ? (pickBestRecommendations(tip)[0] || null) : null;
+      const showRecLine = Boolean(options.civCounterPick && (!knownCiv || state?.example || state?.previewPhase === 'prematch'));
+      const stats = r?.mapStats;
+      const observed = (stats?.civs || []).filter((row) => civSlug(row.name)).slice(0, 3);
+      const count = stats?.civSampleGames ?? stats?.sampleGames;
+      const tipCivs = (Array.isArray(tip?.likelyCivs) ? tip.likelyCivs : []).filter((row) => civSlug(row.name)).slice(0, 3);
+      const isLoadingCivs = (!r || r.loading) && (!tip || tip.loading);
+
+      let rawPills = [];
+      let isRandom = false;
+      if (pred && pred.top3?.length) {
+        isRandom = pred.pool?.poolType === 'random';
+        rawPills = pred.top3.filter((row) => civSlug(row.civ)).slice(0, 3).map((row) => ({
+          civ: row.civ,
+          name: locCiv(row.civ) || row.civ,
+          val: `${number(row.probability)}%`,
+        }));
+      } else if (count > 0 && observed.length) {
+        rawPills = observed.map((row) => ({
+          civ: row.name,
+          name: locCiv(row.name) || row.name,
+          val: `${number(row.games)}/${number(count)}`,
+        }));
+      } else if (tipCivs.length) {
+        rawPills = tipCivs.map((row) => ({
+          civ: row.name,
+          name: locCiv(row.name) || row.name,
+          val: `${number(row.games)}/${number(row.sample)}`,
+        }));
+      }
+
+      const fixedPills = [0, 1, 2].map((idx) => {
+        const item = rawPills[idx];
+        if (item) {
+          return `<li class="tg-civ-pill${idx === 0 && !isRandom ? ' is-lead' : ''}">` +
+            `${civBadge(item.civ)}<strong>${esc(item.name)}</strong><b>${esc(item.val)}</b>` +
+          `</li>`;
+        }
+        return `<li class="tg-civ-pill is-skeleton">` +
+          `<span class="tg-no-crest">·</span><strong>${isLoadingCivs ? '…' : '—'}</strong><b>—</b>` +
+        `</li>`;
+      }).join('');
+
+      const lLetter = tr('prematch.lossLetter', 'D');
+      let footerLine = '';
+      if (showRecLine && rec) {
+        const recParts = [];
+        if (rec.mine) recParts.push(tr('prematch.tgYouPct', `Vos ${number(rec.mine.winRate)}%`, { p: number(rec.mine.winRate) }));
+        if (rec.vsRival) recParts.push(`${number(rec.vsRival.lossRate)}% ${lLetter}`);
+        if (rec.openingMatch) recParts.push(`vs ${openingDisplay(rec.openingMatch)}`);
+        const recTag = rec.factors === 3 ? tr('prematch.tgPick3', 'Pick 3/3') : tr('prematch.tgPickSuggested', 'Pick sugerido');
+        footerLine = `<div class="tg-counter-line is-rec" data-feature="civCounterPick"><span class="tg-counter-tag">${esc(recTag)}</span><strong>${civLabel(rec.civ)}</strong><small>${esc(recParts.slice(0, 2).join(' · '))}</small></div>`;
+      } else if (knownCiv && options.civRecommender && matchup && !matchup.teamGame && matchup.games > 0) {
+        footerLine = `<div class="tg-counter-line"><span class="tg-counter-tag">${esc(tr('prematch.tgDirectMatchup', 'Cruce directo'))}</span><strong>${civLabel(ownCiv)} vs ${civLabel(knownCiv)}</strong><small>${number(matchup.losses)}/${number(matchup.games)} ${esc(lLetter)}</small></div>`;
+      } else if (knownCiv) {
+        footerLine = `<div class="tg-counter-line"><span class="tg-counter-tag">${esc(tr('prematch.tgCivInGame', 'Civ en partida'))}</span><strong>${civLabel(knownCiv)}</strong><small>${esc(locMapName)}</small></div>`;
+      } else if (isRandom) {
+        footerLine = `<div class="tg-counter-line"><span class="tg-counter-tag">${esc(tr('prematch.poolRandom', 'Jugador Random'))}</span><small>${esc(tr('prematch.tgRandomPool', 'Selección variada (Random)'))}</small></div>`;
+      } else if (isLoadingCivs) {
+        footerLine = `<div class="tg-counter-line is-skeleton"><span class="tg-counter-tag">${esc(tr('prematch.profile', 'Perfil'))}</span><small>…</small></div>`;
+      } else {
+        footerLine = `<div class="tg-counter-line"><span class="tg-counter-tag">${esc(tr('prematch.likelyCivs', 'Selección en mapa'))}</span><small>${esc(locMapName)}</small></div>`;
+      }
+
+      blocks.push(
+        `<section class="tg-block tg-civ-card" data-feature="civRecommender">` +
+          `<div class="tg-sec-head"><span>${esc(isRandom ? tr('prematch.tgRandomPool', 'Selección variada (Random)') : tr('prematch.tgMostPlayed', `Sus civs más jugadas · ${locMapName}`, { map: locMapName }))}</span></div>` +
+          `<ul class="tg-civ-pills">${fixedPills}</ul>` +
+          footerLine +
+        `</section>`,
+      );
+    }
+
+    // 4) Par de KPIs lado a lado: Mapa + Cara a cara (altura fija de 3 líneas siempre)
+    const kpiTiles = [];
+    if (options.rivalFavorites) {
+      const m = r?.mapStats;
+      if (!r || r.loading) {
+        kpiTiles.push(`<div class="tg-kpi-tile is-skeleton" data-feature="rivalFavorites"><span>En ${esc(locMapName)}</span><b>…</b><small>Consultando mapa…</small></div>`);
+      } else if (m && m.games > 0) {
+        const known = m.resultGames == null ? m.games : m.resultGames;
+        const wins = Number(m.wins) || 0;
+        const losses = Math.max(0, known - wins);
+        const val = known < 5 ? `${number(wins)}/${number(known)}` : m.winRate != null ? `${number(m.winRate)}%` : '—';
+        const tone = known >= 10 && m.winRate != null ? (m.winRate >= 58 ? 'is-win' : m.winRate <= 42 ? 'is-loss' : '') : '';
+        kpiTiles.push(
+          `<div class="tg-kpi-tile" data-feature="rivalFavorites">` +
+            `<span>En ${esc(locMapName)}</span>` +
+            `<b class="${tone}">${val}</b>` +
+            `<small>${number(wins)}V – ${number(losses)}D (${number(known)} pj)</small>` +
+          `</div>`,
+        );
+      } else {
+        kpiTiles.push(`<div class="tg-kpi-tile" data-feature="rivalFavorites"><span>En ${esc(locMapName)}</span><b>—</b><small>Sin partidas</small></div>`);
+      }
+    }
+    if (options.rivalH2H) {
+      const h = r?.h2h;
+      if (!r || r.loading || r.h2hPending || !h) {
+        kpiTiles.push(`<div class="tg-kpi-tile is-skeleton" data-feature="rivalH2H"><span>Cara a cara</span><b>…</b><small>Buscando cruces…</small></div>`);
+      } else if (h.games > 0) {
+        const wins = Number(h.wins) || 0;
+        const losses = Number(h.losses) || 0;
+        const tone = h.games >= 2 ? (wins > losses ? 'is-win' : losses > wins ? 'is-loss' : '') : '';
+        kpiTiles.push(
+          `<div class="tg-kpi-tile" data-feature="rivalH2H">` +
+            `<span>Cara a cara</span>` +
+            `<b class="${tone}">${number(wins)}V – ${number(losses)}D</b>` +
+            `<small>${number(h.games)} cruces${h.asAllies ? ` · ${number(h.asAllies)} aliado` : ''}</small>` +
+          `</div>`,
+        );
+      } else {
+        kpiTiles.push(
+          `<div class="tg-kpi-tile" data-feature="rivalH2H">` +
+            `<span>Cara a cara</span>` +
+            `<b>0 – 0</b>` +
+            `<small>${h.asAllies ? `${number(h.asAllies)} como aliados` : 'Sin cruces previos'}</small>` +
+          `</div>`,
+        );
+      }
+    }
+    if (kpiTiles.length) {
+      blocks.push(`<div class="tg-kpi-pair${kpiTiles.length === 1 ? ' is-single' : ''}">${kpiTiles.join('')}</div>`);
+    }
+
+    // 5) Últimas 5 partidas: siempre 5 casillas fijas desde el primer instante
+    if (options.rivalCivs) {
+      const rows = Array.isArray(r?.history) ? r.history.slice(0, 5) : [];
+      const isLoadingHist = !r || r.loading;
+      const strip = [0, 1, 2, 3, 4].map((idx) => {
+        const row = rows[idx];
+        if (row) {
+          const wl = row.won === true ? 'V' : row.won === false ? 'D' : '·';
+          const cls = row.won === true ? 'win' : row.won === false ? 'loss' : '';
+          const cName = locCiv(row.civ) || row.civ || '?';
+          const mName = locMap(row.mapName) || row.mapName || '';
+          const tipText = `${cName} · ${wl}${mName ? ` · ${mName}` : ''}`;
+          return `<li class="tg-last5-chip ${cls}" title="${esc(tipText)}">` +
+            `<div class="tg-last5-top">${civBadge(row.civ) || '<span class="tg-no-crest">?</span>'}<b class="result-letter ${cls}">${wl}</b></div>` +
+            `<small>${esc(cName)}</small>` +
+          `</li>`;
+        }
+        return `<li class="tg-last5-chip is-skeleton">` +
+          `<div class="tg-last5-top"><span class="tg-no-crest">·</span><b class="result-letter">·</b></div>` +
+          `<small>${isLoadingHist ? '…' : '—'}</small>` +
+        `</li>`;
+      }).join('');
+      blocks.push(
+        `<section class="tg-block tg-last5-card" data-feature="rivalCivs">` +
+          `<div class="tg-sec-head"><span>${esc(tr('postmatch.last5Title', 'Últimas 5 partidas'))}</span><small>${esc(tr('prematch.tgRecentLeft', 'Más reciente a la izq.'))}</small></div>` +
+          `<ol class="tg-last5-strip">${strip}</ol>` +
+        `</section>`,
+      );
+    }
+
+    return `<article class="intel-rival is-tg">` +
+      `<header class="tg-rival-head">` +
+        `<div class="tg-rival-title">` +
+          `<h3>${esc(name)}</h3>` +
+          `${eloChip}` +
+          `${civHeaderBadge}` +
+        `</div>` +
+        `<div class="tg-pills">${pills.join('')}</div>` +
+      `</header>` +
+      `<div class="tg-rival-body">${blocks.join('')}</div>` +
+    `</article>`;
+  }
+
   function renderRival({ entry, state, options = {}, detail = true } = {}) {
+    const isTeamLayout = Array.isArray(state?.players) && state.players.length > 2;
+    if (isTeamLayout) {
+      return renderTeamRival({ entry, state, options, detail });
+    }
     const { name, player, report, tip } = entry;
     const map = state && state.match && state.match.mapName;
     const r = report || null;
@@ -397,10 +835,12 @@
       const chips = tacticalChipsBlock(player, r, tip);
       if (chips) content.push(chips);
     }
-    const showPicks = !knownCiv && (options.civRecommender || options.rivalFavorites);
+    const isPreviewPrematch = Boolean(state?.example || state?.previewPhase === 'prematch');
+    const isRandomRival = (r?.prediction?.pool?.poolType || tip?.prediction?.pool?.poolType) === 'random';
+    const showPicks = (!knownCiv || isPreviewPrematch) && (options.civRecommender || options.rivalFavorites);
     if (showPicks) content.push(historicalCivBlock(tip, map, r, options));
-    if (!knownCiv && options.civRecommender) {
-      const counter = lobbyRecommendBlock(tip, map);
+    if (options.civCounterPick && (!knownCiv || isPreviewPrematch)) {
+      const counter = lobbyRecommendBlock(tip, map, { showEmpty: isPreviewPrematch, isRandom: isRandomRival });
       if (counter) content.push(counter);
     }
     if (options.smartTips) content.push(tacticalBlock(tip, detail, matchup, knownCiv, map));
@@ -412,7 +852,7 @@
     if (options.rivalH2H) content.push(h2hBlock(r));
     const compactIdentity = options.rosterDetails !== false && state?.players?.length === 2 &&
       Number.isFinite(Number(player?.profileId)) && state.players.some((row) => row.profileId === player.profileId);
-    return `<article class="intel-rival">${compactIdentity ? '' : `<header class="intel-identity"><div><h3>${esc(name)}</h3></div>${options.rosterDetails === false ? '' : `<p>${civLabel(civ, 'Civilización sin confirmar')}</p>`}</header>`}<div class="intel-rival-content">${content.join('')}</div><footer class="intel-source">${options.rosterDetails === false ? 'Historial entre ambos' : `Historial: Companion · Replays: AoE2Insights${r && r.partial ? ' · muestra parcial' : ''}`}</footer></article>`;
+    return `<article class="intel-rival">${compactIdentity ? '' : `<header class="intel-identity"><div><h3>${esc(name)}</h3></div>${options.rosterDetails === false ? '' : `<p>${civLabel(civ, tr('prematch.noCivYet', 'Civilización sin confirmar'))}</p>`}</header>`}<div class="intel-rival-content">${content.join('')}</div><footer class="intel-source">${options.rosterDetails === false ? esc(tr('prematch.h2hTitle', 'Historial entre ambos')) : `${esc(tr('prematch.source', 'Historial: Companion · Replays: AoE2Insights'))}${r && r.partial ? ' · partial' : ''}`}</footer></article>`;
   }
   function clock(seconds) { return Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '—'; }
   function combatBlock(combat) {
@@ -580,7 +1020,7 @@
     blacksmith: 'upgrades', resources: 'economy', villager: 'economy', market: 'market',
     clock: 'tempo', age: 'tempo', trophy: 'record', crown: 'record', medal: 'record',
     opening: 'opening', map: 'map', relic: 'relics', scout: 'cavalry',
-    trend: 'activity', focus: 'map', target: 'map', navy: 'navy',
+    trend: 'activity', focus: 'map', target: 'activity', navy: 'navy',
   };
   function postmatchEmblem(name) {
     const file = Object.hasOwn(POSTMATCH_EMBLEMS, name) ? POSTMATCH_EMBLEMS[name] : null;

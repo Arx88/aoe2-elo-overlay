@@ -21,6 +21,17 @@ const scoutingEl = document.getElementById('scouting');
 const scoutCardsEl = document.getElementById('scoutCards');
 const scoutContextEl = document.getElementById('scoutContext');
 const scoutFootnoteEl = document.getElementById('scoutFootnote');
+const scoutCarouselPillsEl = document.getElementById('scoutCarouselPills');
+const scoutCarouselTrackEl = document.getElementById('scoutCarouselTrack');
+const scoutCarouselFillEl = document.getElementById('scoutCarouselFill');
+const SCOUT_CAROUSEL_MS = 10000;
+const SCOUT_CAROUSEL_MAX_WAIT_MS = 14000;
+let scoutCarouselMatchKey = '';
+let scoutCarouselPage = 0;
+let scoutCarouselCycleStart = 0;
+let scoutCarouselWaitStart = 0;
+let scoutCarouselTimer = null;
+let activeScoutProfileIds = new Set();
 const postMatchEl = document.getElementById('postMatch');
 const smartBuildOrderEl = document.getElementById('smartBuildOrder');
 let buildOrderPayload = null;
@@ -44,6 +55,7 @@ const PREVIEW_HIGHLIGHT_LABELS = {
   smartTips: () => tr('overlay.smartTipsTitle', 'Lectura de apertura'),
   rivalH2H: () => tr('overlay.rivalH2HTitle', 'Enfrentamientos previos'),
   civRecommender: () => tr('overlay.civRecTitle', 'Historial y cruce de civilizaciones'),
+  civCounterPick: () => tr('overlay.civCounterPickTitle', 'Recomendador de civilización'),
   scoutF2: () => tr('overlay.scoutF2Title', 'Resumen con F2'),
   smartBuildOrder: () => tr('tactics.sboTitle', 'Smart Build Order'),
   postMatch: () => tr('postmatchPage.summaryTitle', 'Resumen postmatch'),
@@ -79,6 +91,7 @@ function resolveHighlightTargets(feature) {
     case 'smartTips':
     case 'rivalH2H':
     case 'civRecommender':
+    case 'civCounterPick':
       return visible(scoutingEl ? scoutingEl.querySelectorAll(`[data-feature="${feature}"]`) : []);
     case 'scoutF2': {
       const toggle = visible(scoutingEl ? scoutingEl.querySelectorAll('.scout-toggle') : []);
@@ -246,6 +259,7 @@ let rosterDetailsAllowed = false;
 let smartTipsEnabled = false;
 // Civ recomendada: comparte el payload de scout pero es su propia opción.
 let civRecommenderEnabled = false;
+let civCounterPickEnabled = false;
 // Compacto (false) = una sola tarjeta de scouting por rival. Detalle (true) =
 // las dos secciones completas de siempre. Lo alterna F2 desde el main; no se
 // persiste en config: es un gesto del momento, no una preferencia.
@@ -457,8 +471,7 @@ function analysisStage() {
   if (civView.eloHidden) return null;
   // 1) El roster ya está en pantalla y faltan los números de ELO.
   if (lastState.pending) return 'elo';
-  const isPrematchPhase = lastState.phase === 'lobby' || lastState.previewPhase === 'prematch';
-  if (!isPrematchPhase) return null;
+  if (lastState.previewPhase === 'during') return null;
   // 2) Informe del rival: primero civs/favoritos, después las aperturas.
   if (rivalEnabled()) {
     const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
@@ -466,8 +479,8 @@ function analysisStage() {
     if (rivalOptions.rivalH2H && reports.some((report) => report.h2hPending)) return 'h2h';
     if (rivalOptions.rivalOpenings && rivalPayload && rivalPayload.pendingOpenings) return 'replays';
   }
-  // 3) Consejo pre-partida: solo existe mientras la fase sea `lobby` o preview prematch.
-  if ((smartTipsEnabled || civRecommenderEnabled) && isPrematchPhase) {
+  // 3) Consejo pre-partida: visible junto al bloque de scouting hasta que se oculta el panel.
+  if (smartTipsEnabled || civRecommenderEnabled || civCounterPickEnabled) {
     const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
     if (!tips.length || tips.some((tip) => tip.loading)) return 'tips';
     if (scoutPayload && scoutPayload.pending) return 'tips';
@@ -497,7 +510,7 @@ function tipsForCurrentMatch() {
 
 /** ¿Hay que mostrar el bloque de recomendaciones en este instante? */
 function scoutVisible() {
-  if (!(smartTipsEnabled || civRecommenderEnabled)) return false;
+  if (!(smartTipsEnabled || civRecommenderEnabled || civCounterPickEnabled)) return false;
   if (!lastState || lastState.status !== 'ongoing') return false;
   if (moving || civView.eloHidden) return false;
   if (lastState.phase === 'lobby') return true;
@@ -507,7 +520,7 @@ function scoutVisible() {
 
 /** ¿Hay ALGUNA fuente de scouting encendida? (informe, consejo o civ). */
 function compactAvailable() {
-  return rivalEnabled() || smartTipsEnabled || civRecommenderEnabled;
+  return rivalEnabled() || smartTipsEnabled || civRecommenderEnabled || civCounterPickEnabled;
 }
 
 /**
@@ -544,7 +557,9 @@ function applyVisibility() {
   document.body.classList.toggle('scout-f2', scoutF2Enabled);
   document.body.classList.toggle('scout-detail', detail);
   const isPrematchPhase = lastState?.phase === 'lobby' || lastState?.previewPhase === 'prematch';
-  scoutingEl.hidden = !(ongoing && isPrematchPhase && compactAvailable() && !hidden);
+  const isDuringPreview = lastState?.previewPhase === 'during';
+  scoutingEl.hidden = !(ongoing && compactAvailable() && !hidden) || isDuringPreview;
+  if (scoutingEl.hidden) stopScoutCarousel();
   rivalInfoEl.hidden = true;
   scoutInfoEl.hidden = true;
   const reviewing = Boolean(postMatchEnabled && postMatchPayload && !ongoing && !moving);
@@ -1631,20 +1646,17 @@ function scoutUniverse() {
   };
   for (const report of reports) push(report && report.profileId);
   for (const tip of usableTips) push(tip && tip.profileId);
-  if (!ids.length) {
-    const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
-    const you = players.find((player) => player && player.isYou);
-    const myTeam = you && you.team != null ? Number(you.team) : NaN;
-    for (const player of players) {
-      if (!player || player.isYou) continue;
-      if (players.length > 2 && (!Number.isFinite(myTeam) || player.team == null || player.team === '')) continue;
-      if (Number.isFinite(myTeam) && player.team != null && Number(player.team) === myTeam) continue;
-      push(player.profileId);
-      if (ids.length >= 2) break;
-    }
-  }
   const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
-  return ids.slice(0, 2).map((key) => {
+  const you = players.find((player) => player && player.isYou);
+  const myTeam = you && you.team != null ? Number(you.team) : NaN;
+  for (const player of players) {
+    if (!player || player.isYou) continue;
+    if (players.length > 2 && (!Number.isFinite(myTeam) || player.team == null || player.team === '')) continue;
+    if (Number.isFinite(myTeam) && player.team != null && Number(player.team) === myTeam) continue;
+    push(player.profileId);
+    if (ids.length >= 4) break;
+  }
+  return ids.slice(0, 4).map((key) => {
     const report = reports.find((item) => String(item && item.profileId) === key) || null;
     const tip = usableTips.find((item) => String(item && item.profileId) === key) || null;
     const player = players.find((item) => String(item && item.profileId) === key) || null;
@@ -1739,12 +1751,143 @@ function scoutCompactCard(entry, wide) {
   );
 }
 
+function syncActiveRosterHighlights() {
+  if (!rowsEl) return;
+  rowsEl.querySelectorAll('.row[data-profile-id]').forEach((rowEl) => {
+    const pid = String(rowEl.dataset.profileId || '');
+    rowEl.classList.toggle('is-active-scout', activeScoutProfileIds.size > 0 && activeScoutProfileIds.has(pid));
+  });
+}
+
+function stopScoutCarousel() {
+  if (scoutCarouselTimer) {
+    clearInterval(scoutCarouselTimer);
+    scoutCarouselTimer = null;
+  }
+  if (scoutCarouselPillsEl) scoutCarouselPillsEl.hidden = true;
+  if (scoutCarouselTrackEl) scoutCarouselTrackEl.hidden = true;
+  activeScoutProfileIds = new Set();
+  syncActiveRosterHighlights();
+}
+
+function isCarouselPageReady(visibleEntries) {
+  if (!Array.isArray(visibleEntries) || !visibleEntries.length) return false;
+  const needReport = rivalEnabled();
+  const needTips = smartTipsEnabled || civRecommenderEnabled || civCounterPickEnabled;
+  return visibleEntries.every(({ report, tip }) => {
+    if (needReport) {
+      if (!report || report.loading) return false;
+      if (rivalOptions.rivalH2H && report.h2hPending) return false;
+      if (rivalOptions.rivalOpenings && report.openingsPending) return false;
+    }
+    if (needTips) {
+      if (!tip || tip.loading || tip.provisional) return false;
+    }
+    return true;
+  });
+}
+
+function visibleCarouselEntries(entries) {
+  if (entries.length <= 2) return entries;
+  return scoutCarouselPage === 0
+    ? entries.slice(0, 2)
+    : (entries.length === 3 ? entries.slice(1, 3) : entries.slice(2, 4));
+}
+
+function tickScoutCarousel() {
+  if (!lastState || lastState.status !== 'ongoing' || civView.eloHidden || moving) {
+    stopScoutCarousel();
+    return;
+  }
+  const entries = scoutUniverse();
+  if (entries.length <= 2) {
+    stopScoutCarousel();
+    return;
+  }
+  const visibleEntries = visibleCarouselEntries(entries);
+  const now = Date.now();
+  const ready = isCarouselPageReady(visibleEntries) ||
+    (scoutCarouselWaitStart > 0 && now - scoutCarouselWaitStart >= SCOUT_CAROUSEL_MAX_WAIT_MS);
+
+  if (!ready) {
+    scoutCarouselCycleStart = 0;
+    if (scoutCarouselTrackEl) scoutCarouselTrackEl.classList.add('is-waiting');
+    if (scoutCarouselFillEl) scoutCarouselFillEl.style.width = '0%';
+    return;
+  }
+
+  if (scoutCarouselTrackEl) scoutCarouselTrackEl.classList.remove('is-waiting');
+  if (!scoutCarouselCycleStart) {
+    scoutCarouselCycleStart = now;
+  }
+  const elapsed = Math.max(0, now - scoutCarouselCycleStart);
+  if (elapsed >= SCOUT_CAROUSEL_MS) {
+    scoutCarouselPage = scoutCarouselPage === 0 ? 1 : 0;
+    scoutCarouselCycleStart = 0;
+    scoutCarouselWaitStart = now;
+    renderScouting();
+    return;
+  }
+  if (scoutCarouselFillEl) {
+    const pct = Math.max(0, Math.min(100, (elapsed / SCOUT_CAROUSEL_MS) * 100));
+    scoutCarouselFillEl.style.width = `${pct.toFixed(1)}%`;
+  }
+}
+
 /** Pinta la sección compacta. La visibilidad la decide applyVisibility(). */
 function renderScouting() {
   if (!scoutingEl || !scoutCardsEl) return;
   const entries = scoutUniverse();
+  const matchKey = String(lastState?.match?.matchId || 'sin-id') + ':' + entries.map((e) => e.key).join(',');
+  if (matchKey !== scoutCarouselMatchKey) {
+    scoutCarouselMatchKey = matchKey;
+    scoutCarouselPage = 0;
+    scoutCarouselCycleStart = 0;
+    scoutCarouselWaitStart = Date.now();
+  }
+
+  const hasCarousel = entries.length > 2;
+  let visibleEntries = entries;
+  if (hasCarousel) {
+    visibleEntries = visibleCarouselEntries(entries);
+    activeScoutProfileIds = new Set(visibleEntries.map((e) => String(e.key)));
+    const now = Date.now();
+    const ready = isCarouselPageReady(visibleEntries) ||
+      (scoutCarouselWaitStart > 0 && now - scoutCarouselWaitStart >= SCOUT_CAROUSEL_MAX_WAIT_MS);
+    if (ready && !scoutCarouselCycleStart) {
+      scoutCarouselCycleStart = now;
+    } else if (!ready) {
+      scoutCarouselCycleStart = 0;
+    }
+    const labelA = tr('prematch.rivalsRange', 'Rivales 1–2', { a: 1, b: 2 });
+    const labelB = entries.length === 3
+      ? tr('prematch.rivalsRange', 'Rivales 2–3', { a: 2, b: 3 })
+      : tr('prematch.rivalsRange', 'Rivales 3–4', { a: 3, b: 4 });
+    if (scoutCarouselPillsEl) {
+      scoutCarouselPillsEl.innerHTML =
+        `<span class="scout-carousel-pill${scoutCarouselPage === 0 ? ' is-active' : ''}">${labelA}</span>` +
+        `<span class="scout-carousel-pill${scoutCarouselPage === 1 ? ' is-active' : ''}">${labelB}</span>`;
+      scoutCarouselPillsEl.hidden = false;
+    }
+    if (scoutCarouselTrackEl) {
+      scoutCarouselTrackEl.hidden = false;
+      scoutCarouselTrackEl.classList.toggle('is-waiting', !ready);
+    }
+    if (scoutCarouselFillEl) {
+      const elapsed = (ready && scoutCarouselCycleStart) ? Math.max(0, now - scoutCarouselCycleStart) : 0;
+      const pct = Math.max(0, Math.min(100, (elapsed / SCOUT_CAROUSEL_MS) * 100));
+      scoutCarouselFillEl.style.width = `${pct.toFixed(1)}%`;
+    }
+    if (!scoutCarouselTimer) {
+      scoutCarouselTimer = setInterval(tickScoutCarousel, 100);
+    }
+  } else {
+    stopScoutCarousel();
+  }
+  syncActiveRosterHighlights();
+
   const mapName = (lastState && lastState.match && lastState.match.mapName) || null;
-  scoutingEl.classList.toggle('single', entries.length <= 1);
+  scoutingEl.classList.toggle('single', visibleEntries.length <= 1);
   if (scoutContextEl) {
     const total = knownOpponentCount();
     const count = entries.length === 1 && total <= 1 ? null
@@ -1752,11 +1895,11 @@ function renderScouting() {
     scoutContextEl.textContent = entries.length ? [count, mapName && mapName !== '—' ? mapName : null]
       .filter(Boolean).join(' · ') : '';
   }
-  const wide = entries.length <= 1;
-  scoutCardsEl.innerHTML = entries.length
-    ? entries.map((entry) => typeof TacticalUI === 'object' ? TacticalUI.renderRival({ entry, state: lastState,
+  const wide = visibleEntries.length <= 1;
+  scoutCardsEl.innerHTML = visibleEntries.length
+    ? visibleEntries.map((entry) => typeof TacticalUI === 'object' ? TacticalUI.renderRival({ entry, state: lastState,
         options: { ...rivalOptions, rosterDetails: rosterDetailsAllowed,
-          smartTips: smartTipsEnabled, civRecommender: civRecommenderEnabled },
+          smartTips: smartTipsEnabled, civRecommender: civRecommenderEnabled, civCounterPick: civCounterPickEnabled },
         detail: !scoutF2Enabled || detailMode }) : scoutCompactCard(entry, wide)).join('')
     : '<div class="rival-empty">Buscando los datos del rival…</div>';
   // Los anchos de barra se aplican por CSSOM (CSP sin unsafe-inline).
@@ -2012,42 +2155,89 @@ function renderOngoing(state) {
   let previousTeam = null;
   const displayedPlayers = rosterDetailsAllowed ? state.players : state.players.filter((player) =>
     !player.isYou && TacticalUI.civRelation(player, state.players) !== 'ally');
-  rowsEl.innerHTML = displayedPlayers
-    .map((player) => {
-      const divider = previousTeam !== null && player.team !== previousTeam ? '<div class="sep"></div>' : '';
-      previousTeam = player.team;
-      const name = escapeHtml(player.name || tr('hud.civPlayer', 'Jugador'));
-      const badge = player.isYou ? `<em>${escapeHtml(tr('hud.youBadge', 'vos'))}</em>` : '';
-      const civ = rosterDetailsAllowed ? `<span class="civ">${inLobby && !player.isYou
-        ? '<span class="civ-hidden">?</span>'
-        : civMarkup(player.civ)}</span>` : '';
-      const waiting = Boolean(state.pending) && !player.hasStats;
-      const elo = player.rating != null ? fmtNumber(player.rating) : waiting ? '…' : '—';
-      const smurfInfo = (smurfDetectorEnabled && !player.isYou && smurfPayload && smurfPayload.byPlayer)
-        ? smurfPayload.byPlayer[player.profileId] || smurfPayload.byPlayer[String(player.profileId)]
-        : null;
-      const smurfBadge = (smurfInfo && smurfInfo.flagged)
-        ? `<span class="smurf-pill is-${escapeHtml(smurfInfo.level)}" title="${escapeHtml((smurfInfo.reasons || []).join(' · '))}">${escapeHtml(smurfInfo.label)}${smurfInfo.shortReason ? `<small>${escapeHtml(smurfInfo.shortReason)}</small>` : ''}</span>`
-        : '';
-      const rank = !rosterDetailsAllowed ? '' : player.rank
-        ? `<span class="rank">#${player.rank}</span>`
-        : `<span class="rank">${waiting ? '…' : ''}</span>`;
-      const peak = player.peak
-        ? `${icon('sube')}${fmtNumber(player.peak)}`
-        : waiting ? '…' : '—';
-      return `${divider}
-        <div class="row${player.isYou ? ' you' : ''}">
-          <span class="dot"></span>
-          <span class="name">${name}${badge}</span>
-          ${civ}
-          <span class="elo">${smurfBadge}${elo}</span>
-          ${rank}
-          ${rosterDetailsAllowed ? `<span class="peak">${peak}</span>` : ''}
-        </div>`;
-    })
-    .join('');
+  const youPlayer = state.players.find((p) => p && p.isYou);
+  const myTeamId = youPlayer && youPlayer.team != null ? Number(youPlayer.team) : null;
+  const allyPlayers = Number.isFinite(myTeamId)
+    ? displayedPlayers.filter((p) => p && Number(p.team) === myTeamId)
+    : [];
+  const enemyPlayers = Number.isFinite(myTeamId)
+    ? displayedPlayers.filter((p) => p && Number(p.team) !== myTeamId)
+    : [];
+  const useTwoColTeamGrid = rosterDetailsAllowed && displayedPlayers.length > 2 &&
+    allyPlayers.length >= 1 && enemyPlayers.length >= 1 &&
+    allyPlayers.length + enemyPlayers.length === displayedPlayers.length;
+
+  const renderPlayerRow = (player, compactTg = false) => {
+    const name = escapeHtml(player.name || tr('hud.civPlayer', 'Jugador'));
+    const badge = player.isYou ? `<em>${escapeHtml(tr('hud.youBadge', 'vos'))}</em>` : '';
+    const civ = rosterDetailsAllowed ? `<span class="civ">${inLobby && !player.isYou
+      ? '<span class="civ-hidden">?</span>'
+      : civMarkup(player.civ)}</span>` : '';
+    const waiting = Boolean(state.pending) && !player.hasStats;
+    const elo = player.rating != null ? fmtNumber(player.rating) : waiting ? '…' : '—';
+    const smurfInfo = (smurfDetectorEnabled && !player.isYou && smurfPayload && smurfPayload.byPlayer)
+      ? smurfPayload.byPlayer[player.profileId] || smurfPayload.byPlayer[String(player.profileId)]
+      : null;
+    const smurfBadge = (smurfInfo && smurfInfo.flagged)
+      ? `<span class="smurf-pill is-${escapeHtml(smurfInfo.level)}" title="${escapeHtml((smurfInfo.reasons || []).join(' · '))}">${escapeHtml(smurfInfo.label)}${smurfInfo.shortReason ? `<small>${escapeHtml(smurfInfo.shortReason)}</small>` : ''}</span>`
+      : '';
+    const rank = (!rosterDetailsAllowed || compactTg) ? '' : player.rank
+      ? `<span class="rank">#${player.rank}</span>`
+      : `<span class="rank">${waiting ? '…' : ''}</span>`;
+    const peak = player.peak
+      ? `${icon('sube')}${fmtNumber(player.peak)}`
+      : waiting ? '…' : '—';
+    const dotColor = escapeHtml(player.colorHex || TEAM_COLORS[player.color] || '#d9b26a');
+    const pidAttr = Number.isFinite(Number(player.profileId)) ? ` data-profile-id="${Number(player.profileId)}"` : '';
+    const activeCls = (compactTg && activeScoutProfileIds.size > 0 && activeScoutProfileIds.has(String(player.profileId)))
+      ? ' is-active-scout'
+      : '';
+    return `<div class="row${player.isYou ? ' you' : ''}${compactTg ? ' is-tg-row' : ''}${activeCls}"${pidAttr}>
+      <span class="dot" data-dot-color="${dotColor}"></span>
+      <span class="name" title="${name}"><span class="name-text">${name}</span>${badge}${smurfBadge}</span>
+      ${civ}
+      <span class="elo">${elo}</span>
+      ${rank}
+      ${rosterDetailsAllowed && !compactTg ? `<span class="peak">${peak}</span>` : ''}
+    </div>`;
+  };
+
+  if (useTwoColTeamGrid) {
+    const teamMedian = (list) => {
+      const nums = list.map((p) => Number(p.rating)).filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+      if (!nums.length) return null;
+      const mid = Math.floor(nums.length / 2);
+      return Math.round(nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2);
+    };
+    const allyMed = teamMedian(allyPlayers);
+    const enemyMed = teamMedian(enemyPlayers);
+    rowsEl.innerHTML =
+      '<div class="rows-tg-grid">' +
+        '<div class="tg-team-col is-ally">' +
+          `<div class="tg-team-head"><span>${escapeHtml(tr('hud.yourTeam', 'Tu equipo'))}</span>${allyMed ? `<b>${fmtNumber(allyMed)}</b>` : ''}</div>` +
+          allyPlayers.map((p) => renderPlayerRow(p, true)).join('') +
+        '</div>' +
+        '<div class="tg-team-col is-enemy">' +
+          `<div class="tg-team-head"><span>${escapeHtml(tr('hud.rivalTeam', 'Equipo rival'))}</span>${enemyMed ? `<b>${fmtNumber(enemyMed)}</b>` : ''}</div>` +
+          enemyPlayers.map((p) => renderPlayerRow(p, true)).join('') +
+        '</div>' +
+      '</div>';
+  } else {
+    rowsEl.innerHTML = displayedPlayers
+      .map((player) => {
+        const divider = previousTeam !== null && player.team !== previousTeam ? '<div class="sep"></div>' : '';
+        previousTeam = player.team;
+        return `${divider}${renderPlayerRow(player, false)}`;
+      })
+      .join('');
+  }
 
   rowsEl.querySelectorAll('.dot').forEach((dot, index) => {
+    const color = dot.dataset.dotColor;
+    if (color) {
+      dot.style.background = color;
+      return;
+    }
     const player = displayedPlayers[index];
     if (!player) return;
     dot.style.background = player.colorHex || TEAM_COLORS[player.color] || '#d9b26a';
@@ -2182,6 +2372,7 @@ window.overlay.onConfig((config) => {
   if (config.smartTips !== undefined) smartTipsEnabled = Boolean(config.smartTips);
   if (config.smartBuildOrder !== undefined) smartBuildOrderEnabled = Boolean(config.smartBuildOrder);
   if (config.civRecommender !== undefined) civRecommenderEnabled = Boolean(config.civRecommender);
+  if (config.civCounterPick !== undefined) civCounterPickEnabled = Boolean(config.civCounterPick);
   if (config.scoutF2 !== undefined) scoutF2Enabled = Boolean(config.scoutF2);
   if (config.tgBalance !== undefined) balanceEnabled = Boolean(config.tgBalance);
   if (config.smurfDetector !== undefined) smurfDetectorEnabled = Boolean(config.smurfDetector);

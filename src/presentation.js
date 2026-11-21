@@ -31,7 +31,7 @@ function projectRivalPayload(payload, product) {
 
 function projectScoutPayload(payload, product) {
   if (!payload) return null;
-  if (!allowsFeature(product, 'smartTips') && !allowsFeature(product, 'civRecommender')) return null;
+  if (!allowsFeature(product, 'smartTips') && !allowsFeature(product, 'civRecommender') && !allowsFeature(product, 'civCounterPick')) return null;
   if (!allowsFeature(product, 'smartBuildOrder') && Array.isArray(payload.tips)) {
     return {
       ...payload,

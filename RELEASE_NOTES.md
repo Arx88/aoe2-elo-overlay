@@ -1,3 +1,12 @@
+## v2.7.2 · Rediseño Team Game, Recomendador de civilización 3-factores, detección blindada e i18n completo
+
+- **Rediseño integral de Team Game (TG):** ancho adaptativo (720 px), roster en dos columnas (*Tu equipo* vs *Equipo rival*), tarjetas sintetizadas de estructura fija con arte de aperturas de Postmatch, consulta paralela de los 4 rivales y carrusel automático cada 10 segundos (que solo empieza a contar cuando cargan los datos del par activo).
+- **Recomendador de civilización independiente (3 factores):** nuevo toggle propio en **Prematch** que sugiere tu mejor civ cruzando mapa, tu winrate, las civs y las aperturas que le duelen al rival, sin pisar los 3 escudos de predicción del rival y con aviso coherente frente a jugadores Random.
+- **Detección de partidas en vivo blindada contra `HTTP 429`:** backoff exponencial real ante límites de AoE2 Companion, cadencia REST adaptativa mientras el WebSocket de matchmaking está sano, keepalive `ping` cada 30 s en sockets y prioridad absoluta de partidas reales sobre vistas previas.
+- **Pulido visual, icono oficial y traducciones:** icono oficial de Relic desempaquetado correctamente para la barra de tareas de Windows, unificación del overlay al iniciar partida (`0:00`), corrección de superposición del badge de Smurf y del espaciado de *Head to head*, y traducción completa de Prematch en los 4 idiomas (`es-ES`, `es-MX`, `en`, `zh-CN`).
+
+---
+
 ## v2.7.1 · Mejoras visuales en Postmatch y Central
 
 - **Postmatch:** cifras más visibles y su evidencia al lado en «Lo que hiciste bien» y «Lo que te costó».

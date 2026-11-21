@@ -265,7 +265,7 @@ function pct(part, total) {
  * Solo entran civs con >= MIN_CIV_GAMES partidas y lossRate > 50%:
  * "le cuesta" significa que pierde más de la mitad, no cualquier número.
  */
-function weakAgainst(rows) {
+function weakAgainst(rows, limit = 3) {
   const byCiv = new Map();
   for (const row of rows) {
     if (typeof row.won !== 'boolean') continue;
@@ -283,7 +283,7 @@ function weakAgainst(rows) {
     .map((entry) => ({ ...entry, lossRate: pct(entry.losses, entry.games) }))
     .filter((entry) => entry.lossRate != null && entry.lossRate >= WEAK_MIN_LOSS_RATE)
     .sort((a, b) => b.lossRate - a.lossRate || b.games - a.games)
-    .slice(0, 3);
+    .slice(0, Math.max(1, Number(limit) || 3));
 }
 
 /**
@@ -540,6 +540,7 @@ function computeTips(matches, options = {}) {
     totalSample: modeRows.length, fallbackReason: scoped.fallbackReason,
     confidence: sampleConfidence(scoped.rows.length), teamGame: Boolean(mode && mode.size === 'team'),
   };
+  const weakPool = weakAgainst(scoped.rows, 24);
   const result = {
     scope: scoped.scope,
     scopeLabel: scoped.scopeLabel,
@@ -547,7 +548,8 @@ function computeTips(matches, options = {}) {
     resultGames: results.length,
     wins,
     winRate: pct(wins, results.length),
-    weakAgainst: weakAgainst(scoped.rows),
+    weakAgainst: weakPool.slice(0, 3),
+    weakAgainstAll: weakPool,
     openingsAgainst: openingsAgainst(scoped.rows),
     style: styleProfile(scoped.rows),
     tempo: tempoProfile(scoped.rows),
@@ -715,8 +717,8 @@ async function buildScoutTips(options = {}) {
     result.opportunities = result.opportunityStages[0];
   }
 
-  // Civ recomendada: cruza lo que le cuesta al rival (weakAgainst, arriba)
-  // con MI winrate con cada civ en este mapa. El fallo no tira el consejo.
+  // Civ recomendada: cruza lo que le cuesta al rival (civs + aperturas que le
+  // duelen) con MI winrate con cada civ en este mapa/modo. El fallo no tira el consejo.
   if (recommend) {
     if (typeof myHistoryImpl === 'function') {
       try {
@@ -724,12 +726,33 @@ async function buildScoutTips(options = {}) {
         if (outcome.error) throw outcome.error;
         const mine = outcome.value;
         if (mine.error) throw new Error(mine.error);
+        let myCivs = computeMyMapCivs(mine.rows, mapName, {
+          allowModeFallback: tips.scope !== 'map',
+          modeLabel: resolved.label,
+          scope: tips.scope === 'mode' ? 'mode' : null,
+        });
+        if (!myCivs.length && tips.scope === 'map') {
+          myCivs = computeMyMapCivs(mine.rows, mapName, {
+            allowModeFallback: true,
+            modeLabel: resolved.label,
+          });
+        }
+        const openingPool = Array.isArray(tips.openingsAgainst) && tips.openingsAgainst.length
+          ? tips.openingsAgainst
+          : (Array.isArray(tips.eloWeakness?.openings) ? tips.eloWeakness.openings : []).map((op) => ({
+              name: op.name,
+              short: openingShort(op.name) || op.name,
+              games: op.games,
+              losses: op.losses,
+              lossRate: op.lossRate != null ? op.lossRate : pct(op.losses, op.games),
+              scopeLabel: tips.scopeLabel,
+            }));
         result.recommend = buildCivRecommendation({
-          weakAgainst: tips.weakAgainst,
-          myCivs: computeMyMapCivs(mine.rows, mapName, {
-            allowModeFallback: tips.scope !== 'map', modeLabel: resolved.label,
-            scope: tips.scope === 'mode' ? 'mode' : null,
-          }),
+          weakAgainst: Array.isArray(tips.weakAgainstAll) && tips.weakAgainstAll.length
+            ? tips.weakAgainstAll
+            : tips.weakAgainst,
+          myCivs,
+          openingsAgainst: openingPool,
           rivalContext: tips.context,
           mapName,
           modeLabel: resolved.label,

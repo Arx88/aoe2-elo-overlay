@@ -254,12 +254,23 @@ body.moving #panel * {
 }
 
 .name {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.name-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .name em {
+  flex-shrink: 0;
   font-style: normal;
   font-size: var(--badge-size);
   letter-spacing: 0.08em;
@@ -268,7 +279,6 @@ body.moving #panel * {
   background: var(--badge-bg);
   border-radius: var(--badge-radius);
   padding: 0 0.25rem;
-  margin-left: 0.35rem;
   vertical-align: 1px;
 }
 
@@ -314,6 +324,7 @@ body.moving #panel * {
 }
 
 .smurf-pill {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 4px;

@@ -55,6 +55,7 @@ const rivalInputs = {
   smartTips: el('smartTips'),
   rivalH2H: el('rivalH2H'),
   civRecommender: el('civRecommender'),
+  civCounterPick: el('civCounterPick'),
 };
 const RIVAL_LABELS = {
   rivalCivs: 'Últimas 5 civs del rival',
@@ -63,6 +64,7 @@ const RIVAL_LABELS = {
   smartTips: 'Lectura de apertura',
   rivalH2H: 'Enfrentamientos previos',
   civRecommender: 'Historial y cruce de civilizaciones',
+  civCounterPick: 'Recomendador de civilización',
 };
 const tgBalanceInput = el('tgBalance');
 const smurfDetectorInput = el('smurfDetector');

@@ -3,7 +3,9 @@
   "productName": "Relic",
   "asar": true,
   "asarUnpack": [
-    "node_modules/aoe2rec-js/**/*"
+    "node_modules/aoe2rec-js/**/*",
+    "assets/icon.ico",
+    "assets/app-icon.png"
   ],
   "npmRebuild": false,
   "directories": {

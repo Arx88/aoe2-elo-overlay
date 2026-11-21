@@ -11,11 +11,11 @@ const CLOCK_SKEW_SECONDS = 60;
 const FEATURE_ICONS = { elo: 'users', rivalCivs: 'history', rivalFavorites: 'map',
   civHelp: 'shield', tgBalance: 'users', scoutF2: 'compass', postMatch: 'chart',
   rivalOpenings: 'bow', smartTips: 'target', rivalH2H: 'sword', civRecommender: 'castle',
-  smurfDetector: 'target',
+  civCounterPick: 'crown', smurfDetector: 'target',
   postMatchComparison: 'trend', postMatchReplay: 'clock', smartBuildOrder: 'villager' };
 const FEATURE_PLANS = { elo: 'free', rivalH2H: 'free', rosterDetails: 'pro',
   rivalCivs: 'pro', rivalFavorites: 'pro', civHelp: 'pro', tgBalance: 'pro',
-  rivalOpenings: 'pro', smartTips: 'pro', civRecommender: 'pro',
+  rivalOpenings: 'pro', smartTips: 'pro', civRecommender: 'pro', civCounterPick: 'pro',
   smurfDetector: 'promax', smartBuildOrder: 'promax', postMatch: 'promax',
   postMatchComparison: 'promax', postMatchReplay: 'promax' };
 const PLAN_RANK = { free: 0, pro: 1, promax: 2, beta: 2 };
@@ -57,6 +57,9 @@ const FEATURES = Object.freeze([
   { key: 'civRecommender', title: 'Elección de civilización', plan: 'pro', preference: true,
     description: 'Cruza tu experiencia en el mapa con los antecedentes del rival.',
     dataNote: 'Requiere muestra propia y del rival; no es una probabilidad de victoria.' },
+  { key: 'civCounterPick', title: 'Recomendador de civilización', plan: 'pro', preference: true,
+    description: 'Te sugiere qué civ elegir cruzando mapa, tu winrate, sus peores cruces y aperturas que le duelen.',
+    dataNote: 'Cruza tu historial propio y los replays del rival; no representa probabilidad de victoria.' },
   { key: 'postMatchComparison', title: 'Evolución en el mapa', plan: 'pro', preference: true,
     description: 'Compara esta partida con tu historial comparable en el mismo mapa.',
     dataNote: 'Solo usa partidas anteriores del mismo mapa y modo, con muestra declarada.' },

@@ -23,6 +23,7 @@
 
 const { fetchMatches } = require('./aoe');
 const { civSlug } = require('./civs');
+const { CIV_GUIDE } = require('./civ-guide');
 const { mapKey, resolveMode, statsLadder } = require('./rival');
 
 const PAGE_SIZE = 100;
@@ -312,21 +313,109 @@ function computeMyMapCivs(rows, mapName, options = {}) {
   return out.sort((a, b) => b.games - a.games || (b.winRate || 0) - (a.winRate || 0));
 }
 
+const OPENING_CIV_AFFINITY = {
+  archers: new Set([
+    'ethiopians', 'britons', 'mayans', 'vietnamese', 'chinese', 'italians',
+    'vikings', 'saracens', 'malay', 'koreans', 'portuguese', 'armenians',
+    'dravidians', 'japanese', 'aztecs', 'shu', 'muisca', 'tupi', 'puru',
+    'achaemenids',
+  ]),
+  scouts: new Set([
+    'franks', 'magyars', 'mongols', 'lithuanians', 'huns', 'persians',
+    'berbers', 'poles', 'cumans', 'georgians', 'burgundians', 'gurjaras',
+    'hindustanis', 'tatars', 'khmer', 'turks', 'sicilians', 'bulgarians',
+    'khitans', 'jurchens', 'wei', 'mapuche', 'varangians', 'macedonians',
+  ]),
+  infantry: new Set([
+    'japanese', 'bulgarians', 'aztecs', 'incas', 'malians', 'vikings',
+    'celts', 'goths', 'slavs', 'romans', 'burmese', 'armenians',
+    'dravidians', 'malay', 'ethiopians', 'britons', 'mayans', 'mongols',
+    'spartans', 'athenians', 'wu', 'danes', 'saxons', 'thracians', 'khitans',
+  ]),
+  fc: new Set([
+    'khmer', 'burgundians', 'bohemians', 'turks', 'spanish', 'portuguese',
+    'bengalis', 'saracens', 'persians', 'poles', 'teutons', 'georgians',
+    'malay', 'byzantines', 'sicilians', 'cumans', 'italians', 'koreans',
+    'burmese', 'aztecs', 'hindustanis', 'gurjaras', 'celts', 'slavs',
+    'chinese', 'vietnamese', 'muisca', 'shu',
+  ]),
+};
+
+function foldText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function classifyOpeningKey(name) {
+  const folded = foldText(name);
+  if (/archer|arquer/.test(folded)) return 'archers';
+  if (/scout|explorador/.test(folded)) return 'scouts';
+  if (/fast\s*castle|\bfc\b/.test(folded)) return 'fc';
+  if (/man\s*at\s*arms|\bmaa\b|drush|militia|milicia/.test(folded)) return 'infantry';
+  return null;
+}
+
+function civMatchesOpening(slug, openingKey) {
+  if (!slug || !openingKey) return false;
+  if (OPENING_CIV_AFFINITY[openingKey] && OPENING_CIV_AFFINITY[openingKey].has(slug)) return true;
+  const role = foldText(CIV_GUIDE[slug] && CIV_GUIDE[slug].role);
+  if (!role) return false;
+  if (openingKey === 'archers') return role.includes('arqueros') && !role.includes('arqueros a caballo');
+  if (openingKey === 'scouts') return role.includes('caballeria') || role.includes('camellos');
+  if (openingKey === 'infantry') return role.includes('infanteria');
+  if (openingKey === 'fc') return role.includes('monjes') || role.includes('polvora') || role.includes('elefantes') || role.includes('defensiv');
+  return false;
+}
+
+function matchOpeningVulnerability(slug, openingsAgainst, fallbackScopeLabel) {
+  const list = Array.isArray(openingsAgainst) ? openingsAgainst : [];
+  let best = null;
+  for (const op of list) {
+    if (!op || !Number.isFinite(Number(op.games)) || Number(op.games) < MIN_MY_CIV_GAMES) continue;
+    const lossRate = Number.isFinite(Number(op.lossRate)) ? Number(op.lossRate) : pct(op.losses, op.games);
+    if (lossRate == null || lossRate < 55) continue;
+    const openingKey = classifyOpeningKey(op.name || op.short);
+    if (!openingKey || !civMatchesOpening(slug, openingKey)) continue;
+    if (!best || lossRate > best.lossRate || (lossRate === best.lossRate && op.games > best.games)) {
+      best = {
+        name: op.name || op.short,
+        short: op.short || op.name,
+        key: openingKey,
+        games: Number(op.games),
+        losses: Number(op.losses),
+        lossRate,
+        scopeLabel: op.scopeLabel || fallbackScopeLabel,
+      };
+    }
+  }
+  return best;
+}
+
 /**
- * CIV RECOMENDADA contra este rival: cruza dos dimensiones REALES.
+ * CIV RECOMENDADA contra este rival: cruza hasta TRES dimensiones REALES.
  *
- *  - `mine`     → mi winrate con la civ en este mapa (≥ MIN_MY_CIV_GAMES).
- *  - `vsRival`  → lo que el rival pierde contra esa civ según sus replays
- *                 (el `weakAgainst` de src/scout.js: lossRate ≥ 55%, ≥ 3 pj).
+ *  - `mine`          → mi winrate con la civ en este mapa/modo (≥ MIN_MY_CIV_GAMES).
+ *  - `vsRival`       → lo que el rival pierde contra esa civ según sus replays
+ *                      (`weakAgainst` de src/scout.js: lossRate ≥ 55%, ≥ 3 pj).
+ *  - `openingMatch`  → apertura que le duele al rival (`openingsAgainst`, ≥ 3 pj
+ *                      y lossRate ≥ 55%) compatible con el arquetipo de esa civ.
  *
- * Score = 0.6 × miWinRate + 0.4 × lossRateDelRival cuando hay ambas; con una
- * sola dimensión, esa dimensión. Sin muestra suficiente en ninguna, la civ no
- * entra. Cada entrada conserva sus muestras: el panel las muestra tal cual y
- * nunca inventa un número.
+ * Fórmulas internas de ordenación (`scoreKind: 'ranking-only'`):
+ *  - 3 factores (mine + vsRival + opening): 0.45×mía + 0.35×vsCiv + 0.20×apertura
+ *  - 2 factores (mine + vsRival):           0.60×mía + 0.40×vsCiv
+ *  - 2 factores (mine + opening):           0.65×mía + 0.35×apertura
+ *  - 2 factores (vsRival + opening):        0.65×vsCiv + 0.35×apertura
+ *  - 1 factor:                              esa dimensión
+ *
+ * Sin muestra suficiente en mine ni vsRival, la civ no entra. Cada entrada
+ * conserva sus muestras reales: el panel las muestra tal cual y nunca inventa.
  */
-function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3,
+function buildCivRecommendation({ weakAgainst = [], myCivs = [], openingsAgainst = [], limit = 3,
   rivalContext = null, mapName = null, modeLabel = 'este modo' } = {}) {
   const candidates = new Map();
+  const rivalScopeLabel = (rivalContext && rivalContext.scopeLabel) || `en ${modeLabel}`;
 
   for (const entry of Array.isArray(weakAgainst) ? weakAgainst : []) {
     const slug = civSlug(entry.civ) || String(entry.civ || '').toLowerCase();
@@ -361,16 +450,48 @@ function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3,
 
   const scored = [];
   for (const entry of candidates.values()) {
+    const openingMatch = matchOpeningVulnerability(entry.slug, openingsAgainst, rivalScopeLabel);
     let score = null;
-    if (entry.mine && entry.vsRival && entry.mine.winRate != null && entry.vsRival.lossRate != null) {
+    let basis = null;
+    let factors = 1;
+    let basisLabel = '';
+    const hasMine = Boolean(entry.mine && entry.mine.winRate != null);
+    const hasVsRival = Boolean(entry.vsRival && entry.vsRival.lossRate != null);
+    const hasOpening = Boolean(openingMatch && openingMatch.lossRate != null);
+
+    if (hasMine && hasVsRival && hasOpening) {
+      score = Math.round(0.45 * entry.mine.winRate + 0.35 * entry.vsRival.lossRate + 0.20 * openingMatch.lossRate);
+      basis = 'combined';
+      factors = 3;
+      basisLabel = 'Tu repertorio + su debilidad + apertura';
+    } else if (hasMine && hasVsRival) {
       score = Math.round(0.6 * entry.mine.winRate + 0.4 * entry.vsRival.lossRate);
-    } else if (entry.mine && entry.mine.winRate != null) {
+      basis = 'combined';
+      factors = 2;
+      basisLabel = 'Tu repertorio + su historial';
+    } else if (hasMine && hasOpening) {
+      score = Math.round(0.65 * entry.mine.winRate + 0.35 * openingMatch.lossRate);
+      basis = 'opening-synergy';
+      factors = 2;
+      basisLabel = 'Tu repertorio + apertura que le duele';
+    } else if (hasVsRival && hasOpening) {
+      score = Math.round(0.65 * entry.vsRival.lossRate + 0.35 * openingMatch.lossRate);
+      basis = 'rival-opening';
+      factors = 2;
+      basisLabel = 'Su historial + apertura que le duele';
+    } else if (hasMine) {
       score = entry.mine.winRate;
-    } else if (entry.vsRival && entry.vsRival.lossRate != null) {
+      basis = 'own-history';
+      factors = 1;
+      basisLabel = 'Tu experiencia; sin cruce suficiente con el rival';
+    } else if (hasVsRival) {
       score = entry.vsRival.lossRate;
+      basis = 'rival-history';
+      factors = 1;
+      basisLabel = 'Su historial; tu dominio de esta civ no está comprobado';
     }
     if (score == null) continue;
-    const basis = entry.mine && entry.vsRival ? 'combined' : entry.mine ? 'own-history' : 'rival-history';
+
     const evidence = [];
     if (entry.mine) evidence.push({ label: 'Tus victorias', part: entry.mine.wins, total: entry.mine.games,
       value: `${entry.mine.wins}/${entry.mine.games}`, scopeLabel: entry.mine.scopeLabel, source: 'AoE2 Companion · tu historial' });
@@ -378,16 +499,28 @@ function buildCivRecommendation({ weakAgainst = [], myCivs = [], limit = 3,
       part: entry.vsRival.losses, total: entry.vsRival.games,
       value: `${entry.vsRival.losses}/${entry.vsRival.games}`, scopeLabel: entry.vsRival.scopeLabel,
       source: 'AoE2Insights · replays analizados' });
-    scored.push({ ...entry, score, scoreKind: 'ranking-only', basis,
-      basisLabel: basis === 'combined' ? 'Tu repertorio + su historial' : basis === 'own-history'
-        ? 'Tu experiencia; sin cruce suficiente con el rival' : 'Su historial; tu dominio de esta civ no está comprobado',
+    if (openingMatch) evidence.push({ label: 'Apertura que le duele', opening: openingMatch.short,
+      part: openingMatch.losses, total: openingMatch.games,
+      value: `${openingMatch.losses}/${openingMatch.games}`, scopeLabel: openingMatch.scopeLabel,
+      source: 'AoE2Insights · replays analizados' });
+
+    scored.push({ ...entry, openingMatch, factors, score, scoreKind: 'ranking-only', basis, basisLabel,
       evidence, crossScope: Boolean(entry.mine && entry.vsRival && entry.mine.scope !== entry.vsRival.scope),
       caveat: 'Índice de ordenación interno; no representa probabilidad de victoria.' });
   }
 
+  const tierOf = (row) => {
+    if (row.basis === 'combined' && row.factors === 3) return 5;
+    if (row.basis === 'combined') return 4;
+    if (row.basis === 'opening-synergy') return 3;
+    if (row.basis === 'rival-opening') return 2;
+    return 1;
+  };
+
   return scored
-    .sort((a, b) => Number(b.basis === 'combined') - Number(a.basis === 'combined') || b.score - a.score ||
-      ((b.mine && b.mine.games) || 0) - ((a.mine && a.mine.games) || 0))
+    .sort((a, b) => tierOf(b) - tierOf(a) || b.score - a.score ||
+      ((b.mine && b.mine.games) || 0) - ((a.mine && a.mine.games) || 0) ||
+      ((b.vsRival && b.vsRival.games) || 0) - ((a.vsRival && a.vsRival.games) || 0))
     .slice(0, Math.max(1, Number(limit) || 3));
 }
 
@@ -403,4 +536,5 @@ module.exports = {
   computeH2H,
   computeMyMapCivs,
   buildCivRecommendation,
+  matchOpeningVulnerability,
 };

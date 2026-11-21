@@ -27,6 +27,7 @@ const {
   fetchProfileIdentity,
   fetchMatches,
   fetchMatchById,
+  fetchLatestTeamMatch,
   historyCutoff,
   hideLobbyCivs,
 } = require('./src/aoe');
@@ -82,9 +83,27 @@ const LOG_PATH = path.join(DATA_DIR, 'overlay.log');
 const CENTRAL_CACHE_PATH = path.join(DATA_DIR, 'central-cache.json');
 // Emblema dorado (recortado y normalizado por tools/make-icon.py) es el icono oficial:
 // ventanas, bandeja, configuración, exe y accesos directos usan el mismo arte.
-const ICON_PNG = path.join(__dirname, 'assets', 'app-icon.png');
-const ICON_ICO = path.join(__dirname, 'assets', 'icon.ico');
-const WINDOW_ICON = process.platform === 'win32' && fs.existsSync(ICON_ICO) ? ICON_ICO : ICON_PNG;
+// En Windows empaquetado, LoadImageW no puede leer .ico dentro de app.asar: resolvemos
+// primero la copia desempaquetada (app.asar.unpacked) y, si no existe, cargamos el PNG
+// como NativeImage para que la barra de tareas jamás caiga al icono genérico de Electron.
+function resolveExternalAsset(assetPath) {
+  if (!assetPath) return assetPath;
+  const unpacked = assetPath.replace(/app\.asar([\\/])/i, 'app.asar.unpacked$1');
+  if (unpacked !== assetPath && fs.existsSync(unpacked)) return unpacked;
+  return assetPath;
+}
+const ICON_PNG = resolveExternalAsset(path.join(__dirname, 'assets', 'app-icon.png'));
+const ICON_ICO = resolveExternalAsset(path.join(__dirname, 'assets', 'icon.ico'));
+function loadWindowIcon() {
+  if (process.platform === 'win32' && !/app\.asar[\\/]/i.test(ICON_ICO) && fs.existsSync(ICON_ICO)) {
+    const icoImg = nativeImage.createFromPath(ICON_ICO);
+    if (!icoImg.isEmpty()) return icoImg;
+    return ICON_ICO;
+  }
+  const pngImg = nativeImage.createFromPath(ICON_PNG);
+  return !pngImg.isEmpty() ? pngImg : ICON_PNG;
+}
+const WINDOW_ICON = loadWindowIcon();
 
 // Sin esto las notificaciones nativas de Windows pueden no aparecer (o salir
 // con un nombre genérico). Tiene que coincidir con appId de electron-builder.
@@ -124,9 +143,10 @@ const DEFAULT_CONFIG = {
   smartBuildOrder: false,
   // Head-to-head: tu V-D contra este rival, del propio historial (mismo modo).
   rivalH2H: false,
-  // Civ recomendada contra este rival: su debilidad × tu winrate con cada
-  // civ en el mapa. Solo pre-partida, como smartTips.
+  // Historial y cruce de civilizaciones del rival (predicción + cruce exacto).
   civRecommender: false,
+  // Recomendador de tu civilización (3 factores: mapa + tu WR + debilidades y aperturas).
+  civCounterPick: false,
   // "Resumen con F2": APAGADA de fábrica. Sin esto el informe del rival se
   // muestra COMPLETO y la tecla F2 queda libre para el resto del sistema.
   // Al activarla, el panel arranca en resumen y F2 alterna (atajo global:
@@ -158,7 +178,7 @@ const DEFAULT_CONFIG = {
 // informe DURANTE la partida (viaja en el mismo payload que el informe);
 // smartTips y civRecommender son pre-partida con su propio flujo
 // (refreshScoutTips) para no recalcular el informe.
-const RIVAL_OPTION_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'smartTips', 'rivalH2H', 'civRecommender'];
+const RIVAL_OPTION_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'smartTips', 'rivalH2H', 'civRecommender', 'civCounterPick'];
 const RIVAL_REPORT_KEYS = ['rivalCivs', 'rivalFavorites', 'rivalOpenings', 'rivalH2H', 'civRecommender'];
 
 // Los `rating/peak/rank` de todos los demos son de RM 1v1 (igual que en vivo),
@@ -398,6 +418,8 @@ let profileId = null;
 let playerAlias = null;
 let timer = null;
 let polling = false;
+let pollRateLimitUntil = 0;
+let poll429Streak = 0;
 let lastStatus = null;
 let lastPollAt = null;
 let lastPollStatus = 'iniciando';
@@ -498,6 +520,7 @@ const EXAMPLE_ALL_ON = {
   smartBuildOrder: true,
   rivalH2H: true,
   civRecommender: true,
+  civCounterPick: true,
   tgBalance: true,
   smurfDetector: true,
   postMatch: true,
@@ -723,6 +746,7 @@ function overlayConfig() {
     smartBuildOrder: Boolean(view.smartBuildOrder),
     rivalH2H: Boolean(view.rivalH2H),
     civRecommender: Boolean(view.civRecommender),
+    civCounterPick: Boolean(view.civCounterPick),
     // Vista resumida de scouting con F2 (opción "Resumen con F2").
     scoutF2: Boolean(view.scoutF2),
     tgBalance: Boolean(view.tgBalance),
@@ -786,7 +810,7 @@ function clockLabel(startedAt, now = Date.now()) {
  * el ELO salen en 0-1ms; el informe llega después y se va completando por
  * partes (civs primero ~0.3s, aperturas ~9s la primera vez, luego cache).
  * ---------------------------------------------------------------------- */
-const RIVAL_LIMIT = 2; // en TG mostramos hasta 2 rivales para no tapar el juego
+const RIVAL_LIMIT = 4; // en TG consultamos hasta los 4 rivales y el panel los rota de a 2
 
 function rivalOptionsOn() {
   const view = viewConfig();
@@ -905,7 +929,7 @@ async function refreshSmurfReports(state, options = {}) {
     const byPlayer = await detectSmurfsForPlayers(players, { cache: statsCache, log });
     if (!lastGood || lastGood.status !== 'ongoing' || !viewConfig().smurfDetector) return;
     const anyFlagged = Object.values(byPlayer || {}).some((entry) => entry && entry.flagged);
-    if (!anyFlagged && state.example && previewHighlightFeature === 'smurfDetector') {
+    if (!anyFlagged && state.example && activePreviewHighlight?.feature === 'smurfDetector') {
       const sample = buildExampleSmurfPreview(state);
       if (sample) {
         sendSmurf(sample);
@@ -1122,7 +1146,7 @@ async function refreshRivalReports(state, options = {}) {
     return;
   }
 
-  const needsCivHistory = view.civRecommender && rivals.some((rival) => !civSlug(rival.civ));
+  const needsCivHistory = view.civRecommender && (Boolean(state.example) || rivals.some((rival) => !civSlug(rival.civ)));
   if (!needsRivalHistory(view) && !needsCivHistory) {
     // Solo H2H: el historial necesario es el propio, no el del rival.
     sendRival({ ts: Date.now(), pendingOpenings: false, reports: rivals.map((rival) => ({
@@ -1245,7 +1269,8 @@ function scoutSignature(state) {
   const mode = resolveMode(leaderboardOf(state));
   const players = Array.isArray(state && state.players) ? state.players : [];
   const own = players.find((player) => player.isYou) || players.find((player) => Number(player.profileId) === Number(runtimeProfileId()));
-  return `${state?.match?.matchId || 'sin-id'}:${mapKey(state?.match?.mapName)}:${mode ? mode.id : 'sin-modo'}:${own?.civ || '?'}:${opponentsOf(state, RIVAL_LIMIT).map((rival) => `${rival.profileId}:${rival.civ || players.find((p) => p.profileId === rival.profileId)?.civ || '?'}`).join(',')}`;
+  const view = viewConfig();
+  return `${state?.match?.matchId || 'sin-id'}:${mapKey(state?.match?.mapName)}:${mode ? mode.id : 'sin-modo'}:${view.civCounterPick ? 'cp1' : 'cp0'}:${own?.civ || '?'}:${opponentsOf(state, RIVAL_LIMIT).map((rival) => `${rival.profileId}:${rival.civ || players.find((p) => p.profileId === rival.profileId)?.civ || '?'}`).join(',')}`;
 }
 
 function tacticalPayload() {
@@ -1418,7 +1443,7 @@ async function refreshScoutTips(state, options = {}) {
   // smartTips (consejo) y civRecommender (civ recomendada) comparten la misma
   // consulta de replays: cualquiera de las dos enciende el flujo pre-partida.
   const ongoing = Boolean(state && state.status === 'ongoing');
-  if ((!view.smartTips && !view.civRecommender) || !ongoing) {
+  if ((!view.smartTips && !view.civRecommender && !view.civCounterPick) || !ongoing) {
     clearScoutTips();
     return;
   }
@@ -1465,7 +1490,7 @@ async function refreshScoutTips(state, options = {}) {
     const currentSig = scoutSignature(current);
     const currentView = viewConfig();
     if (!current || current.status !== 'ongoing' || currentSig !== sig ||
-        (!currentView.smartTips && !currentView.civRecommender)) return;
+        (!currentView.smartTips && !currentView.civRecommender && !currentView.civCounterPick)) return;
     const ready = tips.filter(Boolean);
     sendScout({
       ts: Date.now(),
@@ -1496,13 +1521,14 @@ async function refreshScoutTips(state, options = {}) {
         mapName,
         cache: statsCache,
         cacheTtlMs: 30 * 60 * 1000,
+        recommend: Boolean(view.civCounterPick),
         matchupContext,
         opportunityContext: view.smartTips ? {
           ...matchupContext,
           currentMatchId: state.match && state.match.matchId,
           cutoff: historyCutoff(state),
         } : null,
-        myHistoryImpl: view.smartTips && runtimeProfileId()
+        myHistoryImpl: (view.smartTips || view.civCounterPick) && runtimeProfileId()
           ? () => fetchMyHistory({
               profileId: runtimeProfileId(),
               leaderboardId: leaderboardOf(state),
@@ -1921,7 +1947,8 @@ function applyAdaptiveZoom(targetWin, kind = 'settings') {
   const display = getWindowDisplay(targetWin);
   const zoom = computeAdaptiveZoom(display, kind);
   try {
-    targetWin.webContents.setVisualZoomLevelLimits(1, 1);
+    const p = targetWin.webContents.setVisualZoomLevelLimits(1, 1);
+    if (p && typeof p.catch === 'function') p.catch(() => {});
     if (Math.abs(targetWin.webContents.getZoomFactor() - zoom) > 0.01) {
       targetWin.webContents.setZoomFactor(zoom);
     }
@@ -2323,14 +2350,19 @@ function startLive() {
     // cartel "Partida encontrada", sin esperar ni un solo request. El roster
     // (onMatched) llega en el mismo lote y lo reemplaza en milisegundos.
     onFound: (matchId) => {
-      // Una partida real SIEMPRE tiene prioridad sobre una vista previa de toggles.
-      if (exampleActive && exampleUseRealConfig) {
+      // Una partida real SIEMPRE tiene prioridad sobre cualquier vista previa o ejemplo.
+      if (exampleActive) {
         clearPreviewAutoHide();
         deactivateExample();
       }
       const at = Date.now();
       liveMatchAt = at;
       preMatchGraceUntil = at + 20000;
+      if (win && !win.isDestroyed() && !manuallyHiddenByHotkey) {
+        if (minimizeController) minimizeController.cancelAndShow();
+        win.setAlwaysOnTop(true, 'screen-saver');
+        if (!win.isVisible()) win.showInactive();
+      }
       // El carril rápido SIGUE sondeando: este aviso llega antes que el
       // roster, y es justamente el snapshot global el que lo trae en ~1,5 s.
       // Pausarlo acá dejaba el roster a merced del lote empujado (~15 s).
@@ -2347,12 +2379,17 @@ function startLive() {
       });
     },
     onMatched: (item) => {
-      if (exampleActive && exampleUseRealConfig) {
+      if (exampleActive) {
         clearPreviewAutoHide();
         deactivateExample();
       }
       liveMatchAt = Date.now();
       preMatchGraceUntil = liveMatchAt + 20000;
+      if (win && !win.isDestroyed() && !manuallyHiddenByHotkey) {
+        if (minimizeController) minimizeController.cancelAndShow();
+        win.setAlwaysOnTop(true, 'screen-saver');
+        if (!win.isVisible()) win.showInactive();
+      }
       if (fastLane) fastLane.pause();
       showMatchFound(item);
     },
@@ -2372,7 +2409,7 @@ function startLive() {
       // propio mientras se busca rival. No adivinar el modo si no está.
       const mode = active && queueItem ? resolveMode(queueItem.leaderboard ?? queueItem.leaderboardId) : null;
       if (mode && ['rm_1v1', 'rm_team', 'ew_1v1', 'ew_team', 'dm_1v1', 'dm_team'].includes(mode.key) &&
-          (viewConfig().rivalH2H || viewConfig().civRecommender)) {
+          (viewConfig().rivalH2H || viewConfig().civRecommender || viewConfig().civCounterPick)) {
         fetchMyHistory({ profileId, leaderboardId: mode.id, cache: statsCache,
           cacheTtlMs: 30 * 60 * 1000, log }).catch((err) => log(`precarga de historial: ${err.message}`));
       }
@@ -2412,7 +2449,7 @@ function startLive() {
     onLobby: (lobby) => {
       // Si ya hay match de ranked, ese manda: no lo pisa una sala ajena.
       if (matchFoundActive()) return;
-      if (exampleActive && exampleUseRealConfig) {
+      if (exampleActive) {
         clearPreviewAutoHide();
         deactivateExample();
       }
@@ -2748,6 +2785,7 @@ async function startExample(rawQuery, clockMode = '3', options = {}) {
       now: clockNow(),
       clockOffsetMs: EXAMPLE_CLOCK_OFFSETS[mode],
       match: explicitMatch,
+      fetchLatestImpl: options.preferTeamGame ? fetchLatestTeamMatch : undefined,
     });
     if (token !== exampleToken) return { ok: false, error: 'Otra prueba reemplazó a esta.' };
 
@@ -2914,11 +2952,36 @@ function schedulePreviewAutoHide(delayMs = PREVIEW_AUTO_HIDE_MS) {
  * Arranca la cuenta regresiva de 20s SOLO cuando ya terminó de cargar TODA la
  * información de la vista previa (rivales, aperturas, consejos y H2H).
  */
+let introAnchoredAfterLoadMatchId = null;
+
 function maybeArmPreviewAutoHide() {
-  if (!previewWaitingForData) return;
   if (rivalFetching || scoutFetching || h2hFetching || smurfFetching) return;
-  log('vista previa cargada por completo: contando 20s para auto-ocultar');
-  schedulePreviewAutoHide(PREVIEW_AUTO_HIDE_MS);
+  // En partida real, cuando terminan de cargar todos los datos, re-anclamos el
+  // reloj de 20s una sola vez para que el tiempo de carga no le robe segundos de
+  // lectura al jugador (especialmente en TG al rotar Rivales 1–2 y 3–4).
+  if (
+    !exampleActive &&
+    !DEMO &&
+    intro &&
+    intro.engaged &&
+    lastGood &&
+    lastGood.status === 'ongoing' &&
+    lastGood.phase !== 'lobby' &&
+    introAnchoredAfterLoadMatchId !== intro.matchId
+  ) {
+    const now = clockNow();
+    if (now - intro.startedAt < 45 * 1000) {
+      introAnchoredAfterLoadMatchId = intro.matchId;
+      intro.startedAt = now - 1000;
+      sendView(true);
+      armIntroTimer();
+    }
+  }
+  if (!previewWaitingForData) return;
+  const isMultiPageTg = Boolean(lastGood && Array.isArray(lastGood.players) && lastGood.players.length > 4);
+  const holdMs = isMultiPageTg ? 25 * 1000 : PREVIEW_AUTO_HIDE_MS;
+  log(`vista previa cargada por completo: contando ${Math.round(holdMs / 1000)}s para auto-ocultar`);
+  schedulePreviewAutoHide(holdMs);
 }
 
 /**
@@ -2978,7 +3041,10 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
   // En Durante, "Ayuda de civ" vive en la ventana 0:01–hideAt (clockMode '3');
   // Smart Build Order usa '21' para mostrar la vista limpia durante la partida.
   const clockMode = phase === 'durante' && highlightFeature !== 'civHelp' ? '21' : '3';
-  const needStart = !exampleActive || !exampleUseRealConfig || Number(exampleProfileId) !== Number(profileId);
+  const preferTeamGame = highlightFeature === 'tgBalance' || Boolean(viewConfig().tgBalance);
+  const currentIsTeam = Boolean(lastGood && Array.isArray(lastGood.players) && lastGood.players.length > 2);
+  const needStart = !exampleActive || !exampleUseRealConfig || Number(exampleProfileId) !== Number(profileId) ||
+    (preferTeamGame !== currentIsTeam);
   exampleUseRealConfig = true;
   examplePreviewPhase = phase;
   previewWaitingForData = true;
@@ -2990,7 +3056,7 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
   }, PREVIEW_LOADING_CAP_MS);
 
   if (needStart) {
-    await startExample(String(profileId), clockMode, { useRealConfig: true, previewPhase: phase });
+    await startExample(String(profileId), clockMode, { useRealConfig: true, previewPhase: phase, preferTeamGame });
   } else if (exampleClockMode !== clockMode || examplePreviewPhase !== phase) {
     await setExampleClock(clockMode, { previewPhase: phase });
   } else {
@@ -3053,6 +3119,7 @@ function registerIpc() {
     smartBuildOrder: Boolean(config.smartBuildOrder),
     rivalH2H: Boolean(config.rivalH2H),
     civRecommender: Boolean(config.civRecommender),
+    civCounterPick: Boolean(config.civCounterPick),
     tgBalance: Boolean(config.tgBalance),
     smurfDetector: Boolean(config.smurfDetector),
     hideWhenMinimized: Boolean(config.hideWhenMinimized),
@@ -3247,7 +3314,7 @@ function registerIpc() {
     }
     // El consejo pre-partida (y la civ recomendada, que comparte la consulta)
     // es otra opción del mismo grupo: mismo tratamiento.
-    if (!viewConfig().smartTips && !viewConfig().civRecommender) {
+    if (!viewConfig().smartTips && !viewConfig().civRecommender && !viewConfig().civCounterPick) {
       clearScoutTips();
     } else {
       scoutSig = '';
@@ -3758,9 +3825,11 @@ function applyHeight(height) {
   const workArea = display.workArea;
   const overlayZoom = applyAdaptiveZoom(win, 'overlay');
   const reviewing = reviewVisible() && !moving;
+  const isTeamMatch = Boolean(lastGood && lastGood.status === 'ongoing' && Array.isArray(lastGood.players) && lastGood.players.length > 2);
+  const baseOverlayWidth = isTeamMatch ? Math.max(Number(config.width) || 520, 720) : (Number(config.width) || 520);
   const overlayWidth = Math.min(
     Math.max(300, workArea.width - 32),
-    Math.round(config.width * Number(config.scale || 1) * overlayZoom),
+    Math.round(baseOverlayWidth * Number(config.scale || 1) * overlayZoom),
   );
   const reviewWidth = Math.max(320, Math.min(Math.round(1080 * overlayZoom), workArea.width - 40));
 
@@ -4485,20 +4554,34 @@ async function poll() {
       }
     }
 
+    poll429Streak = 0;
+    pollRateLimitUntil = 0;
     lastStatus = snapshot.status;
     lastPollAt = Date.now();
     lastPollStatus = snapshot.status;
     return snapshot.status;
   } catch (err) {
-    log(`error: ${err.message}`);
+    const isRateLimit = Number(err && err.status) === 429 || /HTTP 429|too many requests/i.test(String(err && err.message || ''));
+    if (isRateLimit) {
+      const retryMs = Number(err && err.retryAfterMs) || 0;
+      const backoffMs = Math.max(retryMs, Math.min(120000, 20000 * 2 ** Math.min(poll429Streak, 3)));
+      poll429Streak += 1;
+      pollRateLimitUntil = Date.now() + backoffMs;
+      log(`rate limit en AoE2 Companion (HTTP 429): pauso polling REST ${Math.round(backoffMs / 1000)}s (WebSocket sigue activo)`);
+    } else {
+      log(`error: ${err.message}`);
+    }
     if (lastGood) {
-      send('overlay:state', projectOverlayState({ ...lastGood, stale: true, error: err.message }, productState()));
+      // Si ya hay una partida real/sala en pantalla y solo hubo 429 de fondo, no ensuciar el panel.
+      if (!isRateLimit || lastGood.status !== 'ongoing') {
+        send('overlay:state', projectOverlayState({ ...lastGood, stale: true, error: err.message }, productState()));
+      }
     } else {
       send('overlay:state', { status: 'error', message: err.message });
     }
     lastStatus = 'error';
     lastPollAt = Date.now();
-    lastPollStatus = 'error';
+    lastPollStatus = isRateLimit ? 'rate-limited' : 'error';
     return 'error';
   } finally {
     polling = false;
@@ -4516,14 +4599,23 @@ function slowMs() {
 /** Esperando partida se consulta seguido; en partida, espaciado. */
 function scheduleNext(status) {
   clearTimeout(timer);
-  // En cola consultamos el REST cada 1.5s: si el socket no publica el roster
-  // (ciertas ladders), la partida en curso se detecta igual de inmediato.
-  // Con el ELO oculto (a partir de 0:20) se consulta más seguido: el REST tarda
-  // en dejar de listar la partida al terminarla y el panel tiene que volver
-  // rápido, no esperar el poll lento completo.
+  const now = Date.now();
+  if (pollRateLimitUntil > now) {
+    const waitMs = Math.max(2000, pollRateLimitUntil - now);
+    timer = setTimeout(async () => {
+      const next = await poll();
+      scheduleNext(next);
+    }, waitMs);
+    return;
+  }
   const hidden = introView(intro, viewConfig(), clockNow()).eloHidden;
-  const ongoingMs = hidden ? Math.min(slowMs(), 5000) : slowMs();
-  const delay = status === 'ongoing' ? ongoingMs : searching ? Math.min(fastMs(), 1500) : fastMs();
+  const ongoingMs = hidden ? Math.min(slowMs(), 6000) : slowMs();
+  // Si el WebSocket de matchmaking está sano y recibiendo eventos en vivo, no
+  // martillamos /api/matches cada 3 s (evita bloqueos HTTP 429 de Companion).
+  const wsHealthy = Boolean(queueWatcher && queueWatcher.isHealthy);
+  const idleDelay = wsHealthy ? Math.max(fastMs(), 12000) : Math.max(fastMs(), 4000);
+  const queueDelay = wsHealthy ? Math.max(fastMs(), 5000) : Math.max(fastMs(), 2500);
+  const delay = status === 'ongoing' ? ongoingMs : searching ? queueDelay : idleDelay;
   timer = setTimeout(async () => {
     const next = await poll();
     scheduleNext(next);
@@ -4715,7 +4807,10 @@ if (!gotLock) {
     });
 
     globalShortcut.register('Control+Alt+R', () => {
-      log('refresh manual');
+      log('refresh manual: reiniciando sockets en vivo y consultando');
+      pollRateLimitUntil = 0;
+      poll429Streak = 0;
+      startLive();
       poll();
     });
 

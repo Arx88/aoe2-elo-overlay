@@ -157,6 +157,22 @@ async function fetchLatest1v1Match(profileId) {
   return fetchLatestMatch(profileId);
 }
 
+async function fetchLatestTeamMatch(profileId) {
+  try {
+    const url =
+      `${COMPANION_BASE}/api/matches?profile_ids=${encodeURIComponent(profileId)}` +
+      '&use_enums=true&page=1&per_page=10';
+    const data = await getJson(url);
+    const rawList = Array.isArray(data) ? data : (data && data.matches) || [];
+    const list = rawList.map(normalizeMatch);
+    const tg = list.find((m) => m && Array.isArray(m.players) && m.players.length > 2) || list[0];
+    if (tg) return tg;
+  } catch {
+    /* fallback to any latest match */
+  }
+  return fetchLatestMatch(profileId);
+}
+
 /**
  * Una partida puntual por `matchId` (Companion `GET /api/matches/:id`).
  * Solo la usa el modo ejemplo para capturar una partida concreta del perfil
@@ -718,6 +734,7 @@ module.exports = {
   fetchMatches,
   fetchLatestMatch,
   fetchLatest1v1Match,
+  fetchLatestTeamMatch,
   fetchMatchById,
   fetchPersonalStats,
   searchProfiles,
