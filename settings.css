@@ -55,8 +55,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
 body.maximized .winbtn .restore-icon { display: block; margin: auto; }
 .shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 214px minmax(0, 1fr); }
 .rail { background: linear-gradient(165deg, #171d1e, #111617 46%, #0e1214); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: var(--space-6) var(--space-4) var(--space-4); min-height: 0; }
-.rail-brand { display: flex; align-items: center; justify-content: flex-start; gap: var(--space-3); padding: 2px 4px var(--space-5); }
-.rail-logo { width: 152px; max-width: 100%; height: auto; object-fit: contain; display: block; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .42)); }
+.rail-brand { display: flex; align-items: center; justify-content: flex-start; gap: var(--space-3); padding: 4px 2px var(--space-5); }
+.rail-logo { width: 170px; max-width: 100%; height: auto; object-fit: contain; display: block; filter: drop-shadow(0 3px 10px rgba(0, 0, 0, .48)); }
 .rail-mark { width: 48px; height: 48px; object-fit: contain; flex: none; }
 .rail-name { font-size: var(--type-section); font-weight: 650; letter-spacing: -.035em; }
 .rail-caption { margin-top: 3px; font-size: 10.5px; color: var(--brass-soft); }

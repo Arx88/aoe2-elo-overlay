@@ -1,3 +1,9 @@
+## v2.5.4 · Nuevo logotipo geométrico oficial de Relic
+
+- **Nuevo logotipo y símbolo `R` de Relic:** integrado en el Centro de mando, barra de ventana, ícono de aplicación (`.ico`), bandeja del sistema, asistente inicial e instalador Windows NSIS.
+
+---
+
 ## v2.5.3 · Nueva identidad oficial: Relic
 
 - **Identidad unificada bajo la marca Relic:** nuevo logotipo horizontal dorado en el Centro de mando, medallón circular oficial como ícono de aplicación (`.ico`, bandeja del sistema, barra de ventana y asistente inicial), instalador `Relic Setup` y accesos directos unificados.

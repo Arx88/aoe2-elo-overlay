@@ -56,26 +56,26 @@ def make_sidebar():
     # Emblema dorado Relic centrado en la parte superior
     if EMBLEM.exists():
         logo = Image.open(EMBLEM).convert("RGBA")
-        logo.thumbnail((88, 88), Image.Resampling.LANCZOS)
+        logo.thumbnail((78, 78), Image.Resampling.LANCZOS)
         lx = (W - logo.width) // 2
-        ly = 28
+        ly = 34
         canvas.paste(logo, (lx, ly), logo)
 
     # Etiqueta limpia debajo del emblema
     try:
-        font_title = ImageFont.truetype("C:/Windows/Fonts/georgiab.ttf", 18)
+        font_title = ImageFont.truetype("C:/Windows/Fonts/seguisb.ttf", 16)
         font_sub = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 9)
     except Exception:
         font_title = ImageFont.load_default()
         font_sub = ImageFont.load_default()
 
-    title = "Relic"
+    title = "R E L I C"
     tb = draw.textbbox((0, 0), title, font=font_title)
-    draw.text(((W - (tb[2] - tb[0])) // 2, 120), title, fill=(232, 198, 126), font=font_title)
+    draw.text(((W - (tb[2] - tb[0])) // 2, 118), title, fill=(224, 206, 178), font=font_title)
 
     sub = "AGE OF EMPIRES II · DE"
     sb = draw.textbbox((0, 0), sub, font=font_sub)
-    draw.text(((W - (sb[2] - sb[0])) // 2, 155), sub, fill=(199, 173, 118), font=font_sub)
+    draw.text(((W - (sb[2] - sb[0])) // 2, 155), sub, fill=(176, 158, 126), font=font_sub)
 
     out = BUILD / "installer-sidebar.bmp"
     canvas.save(out, format="BMP")
@@ -102,8 +102,8 @@ def make_header():
 
     if WORDMARK.exists():
         logo = Image.open(WORDMARK).convert("RGBA")
-        logo.thumbnail((116, 40), Image.Resampling.LANCZOS)
-        canvas.paste(logo, (W - logo.width - 10, (H - logo.height) // 2), logo)
+        logo.thumbnail((130, 38), Image.Resampling.LANCZOS)
+        canvas.paste(logo, ((W - logo.width) // 2, (H - logo.height) // 2), logo)
     elif EMBLEM.exists():
         logo = Image.open(EMBLEM).convert("RGBA")
         logo.thumbnail((40, 40), Image.Resampling.LANCZOS)
