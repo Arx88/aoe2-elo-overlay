@@ -164,6 +164,8 @@ let detailMode = false;
 let scoutF2Enabled = false;
 // Balance de equipos (TG): puro pintado sobre el estado, sin datos extra.
 let balanceEnabled = false;
+let smurfDetectorEnabled = false;
+let smurfPayload = null;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -363,7 +365,8 @@ function analysisStage() {
   if (civView.eloHidden) return null;
   // 1) El roster ya está en pantalla y faltan los números de ELO.
   if (lastState.pending) return 'elo';
-  if (lastState.phase !== 'lobby') return null;
+  const isPrematchPhase = lastState.phase === 'lobby' || lastState.previewPhase === 'prematch';
+  if (!isPrematchPhase) return null;
   // 2) Informe del rival: primero civs/favoritos, después las aperturas.
   if (rivalEnabled()) {
     const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
@@ -371,8 +374,8 @@ function analysisStage() {
     if (rivalOptions.rivalH2H && reports.some((report) => report.h2hPending)) return 'h2h';
     if (rivalOptions.rivalOpenings && rivalPayload && rivalPayload.pendingOpenings) return 'replays';
   }
-  // 3) Consejo pre-partida: solo existe mientras la fase sea `lobby`.
-  if ((smartTipsEnabled || civRecommenderEnabled) && lastState.phase === 'lobby') {
+  // 3) Consejo pre-partida: solo existe mientras la fase sea `lobby` o preview prematch.
+  if ((smartTipsEnabled || civRecommenderEnabled) && isPrematchPhase) {
     const tips = scoutPayload && Array.isArray(scoutPayload.tips) ? scoutPayload.tips : [];
     if (!tips.length || tips.some((tip) => tip.loading)) return 'tips';
     if (scoutPayload && scoutPayload.pending) return 'tips';
@@ -448,12 +451,13 @@ function applyVisibility() {
   const detail = !scoutF2Enabled || detailMode;
   document.body.classList.toggle('scout-f2', scoutF2Enabled);
   document.body.classList.toggle('scout-detail', detail);
-  scoutingEl.hidden = !(ongoing && lastState.phase === 'lobby' && compactAvailable() && !hidden);
+  const isPrematchPhase = lastState?.phase === 'lobby' || lastState?.previewPhase === 'prematch';
+  scoutingEl.hidden = !(ongoing && isPrematchPhase && compactAvailable() && !hidden);
   rivalInfoEl.hidden = true;
   scoutInfoEl.hidden = true;
   const reviewing = Boolean(postMatchEnabled && postMatchPayload && !ongoing && !moving);
   if (postMatchEl) postMatchEl.hidden = !reviewing;
-  if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(ongoing && lastState.phase !== 'lobby' && !moving && smartBuildOrderEnabled &&
+  if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(ongoing && !isPrematchPhase && !moving && smartBuildOrderEnabled &&
     buildOrderPayload && String(buildOrderPayload.matchId) === String(lastState.match?.matchId));
   panel.classList.toggle('reviewing', reviewing);
   analysisEl.hidden = analysisStage() == null;
@@ -1926,6 +1930,12 @@ function renderOngoing(state) {
         : civMarkup(player.civ)}</span>` : '';
       const waiting = Boolean(state.pending) && !player.hasStats;
       const elo = player.rating != null ? fmtNumber(player.rating) : waiting ? '…' : '—';
+      const smurfInfo = (smurfDetectorEnabled && !player.isYou && smurfPayload && smurfPayload.byPlayer)
+        ? smurfPayload.byPlayer[player.profileId] || smurfPayload.byPlayer[String(player.profileId)]
+        : null;
+      const smurfBadge = (smurfInfo && smurfInfo.flagged)
+        ? `<span class="smurf-pill is-${escapeHtml(smurfInfo.level)}" title="${escapeHtml((smurfInfo.reasons || []).join(' · '))}">${escapeHtml(smurfInfo.label)}${smurfInfo.shortReason ? `<small>${escapeHtml(smurfInfo.shortReason)}</small>` : ''}</span>`
+        : '';
       const rank = !rosterDetailsAllowed ? '' : player.rank
         ? `<span class="rank">#${player.rank}</span>`
         : `<span class="rank">${waiting ? '…' : ''}</span>`;
@@ -1937,7 +1947,7 @@ function renderOngoing(state) {
           <span class="dot"></span>
           <span class="name">${name}${badge}</span>
           ${civ}
-          <span class="elo">${elo}</span>
+          <span class="elo">${smurfBadge}${elo}</span>
           ${rank}
           ${rosterDetailsAllowed ? `<span class="peak">${peak}</span>` : ''}
         </div>`;
@@ -2081,6 +2091,7 @@ window.overlay.onConfig((config) => {
   if (config.civRecommender !== undefined) civRecommenderEnabled = Boolean(config.civRecommender);
   if (config.scoutF2 !== undefined) scoutF2Enabled = Boolean(config.scoutF2);
   if (config.tgBalance !== undefined) balanceEnabled = Boolean(config.tgBalance);
+  if (config.smurfDetector !== undefined) smurfDetectorEnabled = Boolean(config.smurfDetector);
   if (config.postMatch !== undefined) postMatchEnabled = Boolean(config.postMatch);
   if (config.product) rosterDetailsAllowed = config.product.featureAccess.rosterDetails === true;
   if (config.product) postMatchAccess = {
@@ -2117,6 +2128,15 @@ if (window.overlay.onRival) {
     rivalPayload = payload;
     renderRivalInfo();
     applyVisibility();
+  });
+}
+if (window.overlay.onSmurf) {
+  window.overlay.onSmurf((payload) => {
+    smurfPayload = payload;
+    if (lastState && lastState.status === 'ongoing') {
+      renderOngoing(lastState);
+      applyVisibility();
+    }
   });
 }
 if (window.overlay.onScout) {

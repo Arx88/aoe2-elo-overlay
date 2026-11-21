@@ -141,6 +141,22 @@ async function fetchLatestMatch(profileId) {
   return list.find((m) => m && m.ongoing) || list[0] || null;
 }
 
+async function fetchLatest1v1Match(profileId) {
+  try {
+    const url =
+      `${COMPANION_BASE}/api/matches?profile_ids=${encodeURIComponent(profileId)}` +
+      '&use_enums=true&leaderboard_ids=rm_1v1&page=1&per_page=5';
+    const data = await getJson(url);
+    const rawList = Array.isArray(data) ? data : (data && data.matches) || [];
+    const list = rawList.map(normalizeMatch);
+    const rm1v1 = list.find((m) => m && Array.isArray(m.players) && m.players.length === 2) || list[0];
+    if (rm1v1) return rm1v1;
+  } catch {
+    /* fallback to any latest match */
+  }
+  return fetchLatestMatch(profileId);
+}
+
 /**
  * Una partida puntual por `matchId` (Companion `GET /api/matches/:id`).
  * Solo la usa el modo ejemplo para capturar una partida concreta del perfil
@@ -503,7 +519,7 @@ async function buildExampleSnapshot({
   onPartial,
   now = Date.now(),
   clockOffsetMs = 3000,
-  fetchLatestImpl = fetchLatestMatch,
+  fetchLatestImpl = fetchLatest1v1Match,
   fetchStatsImpl,
   match: suppliedMatch = null,
 }) {
@@ -701,6 +717,7 @@ module.exports = {
   getJson,
   fetchMatches,
   fetchLatestMatch,
+  fetchLatest1v1Match,
   fetchMatchById,
   fetchPersonalStats,
   searchProfiles,

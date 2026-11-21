@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('overlay', {
   // El estado vive en el main para sobrevivir a una recarga del renderer.
   onDetail: (callback) => ipcRenderer.on('overlay:detail', (_event, detail) => callback(detail)),
   onRival: (callback) => ipcRenderer.on('overlay:rival', (_event, report) => callback(report)),
+  onSmurf: (callback) => ipcRenderer.on('overlay:smurf', (_event, payload) => callback(payload)),
   // Consejo pre-partida (recomendaciones inteligentes): solo fase `lobby`.
   onScout: (callback) => ipcRenderer.on('overlay:scout', (_event, payload) => callback(payload)),
   onBuildOrder: (callback) => ipcRenderer.on('overlay:build-order', (_event, payload) => callback(payload)),

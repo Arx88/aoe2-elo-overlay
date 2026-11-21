@@ -172,7 +172,47 @@ async function run() {
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'build', 'installer-sidebar.bmp')));
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'build', 'installer-header.bmp')));
 
-  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, build isolation)');
+  // 5) Central de Inteligencia Propia (Radar 6 ejes, curva ELO, barras y 10 últimas partidas sin inline styles)
+  const { computeCentralAnalytics } = require('../src/central');
+  const centralData = computeCentralAnalytics({
+    profileId: 25399083,
+    alias: 'PSX | Acido',
+    ladder1v1: { rating: 1320, peak: 1385, rank: 8400, ladderPercentile: 14.2, wins: 120, losses: 95, streak: 3 },
+    matches: Array.from({ length: 12 }, (_, idx) => ({
+      matchId: 5000 + idx,
+      mapName: idx % 2 === 0 ? 'Arabia' : 'Arena',
+      leaderboardId: 3,
+      leaderboardName: 'RM 1v1',
+      startedAt: 1700000000000 - idx * 3600000,
+      finishedAt: 1700000000000 - idx * 3600000 + 1500000,
+      ongoing: false,
+      players: [
+        { profileId: 25399083, name: 'PSX | Acido', civ: idx % 3 === 0 ? 'Franks' : 'Mayans', team: 1, won: idx % 3 !== 0, matchRating: 1300 + idx * 4, matchRatingDiff: idx % 3 !== 0 ? 14 : -13 },
+        { profileId: 9000 + idx, name: `Rival ${idx}`, civ: 'Britons', team: 2, won: idx % 3 === 0, matchRating: 1295 },
+      ],
+    })),
+    storedRecords: [],
+    scoutData: {
+      style: { analyzed: 24, aggressive: 14, boom: 7, hybrid: 3, aggressiveShare: 58 },
+      likelyOpenings: [{ name: 'Scout rush', short: 'Scouts', games: 10, sample: 24 }],
+    },
+  });
+  assert.equal(centralData.ok, true);
+  assert.equal(centralData.radarAxes.length, 6);
+  assert.equal(centralData.last10Matches.length, 10);
+  assert.equal(centralData.topCivs.length, 2);
+  assert.equal(centralData.topMaps.length, 2);
+  const centralHtml = TacticalUI.renderCentralDashboard(centralData);
+  const recentHtml = TacticalUI.renderRecentMatchesList(centralData.last10Matches);
+  assert.match(centralHtml, /central-radar-svg/);
+  assert.match(centralHtml, /central-elo-svg/);
+  assert.match(centralHtml, /cx-trend-row/);
+  assert.match(centralHtml, /data-chart-points=/);
+  assert.match(recentHtml, /data-match-id="5000"/);
+  assert.doesNotMatch(centralHtml, /\sstyle="/, 'Central dashboard must obey strict CSP without inline style attributes');
+  assert.doesNotMatch(recentHtml, /\sstyle="/, 'Recent matches list must obey strict CSP without inline style attributes');
+
+  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, Central radar & build isolation)');
 }
 
 run().catch((err) => {

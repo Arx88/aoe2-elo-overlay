@@ -5,6 +5,9 @@ para-compartir/
 
 # Datos personales: NUNCA subir la cuenta del jugador ni los logs
 config.json
+central-cache.json
+replay-cache.json
+performance-history.json
 *.log
 auto-publish.lock
 update-channel.local.json

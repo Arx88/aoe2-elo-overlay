@@ -39,43 +39,49 @@
     "skins": "Appearance",
     "plans": "Plan & Access",
     "updater": "Updates",
-    "context": "/ Settings"
+    "context": "/ Settings",
+    "central": "Central"
   },
   "pages": {
     "player": {
       "index": "01 / ACCOUNT",
-      "title": "Player Account",
-      "sub": "Your in-game profile and how to switch accounts."
+      "title": "Player account",
+      "sub": "Your in-game profile and latest matches."
     },
     "overlay": {
-      "index": "02 / PREMATCH",
-      "title": "Prematch & Rival Intel",
-      "sub": "Choose what intel appears in queue and when entering the match."
+      "index": "03 / PREMATCH",
+      "title": "Prepare the match.",
+      "sub": "What appears in queue and at match start · live overlay preview."
     },
     "tactics": {
-      "index": "03 / IN-GAME",
-      "title": "In-Game Visual Guides",
-      "sub": "Clean visual references with zero manual input while playing."
+      "index": "04 / IN-GAME",
+      "title": "Choose your response.",
+      "sub": "Opportunities by civilization, history, and observed composition."
     },
     "postmatch": {
-      "index": "04 / POSTMATCH",
-      "title": "Postmatch Coach",
-      "sub": "Automatic local replay analysis, grades, and personal evolution."
+      "index": "05 / POSTMATCH",
+      "title": "Learn from every match.",
+      "sub": "Your last 10 matches, confirmed outcome, and measured evolution."
     },
     "skins": {
-      "index": "05 / APPEARANCE",
-      "title": "Overlay Appearance",
-      "sub": "Visual theme, opacity, position, and visibility controls."
+      "index": "06 / APPEARANCE",
+      "title": "Your panel, your way.",
+      "sub": "How the overlay looks over the game."
     },
     "plans": {
-      "index": "06 / PLAN & ACCESS",
-      "title": "Plan & Access",
-      "sub": "Current license status, verified subscription, and feature tiers."
+      "index": "07 / PLAN & ACCESS",
+      "title": "Choose your depth.",
+      "sub": "Free to compete; Pro for Prematch; Ultra for the complete arsenal."
     },
     "updater": {
-      "index": "07 / UPDATES",
-      "title": "Updates",
-      "sub": "Installed version and automatic release checks."
+      "index": "08 / UPDATES",
+      "title": "Stay up to date.",
+      "sub": "Safe automatic updates, never interrupting a live game."
+    },
+    "central": {
+      "index": "02 / CENTRAL",
+      "title": "Intelligence Central",
+      "sub": "Tactical radar, ELO trajectory, civilizations, maps, and openings."
     }
   },
   "account": {
@@ -162,7 +168,9 @@
     "civHelpVisibleUntil": "Civ guide: enabled · visible until {time}",
     "civHelpHidesAt": "Civ guide: hides at {time}",
     "civHelpExtended": "Civ guide: visible until 0:40",
-    "hideAtSaved": "Hide Overlay and civ guide after {seconds}s"
+    "hideAtSaved": "Hide Overlay and civ guide after {seconds}s",
+    "smurfTitle": "Smurf Detector",
+    "smurfDesc": "Flags suspected smurfs next to ELO by cross-checking higher linked RM 1v1 accounts, extreme win rate, peak drop, and eAPM anomalies · Ultra"
   },
   "tactics": {
     "bannerTitle": "Civilization references",
@@ -170,7 +178,7 @@
     "intro": "Feudal, Castle, and Imperial routes are shown here as options, not live match state.",
     "guideGroup": "Opening guide",
     "sboTitle": "Smart Build Order",
-    "sboDesc": "Guide by civ & map · in Settings or during match · ProMax",
+    "sboDesc": "Guide by civ and map · in Settings or during the match · Ultra",
     "oppGroup": "Opportunities against rival",
     "waitingBoth": "Waiting for both civilizations and match data.",
     "loadingMatchup": "Updating civilization matchup and history…",
@@ -204,33 +212,35 @@
     "modeCommunity": "ELO benchmark only",
     "replayTitle": "Replay analysis",
     "replayDesc": "Opening milestones, advance timings, TC uptime, and eAPM",
-    "latestGroup": "Latest report",
+    "latestGroup": "Selected match report",
     "refresh": "Refresh",
     "emptyTitle": "Your next match sets the baseline.",
     "emptyDesc": "Once finished, your report will appear here and on the overlay.",
     "updatedStatus": "Postmatch report updated.",
     "refUpdated": "Postmatch reference updated.",
-    "availableProMax": "Available with ProMax.",
-    "drawError": "Could not render report."
+    "availableProMax": "Available with Ultra.",
+    "drawError": "Could not render report.",
+    "last10Group": "Your last 10 matches · click any match to load its report",
+    "loadingMatchStatus": "Loading report for match #{id}…"
   },
   "plansPage": {
     "eyebrow": "YOUR CURRENT ACCESS",
     "loading": "Loading…",
     "loadingDesc": "Checking available features for this version.",
-    "trialSummary": "Activate ProMax trial key",
-    "trialDesc": "Enter a shared temporary key. Enables ProMax locally unless paid enforcement is active.",
+    "trialSummary": "Activate temporary Ultra key",
+    "trialDesc": "Enter a shared temporary key. Enables Ultra locally unless paid enforcement is active.",
     "trialLabel": "Access key",
-    "trialBtn": "Activate ProMax",
+    "trialBtn": "Activate Ultra",
     "freeEyebrow": "HISTORY + ELO",
     "freePrice": "Free",
     "freeDesc": "Rival name, current ELO, and head-to-head record.",
     "proEyebrow": "FREE + PREMATCH",
     "proPrice": "$1",
-    "proDesc": "Everything in Free + full Prematch opponent intelligence.",
+    "proDesc": "Everything in Free + full Prematch opponent intelligence before the game.",
     "proIncludes": "Includes Free + full Prematch.",
     "promaxEyebrow": "PREMATCH · IN-GAME · POSTMATCH",
     "promaxPrice": "$1.99",
-    "promaxDesc": "Full Prematch, In-Game tactical guide, and Postmatch replay analysis.",
+    "promaxDesc": "Full Prematch, In-Game tactical guide, and Postmatch replay analysis engine.",
     "promaxIncludes": "Includes Free, Prematch, In-Game, and Postmatch.",
     "subsTitle": "Subscriptions",
     "subsStatus": "Online checkout is not enabled yet.",
@@ -242,7 +252,7 @@
     "existingTok": "Access credential",
     "existingBtn": "Verify access",
     "footnote": "Your plan unlocks features. Data availability depends on sample size, game mode, and analyzed replays.",
-    "descKey": "Temporary ProMax trial key active. Not a paid subscription.",
+    "descKey": "Temporary Ultra trial key active. Not a paid subscription.",
     "descVerified": "Verified signed license for this plan.",
     "descBeta": "Explicit beta access for this build. Not an active subscription.",
     "descFree": "Essential features to inspect the match and your rivals.",
@@ -254,8 +264,14 @@
     "availableWith": "Available with {tier}. Your saved preference is kept.",
     "verifyingKey": "Verifying key…",
     "verifyingCred": "Verifying credential…",
-    "keyActivated": "ProMax activated. You can now enable Pro/ProMax options in Settings.",
-    "credVerified": "License access verified."
+    "keyActivated": "Ultra activated. You can now enable Pro/Ultra options in Settings.",
+    "credVerified": "License access verified.",
+    "currentBadge": "CURRENT PLAN",
+    "freeSubPrice": "Forever free",
+    "pillFree": "ELO + Head-to-Head",
+    "proSubPrice": "USD · Prematch Scouting",
+    "ultraRibbon": "★ COMPLETE ARSENAL · MOST POPULAR",
+    "ultraSubPrice": "USD · Full Tactical Suite"
   },
   "skins": {
     "designGroup": "Panel theme",
@@ -388,7 +404,7 @@
     "badgeConfig": "SETTINGS",
     "free": "Free",
     "pro": "Pro",
-    "promax": "ProMax",
+    "promax": "Ultra",
     "beta": "Beta Access",
     "verified": "Verified account",
     "revoked": "Paid access disabled by administrator",
@@ -568,5 +584,53 @@
       "title": "Smart Build Order",
       "desc": "Visual guide tailored to your civ, map, and matchup opportunities."
     }
+  },
+  "central": {
+    "recentAccountGroup": "Your latest matches",
+    "openCentralBtn": "Open Stats Central →",
+    "overviewGroup": "Personal intelligence & metrics",
+    "justNow": "just now",
+    "noMatchesYet": "No recent matches recorded for this account yet.",
+    "winShort": "W",
+    "lossShort": "L",
+    "replayReady": "Replay analyzed",
+    "viewReport": "View report",
+    "radarAria": "6-axis tactical radar",
+    "axisConsistency": "Consistency",
+    "axisMacro": "Macro · TC",
+    "axisTempo": "Tempo · Pressure",
+    "axisLate": "Late Game",
+    "axisCivs": "Civ Pool",
+    "axisMaps": "Map Control",
+    "eloChartEmpty": "Play at least 2 ranked matches to plot your ELO evolution curve.",
+    "eloTrajectory": "Recent ELO trajectory",
+    "rangeLabel": "Range",
+    "latestGame": "Current",
+    "emptyTitle": "Connect your account to view your Stats Central",
+    "emptyDesc": "All your metrics, tactical radar, ELO trajectory, and latest matches will appear here.",
+    "kpiEloLabel": "RM 1V1 RATING",
+    "ladderActive": "Active profile",
+    "kpiWinrateLabel": "WINRATE & FORM",
+    "kpiMacroLabel": "EXECUTION & PACE",
+    "telemetryHint": "Enriched automatically with each analyzed replay",
+    "kpiTimingsLabel": "AVERAGE AGE TIMINGS",
+    "clickMatchToAnalyze": "Select a match to measure timings",
+    "playstyleTitle": "Playstyle & opening distribution",
+    "recentSample": "Recent sample",
+    "earlyPressure": "Early pressure",
+    "shortGames": "Short games (<22m)",
+    "longGames": "Long games (+28m)",
+    "radarEyebrow": "MULTIDIMENSIONAL PROFILE",
+    "radarTitle": "Tactical performance radar",
+    "gamesAnalyzed": "matches",
+    "trajectoryEyebrow": "TREND & OPENINGS",
+    "trajectoryTitle": "ELO curve & game pace",
+    "civsEyebrow": "REPERTOIRE",
+    "civsTitle": "Your most played civilizations",
+    "mapsEyebrow": "TERRAIN",
+    "mapsTitle": "Performance by map",
+    "noDataYet": "Not enough data yet.",
+    "recentEyebrow": "INTERACTIVE HISTORY",
+    "recentTitle": "Your latest matches · click to open Postmatch"
   }
 }

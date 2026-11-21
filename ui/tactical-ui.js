@@ -712,7 +712,7 @@
 
     const earlyUtil = self.tcUtilizationEarly ?? self.tcUtilization;
     const earlyIdle = self.tcIdleEarlySeconds ?? self.tcIdleSeconds;
-    const totalIdle = self.tcIdleTotalSeconds;
+    const totalIdle = self.tcIdleTotalSeconds ?? self.tcIdleSeconds;
     const minutes = (eng.durationSeconds || result.durationSeconds) / 60;
     const villagerOrdersPerMinute = em.villagersPerMin?.current ??
       (Number.isFinite(minutes) && minutes > 0 && Number.isFinite(self.villagersOrdered)
@@ -760,7 +760,7 @@
       </div>`;
     };
     const rivalEarlyIdle = rival?.tcIdleEarlySeconds ?? rival?.tcIdleSeconds;
-    const rivalTotalIdle = rival?.tcIdleTotalSeconds;
+    const rivalTotalIdle = rival?.tcIdleTotalSeconds ?? rival?.tcIdleSeconds;
     const duelBlock = `<div class="pm-duel">
       ${duelFaceHead}
       ${duelRow(tr('postmatch.duelVils', 'Aldeanos pedidos'), self.villagersOrdered, rival?.villagersOrdered, `${number(self.villagersOrdered)} · ${self.townCenters} TC`, rival ? `${number(rival.villagersOrdered)} · ${rival.townCenters} TC` : '')}
@@ -904,7 +904,655 @@
       (access.replay !== false && access.comparison !== false && (report.improvements || []).length ? '<section class="review-insights">' + report.improvements.slice(0, 2).map((i) => `<div>${icon('trend')}<p><b>${esc(i.title)}</b><span>${esc(i.detail)}</span></p></div>`).join('') + '</section>' : '') +
       `<p class="review-data">${esc(source)}</p>`;
   }
-  const api = { renderRival, renderPostMatch, renderAutomaticOpportunities, renderSmartBuildOrder, configure, civLabel, civRelation, esc, icon };
+  function fmtRelativeTime(ts) {
+    if (!Number.isFinite(ts) || ts <= 0) return '';
+    const diffSec = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (diffSec < 60) return tr('central.justNow', 'recién');
+    const mins = Math.round(diffSec / 60);
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.round(hours / 24);
+    if (days <= 14) return `${days}d`;
+    try {
+      return new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+    } catch {
+      return '';
+    }
+  }
+
+  function renderRecentMatchesList(matches = [], { selectedMatchId = null, mode = 'list', limit = 10 } = {}) {
+    const list = (Array.isArray(matches) ? matches : []).slice(0, limit);
+    if (!list.length) {
+      return `<div class="central-empty-matches"><p>${esc(tr('central.noMatchesYet', 'Todavía no hay partidas recientes registradas para esta cuenta.'))}</p></div>`;
+    }
+    const items = list.map((m) => {
+      const isSelected = selectedMatchId != null && String(m.matchId) === String(selectedMatchId);
+      const outcomeCls = m.won === true ? 'is-win' : m.won === false ? 'is-loss' : 'is-pending';
+      const outcomeLetter = m.won === true
+        ? tr('central.winShort', 'V')
+        : m.won === false
+          ? tr('central.lossShort', 'D')
+          : '·';
+      const mapLabel = locMap(m.mapName) || m.mapName || '—';
+      const myCivName = locCiv(m.myCiv) || m.myCiv || '?';
+      const rivalCivName = locCiv(m.rivalCiv) || m.rivalCiv || '?';
+      const diffTxt = m.myRatingDiff != null
+        ? `<span class="rm-diff ${m.myRatingDiff >= 0 ? 'win' : 'loss'}">${m.myRatingDiff >= 0 ? '+' : ''}${m.myRatingDiff}</span>`
+        : '';
+      const ratingTxt = m.myRating != null ? `<span class="rm-elo">${number(m.myRating)}</span>` : '';
+      const durTxt = m.durationSeconds != null ? clock(m.durationSeconds) : '';
+      const timeTxt = fmtRelativeTime(m.finishedAt || m.startedAt);
+      const extraTag = m.extraRivals > 0 ? ` +${m.extraRivals}` : '';
+      const replayBadge = m.hasTelemetry
+        ? `<span class="rm-telemetry is-ready" title="${esc(tr('central.replayReady', 'Replay analizado'))}">★ Replay</span>`
+        : `<span class="rm-telemetry">${esc(tr('central.viewReport', 'Ver informe'))}</span>`;
+
+      return `<button type="button" class="rm-card ${outcomeCls}${isSelected ? ' is-selected' : ''}" data-match-id="${esc(m.matchId)}" aria-pressed="${isSelected}">
+        <span class="rm-outcome">${esc(outcomeLetter)}</span>
+        <span class="rm-matchup">
+          <span class="rm-civ-pair">${civBadge(m.myCiv)}<span class="rm-vs">vs</span>${civBadge(m.rivalCiv)}</span>
+          <span class="rm-names">
+            <strong>${esc(myCivName)} <small>vs</small> ${esc(m.rivalName || 'Rival')}${esc(extraTag)}</strong>
+            <small>${esc(mapLabel)} · ${esc(m.modeLabel || 'Partida')}${rivalCivName && rivalCivName !== '?' ? ` · ${esc(rivalCivName)}` : ''}</small>
+          </span>
+        </span>
+        <span class="rm-meta">
+          <span class="rm-rating-row">${ratingTxt}${diffTxt}</span>
+          <small>${[durTxt, timeTxt].filter(Boolean).join(' · ')}</small>
+        </span>
+        ${replayBadge}
+      </button>`;
+    }).join('');
+
+    return `<div class="rm-list rm-mode-${esc(mode)}" role="list">${items}</div>`;
+  }
+
+  function renderRadarSvg(axes = []) {
+    const items = Array.isArray(axes) && axes.length === 6 ? axes : [];
+    const measured = items.filter((a) => a.hasData !== false && Number.isFinite(Number(a.score)));
+    if (measured.length < 3) return '';
+    const cx = 160, cy = 136, rMax = 82;
+    const angles = items.map((_, i) => -Math.PI / 2 + (i * 2 * Math.PI) / 6);
+    const pointAt = (angle, ratio) => {
+      const r = rMax * ratio;
+      return [
+        Math.round((cx + r * Math.cos(angle)) * 10) / 10,
+        Math.round((cy + r * Math.sin(angle)) * 10) / 10,
+      ];
+    };
+
+    const rings = [0.25, 0.5, 0.75, 1].map((level) => {
+      const pts = angles.map((a) => pointAt(a, level).join(',')).join(' ');
+      return `<polygon class="radar-ring${level === 1 ? ' is-outer' : ''}" points="${pts}" />`;
+    }).join('');
+
+    const spokes = angles.map((a) => {
+      const [x, y] = pointAt(a, 1);
+      return `<line class="radar-spoke" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" />`;
+    }).join('');
+
+    const dataPts = items.map((axis, i) => {
+      const hasData = axis.hasData !== false && Number.isFinite(Number(axis.score));
+      const ratio = hasData ? Math.max(0.16, Math.min(1, Number(axis.score) / 100)) : 0.14;
+      return { pt: pointAt(angles[i], ratio), hasData };
+    });
+    const polyPoints = dataPts.map((x) => x.pt.join(',')).join(' ');
+
+    const nodes = dataPts.map(({ pt: [x, y], hasData }, i) =>
+      `<circle class="radar-node${hasData ? '' : ' is-missing'}" cx="${x}" cy="${y}" r="${hasData ? 4 : 2.5}" data-axis="${esc(items[i].id)}" />`
+    ).join('');
+
+    const labels = items.map((axis, i) => {
+      const [lx, ly] = pointAt(angles[i], 1.24);
+      const anchor = Math.abs(lx - cx) < 12 ? 'middle' : lx > cx ? 'start' : 'end';
+      const labelTxt = tr(axis.labelKey, axis.fallbackLabel);
+      const hasData = axis.hasData !== false && Number.isFinite(Number(axis.score));
+      return `<g class="radar-label-group${hasData ? '' : ' is-muted'}">
+        <text class="radar-label" x="${lx}" y="${ly - 3}" text-anchor="${anchor}">${esc(labelTxt)}</text>
+        <text class="radar-val" x="${lx}" y="${ly + 10}" text-anchor="${anchor}">${esc(hasData ? (axis.displayValue || '—') : '—')}</text>
+      </g>`;
+    }).join('');
+
+    return `<div class="cx-radar-stage">
+      <svg class="cx-radar-svg central-radar-svg" viewBox="0 0 320 272" role="img" aria-label="${esc(tr('central.radarAria', 'Radar táctico'))}">
+        <defs>
+          <radialGradient id="relicRadarGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#e8cb84" stop-opacity="0.38" />
+            <stop offset="100%" stop-color="#c7ad76" stop-opacity="0.06" />
+          </radialGradient>
+        </defs>
+        ${rings}
+        ${spokes}
+        <polygon class="radar-area" points="${polyPoints}" fill="url(#relicRadarGlow)" />
+        <polygon class="radar-stroke" points="${polyPoints}" />
+        ${nodes}
+        ${labels}
+      </svg>
+    </div>`;
+  }
+
+  function buildSmoothSvgSpline(coords) {
+    if (!coords.length) return '';
+    if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
+    if (coords.length === 2) return `M ${coords[0].x} ${coords[0].y} L ${coords[1].x} ${coords[1].y}`;
+    if (coords.length > 75) {
+      return coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+    }
+    let d = `M ${coords[0].x} ${coords[0].y}`;
+    for (let i = 0; i < coords.length - 1; i += 1) {
+      const p0 = coords[Math.max(0, i - 1)];
+      const p1 = coords[i];
+      const p2 = coords[i + 1];
+      const p3 = coords[Math.min(coords.length - 1, i + 2)];
+      const tension = 0.2;
+      const cp1x = Math.round((p1.x + (p2.x - p0.x) * tension) * 10) / 10;
+      const cp1y = Math.round((p1.y + (p2.y - p0.y) * tension) * 10) / 10;
+      const cp2x = Math.round((p2.x - (p3.x - p1.x) * tension) * 10) / 10;
+      const cp2y = Math.round((p2.y - (p3.y - p1.y) * tension) * 10) / 10;
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
+  }
+
+  function fmtShortDate(ts) {
+    if (!Number.isFinite(ts) || ts <= 0) return '';
+    try {
+      return new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+    } catch {
+      return '';
+    }
+  }
+
+  function renderInteractiveEloChart(mode, eloRange = '30') {
+    const allPts = Array.isArray(mode.eloSeries) ? mode.eloSeries.filter((p) => Number.isFinite(p.rating)) : [];
+    const ladderLabel = mode.label || 'RM 1v1';
+    if (allPts.length < 2) {
+      return `<section class="cx-card cx-chart-card">
+        <div class="central-chart-empty"><p>${esc(tr('central.eloChartEmpty', 'Jugá al menos 2 partidas rankeadas en este modo para trazar tu curva de ELO.'))}</p></div>
+      </section>`;
+    }
+
+    const activeRange = (eloRange === '100' && allPts.length > 30)
+      ? '100'
+      : (eloRange === 'all' && allPts.length > 30)
+        ? 'all'
+        : '30';
+    const pts = activeRange === 'all'
+      ? allPts
+      : activeRange === '100'
+        ? allPts.slice(-100)
+        : allPts.slice(-30);
+
+    const w = 800, h = 210, padL = 12, padR = 48, padT = 22, padB = 26;
+    const innerW = w - padL - padR, innerH = h - padT - padB;
+    const vals = pts.map((p) => p.rating);
+    const rawMin = Math.min(...vals), rawMax = Math.max(...vals);
+    const padVal = Math.max(10, Math.round((rawMax - rawMin) * 0.14));
+    const min = rawMin - padVal;
+    const max = rawMax + padVal;
+    const span = Math.max(20, max - min);
+
+    const coords = pts.map((p, i) => {
+      const x = padL + (i / (pts.length - 1)) * innerW;
+      const y = padT + (1 - (p.rating - min) / span) * innerH;
+      return {
+        x: Math.round(x * 10) / 10,
+        y: Math.round(y * 10) / 10,
+        xPct: Math.round((x / w) * 1000) / 10,
+        yPct: Math.round((y / h) * 1000) / 10,
+        rating: p.rating,
+        diff: p.diff,
+        won: p.won,
+        date: fmtShortDate(p.startedAt) || `#${i + 1}`,
+      };
+    });
+
+    const peakIdx = coords.reduce((best, cur, idx) => (cur.rating >= coords[best].rating ? idx : best), 0);
+    const peakPt = coords[peakIdx];
+    const lastPt = coords[coords.length - 1];
+    const firstPt = coords[0];
+    const splineD = buildSmoothSvgSpline(coords);
+    const areaD = `${splineD} L ${lastPt.x} ${padT + innerH} L ${firstPt.x} ${padT + innerH} Z`;
+
+    const gridSteps = [0, 0.5, 1].map((ratio) => {
+      const y = Math.round((padT + ratio * innerH) * 10) / 10;
+      const val = Math.round(max - ratio * span);
+      return `<g class="elo-grid-row">
+        <line class="cx-grid-line" x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" />
+        <text class="cx-y-tick" x="${w - padR + 8}" y="${y + 3.5}">${number(val)}</text>
+      </g>`;
+    }).join('');
+
+    const net = lastPt.rating - firstPt.rating;
+    const netPill = `<span class="cx-delta ${net >= 0 ? 'win' : 'loss'}">${net >= 0 ? '▲ +' : '▼ '}${net} ELO</span>`;
+    const rangePills = allPts.length > 30 ? `<div class="central-range-pills" role="group" aria-label="Rango de partidas">
+      <button type="button" class="central-range-btn${activeRange === '30' ? ' active' : ''}" data-elo-range="30">30 pj</button>
+      ${allPts.length > 45 ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" data-elo-range="100">100 pj</button>` : ''}
+      <button type="button" class="central-range-btn${activeRange === 'all' ? ' active' : ''}" data-elo-range="all">Todo (${allPts.length})</button>
+    </div>` : `<span class="cx-meta-pill">${pts.length} registros</span>`;
+
+    const formPips = (mode.recentForm || []).map((f) =>
+      `<span class="cx-pip ${f.won ? 'win' : 'loss'}" title="${esc(`${f.won ? 'Victoria' : 'Derrota'}${f.rating ? ` · ${f.rating} ELO` : ''}${f.diff ? ` (${f.diff >= 0 ? '+' : ''}${f.diff})` : ''}`)}">${f.won ? 'V' : 'D'}</span>`
+    ).join('');
+    const last10Txt = mode.last10
+      ? `<span class="cx-last10">Últ. ${mode.last10.games}: <b>${mode.last10.wins}V-${mode.last10.losses}D</b>${mode.last10.netElo != null ? ` · <em class="${mode.last10.netElo >= 0 ? 'win' : 'loss'}">${mode.last10.netElo >= 0 ? '+' : ''}${mode.last10.netElo}</em>` : ''}</span>`
+      : '';
+
+    const serializedPts = esc(JSON.stringify(coords));
+
+    return `<section class="cx-card cx-chart-card">
+      <header class="cx-chart-head">
+        <div class="cx-chart-title">
+          <span class="cx-eyebrow">EVOLUCIÓN DE ELO · ${esc(ladderLabel)}</span>
+          <div class="cx-chart-nums">
+            <strong>${number(lastPt.rating)}</strong>
+            ${netPill}
+            <span class="cx-peak-pill">★ Pico ${number(mode.eloStats?.peak || rawMax)}</span>
+            <span class="cx-sub-range">Mín ${number(rawMin)} · Máx ${number(rawMax)}</span>
+          </div>
+        </div>
+        ${rangePills}
+      </header>
+      <div class="cx-chart-stage" data-chart-points="${serializedPts}" data-chart-w="${w}" data-chart-h="${h}">
+        <svg class="cx-chart-svg central-elo-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curva de evolución de ELO">
+          <defs>
+            <linearGradient id="cxEloFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e6c882" stop-opacity="0.30" />
+              <stop offset="70%" stop-color="#c7ad76" stop-opacity="0.06" />
+              <stop offset="100%" stop-color="#c7ad76" stop-opacity="0.0" />
+            </linearGradient>
+            <linearGradient id="cxEloStroke" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#a58c56" />
+              <stop offset="50%" stop-color="#e5c882" />
+              <stop offset="100%" stop-color="#f9e3a6" />
+            </linearGradient>
+          </defs>
+          ${gridSteps}
+          <line class="cx-peak-line" x1="${padL}" y1="${peakPt.y}" x2="${w - padR}" y2="${peakPt.y}" />
+          <path class="cx-elo-area" d="${areaD}" fill="url(#cxEloFill)" />
+          <path class="cx-elo-line" d="${splineD}" stroke="url(#cxEloStroke)" />
+          <line class="cx-hover-line" x1="${lastPt.x}" y1="${padT}" x2="${lastPt.x}" y2="${padT + innerH}" opacity="0" />
+          <circle class="cx-hover-ring" cx="${lastPt.x}" cy="${lastPt.y}" r="8" opacity="0" />
+          <circle class="cx-hover-dot" cx="${lastPt.x}" cy="${lastPt.y}" r="4.5" opacity="0" />
+          <circle class="central-elo-halo" cx="${lastPt.x}" cy="${lastPt.y}" r="8" />
+          <circle class="cx-last-dot" cx="${lastPt.x}" cy="${lastPt.y}" r="4.4" />
+          <text class="cx-x-tick" x="${padL}" y="${h - 6}">${esc(firstPt.date)}</text>
+          <text class="cx-x-tick mid" x="${Math.round(padL + innerW * 0.5)}" y="${h - 6}">${esc(coords[Math.floor(coords.length / 2)]?.date || '')}</text>
+          <text class="cx-x-tick end" x="${w - padR}" y="${h - 6}">${esc(lastPt.date)}</text>
+        </svg>
+        <div class="cx-tooltip" hidden>
+          <div class="cx-tt-top"><strong class="cx-tt-elo">—</strong><span class="cx-tt-diff"></span></div>
+          <small class="cx-tt-date">—</small>
+        </div>
+      </div>
+      ${formPips ? `<footer class="cx-chart-foot">
+        <span class="cx-foot-label">Forma reciente</span>
+        <div class="cx-pips">${formPips}</div>
+        ${last10Txt}
+      </footer>` : ''}
+    </section>`;
+  }
+
+  function renderGlobalLadderComparison(allLadders = []) {
+    if (!Array.isArray(allLadders) || !allLadders.length) return '';
+    const maxRating = Math.max(1600, ...allLadders.map((l) => l.peak || l.rating || 0));
+    const rows = allLadders.map((l) => {
+      const curW = Math.max(14, Math.round(((l.rating || 0) / maxRating) * 100));
+      const peakW = Math.max(curW, Math.round(((l.peak || l.rating || 0) / maxRating) * 100));
+      const wrTone = l.winRate >= 55 ? 'win' : l.winRate < 46 ? 'loss' : 'neutral';
+      return `<button type="button" class="global-ladder-row is-clickable" data-central-mode="${esc(l.id)}">
+        <div class="global-ladder-label">
+          <strong>${esc(l.label)}</strong>
+          <small>${number(l.games)} pj${l.rank ? ` · #${number(l.rank)}` : ''}</small>
+        </div>
+        <div class="global-ladder-track-wrap">
+          <div class="global-ladder-track">
+            <i class="global-bar-peak" data-w="${peakW}"></i>
+            <i class="global-bar-cur" data-w="${curW}"></i>
+          </div>
+          <div class="global-ladder-nums">
+            <span><b>${number(l.rating)}</b> ELO · pico <em>${number(l.peak || l.rating)}</em></span>
+            <span class="${wrTone}"><b>${l.winRate ?? '—'}% WR</b> (${number(l.wins)}V-${number(l.losses)}D)</span>
+          </div>
+        </div>
+      </button>`;
+    }).join('');
+
+    return `<section class="cx-card">
+      <header class="cx-card-head">
+        <div>
+          <span class="cx-eyebrow">RESUMEN DE LADDERS ACTIVOS</span>
+          <h3>ELO actual y pico histórico por modo</h3>
+        </div>
+        <span class="cx-meta-pill">Tocá cualquier modo para entrar</span>
+      </header>
+      <div class="global-ladders-list">${rows}</div>
+    </section>`;
+  }
+
+  function renderMasteryRows(items = [], { kind = 'civ' } = {}) {
+    if (!Array.isArray(items) || !items.length) {
+      return `<p class="intel-muted">${esc(tr('central.noDataYet', 'Sin datos suficientes en este modo.'))}</p>`;
+    }
+    return items.map((item) => {
+      const wr = item.winRate != null ? item.winRate : 50;
+      const wrTone = wr >= 55 ? 'win' : wr < 45 ? 'loss' : 'neutral';
+      const title = kind === 'civ'
+        ? (locCiv(item.civ) || item.civ)
+        : (locMap(item.mapName) || item.mapName);
+      const crest = kind === 'civ' ? civBadge(item.civ) : icon('map');
+      return `<div class="cx-entity-row">
+        <span class="central-entity-crest${kind === 'map' ? ' is-map' : ''}">${crest}</span>
+        <div class="cx-entity-main">
+          <div class="cx-entity-top">
+            <strong>${esc(title)} <small class="pick-share">${dec(item.share, 1)}%</small></strong>
+            <span class="cx-entity-stat"><small>${number(item.games)} pj (${item.wins}V-${item.losses}D)</small> <b class="${wrTone}">${item.winRate != null ? `${item.winRate}%` : '—'}</b></span>
+          </div>
+          <div class="central-bar-track has-mid"><i class="bar-${wrTone === 'win' ? 'emerald' : wrTone === 'loss' ? 'rose' : 'gold'}" data-w="${Math.max(8, Math.min(100, wr))}"></i></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderCentralDashboard(data, options = {}) {
+    if (!data || !data.ok) {
+      return `<div class="empty-report">
+        <img class="product-icon" src="assets/icons/account.png" alt="" draggable="false">
+        <h3>${esc(data?.error || tr('central.emptyTitle', 'Conectá tu cuenta para ver tu Central'))}</h3>
+        <p>${esc(tr('central.emptyDesc', 'Tu evolución de ELO, civilizaciones históricas, mapas y scouting de jugadores aparecerán acá.'))}</p>
+      </div>`;
+    }
+
+    const modeId = (options.activeModeId && data.modes && data.modes[options.activeModeId])
+      ? options.activeModeId
+      : (data.defaultModeId || 'global');
+    const mode = (data.modes && data.modes[modeId]) || data.modes?.global || {};
+    const ladder = mode.ladder || {};
+    const stats = mode.stats || {};
+    const ins = mode.insights || null;
+    const eloRange = options.eloRange || '30';
+    const civSort = options.civSort === 'wr' && stats.topCivsByWr?.length ? 'wr' : 'games';
+    const mapSort = options.mapSort === 'wr' && stats.topMapsByWr?.length ? 'wr' : 'games';
+    const lmWindow = Number(options.lmWindow) === 20 ? 20 : 10;
+    const isExternal = data.isOwnProfile === false;
+
+    // 1. HERO CARD + KPIs + SEGMENTED MODE TABS (un solo bloque protagonista, cero redundancia)
+    const initials = String(data.alias || '?').replace(/[|·]/g, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
+    const streakVal = ladder.streak;
+    const streakPill = streakVal > 0
+      ? `<span class="cx-streak win">+${streakVal}V</span>`
+      : streakVal < 0
+        ? `<span class="cx-streak loss">${streakVal}D</span>`
+        : '';
+
+    const kpi4Title = ins?.eapm?.avgSelf != null ? 'eAPM MEDIO' : 'PARTIDAS';
+    const kpi4Val = ins?.eapm?.avgSelf != null
+      ? `${dec(ins.eapm.avgSelf, 1)}`
+      : `${number(ladder.games || data.totalProfileGames || 0)}`;
+    const kpi4Sub = ins?.eapm?.avgSelf != null
+      ? (ins.eapm.avgRival != null ? `vs ${dec(ins.eapm.avgRival, 1)} rival` : `${ins.eapm.sampleCount} replays`)
+      : `${stats.totalDistinctCivs || 0} civs jugadas`;
+
+    const modePills = (data.availableModes || []).map((id) => {
+      const m = data.modes && data.modes[id];
+      if (!m || !m.ladder) return '';
+      const active = id === modeId;
+      const meta = id === 'global' ? `${number(m.ladder.games)} pj` : (m.ladder.rating ? number(m.ladder.rating) : '—');
+      return `<button type="button" class="cx-mode-tab${active ? ' is-active' : ''}" data-central-mode="${esc(id)}" aria-pressed="${active}">
+        <span>${esc(m.label)}</span>
+        <b>${esc(meta)}</b>
+      </button>`;
+    }).filter(Boolean).join('');
+
+    const heroCard = `<section class="cx-hero${isExternal ? ' is-external' : ''}">
+      <div class="cx-hero-top">
+        <div class="cx-hero-id">
+          <div class="cx-avatar" aria-hidden="true">${esc(initials)}</div>
+          <div class="cx-id-copy">
+            <div class="cx-name-row">
+              <h2>${esc(data.alias || `#${data.profileId}`)}</h2>
+              ${data.clan ? `<span class="identity-clan">[${esc(data.clan)}]</span>` : ''}
+              ${data.countryIcon || data.country ? `<span class="identity-country">${esc(data.countryIcon || '')} ${esc((data.country || '').toUpperCase())}</span>` : ''}
+            </div>
+            <div class="cx-id-meta">
+              <span class="mono">#${esc(data.profileId)}</span>
+              ${data.totalProfileGames ? `<span>· <b>${number(data.totalProfileGames)}</b> partidas totales</span>` : ''}
+              ${data.dropRate != null ? `<span>· ${dec(data.dropRate, 1)}% drops</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="cx-kpi-row">
+          <div class="cx-kpi is-gold">
+            <span>${modeId === 'global' ? 'MEJOR ELO' : `ELO ${esc(mode.label)}`}</span>
+            <strong>${ladder.rating != null ? number(ladder.rating) : '—'}</strong>
+            <small>${ladder.peak ? `Pico ${number(ladder.peak)}` : 'Sin pico'}</small>
+          </div>
+          <div class="cx-kpi">
+            <span>WINRATE</span>
+            <strong class="${ladder.winRate >= 54 ? 'win' : ladder.winRate != null && ladder.winRate < 46 ? 'loss' : ''}">${ladder.winRate != null ? `${ladder.winRate}%` : '—'}${streakPill}</strong>
+            <small>${number(ladder.wins || 0)}V - ${number(ladder.losses || 0)}D</small>
+          </div>
+          <div class="cx-kpi">
+            <span>RANK MUNDIAL</span>
+            <strong>${ladder.rank ? `#${number(ladder.rank)}` : '—'}</strong>
+            <small>${ladder.ladderPercentile ? `Top ${dec(ladder.ladderPercentile, 1)}%` : (ladder.rankModeLabel || 'Sin clasificar')}</small>
+          </div>
+          <div class="cx-kpi">
+            <span>${esc(kpi4Title)}</span>
+            <strong>${esc(kpi4Val)}</strong>
+            <small>${esc(kpi4Sub)}</small>
+          </div>
+        </div>
+      </div>
+      <div class="cx-mode-bar" role="tablist" aria-label="Modo de estadísticas">${modePills}</div>
+    </section>`;
+
+    // 2. GRÁFICO PRINCIPAL (Curva interactiva con hover crosshair o Comparativa Global)
+    const chartBlock = modeId === 'global'
+      ? renderGlobalLadderComparison(mode.ladderComparison || data.allLadders)
+      : renderInteractiveEloChart(mode, eloRange);
+
+    // 3. MAESTRÍA HISTÓRICA (Civs + Mapas sobre TODA la historia, con switch Más jugadas / Mejor WR)
+    const civList = civSort === 'wr' ? stats.topCivsByWr : stats.topCivs;
+    const mapList = mapSort === 'wr' ? stats.topMapsByWr : stats.topMaps;
+    const civToggle = stats.topCivsByWr?.length >= 2 ? `<div class="cx-sort-pills">
+      <button type="button" class="cx-sort-btn${civSort === 'games' ? ' active' : ''}" data-civ-sort="games">Más jugadas</button>
+      <button type="button" class="cx-sort-btn${civSort === 'wr' ? ' active' : ''}" data-civ-sort="wr">Mejor WR</button>
+    </div>` : '';
+    const mapToggle = stats.topMapsByWr?.length >= 2 ? `<div class="cx-sort-pills">
+      <button type="button" class="cx-sort-btn${mapSort === 'games' ? ' active' : ''}" data-map-sort="games">Más jugados</button>
+      <button type="button" class="cx-sort-btn${mapSort === 'wr' ? ' active' : ''}" data-map-sort="wr">Mejor WR</button>
+    </div>` : '';
+
+    const masteryGrid = `<div class="cx-grid-2">
+      <section class="cx-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">HISTÓRICO · ${number(stats.totalCivGames || 0)} PARTIDAS · ${number(stats.totalDistinctCivs || 0)} CIVS</span>
+            <h3>Civilizaciones</h3>
+          </div>
+          ${civToggle}
+        </header>
+        <div class="cx-entity-list">${renderMasteryRows(civList, { kind: 'civ' })}</div>
+      </section>
+
+      <section class="cx-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">HISTÓRICO · ${number(stats.totalMapGames || 0)} PARTIDAS · ${number(stats.totalDistinctMaps || 0)} MAPAS</span>
+            <h3>Mapas</h3>
+          </div>
+          ${mapToggle}
+        </header>
+        <div class="cx-entity-list">${renderMasteryRows(mapList, { kind: 'map' })}</div>
+      </section>
+    </div>`;
+
+    // 4. EVOLUCIÓN + ESTILO (Compacto, limpio, sin cajas deformadas) + RADAR HONESTO
+    const bvnRows = (mode.beforeVsNow || []).map((item) => {
+      const tone = item.improved ? 'win' : 'loss';
+      return `<div class="cx-trend-row">
+        <div class="cx-trend-copy">
+          <strong>${esc(tr(item.labelKey, item.fallbackLabel))}</strong>
+          <small>${esc(item.sampleText || '')}</small>
+        </div>
+        <div class="cx-trend-nums">
+          <span class="cx-before">${esc(item.beforeText)}</span>
+          <i aria-hidden="true">→</i>
+          <b class="cx-now">${esc(item.nowText)}</b>
+          <span class="cx-delta ${tone}">${item.improved ? '▲' : '▼'} ${esc(item.deltaText)}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    const eloMatchup = ins?.eloMatchup;
+    const extraHighlights = [
+      eloMatchup?.vsHigher?.games >= 2 ? `<div class="cx-stat-chip"><span>vs Mayor ELO</span><b class="${eloMatchup.vsHigher.winRate >= 50 ? 'win' : 'loss'}">${eloMatchup.vsHigher.winRate}%</b><small>${eloMatchup.vsHigher.wins}V-${eloMatchup.vsHigher.losses}D</small></div>` : '',
+      eloMatchup?.vsLower?.games >= 2 ? `<div class="cx-stat-chip"><span>vs Menor ELO</span><b class="${eloMatchup.vsLower.winRate >= 55 ? 'win' : ''}">${eloMatchup.vsLower.winRate}%</b><small>${eloMatchup.vsLower.wins}V-${eloMatchup.vsLower.losses}D</small></div>` : '',
+      ins?.eapm?.outpacedGames >= 3 ? `<div class="cx-stat-chip"><span>Al superar en eAPM</span><b class="${ins.eapm.outpacedWinRate >= 55 ? 'win' : ''}">${ins.eapm.outpacedWinRate}%</b><small>${ins.eapm.outpacedGames} replays</small></div>` : '',
+      ...(ins?.byOpenness || []).slice(0, 2).map((o) => `<div class="cx-stat-chip"><span>Mapas ${esc(o.kind)}</span><b class="${o.winRate >= 54 ? 'win' : o.winRate < 46 ? 'loss' : ''}">${o.winRate}%</b><small>${o.wins}V-${o.losses}D</small></div>`),
+    ].filter(Boolean).join('');
+
+    const agro = ins?.agroShare ?? null;
+    const boom = ins?.boomShare ?? null;
+    const hyb = (agro != null && boom != null) ? Math.max(0, 100 - agro - boom) : 0;
+    const openingsCompact = (ins?.openings || []).slice(0, 4).map((op) => `<div class="cx-op-row">
+      <strong>${esc(op.name)}</strong>
+      <div class="central-bar-track sm"><i class="bar-gold" data-w="${Math.max(8, Math.min(100, op.share))}"></i></div>
+      <span>${op.games} pj · <b class="${op.winRate >= 55 ? 'win' : op.winRate < 45 ? 'loss' : ''}">${op.winRate != null ? `${op.winRate}%` : '—'}</b></span>
+    </div>`).join('');
+
+    const radarHtml = renderRadarSvg(mode.radarAxes);
+
+    const insightsRow = (bvnRows || extraHighlights || openingsCompact || radarHtml) ? `<div class="cx-grid-2">
+      <section class="cx-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">PROGRESO Y TENDENCIA</span>
+            <h3>Antes vs Ahora · Estilo</h3>
+          </div>
+          <span class="cx-meta-pill">${esc(mode.label)}</span>
+        </header>
+        ${bvnRows ? `<div class="cx-trend-list">${bvnRows}</div>` : ''}
+        ${extraHighlights ? `<div class="cx-stat-chips">${extraHighlights}</div>` : ''}
+        ${agro != null ? `<div class="cx-style-wrap">
+          <div class="intel-style-labels"><span>Presión temprana <b>${agro}%</b></span><span>Fast Castle <b>${boom}%</b></span></div>
+          <div class="intel-style-track"><i class="seg-agro" data-w="${agro}"></i><i class="seg-hyb" data-w="${hyb}"></i><i class="seg-fc" data-w="${boom}"></i></div>
+          ${openingsCompact ? `<div class="cx-op-list">${openingsCompact}</div>` : ''}
+        </div>` : ''}
+      </section>
+
+      ${radarHtml ? `<section class="cx-card cx-radar-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">PERFIL TÁCTICO HONESTO</span>
+            <h3>Balance de rendimiento</h3>
+          </div>
+          <span class="cx-meta-pill">Solo ejes con muestra</span>
+        </header>
+        ${radarHtml}
+      </section>` : ''}
+    </div>` : '';
+
+    // 5. ALIADOS & RIVALES FRECUENTES (Grid limpio y clickeable para explorar otros perfiles)
+    const allies = Array.isArray(stats.allies) ? stats.allies.slice(0, 6) : [];
+    const opps = Array.isArray(stats.opponents) ? stats.opponents.slice(0, 6) : [];
+    const renderSocialGrid = (list) => `<div class="cx-social-grid">${list.map((p) => {
+      const wrTone = p.winRate >= 55 ? 'win' : p.winRate < 45 ? 'loss' : 'neutral';
+      return `<button type="button" class="social-player-chip" data-scout-profile="${esc(p.profileId)}" data-scout-name="${esc(p.name)}" title="Explorar perfil de ${esc(p.name)}">
+        <span class="social-player-left">
+          <span class="social-flag">${esc(p.countryIcon || (p.country ? p.country.toUpperCase() : '·'))}</span>
+          <span class="social-name">
+            <strong>${esc(p.name)}</strong>
+            <small>${number(p.games)} pj · ${p.wins}V-${p.losses}D</small>
+          </span>
+        </span>
+        <span class="social-right"><b class="${wrTone}">${p.winRate != null ? `${p.winRate}%` : '—'}</b><em>→</em></span>
+      </button>`;
+    }).join('')}</div>`;
+
+    const socialSection = (allies.length || opps.length) ? `<section class="cx-card">
+      <header class="cx-card-head">
+        <div>
+          <span class="cx-eyebrow">EXPLORADOR DE JUGADORES · HISTÓRICO EN ${esc(mode.label)}</span>
+          <h3>${allies.length ? 'Aliados y rivales frecuentes' : 'Rivales frecuentes'}</h3>
+        </div>
+        <span class="cx-meta-pill">Tocá un jugador para abrir su perfil</span>
+      </header>
+      ${allies.length ? `<div class="cx-social-group"><span class="central-mini-k">ALIADOS FRECUENTES</span>${renderSocialGrid(allies)}</div>` : ''}
+      ${opps.length ? `<div class="cx-social-group"><span class="central-mini-k">RIVALES FRECUENTES</span>${renderSocialGrid(opps)}</div>` : ''}
+    </section>` : '';
+
+    // 2b. ÚLTIMA PARTIDA VS PROMEDIO (Últ. 10 / Últ. 20 seleccionable)
+    const lm = mode.lastMatchVsAvg || null;
+    const lmBucket = lm && lm.windows ? (lm.windows[lmWindow] || lm.windows[10]) : null;
+    const lmSummary = lm?.summary || null;
+    const lastMatchBlock = (lm && lmBucket && lmBucket.metrics.length) ? (() => {
+      const outcomeCls = lmSummary.won === true ? 'win' : lmSummary.won === false ? 'loss' : 'neutral';
+      const outcomeLbl = lmSummary.won === true ? 'Victoria' : lmSummary.won === false ? 'Derrota' : 'Última partida';
+      const subBits = [
+        lmSummary.mapName ? (locMap(lmSummary.mapName) || lmSummary.mapName) : null,
+        lmSummary.myCiv ? `${locCiv(lmSummary.myCiv) || lmSummary.myCiv}${lmSummary.rivalCiv ? ` vs ${locCiv(lmSummary.rivalCiv) || lmSummary.rivalCiv}` : ''}` : null,
+        lmSummary.ratingDiff != null ? `${lmSummary.ratingDiff >= 0 ? '+' : ''}${lmSummary.ratingDiff} ELO` : null,
+      ].filter(Boolean).join(' · ');
+      const cards = lmBucket.metrics.map((m) => {
+        const tone = m.neutral ? 'neutral' : (m.improved ? 'win' : 'loss');
+        const arrow = m.neutral ? '' : (m.improved ? '▲ ' : '▼ ');
+        return `<div class="cx-lm-metric">
+          <div class="cx-lm-top">
+            <span>${esc(m.label)}</span>
+            <b class="cx-delta ${tone}">${arrow}${esc(m.deltaText)}</b>
+          </div>
+          <div class="cx-lm-vals">
+            <strong>${esc(m.latestText)}</strong>
+            <small>Promedio: <em>${esc(m.avgText)}</em></small>
+          </div>
+          <small class="cx-lm-sub">${esc(m.sampleText)}</small>
+        </div>`;
+      }).join('');
+
+      return `<section class="cx-card cx-lm-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">ÚLTIMA PARTIDA VS TU PROMEDIO · ${esc(mode.label)}</span>
+            <div class="cx-lm-title-row">
+              <span class="cx-lm-outcome ${outcomeCls}">${esc(outcomeLbl)}</span>
+              ${subBits ? `<span class="cx-lm-meta">${esc(subBits)}</span>` : ''}
+            </div>
+          </div>
+          <div class="cx-sort-pills" role="group" aria-label="Ventana de promedio">
+            <button type="button" class="cx-sort-btn${lmWindow === 10 ? ' active' : ''}" data-lm-window="10">Últ. 10</button>
+            <button type="button" class="cx-sort-btn${lmWindow === 20 ? ' active' : ''}" data-lm-window="20">Últ. 20</button>
+          </div>
+        </header>
+        <div class="cx-lm-grid">${cards}</div>
+      </section>`;
+    })() : '';
+
+    return `<div class="central-dashboard cx-v4${isExternal ? ' is-external-profile' : ''}" data-active-mode="${esc(modeId)}">
+      ${heroCard}
+      ${lastMatchBlock}
+      ${chartBlock}
+      ${masteryGrid}
+      ${insightsRow}
+      ${socialSection}
+    </div>`;
+  }
+
+  const api = {
+    renderRival,
+    renderPostMatch,
+    renderAutomaticOpportunities,
+    renderSmartBuildOrder,
+    renderRecentMatchesList,
+    renderCentralDashboard,
+    configure,
+    civLabel,
+    civRelation,
+    esc,
+    icon,
+  };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.TacticalUI = api;
 })(typeof globalThis === 'object' ? globalThis : this);

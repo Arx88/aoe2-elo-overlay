@@ -1,3 +1,13 @@
+## v2.6.0 · Central de Estadísticas, Smurf Detector (Ultra), Planes Free/Pro/Ultra y Launcher Responsive
+
+- **Nueva pestaña Central de estadísticas:** histórico completo oficial por modo (`RM 1v1`, `RM Team`, `EW 1v1`, `EW Team` y `Global`) con caché en memoria y respaldo en disco, curva interactiva de ELO con tooltip flotante y selector de tramo (`30 pj / 100 pj / Todo`), panel **Última partida vs tu promedio (`Últ. 10 / Últ. 20`)**, maestría histórica de civilizaciones y mapas (`Más jugadas / Mejor WR`), radar táctico honesto y **buscador de jugadores** con regreso instantáneo a tu perfil.
+- **Smurf Detector (Ultra):** nuevo toggle en Prematch que sugiere posibles cuentas secundarias junto al ELO en el overlay cruzando 6 señales reales (cuentas vinculadas con mayor ELO en RM 1v1, winrate extremo en cuentas jóvenes, escalada vertical/racha, caída desde pico histórico, anomalía de eAPM por banda y tasa alta de abandonos).
+- **Postmatch con selector de últimas 10 partidas:** revisá el informe de cualquiera de tus últimas 10 partidas directamente inline en Ajustes con scroll suave, manteniendo el overlay exclusivo para partidas recién terminadas (100% click-through y sin botón de cerrar).
+- **Vista previa en vivo al activar toggles:** usa tu última partida real de `RM 1v1` y cuenta 20 segundos recién cuando termina de cargar toda la información.
+- **Planes rediseñados (`Free`, `Pro $1`, `Ultra $1.99`) y launcher 100% responsive:** barra lateral con logo centrado y menú centrado verticalmente, grillas y proporciones fluidas al maximizar en cualquier resolución, e ícono dorado **R** de Relic en la barra de tareas de Windows.
+
+---
+
 ## v2.5.12 · Postmatch horizontal y métricas más claras
 
 - En pantallas con espacio, el informe se abre más ancho, con las edades en una fila y el duelo junto a tu evolución. Al cerrar, el overlay recupera su ancho habitual.

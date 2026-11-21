@@ -39,43 +39,49 @@
     "skins": "外观主题",
     "plans": "方案与权限",
     "updater": "版本更新",
-    "context": "/ 设置"
+    "context": "/ 设置",
+    "central": "数据中心"
   },
   "pages": {
     "player": {
       "index": "01 / 账号",
       "title": "玩家账号",
-      "sub": "你的游戏档案及切换账号。"
+      "sub": "你的游戏档案与最近对局。"
     },
     "overlay": {
-      "index": "02 / 赛前情报",
-      "title": "赛前情报与对手分析",
-      "sub": "选择匹配队列及开局时要展示的对手信息。"
+      "index": "03 / 赛前",
+      "title": "赛前情报准备",
+      "sub": "匹配队列与开局阶段显示的内容 · 实时浮窗预览。"
     },
     "tactics": {
-      "index": "03 / 对局中",
-      "title": "对局视觉指引",
-      "sub": "清爽的纯视觉提示，对局中无需任何手动操作。"
+      "index": "04 / 局内",
+      "title": "局内战术应对",
+      "sub": "基于双方文明、历史战绩与阵容的战术路线。"
     },
     "postmatch": {
-      "index": "04 / 赛后复盘",
-      "title": "赛后教练复盘",
-      "sub": "自动解析本地录像、分时代评分与个人成长对比。"
+      "index": "05 / 赛后复盘",
+      "title": "每局复盘进阶",
+      "sub": "最近 10 场对局快速切换、战果汇总与录像深度分析。"
     },
     "skins": {
-      "index": "05 / 外观主题",
-      "title": "悬浮窗外观",
-      "sub": "视觉主题、透明度、位置与显示控制。"
+      "index": "06 / 外观",
+      "title": "个性化面板",
+      "sub": "自定义游戏内悬浮窗的主题、透明度与位置。"
     },
     "plans": {
-      "index": "06 / 方案与权限",
-      "title": "方案与权限",
-      "sub": "当前许可状态、已验证订阅与功能分级。"
+      "index": "07 / 方案与权限",
+      "title": "选择你的战术方案",
+      "sub": "Free 基础对战；Pro 完整赛前情报；Ultra 全阶段终极体验。"
     },
     "updater": {
-      "index": "07 / 版本更新",
-      "title": "版本更新",
-      "sub": "已安装版本与自动更新检查。"
+      "index": "08 / 更新",
+      "title": "保持最新版本",
+      "sub": "安全自动更新，绝不在对局中打断。"
+    },
+    "central": {
+      "index": "02 / 数据中心",
+      "title": "个人战术数据中心",
+      "sub": "六维战术雷达、ELO 走势曲线、常用文明、地图表现与开局分布。"
     }
   },
   "account": {
@@ -162,7 +168,9 @@
     "civHelpVisibleUntil": "文明速查卡：已开启 · 显示至 {time}",
     "civHelpHidesAt": "文明速查卡：将于 {time} 自动隐藏",
     "civHelpExtended": "文明速查卡：显示至 0:40",
-    "hideAtSaved": "浮窗与文明卡将于 {seconds} 秒后隐藏"
+    "hideAtSaved": "浮窗与文明卡将于 {seconds} 秒后隐藏",
+    "smurfTitle": "小号检测器 (Smurf Detector)",
+    "smurfDesc": "在 ELO 旁提示疑似小号：交叉比对更高分关联账号、异常高胜率、历史最高分落差及 eAPM 异常 · Ultra"
   },
   "tactics": {
     "bannerTitle": "文明战术参考",
@@ -170,7 +178,7 @@
     "intro": "此处提供封建、城堡与帝王时代的战术选项参考，不代表实时对局进度。",
     "guideGroup": "开局指引",
     "sboTitle": "智能建造流程",
-    "sboDesc": "按文明与地图匹配 · 可在设置或局内查看 · ProMax",
+    "sboDesc": "按文明与地图匹配开局流程 · 支持设置页与局内显示 · Ultra",
     "oppGroup": "针对对手的战术机会",
     "waitingBoth": "等待双方文明与对局数据。",
     "loadingMatchup": "正在更新文明对位与历史记录…",
@@ -204,34 +212,36 @@
     "modeCommunity": "仅对比分段标准",
     "replayTitle": "本地录像分析",
     "replayDesc": "自动识别开局、升时代时间、城镇中心效率与 eAPM",
-    "latestGroup": "最新复盘报告",
+    "latestGroup": "当前选中对局报告",
     "refresh": "刷新",
     "emptyTitle": "下一场对局将开启你的记录。",
     "emptyDesc": "对局结束后，复盘报告会自动显示在这里和悬浮窗中。",
     "updatedStatus": "赛后报告已更新。",
     "refUpdated": "赛后对比基准已更新。",
-    "availableProMax": "ProMax 专属功能。",
-    "drawError": "无法渲染报告。"
+    "availableProMax": "需要 Ultra 方案。",
+    "drawError": "无法渲染报告。",
+    "last10Group": "最近 10 场对局 · 点击任意一场加载复盘报告",
+    "loadingMatchStatus": "正在加载对局 #{id} 的复盘报告…"
   },
   "plansPage": {
     "eyebrow": "当前权限",
     "loading": "加载中…",
     "loadingDesc": "正在查询此版本的可用功能。",
-    "trialSummary": "激活 ProMax 试用密钥",
+    "trialSummary": "激活 Ultra 临时体验密钥",
     "trialDesc": "输入分享的临时测试密钥（全局付费开启后将由服务器统一控制）。",
     "trialLabel": "访问密钥",
-    "trialBtn": "激活 ProMax",
+    "trialBtn": "激活 Ultra",
     "freeEyebrow": "对战记录 + ELO",
     "freePrice": "免费",
     "freeDesc": "对手昵称、当前 ELO 与历史交手记录。",
     "proEyebrow": "免费版 + 赛前分析",
     "proPrice": "$1",
     "proDesc": "包含免费版全部功能 + 完整赛前对手情报分析。",
-    "proIncludes": "包含免费版 + 完整赛前分析。",
+    "proIncludes": "包含 Free + 完整赛前分析。",
     "promaxEyebrow": "赛前 · 局内 · 赛后复盘",
     "promaxPrice": "$1.99",
-    "promaxDesc": "完整赛前分析、局内战术指南与赛后录像复盘。",
-    "promaxIncludes": "包含免费版、赛前、局内与赛后全部功能。",
+    "promaxDesc": "完整赛前分析、局内战术指南与赛后本地录像深度复盘。",
+    "promaxIncludes": "包含 Free、赛前、局内与赛后全部功能。",
     "subsTitle": "订阅管理",
     "subsStatus": "在线自助订阅暂未开放。",
     "manageBtn": "管理账号",
@@ -242,7 +252,7 @@
     "existingTok": "访问凭证",
     "existingBtn": "验证权限",
     "footnote": "方案用于解锁功能，具体数据展示取决于样本量、模式与可用录像。",
-    "descKey": "当前通过临时密钥体验 ProMax，非正式订阅。",
+    "descKey": "当前通过临时密钥体验 Ultra，非正式订阅。",
     "descVerified": "已验证该方案的签名许可证。",
     "descBeta": "当前版本的测试访问权限，非正式订阅。",
     "descFree": "查看对局与对手的基础核心功能。",
@@ -254,8 +264,14 @@
     "availableWith": "需要 {tier} 方案，已保留你的偏好设置。",
     "verifyingKey": "正在验证密钥…",
     "verifyingCred": "正在验证凭证…",
-    "keyActivated": "ProMax 已激活，现在可以在设置中开启高级功能。",
-    "credVerified": "许可权限已验证。"
+    "keyActivated": "Ultra 已激活，现在可以在设置中开启高级功能。",
+    "credVerified": "许可权限已验证。",
+    "currentBadge": "当前方案",
+    "freeSubPrice": "永久免费",
+    "pillFree": "ELO + 历史交手",
+    "proSubPrice": "USD · 赛前侦察情报",
+    "ultraRibbon": "★ 终极完整体验 · 最受欢迎",
+    "ultraSubPrice": "USD · 全阶段战术套件"
   },
   "skins": {
     "designGroup": "悬浮窗主题",
@@ -388,7 +404,7 @@
     "badgeConfig": "设置",
     "free": "免费版",
     "pro": "Pro",
-    "promax": "ProMax",
+    "promax": "Ultra",
     "beta": "测试权限",
     "verified": "已验证账号",
     "revoked": "管理员已停用此付费权限",
@@ -568,5 +584,53 @@
       "title": "智能建造顺序",
       "desc": "根据你的文明、地图与对位机会推荐的可视化开局指南。"
     }
+  },
+  "central": {
+    "recentAccountGroup": "你的最近对局",
+    "openCentralBtn": "打开完整数据中心 →",
+    "overviewGroup": "个人战术情报与核心指标",
+    "justNow": "刚刚",
+    "noMatchesYet": "该账号暂无最近对局记录。",
+    "winShort": "胜",
+    "lossShort": "负",
+    "replayReady": "已解析录像",
+    "viewReport": "查看复盘",
+    "radarAria": "六维战术能力雷达图",
+    "axisConsistency": "稳定性",
+    "axisMacro": "运营 · TC",
+    "axisTempo": "节奏 · 压制",
+    "axisLate": "后期终结",
+    "axisCivs": "文明池深度",
+    "axisMaps": "地图掌控",
+    "eloChartEmpty": "完成至少 2 场排位赛后即可绘制 ELO 走势曲线。",
+    "eloTrajectory": "近期 ELO 走势",
+    "rangeLabel": "区间",
+    "latestGame": "当前",
+    "emptyTitle": "连接你的账号以查看个人数据中心",
+    "emptyDesc": "你的核心指标、六维战术雷达、ELO 曲线及最近对局都将在此展示。",
+    "kpiEloLabel": "RM 1V1 积分",
+    "ladderActive": "当前激活档案",
+    "kpiWinrateLabel": "胜率与近期状态",
+    "kpiMacroLabel": "运营与操作节奏",
+    "telemetryHint": "每解析一场本地录像将自动丰富此数据",
+    "kpiTimingsLabel": "平均时代推进时间",
+    "clickMatchToAnalyze": "点击任意对局解析精确推进时间",
+    "playstyleTitle": "打法风格与常用开局分布",
+    "recentSample": "近期样本",
+    "earlyPressure": "前期压制",
+    "shortGames": "短局 (<22分钟)",
+    "longGames": "长局 (+28分钟)",
+    "radarEyebrow": "多维能力画像",
+    "radarTitle": "战术表现六维雷达",
+    "gamesAnalyzed": "场对局",
+    "trajectoryEyebrow": "走势与开局偏好",
+    "trajectoryTitle": "ELO 曲线与对局节奏",
+    "civsEyebrow": "文明武器库",
+    "civsTitle": "你最常用的文明",
+    "mapsEyebrow": "地图表现",
+    "mapsTitle": "各地图胜率统计",
+    "noDataYet": "暂无足够数据。",
+    "recentEyebrow": "交互式对局历史",
+    "recentTitle": "你的最近对局 · 点击即可打开赛后复盘"
   }
 }

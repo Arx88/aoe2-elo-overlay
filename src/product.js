@@ -11,11 +11,12 @@ const CLOCK_SKEW_SECONDS = 60;
 const FEATURE_ICONS = { elo: 'users', rivalCivs: 'history', rivalFavorites: 'map',
   civHelp: 'shield', tgBalance: 'users', scoutF2: 'compass', postMatch: 'chart',
   rivalOpenings: 'bow', smartTips: 'target', rivalH2H: 'sword', civRecommender: 'castle',
+  smurfDetector: 'target',
   postMatchComparison: 'trend', postMatchReplay: 'clock', smartBuildOrder: 'villager' };
 const FEATURE_PLANS = { elo: 'free', rivalH2H: 'free', rosterDetails: 'pro',
   rivalCivs: 'pro', rivalFavorites: 'pro', civHelp: 'pro', tgBalance: 'pro',
   rivalOpenings: 'pro', smartTips: 'pro', civRecommender: 'pro',
-  smartBuildOrder: 'promax', postMatch: 'promax',
+  smurfDetector: 'promax', smartBuildOrder: 'promax', postMatch: 'promax',
   postMatchComparison: 'promax', postMatchReplay: 'promax' };
 const PLAN_RANK = { free: 0, pro: 1, promax: 2, beta: 2 };
 
@@ -65,6 +66,9 @@ const FEATURES = Object.freeze([
   { key: 'smartBuildOrder', title: 'Smart Build Order', plan: 'promax', preference: true,
     description: 'Guía visual sugerida por tu civilización, mapa y rutas de oportunidad.',
     dataNote: 'Se activa antes de jugar. Es una referencia; la apertura y los pasos en vivo no están medidos.' },
+  { key: 'smurfDetector', title: 'Smurf Detector', plan: 'promax', preference: true,
+    description: 'Sugiere posibles cuentas secundarias junto al ELO cruzando cuentas vinculadas, winrate extremo, pico histórico y eAPM.',
+    dataNote: 'Solo señala cuentas con evidencia estadística o cuentas vinculadas de mayor ELO RM 1v1.' },
 ].filter((feature) => feature.key !== 'scoutF2').map((feature) => Object.freeze({ ...feature,
   plan: FEATURE_PLANS[feature.key], icon: FEATURE_ICONS[feature.key] || 'compass' })));
 
@@ -102,7 +106,7 @@ function verifyEntitlement(token, options = {}) {
   if (!payload || Array.isArray(payload) || typeof payload !== 'object' ||
       payload.schema !== 1 || typeof payload.kid !== 'string' || !payload.kid ||
       typeof payload.sub !== 'string' || !payload.sub.trim() || payload.sub.length > 200 ||
-      payload.aud !== AUDIENCE || !['pro', 'promax'].includes(payload.plan) ||
+      payload.aud !== AUDIENCE || !['pro', 'promax', 'ultra'].includes(payload.plan) ||
       !Number.isSafeInteger(payload.iat) || !Number.isSafeInteger(payload.exp) ||
       payload.iat <= 0 || payload.exp <= payload.iat ||
       (payload.nbf != null && (!Number.isSafeInteger(payload.nbf) || payload.nbf <= 0))) {
@@ -135,7 +139,8 @@ function verifyEntitlement(token, options = {}) {
       return rejected('profile-mismatch');
     }
   }
-  return { valid: true, reason: null, plan: payload.plan, accountId: payload.sub,
+  const normalizedPlan = payload.plan === 'ultra' ? 'promax' : payload.plan;
+  return { valid: true, reason: null, plan: normalizedPlan, accountId: payload.sub,
     expiresAt: payload.exp * 1000, issuedAt: payload.iat * 1000 };
 }
 
@@ -169,7 +174,7 @@ function getProductState(options = {}) {
   return {
     schema: 1,
     plan,
-    label: plan === 'beta' ? 'Acceso beta' : plan === 'promax' ? 'ProMax' : (plan === 'pro' ? 'Pro' : 'Free'),
+    label: plan === 'beta' ? 'Acceso beta' : plan === 'promax' ? 'Ultra' : (plan === 'pro' ? 'Pro' : 'Free'),
     accessSource: signedAccess ? 'verified-entitlement' :
       (accessKey ? 'access-key' : (beta ? 'beta-access' : 'free')),
     subscriptionVerified: signedAccess,
@@ -232,7 +237,7 @@ function featureState(key, options = {}) {
   const allowed = allowsFeature(product, key);
   const selected = feature.alwaysOn === true || options.preferences?.[key] === true;
   const base = { key, plan: feature.plan, allowed, selected, enabled: allowed && selected };
-  if (!allowed) return { ...base, status: 'locked', message: feature.plan === 'promax' ? 'Disponible con ProMax.' : 'Disponible con Pro.' };
+  if (!allowed) return { ...base, status: 'locked', message: feature.plan === 'promax' ? 'Disponible con Ultra.' : 'Disponible con Pro.' };
   if (!selected) return { ...base, status: 'disabled', message: 'Desactivada en tus preferencias.' };
   const data = options.availability || {};
   const statuses = ['loading', 'ready', 'insufficient', 'unavailable', 'error', 'pending'];

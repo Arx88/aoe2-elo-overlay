@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="settings.css" />
     <link rel="stylesheet" href="arte-launcher.css" />
     <link rel="stylesheet" href="arte-aperturas.css" />
+    <link rel="stylesheet" href="arte-overlay.css" />
     <link rel="stylesheet" href="wizard.css" />
   </head>
   <body>
@@ -42,6 +43,10 @@
           <button class="nav-item active" aria-current="page" data-page="player" type="button">
             <img class="product-icon" src="assets/icons/account.png" alt="" draggable="false">
             <span data-i18n="nav.player">Cuenta</span>
+          </button>
+          <button class="nav-item" data-page="central" type="button">
+            <img class="product-icon" src="assets/icons/trend.png" alt="" draggable="false">
+            <span data-i18n="nav.central">Central</span>
           </button>
           <button class="nav-item" data-page="overlay" type="button">
             <img class="product-icon" src="assets/icons/eye.png" alt="">
@@ -140,6 +145,37 @@
               </dl>
               <button id="logBtn" class="btn" type="button" data-i18n="account.openLog">Abrir carpeta del log</button>
             </details>
+          </section>
+
+          <!-- ============ CENTRAL DE ESTADÍSTICAS ============ -->
+          <section class="page" data-page="central">
+            <div class="central-topbar">
+              <div class="central-search-wrap">
+                <div class="central-search-shell">
+                  <span class="central-search-ic" aria-hidden="true"><img class="product-icon" src="assets/icons/search.png" alt="" draggable="false"></span>
+                  <label class="sr-only" for="centralSearch">Buscar jugador en Central</label>
+                  <input id="centralSearch" class="central-search-input" type="text" placeholder="Buscar jugador de AoE2 (ej. Hera, TheViper o #ID)…" autocomplete="off" spellcheck="false" />
+                  <span id="centralSearchState" class="central-search-state"></span>
+                  <button id="centralSearchClear" class="central-search-clear" type="button" hidden aria-label="Limpiar búsqueda">×</button>
+                  <button id="centralSearchBtn" class="central-search-submit" type="button">Buscar</button>
+                </div>
+                <div id="centralSearchResults" class="central-search-results" role="listbox" aria-label="Jugadores encontrados" hidden></div>
+              </div>
+              <button id="refreshCentralBtn" class="btn central-refresh-btn" type="button" data-i18n="postmatchPage.refresh">Actualizar</button>
+            </div>
+
+            <div id="centralViewingBar" class="central-viewing-bar" hidden>
+              <div class="central-viewing-left">
+                <span class="central-viewing-badge">EXPLORANDO OTRO PERFIL</span>
+                <div class="central-viewing-copy">
+                  <strong id="centralViewingName">—</strong>
+                  <span id="centralViewingMeta">Perfil externo · tus datos propios siguen guardados</span>
+                </div>
+              </div>
+              <button id="centralBackBtn" class="btn gold central-back-btn" type="button">← Volver a mi perfil</button>
+            </div>
+
+            <div id="centralDashboard" class="central-slot" aria-live="polite"></div>
           </section>
 
           <!-- ============ OVERLAY ============ -->
@@ -253,7 +289,7 @@
               </label>
             </div>
 
-            <div class="group-head"><span data-i18n="overlay.balanceGroup">Balance</span><i></i><em>1</em></div>
+            <div class="group-head"><span data-i18n="overlay.balanceGroup">Balance y detección</span><i></i><em>2</em></div>
             <div class="block">
               <label class="row tog" for="tgBalance">
                 <span class="ric"><img class="product-icon" src="assets/icons/players.png" alt=""></span>
@@ -264,6 +300,16 @@
                 <input id="tgBalance" type="checkbox" />
                 <span class="sw" aria-hidden="true"></span>
               </label>
+
+              <label class="row tog" for="smurfDetector">
+                <span class="ric"><img class="product-icon" src="assets/icons/target.png" alt="" draggable="false"></span>
+                <span class="tcopy">
+                  <span class="rname" data-i18n="overlay.smurfTitle">Smurf Detector</span>
+                  <span class="rdesc" data-i18n="overlay.smurfDesc">Sugiere posibles smurfs junto al ELO cruzando cuentas vinculadas RM 1v1, winrate extremo, caída de pico y eAPM · Ultra</span>
+                </span>
+                <input id="smurfDetector" type="checkbox" />
+                <span class="sw" aria-hidden="true"></span>
+              </label>
             </div>
           </section>
 
@@ -271,7 +317,7 @@
             <div class="section-banner"><img class="product-icon" src="assets/icons/combat.png" alt="" draggable="false"><div><h2 data-i18n="tactics.bannerTitle">Referencias por civilización</h2><p data-i18n="tactics.bannerDesc">Consultá las rutas de ambas civilizaciones y el historial del mapa cuando esté disponible.</p></div></div>
             <p class="section-intro" data-i18n="tactics.intro">Las rutas de Feudal, Castillos e Imperial se consultan acá. Representan opciones, no el estado actual de tu partida.</p>
             <div class="group-head"><span data-i18n="tactics.guideGroup">Guía de apertura</span><i></i></div>
-            <div class="block"><label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · ProMax</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label></div>
+            <div class="block"><label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · Ultra</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label></div>
             <div id="buildOrderReport" class="tactics-report-slot" aria-live="polite"></div>
             <div class="group-head"><span data-i18n="tactics.oppGroup">Oportunidades frente al rival</span><i></i></div>
             <div id="tacticalReport" class="tactics-report-slot" aria-live="polite"></div>
@@ -287,15 +333,84 @@
               <label class="row select-row" for="postMatchCompareMode"><span class="ric"><img class="product-icon" src="assets/icons/medal.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.modeTitle">Referencia del Postmatch</span><span id="postMatchCompareHelp" class="rdesc" data-i18n="postmatchPage.modeHelpOff">Activá «Comparar mi evolución» para elegir la referencia</span></span><select id="postMatchCompareMode" class="field" disabled aria-describedby="postMatchCompareHelp"><option value="both" selected data-i18n="postmatchPage.modeBoth">Mi historial + estándar Elo</option><option value="personal" data-i18n="postmatchPage.modePersonal">Solo mi historial</option><option value="community" data-i18n="postmatchPage.modeCommunity">Solo estándar Elo</option></select></label>
               <label class="row tog" for="postMatchReplay"><span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.replayTitle">Análisis del replay</span><span class="rdesc" data-i18n="postmatchPage.replayDesc">Hitos de apertura cuando hay evidencia, órdenes de avance y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
             </div>
-            <div class="group-head"><span data-i18n="postmatchPage.latestGroup">Último informe</span><i></i><button id="refreshPostMatch" class="link-btn" type="button" data-i18n="postmatchPage.refresh">Actualizar</button></div>
+            <div class="group-head">
+              <span data-i18n="postmatchPage.last10Group">Tus últimas 10 partidas · seleccioná una para cargar su informe</span>
+              <i></i>
+              <button id="refreshPostMatch" class="link-btn" type="button" data-i18n="postmatchPage.refresh">Actualizar</button>
+            </div>
+            <div id="postMatchRecentStrip" class="postmatch-recent-strip" aria-live="polite"></div>
+            <div class="group-head"><span data-i18n="postmatchPage.latestGroup">Informe de la partida seleccionada</span><i></i></div>
             <div id="postMatchReport" class="postmatch-report" aria-live="polite"></div><template id="emptyPostmatchState"><div class="empty-report"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><h3 data-i18n="postmatchPage.emptyTitle">Tu próxima partida marca el comienzo.</h3><p data-i18n="postmatchPage.emptyDesc">Al terminar, el informe aparecerá acá y en el overlay.</p></div></template>
           </section>
 
           <!-- ============ PLAN Y ACCESO ============ -->
           <section class="page" data-page="plans">
             <div class="access-summary"><div><span class="eyebrow" data-i18n="plansPage.eyebrow">TU ACCESO ACTUAL</span><h2 id="planName" data-i18n="plansPage.loading">Cargando…</h2><p id="planDescription" data-i18n="plansPage.loadingDesc">Consultando las funciones disponibles de esta versión.</p><span id="planExpiry" class="access-expiry"></span></div><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"></div>
-            <details class="license-details" open><summary data-i18n="plansPage.trialSummary">Activar acceso de prueba ProMax</summary><form id="accessKeyForm" class="license-form"><p data-i18n="plansPage.trialDesc">Ingresá la clave temporal que te compartieron. Habilita las funciones ProMax en esta instalación; no es una suscripción.</p><label for="accessKey" data-i18n="plansPage.trialLabel">Clave de acceso</label><input id="accessKey" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" /><div class="license-actions"><span id="accessKeyStatus" class="inline-status" role="status"></span><button id="activateAccessKey" class="btn gold" type="submit" data-i18n="plansPage.trialBtn">Activar ProMax</button></div></form></details>
-            <div class="plans-grid"><article class="plan-card"><span class="eyebrow" data-i18n="plansPage.freeEyebrow">HISTORIAL + ELO</span><div class="plan-head-row"><h3>Free</h3><strong class="plan-price" data-i18n="plansPage.freePrice">Gratis</strong></div><p data-i18n="plansPage.freeDesc">Nombre, ELO actual e historial entre ambos.</p><ul id="freeFeatures" class="plan-feature-list"></ul></article><article class="plan-card pro"><span class="eyebrow" data-i18n="plansPage.proEyebrow">GRATIS + PREMATCH</span><div class="plan-head-row"><h3>Pro</h3><strong class="plan-price" data-i18n="plansPage.proPrice">$1</strong></div><p data-i18n="plansPage.proDesc">Todo lo de Gratis + análisis Prematch completo del rival.</p><ul id="proFeatures" class="plan-feature-list"></ul><span class="includes-free" data-i18n="plansPage.proIncludes">Incluye Gratis + Prematch completo.</span></article><article class="plan-card pro"><span class="eyebrow" data-i18n="plansPage.promaxEyebrow">PREMATCH · DURANTE · POSTMATCH</span><div class="plan-head-row"><h3>ProMax</h3><strong class="plan-price" data-i18n="plansPage.promaxPrice">$1.99</strong></div><p data-i18n="plansPage.promaxDesc">Prematch completo, guía Durante la partida y análisis Postmatch.</p><ul id="proMaxFeatures" class="plan-feature-list"></ul><span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Gratis, Prematch, Durante y Postmatch.</span></article></div>
+            <div class="plans-grid">
+              <article class="plan-card" data-plan-card="free">
+                <div class="plan-card-top">
+                  <span class="eyebrow" data-i18n="plansPage.freeEyebrow">HISTORIAL + ELO</span>
+                  <div class="plan-title-row">
+                    <h3>Free</h3>
+                    <span class="plan-current-badge" hidden data-i18n="plansPage.currentBadge">PLAN ACTUAL</span>
+                  </div>
+                  <div class="plan-price-hero">
+                    <strong class="plan-price-amount" data-i18n="plansPage.freePrice">Gratis</strong>
+                    <span class="plan-price-sub" data-i18n="plansPage.freeSubPrice">Para siempre</span>
+                  </div>
+                  <p class="plan-lead" data-i18n="plansPage.freeDesc">Nombre, ELO actual e historial cara a cara contra tu rival.</p>
+                  <div class="plan-stage-pills">
+                    <span class="stage-pill is-on" data-i18n="plansPage.pillFree">ELO + Cara a cara</span>
+                  </div>
+                </div>
+                <ul id="freeFeatures" class="plan-feature-list"></ul>
+              </article>
+
+              <article class="plan-card pro" data-plan-card="pro">
+                <div class="plan-card-top">
+                  <span class="eyebrow" data-i18n="plansPage.proEyebrow">GRATIS + PREMATCH</span>
+                  <div class="plan-title-row">
+                    <h3>Pro</h3>
+                    <span class="plan-current-badge" hidden data-i18n="plansPage.currentBadge">PLAN ACTUAL</span>
+                  </div>
+                  <div class="plan-price-hero">
+                    <strong class="plan-price-amount" data-i18n="plansPage.proPrice">$1</strong>
+                    <span class="plan-price-sub" data-i18n="plansPage.proSubPrice">USD · Scouting Prematch</span>
+                  </div>
+                  <p class="plan-lead" data-i18n="plansPage.proDesc">Todo lo de Free + análisis Prematch completo del rival antes de jugar.</p>
+                  <div class="plan-stage-pills">
+                    <span class="stage-pill is-on">Free</span>
+                    <span class="stage-pill is-on is-gold">Prematch</span>
+                  </div>
+                </div>
+                <ul id="proFeatures" class="plan-feature-list"></ul>
+                <span class="includes-free" data-i18n="plansPage.proIncludes">Incluye Free + Prematch completo.</span>
+              </article>
+
+              <article class="plan-card pro ultra-featured" data-plan-card="promax">
+                <div class="plan-ribbon" data-i18n="plansPage.ultraRibbon">★ EXPERIENCIA COMPLETA · MÁS ELEGIDO</div>
+                <div class="plan-card-top">
+                  <span class="eyebrow" data-i18n="plansPage.promaxEyebrow">PREMATCH · DURANTE · POSTMATCH</span>
+                  <div class="plan-title-row">
+                    <h3>Ultra</h3>
+                    <span class="plan-current-badge" hidden data-i18n="plansPage.currentBadge">PLAN ACTUAL</span>
+                  </div>
+                  <div class="plan-price-hero is-ultra">
+                    <strong class="plan-price-amount" data-i18n="plansPage.promaxPrice">$1.99</strong>
+                    <span class="plan-price-sub" data-i18n="plansPage.ultraSubPrice">USD · Arsenal táctico total</span>
+                  </div>
+                  <p class="plan-lead" data-i18n="plansPage.promaxDesc">Prematch completo, guía Durante la partida y motor de análisis Postmatch.</p>
+                  <div class="plan-stage-pills">
+                    <span class="stage-pill is-on is-gold">Prematch</span>
+                    <span class="stage-pill is-on is-gold" data-i18n="nav.tactics">Durante</span>
+                    <span class="stage-pill is-on is-gold">Postmatch</span>
+                  </div>
+                </div>
+                <ul id="proMaxFeatures" class="plan-feature-list"></ul>
+                <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Durante y Postmatch.</span>
+              </article>
+            </div>
+            <details class="license-details"><summary data-i18n="plansPage.trialSummary">Activar clave temporal Ultra</summary><form id="accessKeyForm" class="license-form"><p data-i18n="plansPage.trialDesc">Ingresá la clave temporal que te compartieron. Habilita las funciones Ultra en esta instalación; no es una suscripción.</p><label for="accessKey" data-i18n="plansPage.trialLabel">Clave de acceso</label><input id="accessKey" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" /><div class="license-actions"><span id="accessKeyStatus" class="inline-status" role="status"></span><button id="activateAccessKey" class="btn gold" type="submit" data-i18n="plansPage.trialBtn">Activar Ultra</button></div></form></details>
             <div class="commerce-actions"><div><strong id="commerceTitle" data-i18n="plansPage.subsTitle">Suscripciones</strong><p id="commerceStatus" data-i18n="plansPage.subsStatus">La contratación todavía no está habilitada.</p></div><div class="button-group"><button id="accountCommerce" class="btn" type="button" disabled data-i18n="plansPage.manageBtn">Gestionar cuenta</button><button id="checkoutCommerce" class="btn gold" type="button" disabled data-i18n="plansPage.getProBtn">Obtener Pro</button></div></div>
             <details class="license-details"><summary data-i18n="plansPage.existingSummary">Activar una licencia existente</summary><form id="licenseForm" class="license-form"><p data-i18n="plansPage.existingDesc">Ingresá la cuenta y la credencial firmada que recibiste del servicio del producto.</p><label for="licenseAccount" data-i18n="plansPage.existingAcc">Cuenta del producto</label><input id="licenseAccount" class="field" type="text" autocomplete="username" spellcheck="false" /><label for="licenseToken" data-i18n="plansPage.existingTok">Credencial de acceso</label><textarea id="licenseToken" class="field" rows="3" autocomplete="off" spellcheck="false" placeholder="v1.…"></textarea><div class="license-actions"><span id="licenseStatus" class="inline-status" role="status"></span><button id="activateLicense" class="btn" type="submit" data-i18n="plansPage.existingBtn">Verificar acceso</button></div></form></details>
             <p class="product-footnote" data-i18n="plansPage.footnote">El plan habilita funciones. La disponibilidad de los datos depende de la muestra, el modo de juego y los replays analizados.</p>

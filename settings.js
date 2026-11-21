@@ -65,6 +65,7 @@ const RIVAL_LABELS = {
   civRecommender: 'Historial y cruce de civilizaciones',
 };
 const tgBalanceInput = el('tgBalance');
+const smurfDetectorInput = el('smurfDetector');
 // "Resumen con F2": vista resumida del scouting con su atajo. Apagada de
 // fábrica: sin permiso explícito no se captura una tecla global y el
 // informe se ve completo.
@@ -76,7 +77,21 @@ const postMatchCompareHelp = el('postMatchCompareHelp');
 let savedPostMatchCompareMode = 'both';
 const postMatchReplayInput = el('postMatchReplay');
 const postMatchReportEl = el('postMatchReport');
+const postMatchRecentStripEl = el('postMatchRecentStrip');
 const refreshPostMatchBtn = el('refreshPostMatch');
+const centralDashboardEl = el('centralDashboard');
+const centralSearchInput = el('centralSearch');
+const centralSearchStateEl = el('centralSearchState');
+const centralSearchClearBtn = el('centralSearchClear');
+const centralSearchBtn = el('centralSearchBtn');
+const centralSearchResultsEl = el('centralSearchResults');
+const centralViewingBarEl = el('centralViewingBar');
+const centralViewingNameEl = el('centralViewingName');
+const centralViewingMetaEl = el('centralViewingMeta');
+const centralBackBtn = el('centralBackBtn');
+const accountRecentMatchesEl = el('accountRecentMatches');
+const refreshCentralBtn = el('refreshCentralBtn');
+const goToCentralBtn = el('goToCentralBtn');
 const tacticalReportEl = el('tacticalReport');
 const smartBuildOrderInput = el('smartBuildOrder');
 const buildOrderReportEl = el('buildOrderReport');
@@ -214,13 +229,13 @@ function renderProduct(product) {
   const replayAccess = Boolean(product.featureAccess && product.featureAccess.postMatchReplay);
 
   const planLabel = product.plan === 'beta' ? t('plans.beta', 'Acceso beta')
-    : product.plan === 'promax' ? t('plans.promax', 'ProMax')
+    : product.plan === 'promax' ? t('plans.promax', 'Ultra')
       : product.plan === 'pro' ? t('plans.pro', 'Pro')
         : t('plans.free', 'Free');
   railPlanLabel.textContent = planLabel;
   planName.textContent = planLabel;
   if (product.accessSource === 'access-key') {
-    planDescription.textContent = t('plansPage.descKey', 'Acceso de prueba ProMax por clave. No es una suscripción.');
+    planDescription.textContent = t('plansPage.descKey', 'Acceso de prueba Ultra por clave. No es una suscripción.');
   } else if (product.plan === 'pro' || product.plan === 'promax') {
     planDescription.textContent = t('plansPage.descVerified', 'Licencia firmada verificada para las funciones de este plan.');
   } else if (product.plan === 'beta') {
@@ -241,6 +256,14 @@ function renderProduct(product) {
     planExpiry.textContent = t('plansPage.expNone', 'Sin suscripción verificada');
   }
 
+  const activeTierKey = product.plan === 'beta' ? 'promax' : (product.plan || 'free');
+  document.querySelectorAll('.plan-card[data-plan-card]').forEach((card) => {
+    const isCurrent = card.dataset.planCard === activeTierKey;
+    card.classList.toggle('is-current', isCurrent);
+    const badge = card.querySelector('.plan-current-badge');
+    if (badge) badge.hidden = !isCurrent;
+  });
+
   renderFeatureList(freeFeatures, features.filter((feature) => feature.plan === 'free'));
   renderFeatureList(proFeatures, features.filter((feature) => feature.plan === 'pro'));
   renderFeatureList(proMaxFeatures, features.filter((feature) => feature.plan === 'promax'));
@@ -248,19 +271,21 @@ function renderProduct(product) {
   postMatchInput.disabled = !product.featureAccess.postMatch;
   civHelpInput.disabled = !product.featureAccess.civHelp;
   tgBalanceInput.disabled = !product.featureAccess.tgBalance;
+  if (smurfDetectorInput) smurfDetectorInput.disabled = !product.featureAccess.smurfDetector;
   postMatchComparisonInput.disabled = !proAccess;
   paintPostmatchReference();
   postMatchReplayInput.disabled = !replayAccess;
   smartBuildOrderInput.disabled = !product.featureAccess.smartBuildOrder;
-  postMatchInput.title = product.featureAccess.postMatch ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
-  postMatchComparisonInput.title = proAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
-  postMatchReplayInput.title = replayAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
+  postMatchInput.title = product.featureAccess.postMatch ? '' : t('postmatchPage.availableProMax', 'Disponible con Ultra.');
+  postMatchComparisonInput.title = proAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con Ultra.');
+  postMatchReplayInput.title = replayAccess ? '' : t('postmatchPage.availableProMax', 'Disponible con Ultra.');
   scoutF2Input.closest('.row').hidden = true;
   scoutF2Input.disabled = true;
   const gatedInputs = [
     ...Object.entries(rivalInputs),
     ['civHelp', civHelpInput],
     ['tgBalance', tgBalanceInput],
+    ['smurfDetector', smurfDetectorInput],
     ['smartBuildOrder', smartBuildOrderInput],
     ['postMatch', postMatchInput],
     ['postMatchComparison', postMatchComparisonInput],
@@ -271,7 +296,7 @@ function renderProduct(product) {
     const allowed = product.featureAccess && product.featureAccess[key] === true;
     input.disabled = !allowed;
     const tier = features.find((feature) => feature.key === key)?.plan;
-    const tierName = tier === 'promax' ? 'ProMax' : 'Pro';
+    const tierName = tier === 'promax' ? 'Ultra' : 'Pro';
     input.title = allowed ? '' : t('plansPage.availableWith', `Disponible con ${tierName}. Tu preferencia guardada se conserva.`, { tier: tierName });
     const row = input.closest('.row');
     if (row) {
@@ -296,11 +321,100 @@ function getEmptyPostmatchHtml() {
 if (postMatchReportEl) postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
 
 let lastPostMatchPayload = null;
+let lastRecentMatches = [];
+let selectedPostMatchId = null;
+
+function applyDataWidths(container) {
+  if (!container) return;
+  const apply = () => {
+    container.querySelectorAll('[data-w]').forEach((bar) => {
+      const width = Math.max(0, Math.min(100, Number(bar.dataset.w) || 0));
+      bar.style.width = `${width}%`;
+    });
+    container.querySelectorAll('[data-h]').forEach((bar) => {
+      const height = Math.max(0, Math.min(100, Number(bar.dataset.h) || 0));
+      bar.style.height = `${height}%`;
+    });
+  };
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(apply));
+  } else {
+    apply();
+  }
+}
+
+function bindRecentMatchClicks(container, { jumpToPostmatch = false } = {}) {
+  if (!container) return;
+  container.querySelectorAll('.rm-card[data-match-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const matchId = btn.dataset.matchId;
+      if (!matchId) return;
+      if (jumpToPostmatch && activePage !== 'postmatch') {
+        goTo('postmatch');
+      }
+      await selectPostMatchById(matchId);
+    });
+  });
+}
+
+function scrollToPostMatchReport() {
+  if (!postMatchReportEl) return;
+  postMatchReportEl.classList.remove('is-revealing');
+  void postMatchReportEl.offsetWidth;
+  postMatchReportEl.classList.add('is-revealing');
+  requestAnimationFrame(() => {
+    postMatchReportEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+async function selectPostMatchById(matchId) {
+  if (!matchId || !window.settings?.postmatchSelect) return;
+  selectedPostMatchId = String(matchId);
+  if (postMatchRecentStripEl && typeof TacticalUI === 'object' && TacticalUI.renderRecentMatchesList) {
+    postMatchRecentStripEl.innerHTML = TacticalUI.renderRecentMatchesList(lastRecentMatches, {
+      selectedMatchId: selectedPostMatchId,
+      limit: 10,
+      mode: 'postmatch',
+    });
+    bindRecentMatchClicks(postMatchRecentStripEl, { jumpToPostmatch: false });
+  }
+  scrollToPostMatchReport();
+  setStatus(t('postmatchPage.loadingMatchStatus', `Cargando informe de la partida #${matchId}…`, { id: matchId }));
+  try {
+    const res = await window.settings.postmatchSelect(matchId);
+    if (!res?.ok) {
+      setStatus(res?.error || t('postmatchPage.drawError', 'No se pudo cargar el informe.'), true);
+      return;
+    }
+    paintPostMatch(res);
+    scrollToPostMatchReport();
+    setStatus(t('postmatchPage.updatedStatus', 'Informe postmatch actualizado.'));
+  } catch (err) {
+    setStatus(err?.message || t('postmatchPage.drawError', 'No se pudo cargar el informe.'), true);
+  }
+}
+
 function paintPostMatch(payload) {
   lastPostMatchPayload = payload;
   const report = payload && Object.hasOwn(payload, 'report') ? payload.report : payload;
   if (payload && payload.access) postMatchAccess = payload.access;
   if (payload && payload.product) renderProduct(payload.product);
+  if (payload && Array.isArray(payload.recentMatches)) {
+    lastRecentMatches = payload.recentMatches;
+  }
+  if (payload && payload.selectedMatchId) {
+    selectedPostMatchId = String(payload.selectedMatchId);
+  } else if (report && report.matchId) {
+    selectedPostMatchId = String(report.matchId);
+  }
+  if (postMatchRecentStripEl && typeof TacticalUI === 'object' && TacticalUI.renderRecentMatchesList) {
+    postMatchRecentStripEl.innerHTML = TacticalUI.renderRecentMatchesList(lastRecentMatches, {
+      selectedMatchId: selectedPostMatchId,
+      limit: 10,
+      mode: 'postmatch',
+    });
+    bindRecentMatchClicks(postMatchRecentStripEl, { jumpToPostmatch: false });
+  }
   if (!postMatchReportEl) return;
   if (!report) {
     postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
@@ -311,10 +425,7 @@ function paintPostMatch(payload) {
     return;
   }
   postMatchReportEl.innerHTML = TacticalUI.renderPostMatch(report, postMatchAccess);
-  postMatchReportEl.querySelectorAll('[data-w]').forEach((bar) => {
-    const width = Math.max(0, Math.min(100, Number(bar.dataset.w) || 0));
-    bar.style.width = `${width}%`;
-  });
+  applyDataWidths(postMatchReportEl);
 }
 
 async function loadPostMatch() {
@@ -324,6 +435,408 @@ async function loadPostMatch() {
     postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
   }
 }
+
+let lastCentralPayload = null;
+let centralBusy = false;
+let centralActiveModeId = null;
+let centralEloRange = '30';
+let centralCivSort = 'games';
+let centralMapSort = 'games';
+let centralLmWindow = 10;
+let centralViewedProfile = null; // null => perfil propio; { profileId, alias } => perfil buscado
+let centralSearchTimer = null;
+let centralSearchToken = 0;
+let centralSearchHits = [];
+
+function syncCentralViewingBanner(payload) {
+  if (!centralViewingBarEl) return;
+  const viewingOther = Boolean(payload && payload.ok && payload.isOwnProfile === false);
+  centralViewingBarEl.hidden = !viewingOther;
+  if (viewingOther) {
+    if (centralViewingNameEl) {
+      centralViewingNameEl.textContent = payload.alias || `Perfil #${payload.profileId}`;
+    }
+    if (centralViewingMetaEl) {
+      const bits = [`#${payload.profileId}`];
+      if (payload.totalProfileGames) bits.push(`${payload.totalProfileGames} partidas`);
+      bits.push('Tus datos propios siguen intactos');
+      centralViewingMetaEl.textContent = bits.join(' · ');
+    }
+    if (centralBackBtn) {
+      const ownLabel = lastLoadedInfo?.alias ? ` (${lastLoadedInfo.alias})` : '';
+      centralBackBtn.textContent = `← Volver a mi perfil${ownLabel}`;
+    }
+  }
+}
+
+function bindInteractiveEloChart() {
+  if (!centralDashboardEl) return;
+  const stage = centralDashboardEl.querySelector('.cx-chart-stage[data-chart-points]');
+  if (!stage) return;
+  let pts = [];
+  try { pts = JSON.parse(stage.dataset.chartPoints || '[]'); } catch { return; }
+  if (!pts.length) return;
+
+  const svg = stage.querySelector('.cx-chart-svg');
+  const hoverLine = stage.querySelector('.cx-hover-line');
+  const hoverRing = stage.querySelector('.cx-hover-ring');
+  const hoverDot = stage.querySelector('.cx-hover-dot');
+  const tooltip = stage.querySelector('.cx-tooltip');
+  const ttElo = stage.querySelector('.cx-tt-elo');
+  const ttDiff = stage.querySelector('.cx-tt-diff');
+  const ttDate = stage.querySelector('.cx-tt-date');
+  const chartW = Number(stage.dataset.chartW) || 800;
+  if (!svg || !tooltip) return;
+
+  const hideHover = () => {
+    if (hoverLine) hoverLine.setAttribute('opacity', '0');
+    if (hoverRing) hoverRing.setAttribute('opacity', '0');
+    if (hoverDot) hoverDot.setAttribute('opacity', '0');
+    tooltip.hidden = true;
+  };
+
+  stage.addEventListener('mousemove', (event) => {
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width) return;
+    const relX = ((event.clientX - rect.left) / rect.width) * chartW;
+    let nearest = pts[0];
+    let bestDist = Infinity;
+    for (const p of pts) {
+      const d = Math.abs(p.x - relX);
+      if (d < bestDist) {
+        bestDist = d;
+        nearest = p;
+      }
+    }
+    if (!nearest) return;
+    if (hoverLine) {
+      hoverLine.setAttribute('x1', String(nearest.x));
+      hoverLine.setAttribute('x2', String(nearest.x));
+      hoverLine.setAttribute('opacity', '1');
+    }
+    if (hoverRing) {
+      hoverRing.setAttribute('cx', String(nearest.x));
+      hoverRing.setAttribute('cy', String(nearest.y));
+      hoverRing.setAttribute('opacity', '1');
+    }
+    if (hoverDot) {
+      hoverDot.setAttribute('cx', String(nearest.x));
+      hoverDot.setAttribute('cy', String(nearest.y));
+      hoverDot.setAttribute('opacity', '1');
+    }
+    if (ttElo) ttElo.textContent = `${nearest.rating} ELO`;
+    if (ttDiff) {
+      const diff = Number(nearest.diff);
+      if (Number.isFinite(diff) && diff !== 0) {
+        ttDiff.textContent = `${diff > 0 ? '+' : ''}${diff}`;
+        ttDiff.className = `cx-tt-diff ${diff > 0 ? 'win' : 'loss'}`;
+      } else {
+        ttDiff.textContent = '';
+        ttDiff.className = 'cx-tt-diff';
+      }
+    }
+    if (ttDate) {
+      const outcome = nearest.won === true ? 'Victoria' : nearest.won === false ? 'Derrota' : '';
+      ttDate.textContent = [outcome, nearest.date].filter(Boolean).join(' · ');
+    }
+    tooltip.hidden = false;
+    const leftPct = Math.max(10, Math.min(88, nearest.xPct));
+    const topPct = Math.max(8, Math.min(72, nearest.yPct - 18));
+    tooltip.style.left = `${leftPct}%`;
+    tooltip.style.top = `${topPct}%`;
+  });
+
+  stage.addEventListener('mouseleave', hideHover);
+}
+
+function bindCentralInteractions() {
+  if (!centralDashboardEl) return;
+  centralDashboardEl.querySelectorAll('[data-central-mode]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextMode = btn.dataset.centralMode;
+      if (!nextMode || nextMode === centralActiveModeId) return;
+      centralActiveModeId = nextMode;
+      if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+    });
+  });
+
+  centralDashboardEl.querySelectorAll('[data-elo-range]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextRange = btn.dataset.eloRange;
+      if (!nextRange || nextRange === centralEloRange) return;
+      centralEloRange = nextRange;
+      if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+    });
+  });
+
+  centralDashboardEl.querySelectorAll('[data-civ-sort]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextSort = btn.dataset.civSort;
+      if (!nextSort || nextSort === centralCivSort) return;
+      centralCivSort = nextSort;
+      if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+    });
+  });
+
+  centralDashboardEl.querySelectorAll('[data-map-sort]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextSort = btn.dataset.mapSort;
+      if (!nextSort || nextSort === centralMapSort) return;
+      centralMapSort = nextSort;
+      if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+    });
+  });
+
+  centralDashboardEl.querySelectorAll('[data-lm-window]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextWin = Number(btn.dataset.lmWindow) === 20 ? 20 : 10;
+      if (nextWin === centralLmWindow) return;
+      centralLmWindow = nextWin;
+      if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+    });
+  });
+
+  centralDashboardEl.querySelectorAll('[data-scout-profile]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const pid = Number(btn.dataset.scoutProfile);
+      const name = btn.dataset.scoutName || null;
+      if (!Number.isFinite(pid) || pid <= 0) return;
+      openCentralProfile({ profileId: pid, alias: name });
+    });
+  });
+
+  bindInteractiveEloChart();
+}
+
+function paintCentral(payload, { preserveMode = false, animateSwap = false } = {}) {
+  const prevPid = lastCentralPayload?.profileId;
+  lastCentralPayload = payload;
+  if (payload && payload.isOwnProfile !== false && Array.isArray(payload.recentMatches) && payload.recentMatches.length) {
+    lastRecentMatches = payload.recentMatches;
+  }
+  if (!preserveMode || Number(prevPid) !== Number(payload?.profileId)) {
+    centralActiveModeId = payload?.defaultModeId || 'rm_1v1';
+    centralEloRange = '30';
+    centralCivSort = 'games';
+    centralMapSort = 'games';
+  }
+  syncCentralViewingBanner(payload);
+  if (!centralDashboardEl || typeof TacticalUI !== 'object' || !TacticalUI.renderCentralDashboard) return;
+  centralDashboardEl.innerHTML = TacticalUI.renderCentralDashboard(payload, {
+    activeModeId: centralActiveModeId,
+    eloRange: centralEloRange,
+    civSort: centralCivSort,
+    mapSort: centralMapSort,
+    lmWindow: centralLmWindow,
+  });
+  if (animateSwap || Number(prevPid) !== Number(payload?.profileId)) {
+    centralDashboardEl.classList.remove('cx-swap');
+    void centralDashboardEl.offsetWidth;
+    centralDashboardEl.classList.add('cx-swap');
+  }
+  applyDataWidths(centralDashboardEl);
+  bindCentralInteractions();
+  bindRecentMatchClicks(centralDashboardEl, { jumpToPostmatch: true });
+}
+
+function closeCentralSearchDropdown() {
+  if (centralSearchResultsEl) {
+    centralSearchResultsEl.replaceChildren();
+    centralSearchResultsEl.hidden = true;
+  }
+  centralSearchHits = [];
+}
+
+function renderCentralSearchResults() {
+  if (!centralSearchResultsEl) return;
+  centralSearchResultsEl.replaceChildren();
+  if (!centralSearchHits.length) {
+    centralSearchResultsEl.hidden = true;
+    return;
+  }
+  centralSearchResultsEl.hidden = false;
+  centralSearchHits.forEach((profile) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'result central-search-row';
+    row.setAttribute('role', 'option');
+
+    const avatar = document.createElement('span');
+    avatar.className = 'result-avatar';
+    avatar.textContent = initialsOf(profile.name);
+
+    const copy = document.createElement('span');
+    copy.className = 'result-copy';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = profile.clan ? `${profile.clan} | ${profile.name}` : profile.name;
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    const bits = [`#${profile.profileId}`];
+    if (profile.country) bits.push(profile.country.toUpperCase());
+    if (profile.games) bits.push(`${profile.games} pj`);
+    tag.textContent = bits.join(' · ');
+    copy.append(name, tag);
+
+    const action = document.createElement('span');
+    action.className = 'central-search-go';
+    action.textContent = 'Ver perfil →';
+
+    row.append(avatar, copy, action);
+    row.addEventListener('click', () => {
+      const displayName = profile.clan ? `${profile.clan} | ${profile.name}` : profile.name;
+      openCentralProfile({ profileId: profile.profileId, alias: displayName });
+    });
+    centralSearchResultsEl.append(row);
+  });
+}
+
+async function openCentralProfile(target) {
+  closeCentralSearchDropdown();
+  if (centralSearchInput) centralSearchInput.value = '';
+  if (centralSearchStateEl) centralSearchStateEl.textContent = '';
+  if (centralSearchClearBtn) centralSearchClearBtn.hidden = true;
+
+  if (!target || Number(target.profileId) === Number(currentProfileId)) {
+    centralViewedProfile = null;
+  } else {
+    centralViewedProfile = { profileId: Number(target.profileId), alias: target.alias || null };
+  }
+  const scrollHost = document.querySelector('.pages');
+  if (scrollHost) scrollHost.scrollTo({ top: 0, behavior: 'smooth' });
+  await loadCentral(false, { animateSwap: true });
+}
+
+async function runCentralSearchNow() {
+  if (!centralSearchInput) return;
+  const query = centralSearchInput.value.trim();
+  if (!query) return;
+  const numeric = parseNumeric(query);
+  if (numeric) {
+    openCentralProfile({ profileId: Number(numeric), alias: null });
+    return;
+  }
+  if (centralSearchHits.length) {
+    const first = centralSearchHits[0];
+    const displayName = first.clan ? `${first.clan} | ${first.name}` : first.name;
+    openCentralProfile({ profileId: first.profileId, alias: displayName });
+    return;
+  }
+  if (query.length < 2) return;
+  const token = ++centralSearchToken;
+  if (centralSearchStateEl) centralSearchStateEl.textContent = 'Buscando…';
+  const response = await window.settings.search(query);
+  if (token !== centralSearchToken) return;
+  if (!response?.ok || !Array.isArray(response.results) || !response.results.length) {
+    if (centralSearchStateEl) centralSearchStateEl.textContent = 'Sin resultados';
+    closeCentralSearchDropdown();
+    return;
+  }
+  centralSearchHits = response.results.slice(0, 8);
+  if (centralSearchStateEl) centralSearchStateEl.textContent = `${centralSearchHits.length}`;
+  renderCentralSearchResults();
+}
+
+async function loadCentral(force = false, { animateSwap = false } = {}) {
+  if (!window.settings?.centralGet || centralBusy) return;
+  centralBusy = true;
+  if (refreshCentralBtn) refreshCentralBtn.disabled = true;
+  const reqOpts = centralViewedProfile
+    ? { profileId: centralViewedProfile.profileId, alias: centralViewedProfile.alias, force: Boolean(force) }
+    : { force: Boolean(force) };
+  if (animateSwap && centralDashboardEl) {
+    centralDashboardEl.classList.add('is-loading');
+  }
+  if (centralViewedProfile) {
+    setStatus(`Cargando perfil de ${centralViewedProfile.alias || `#${centralViewedProfile.profileId}`}…`);
+  }
+  try {
+    const res = await window.settings.centralGet(reqOpts);
+    paintCentral(res, { animateSwap });
+    if (res?.ok && centralViewedProfile) {
+      setStatus(`Explorando perfil: ${res.alias || `#${res.profileId}`}`);
+    } else if (res?.ok && animateSwap) {
+      setStatus(`De vuelta en tu perfil: ${res.alias || `#${res.profileId}`}`);
+    }
+  } catch (err) {
+    paintCentral({ ok: false, error: err?.message });
+  } finally {
+    centralBusy = false;
+    if (centralDashboardEl) centralDashboardEl.classList.remove('is-loading');
+    if (refreshCentralBtn) refreshCentralBtn.disabled = false;
+  }
+}
+
+centralBackBtn?.addEventListener('click', () => openCentralProfile(null));
+centralSearchBtn?.addEventListener('click', () => runCentralSearchNow());
+
+centralSearchClearBtn?.addEventListener('click', () => {
+  if (centralSearchInput) centralSearchInput.value = '';
+  if (centralSearchStateEl) centralSearchStateEl.textContent = '';
+  centralSearchClearBtn.hidden = true;
+  closeCentralSearchDropdown();
+});
+
+centralSearchInput?.addEventListener('input', () => {
+  const query = centralSearchInput.value.trim();
+  clearTimeout(centralSearchTimer);
+  if (centralSearchClearBtn) centralSearchClearBtn.hidden = !query;
+  if (query.length < 2) {
+    if (centralSearchStateEl) centralSearchStateEl.textContent = '';
+    closeCentralSearchDropdown();
+    return;
+  }
+  const numeric = parseNumeric(query);
+  if (numeric) {
+    if (centralSearchStateEl) centralSearchStateEl.textContent = 'Enter para abrir ID';
+    closeCentralSearchDropdown();
+    return;
+  }
+  const token = ++centralSearchToken;
+  if (centralSearchStateEl) centralSearchStateEl.textContent = 'Buscando…';
+  centralSearchTimer = setTimeout(async () => {
+    const response = await window.settings.search(query);
+    if (token !== centralSearchToken) return;
+    if (!response?.ok || !Array.isArray(response.results) || !response.results.length) {
+      if (centralSearchStateEl) centralSearchStateEl.textContent = 'Sin resultados';
+      closeCentralSearchDropdown();
+      return;
+    }
+    centralSearchHits = response.results.slice(0, 8);
+    if (centralSearchStateEl) centralSearchStateEl.textContent = `${centralSearchHits.length} resultados`;
+    renderCentralSearchResults();
+  }, 260);
+});
+
+centralSearchInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeCentralSearchDropdown();
+    return;
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    const numeric = parseNumeric(centralSearchInput.value.trim());
+    if (numeric) {
+      openCentralProfile({ profileId: Number(numeric), alias: null });
+      return;
+    }
+    if (centralSearchHits.length) {
+      const first = centralSearchHits[0];
+      const displayName = first.clan ? `${first.clan} | ${first.name}` : first.name;
+      openCentralProfile({ profileId: first.profileId, alias: displayName });
+    }
+  }
+});
+
+document.addEventListener('click', (event) => {
+  if (!centralSearchResultsEl || centralSearchResultsEl.hidden) return;
+  if (!event.target.closest('.central-search-wrap')) {
+    closeCentralSearchDropdown();
+  }
+});
+
+refreshCentralBtn?.addEventListener('click', () => loadCentral(true));
+goToCentralBtn?.addEventListener('click', () => goTo('central'));
 
 /* ---------- diseño ---------- */
 for (const button of themeButtons) {
@@ -500,6 +1013,9 @@ for (const [key, input] of Object.entries(rivalInputs)) {
 tgBalanceInput.addEventListener('change', () =>
   applyToggle(tgBalanceInput, (on) => window.settings.tgBalance(on), 'Balance de equipos'),
 );
+smurfDetectorInput?.addEventListener('change', () =>
+  applyToggle(smurfDetectorInput, (on) => window.settings.smurfDetector(on), 'Smurf Detector'),
+);
 
 // Resumen con F2: el atajo y la vista compacta son opt-in. Al apagarlo se
 // libera la tecla (deja de ser global) y el panel vuelve al informe completo.
@@ -557,6 +1073,10 @@ refreshPostMatchBtn.addEventListener('click', async () => {
 });
 
 window.settings.onPostMatch((payload) => paintPostMatch(payload));
+window.settings.onCentral?.((payload) => {
+  if (centralViewedProfile && payload && Number(payload.profileId) !== Number(centralViewedProfile.profileId)) return;
+  paintCentral(payload, { preserveMode: true });
+});
 window.settings.onProduct((product) => { renderProduct(product); loadTactics(); });
 window.settings.onTactics((payload) => paintTactics(payload));
 window.settings.onBuildOrder((payload) => paintBuildOrder(payload));
@@ -751,6 +1271,7 @@ async function loadCurrent() {
   for (const [key, input] of Object.entries(rivalInputs)) input.checked = Boolean(info[key]);
   scoutF2Input.checked = Boolean(info.scoutF2);
   tgBalanceInput.checked = Boolean(info.tgBalance);
+  if (smurfDetectorInput) smurfDetectorInput.checked = Boolean(info.smurfDetector);
   postMatchInput.checked = info.postMatch !== false;
   postMatchComparisonInput.checked = Boolean(info.postMatchComparison);
   if (postMatchCompareModeInput) {
@@ -765,6 +1286,7 @@ async function loadCurrent() {
   applyLanguageUi(info.activeLanguage || 'es-MX');
   await loadPostMatch();
   await loadBuildOrder();
+  loadCentral(false);
   autoUpdateInput.checked = Boolean(info.autoUpdate);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt
@@ -965,15 +1487,16 @@ document.addEventListener('keydown', (event) => {
 /* ============================================================
    Navegación del wizard: solo el rail, sin botones de pie.
    ============================================================ */
-const PAGE_ORDER = ['player', 'overlay', 'tactics', 'postmatch', 'skins', 'plans', 'updater'];
+const PAGE_ORDER = ['player', 'central', 'overlay', 'tactics', 'postmatch', 'skins', 'plans', 'updater'];
 const PAGE_META = {
-  player: { index: '01 / CUENTA', title: 'Cuenta de jugador', sub: 'Tu cuenta en el juego y cómo cambiarla.' },
-  overlay: { index: '02 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida.' },
-  tactics: { index: '03 / DURANTE', title: 'Elegí cómo responder.', sub: 'Oportunidades por civilización, historial y composición observada.' },
-  postmatch: { index: '04 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'El resultado y tu evolución cuando termina.' },
-  skins: { index: '05 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
-  plans: { index: '06 / PLAN Y ACCESO', title: 'Elegí cuánto ver.', sub: 'Free para competir; Pro para preparar y evolucionar.' },
-  updater: { index: '07 / ACTUALIZACIONES', title: 'Mantené la app al día.', sub: 'Actualizaciones seguras, también en plena temporada.' },
+  player: { index: '01 / CUENTA', title: 'Cuenta de jugador', sub: 'Tu cuenta en el juego y tus últimas partidas.' },
+  central: { index: '02 / CENTRAL', title: 'Central de estadísticas', sub: 'Radar táctico, evolución de ELO, civilizaciones, mapas y aperturas.' },
+  overlay: { index: '03 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida · vista previa en vivo.' },
+  tactics: { index: '04 / DURANTE', title: 'Elegí cómo responder.', sub: 'Oportunidades por civilización, historial y composición observada.' },
+  postmatch: { index: '05 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'Tus últimas 10 partidas, resultado y evolución detallada.' },
+  skins: { index: '06 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
+  plans: { index: '07 / PLAN Y ACCESO', title: 'Elegí cuánto ver.', sub: 'Free para competir; Pro para el Prematch; Ultra para la experiencia completa.' },
+  updater: { index: '08 / ACTUALIZACIONES', title: 'Mantené la app al día.', sub: 'Actualizaciones seguras, también en plena temporada.' },
 };
 
 let activePage = 'player';
@@ -994,6 +1517,7 @@ function goTo(page) {
   pageTitle.textContent = (locTitle && locTitle !== `pages.${page}.title`) ? locTitle : PAGE_META[page].title;
   pageSub.textContent = (locSub && locSub !== `pages.${page}.sub`) ? locSub : PAGE_META[page].sub;
   pageIndex.textContent = (locIdx && locIdx !== `pages.${page}.index`) ? locIdx : PAGE_META[page].index;
+  if (page === 'central') loadCentral(false);
   if (page === 'postmatch') loadPostMatch();
   if (page === 'tactics') loadTactics();
   if (pagesEl) pagesEl.scrollTop = 0;
@@ -1186,6 +1710,7 @@ function applyLanguageUi(lang) {
   else if (postMatchReportEl) postMatchReportEl.innerHTML = getEmptyPostmatchHtml();
   if (lastBuildOrderPayload) paintBuildOrder(lastBuildOrderPayload);
   if (lastTacticsPayload) paintTactics(lastTacticsPayload);
+  if (lastCentralPayload) paintCentral(lastCentralPayload);
   renderLanguageSelectors();
   renderWizardStep();
 }

@@ -39,43 +39,49 @@
     "skins": "Apariencia",
     "plans": "Plan y acceso",
     "updater": "Actualizaciones",
-    "context": "/ Ajustes"
+    "context": "/ Ajustes",
+    "central": "Central"
   },
   "pages": {
     "player": {
       "index": "01 / CUENTA",
       "title": "Cuenta de jugador",
-      "sub": "Tu cuenta en el juego y cómo cambiarla."
+      "sub": "Tu cuenta en el juego y tus últimas partidas."
     },
     "overlay": {
-      "index": "02 / PREMATCH",
-      "title": "Prematch y lectura del rival",
-      "sub": "Elige qué información quieres ver en cola y al entrar a la partida."
+      "index": "03 / PREMATCH",
+      "title": "Prepara la partida.",
+      "sub": "Qué se ve en cola y al entrar a la partida · vista previa en vivo."
     },
     "tactics": {
-      "index": "03 / DURANTE",
-      "title": "Guías visuales en partida",
-      "sub": "Referencias claras y automáticas sin interactuar durante el juego."
+      "index": "04 / DURANTE",
+      "title": "Elige cómo responder.",
+      "sub": "Oportunidades por civilización, historial y composición observada."
     },
     "postmatch": {
-      "index": "04 / POSTMATCH",
-      "title": "Postmatch entrenador",
-      "sub": "Análisis automático de replays locales, calificaciones y evolución personal."
+      "index": "05 / POSTMATCH",
+      "title": "Aprende de cada partida.",
+      "sub": "Tus últimas 10 partidas, resultado y evolución detallada."
     },
     "skins": {
-      "index": "05 / APARIENCIA",
-      "title": "Apariencia del overlay",
-      "sub": "Tema visual, opacidad, posición y controles de visibilidad."
+      "index": "06 / APARIENCIA",
+      "title": "Tu panel, a tu manera.",
+      "sub": "Cómo se ve el overlay sobre el juego."
     },
     "plans": {
-      "index": "06 / PLAN Y ACCESO",
-      "title": "Plan y acceso",
-      "sub": "Estado actual de tu licencia, suscripción verificada y niveles."
+      "index": "07 / PLAN Y ACCESO",
+      "title": "Elige cuánto ver.",
+      "sub": "Free para competir; Pro para el Prematch; Ultra para la experiencia completa."
     },
     "updater": {
-      "index": "07 / ACTUALIZACIONES",
-      "title": "Actualizaciones",
-      "sub": "Versión instalada y búsqueda automática de actualizaciones."
+      "index": "08 / ACTUALIZACIONES",
+      "title": "Mantén la app al día.",
+      "sub": "Actualizaciones seguras, también en plena temporada."
+    },
+    "central": {
+      "index": "02 / CENTRAL",
+      "title": "Central de estadísticas",
+      "sub": "Radar táctico, evolución de ELO, civilizaciones, mapas y aperturas."
     }
   },
   "account": {
@@ -162,7 +168,9 @@
     "civHelpVisibleUntil": "Ayuda de civ: activada · visible hasta {time}",
     "civHelpHidesAt": "Ayuda de civ: se oculta a los {time}",
     "civHelpExtended": "Ayuda de civ: visible hasta 0:40",
-    "hideAtSaved": "Ocultar Overlay y ayuda a los {seconds} segundos"
+    "hideAtSaved": "Ocultar Overlay y ayuda a los {seconds} segundos",
+    "smurfTitle": "Smurf Detector",
+    "smurfDesc": "Sugiere posibles smurfs junto al ELO cruzando cuentas vinculadas RM 1v1, winrate extremo, caída de pico y eAPM · Ultra"
   },
   "tactics": {
     "bannerTitle": "Referencias por civilización",
@@ -170,7 +178,7 @@
     "intro": "Las rutas de Feudal, Castillos e Imperial se consultan aquí. Representan opciones, no el estado actual de tu partida.",
     "guideGroup": "Guía de apertura",
     "sboTitle": "Smart Build Order",
-    "sboDesc": "Guía por civ y mapa · en Ajustes o durante la partida · ProMax",
+    "sboDesc": "Guía por civ y mapa · en Ajustes o durante la partida · Ultra",
     "oppGroup": "Oportunidades frente al rival",
     "waitingBoth": "Esperando ambas civilizaciones y datos de la partida.",
     "loadingMatchup": "Actualizando el cruce de civilizaciones y el historial…",
@@ -204,34 +212,36 @@
     "modeCommunity": "Solo estándar ELO",
     "replayTitle": "Análisis del replay",
     "replayDesc": "Hitos de apertura, tiempos de avance, uso de TC y eAPM",
-    "latestGroup": "Último informe",
+    "latestGroup": "Informe de la partida seleccionada",
     "refresh": "Actualizar",
     "emptyTitle": "Tu próxima partida marca el comienzo.",
     "emptyDesc": "Al terminar, el informe aparecerá aquí y en el overlay.",
     "updatedStatus": "Informe postmatch actualizado.",
     "refUpdated": "Referencia del postmatch actualizada.",
-    "availableProMax": "Disponible con ProMax.",
-    "drawError": "No se pudo dibujar el informe."
+    "availableProMax": "Disponible con Ultra.",
+    "drawError": "No se pudo dibujar el informe.",
+    "last10Group": "Tus últimas 10 partidas · selecciona una para cargar su informe",
+    "loadingMatchStatus": "Cargando informe de la partida #{id}…"
   },
   "plansPage": {
     "eyebrow": "TU ACCESO ACTUAL",
     "loading": "Cargando…",
     "loadingDesc": "Consultando las funciones disponibles de esta versión.",
-    "trialSummary": "Activar acceso de prueba ProMax",
-    "trialDesc": "Ingresa la clave temporal que te compartieron. Habilita ProMax localmente salvo que el cobro global esté activo.",
+    "trialSummary": "Activar clave temporal Ultra",
+    "trialDesc": "Ingresa la clave temporal que te compartieron. Habilita Ultra localmente salvo que el cobro global esté activo.",
     "trialLabel": "Clave de acceso",
-    "trialBtn": "Activar ProMax",
+    "trialBtn": "Activar Ultra",
     "freeEyebrow": "HISTORIAL + ELO",
     "freePrice": "Gratis",
     "freeDesc": "Nombre, ELO actual e historial entre ambos.",
     "proEyebrow": "GRATIS + PREMATCH",
     "proPrice": "$1",
-    "proDesc": "Todo lo de Gratis + análisis Prematch completo del rival.",
-    "proIncludes": "Incluye Gratis + Prematch completo.",
+    "proDesc": "Todo lo de Free + análisis Prematch completo del rival antes de jugar.",
+    "proIncludes": "Incluye Free + Prematch completo.",
     "promaxEyebrow": "PREMATCH · DURANTE · POSTMATCH",
     "promaxPrice": "$1.99",
-    "promaxDesc": "Prematch completo, guía Durante la partida y análisis Postmatch.",
-    "promaxIncludes": "Incluye Gratis, Prematch, Durante y Postmatch.",
+    "promaxDesc": "Prematch completo, guía Durante la partida y motor de análisis Postmatch.",
+    "promaxIncludes": "Incluye Free, Prematch, Durante y Postmatch.",
     "subsTitle": "Suscripciones",
     "subsStatus": "La contratación todavía no está habilitada.",
     "manageBtn": "Gestionar cuenta",
@@ -242,7 +252,7 @@
     "existingTok": "Credencial de acceso",
     "existingBtn": "Verificar acceso",
     "footnote": "El plan habilita funciones. La disponibilidad de los datos depende de la muestra, el modo de juego y los replays analizados.",
-    "descKey": "Acceso de prueba ProMax por clave. No es una suscripción.",
+    "descKey": "Acceso de prueba Ultra por clave. No es una suscripción.",
     "descVerified": "Licencia firmada verificada para las funciones de este plan.",
     "descBeta": "Acceso beta explícito de esta versión. No es una suscripción activa.",
     "descFree": "Las funciones esenciales para conocer la partida y a sus jugadores.",
@@ -254,8 +264,14 @@
     "availableWith": "Disponible con {tier}. Tu preferencia guardada se conserva.",
     "verifyingKey": "Verificando clave…",
     "verifyingCred": "Verificando credencial…",
-    "keyActivated": "ProMax activado. Ya puedes prender las opciones Pro/ProMax en Ajustes.",
-    "credVerified": "Acceso verificado."
+    "keyActivated": "Ultra activado. Ya puedes prender las opciones Pro/Ultra en Ajustes.",
+    "credVerified": "Acceso verificado.",
+    "currentBadge": "PLAN ACTUAL",
+    "freeSubPrice": "Para siempre",
+    "pillFree": "ELO + Cara a cara",
+    "proSubPrice": "USD · Scouting Prematch",
+    "ultraRibbon": "★ EXPERIENCIA COMPLETA · MÁS ELEGIDO",
+    "ultraSubPrice": "USD · Arsenal táctico total"
   },
   "skins": {
     "designGroup": "Diseño del panel",
@@ -388,7 +404,7 @@
     "badgeConfig": "CONFIGURACIÓN",
     "free": "Gratis",
     "pro": "Pro",
-    "promax": "ProMax",
+    "promax": "Ultra",
     "beta": "Acceso beta",
     "verified": "Cuenta verificada",
     "revoked": "Acceso de pago desactivado por el administrador",
@@ -568,5 +584,53 @@
       "title": "Smart Build Order",
       "desc": "Guía visual sugerida por tu civilización, mapa y cruce."
     }
+  },
+  "central": {
+    "recentAccountGroup": "Tus últimas partidas",
+    "openCentralBtn": "Abrir Central de estadísticas →",
+    "overviewGroup": "Inteligencia y métricas propias",
+    "justNow": "recién",
+    "noMatchesYet": "Todavía no hay partidas recientes registradas para esta cuenta.",
+    "winShort": "V",
+    "lossShort": "D",
+    "replayReady": "Replay analizado",
+    "viewReport": "Ver informe",
+    "radarAria": "Radar táctico de 6 ejes",
+    "axisConsistency": "Consistencia",
+    "axisMacro": "Macro · TC",
+    "axisTempo": "Tempo · Presión",
+    "axisLate": "Cierre · Late",
+    "axisCivs": "Pool de Civs",
+    "axisMaps": "Control Mapas",
+    "eloChartEmpty": "Juega al menos 2 partidas rankeadas para trazar tu curva de evolución de ELO.",
+    "eloTrajectory": "Evolución reciente de ELO",
+    "rangeLabel": "Rango",
+    "latestGame": "Actual",
+    "emptyTitle": "Conecta tu cuenta para ver tu Central de estadísticas",
+    "emptyDesc": "Todas tus métricas, radar táctico, evolución de ELO y últimas partidas aparecerán aquí.",
+    "kpiEloLabel": "RATING RM 1V1",
+    "ladderActive": "Perfil activo",
+    "kpiWinrateLabel": "WINRATE Y FORMA",
+    "kpiMacroLabel": "EJECUCIÓN Y RITMO",
+    "telemetryHint": "Se enriquece con cada replay analizado",
+    "kpiTimingsLabel": "TIEMPOS MEDIOS DE EDAD",
+    "clickMatchToAnalyze": "Selecciona una partida para medir tiempos",
+    "playstyleTitle": "Distribución de estilo y aperturas",
+    "recentSample": "Muestra reciente",
+    "earlyPressure": "Presión temprana",
+    "shortGames": "Partidas cortas (<22m)",
+    "longGames": "Partidas largas (+28m)",
+    "radarEyebrow": "PERFIL MULTIDIMENSIONAL",
+    "radarTitle": "Radar táctico de rendimiento",
+    "gamesAnalyzed": "partidas",
+    "trajectoryEyebrow": "TENDENCIA Y APERTURAS",
+    "trajectoryTitle": "Curva de ELO y ritmo de juego",
+    "civsEyebrow": "REPERTORIO",
+    "civsTitle": "Tus civilizaciones más usadas",
+    "mapsEyebrow": "TERRENO",
+    "mapsTitle": "Rendimiento por mapa",
+    "noDataYet": "Sin datos suficientes.",
+    "recentEyebrow": "HISTORIAL INTERACTIVO",
+    "recentTitle": "Tus últimas partidas · clic para abrir Postmatch"
   }
 }

@@ -47,44 +47,44 @@ body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"])
 #scouting .intel-history-row.recent { border-top-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 #scouting .intel-history-row:nth-child(even) { background: color-mix(in srgb, var(--text) 2%, transparent); }
 #smartBuildOrder .build-checkpoints li { border-top-color: color-mix(in srgb, var(--head-border) 34%, transparent); }
-#postMatch .pm-v2 {
+:is(#postMatch, #postMatchReport) .pm-v2 {
   --pm-border: color-mix(in srgb, var(--head-border) 50%, transparent);
   --pm-surface: color-mix(in srgb, var(--text) 4.6%, transparent);
 }
-#postMatch .pm-eyebrow { padding-inline: 8px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 72%); }
-#postMatch .pm-eyebrow > i { background: transparent; }
-#postMatch :is(.pm-focus, .pm-coach-row.is-warn, .pm-badge.is-warn) .pm-icon-tile > .product-icon {
+:is(#postMatch, #postMatchReport) .pm-eyebrow { padding-inline: 8px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 72%); }
+:is(#postMatch, #postMatchReport) .pm-eyebrow > i { background: transparent; }
+:is(#postMatch, #postMatchReport) :is(.pm-focus, .pm-coach-row.is-warn, .pm-badge.is-warn) .pm-icon-tile > .product-icon {
   width: 18px;
   height: 18px;
 }
 
 @media (min-width: 781px) {
-  #postMatch .pm-v2 { gap: 12px; }
-  #postMatch .pm-col { gap: 10px; }
-  #postMatch .pm-columns {
+  :is(#postMatch, #postMatchReport) .pm-v2 { gap: 12px; }
+  :is(#postMatch, #postMatchReport) .pm-col { gap: 10px; }
+  :is(#postMatch, #postMatchReport) .pm-columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 18px;
   }
-  #postMatch .pm-stage-sub { white-space: normal; }
+  :is(#postMatch, #postMatchReport) .pm-stage-sub { white-space: normal; }
 }
 
 @media (min-width: 1000px) {
-  #postMatch .pm-v2:has(> .pm-opening-bar) {
+  :is(#postMatch, #postMatchReport) .pm-v2:has(> .pm-opening-bar) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  #postMatch .pm-v2:has(> .pm-opening-bar) > * { grid-column: 1 / -1; }
-  #postMatch .pm-v2 > .pm-head { align-self: stretch; margin: 0; }
-  #postMatch .pm-v2:has(> .pm-opening-bar) > .pm-head { grid-area: 1 / 1; }
-  #postMatch .pm-v2:has(> .pm-opening-bar) > .pm-opening-bar { grid-area: 1 / 2; }
-  #postMatch .pm-columns { grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr); }
-  #postMatch .pm-columns > .pm-col:has(> .pm-duel):has(> .pm-queue-box) {
+  :is(#postMatch, #postMatchReport) .pm-v2:has(> .pm-opening-bar) > * { grid-column: 1 / -1; }
+  :is(#postMatch, #postMatchReport) .pm-v2 > .pm-head { align-self: stretch; margin: 0; }
+  :is(#postMatch, #postMatchReport) .pm-v2:has(> .pm-opening-bar) > .pm-head { grid-area: 1 / 1; }
+  :is(#postMatch, #postMatchReport) .pm-v2:has(> .pm-opening-bar) > .pm-opening-bar { grid-area: 1 / 2; }
+  :is(#postMatch, #postMatchReport) .pm-columns { grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr); }
+  :is(#postMatch, #postMatchReport) .pm-columns > .pm-col:has(> .pm-duel):has(> .pm-queue-box) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
   }
-  #postMatch .pm-col > :is(.pm-eyebrow, .pm-coach-stack) { grid-column: 1 / -1; }
-  #postMatch .pm-duel-nums { gap: 4px; }
-  #postMatch .pm-duel-nums > span { font-size: 9px; }
-  #postMatch .pm-queue-head { flex-wrap: wrap; gap: 2px 8px; }
+  :is(#postMatch, #postMatchReport) .pm-col > :is(.pm-eyebrow, .pm-coach-stack) { grid-column: 1 / -1; }
+  :is(#postMatch, #postMatchReport) .pm-duel-nums { gap: 4px; }
+  :is(#postMatch, #postMatchReport) .pm-duel-nums > span { font-size: 9px; }
+  :is(#postMatch, #postMatchReport) .pm-queue-head { flex-wrap: wrap; gap: 2px 8px; }
 }

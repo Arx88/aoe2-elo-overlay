@@ -24,10 +24,12 @@ const {
   buildSnapshotFromMatch,
   searchProfiles,
   fetchProfileIdentity,
+  fetchMatches,
   fetchMatchById,
   historyCutoff,
   hideLobbyCivs,
 } = require('./src/aoe');
+const { fetchCentralDashboard, mergeRecentMatches } = require('./src/central');
 const { detectProfile, getActiveSteamId, resolveSteamId } = require('./src/detect');
 let lastActiveSteamId = null;
 let lastSteamCheckAt = 0;
@@ -58,6 +60,7 @@ const {
 const { fetchReplayTelemetry } = require('./src/replay');
 const { createProductStateCache, effectivePreferences } = require('./src/product');
 const { buildSmartBuildOrder } = require('./src/build-orders');
+const { detectSmurfsForPlayers } = require('./src/smurf');
 const { projectOverlayState, projectRivalPayload, projectScoutPayload } = require('./src/presentation');
 const i18n = require('./src/i18n');
 const licenseClient = require('./src/license-client');
@@ -74,9 +77,12 @@ const DATA_DIR = ISOLATED ? path.join(app.getPath('temp'), 'aoe2-elo-overlay-dev
   : app.isPackaged ? path.join(app.getPath('appData'), 'AoE2 ELO Overlay') : __dirname;
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const LOG_PATH = path.join(DATA_DIR, 'overlay.log');
+const CENTRAL_CACHE_PATH = path.join(DATA_DIR, 'central-cache.json');
 // Emblema dorado (recortado y normalizado por tools/make-icon.py) es el icono oficial:
 // ventanas, bandeja, configuración, exe y accesos directos usan el mismo arte.
 const ICON_PNG = path.join(__dirname, 'assets', 'app-icon.png');
+const ICON_ICO = path.join(__dirname, 'assets', 'icon.ico');
+const WINDOW_ICON = process.platform === 'win32' && fs.existsSync(ICON_ICO) ? ICON_ICO : ICON_PNG;
 
 // Sin esto las notificaciones nativas de Windows pueden no aparecer (o salir
 // con un nombre genérico). Tiene que coincidir con appId de electron-builder.
@@ -126,6 +132,7 @@ const DEFAULT_CONFIG = {
   scoutF2: false,
   // Balance de equipos: promedio de ELO RM 1v1 por equipo en team games.
   tgBalance: false,
+  smurfDetector: false,
   // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
   // nueva, la descarga e instala sola (nunca en media partida). Apagada de
   // fábrica: se activa desde la pestaña Updater.
@@ -472,6 +479,8 @@ let exampleMatch = null; // última partida REAL normalizada
 let exampleName = null;
 let exampleToken = 0; // invalida un "Ver test" que sigue en vuelo
 let pendingExample = null; // arranque pedido por CLI antes de overlay:ready
+let exampleUseRealConfig = false;
+let examplePreviewPhase = null;
 
 // En el ejemplo queremos ver TODAS las funciones, sin cambiar las preferencias
 // reales del usuario. Es un override de PINTADO, no de configuración.
@@ -486,6 +495,7 @@ const EXAMPLE_ALL_ON = {
   rivalH2H: true,
   civRecommender: true,
   tgBalance: true,
+  smurfDetector: true,
   postMatch: true,
   postMatchComparison: true,
   postMatchReplay: true,
@@ -493,7 +503,7 @@ const EXAMPLE_ALL_ON = {
 
 /** Config usada para dibujar. Nunca se persiste. */
 function viewConfig() {
-  const base = !exampleActive || EXAMPLE_REAL_CONFIG
+  const base = !exampleActive || EXAMPLE_REAL_CONFIG || exampleUseRealConfig
     ? config
     : { ...config, ...EXAMPLE_ALL_ON };
   // Las preferencias Pro guardadas se conservan, pero el flujo de consultas
@@ -712,6 +722,7 @@ function overlayConfig() {
     // Vista resumida de scouting con F2 (opción "Resumen con F2").
     scoutF2: Boolean(view.scoutF2),
     tgBalance: Boolean(view.tgBalance),
+    smurfDetector: Boolean(view.smurfDetector),
     // Postmatch resuelto: Free ve el resultado; Pro ve comparación y replay.
     postMatch: Boolean(view.postMatch),
     postMatchComparison: Boolean(view.postMatchComparison),
@@ -822,6 +833,50 @@ function decorateH2H(report) {
   return out;
 }
 
+let smurfReports = null;
+let smurfSig = '';
+let smurfFetching = false;
+
+function sendSmurf(payload) {
+  smurfReports = payload;
+  send('overlay:smurf', payload);
+}
+
+function clearSmurfReports() {
+  smurfSig = '';
+  if (smurfReports) sendSmurf(null);
+}
+
+async function refreshSmurfReports(state, options = {}) {
+  const view = viewConfig();
+  if (DEMO || !view.smurfDetector || !state || state.status !== 'ongoing') {
+    clearSmurfReports();
+    return;
+  }
+  const players = Array.isArray(state.players) ? state.players : [];
+  const rivals = players.filter((p) => p && !p.isYou && Number(p.profileId) > 0);
+  if (!rivals.length) {
+    clearSmurfReports();
+    return;
+  }
+  const matchId = state.match?.matchId || 'sin-id';
+  const sig = `${matchId}:${rivals.map((r) => r.profileId).join(',')}`;
+  if (!options.force && sig === smurfSig && smurfReports) return;
+  if (smurfFetching) return;
+  smurfSig = sig;
+  smurfFetching = true;
+  try {
+    const byPlayer = await detectSmurfsForPlayers(players, { cache: statsCache, log });
+    if (!lastGood || lastGood.status !== 'ongoing' || !viewConfig().smurfDetector) return;
+    sendSmurf({ ts: Date.now(), matchId: String(matchId), byPlayer });
+  } catch (err) {
+    log(`smurf detector: ${err.message}`);
+  } finally {
+    smurfFetching = false;
+    maybeArmPreviewAutoHide();
+  }
+}
+
 function clearRivalReports() {
   rivalSig = '';
   rivalQueuedSig = null;
@@ -834,6 +889,7 @@ function clearRivalReports() {
   h2hByRival.clear();
   h2hPendingIds.clear();
   if (rivalReports) sendRival(null);
+  clearSmurfReports();
 }
 
 /** Datos de ejemplo (reales de una consulta de prueba) solo para capturas. */
@@ -1120,6 +1176,7 @@ async function refreshRivalReports(state, options = {}) {
       refreshRivalReports(lastGood).catch(() => {});
     } else {
       rivalQueuedSig = null;
+      maybeArmPreviewAutoHide();
     }
   }
 }
@@ -1443,6 +1500,7 @@ async function refreshScoutTips(state, options = {}) {
       refreshScoutTips(lastGood).catch(() => {});
     } else {
       scoutQueuedSig = null;
+      maybeArmPreviewAutoHide();
     }
   }
 }
@@ -1550,6 +1608,7 @@ async function refreshH2H(state, options = {}) {
       refreshH2H(lastGood).catch(() => {});
     } else {
       h2hQueuedSig = null;
+      maybeArmPreviewAutoHide();
     }
   }
 }
@@ -1739,7 +1798,7 @@ function createWindow() {
     movable: true,
     skipTaskbar: true,
     hasShadow: false,
-    icon: ICON_PNG,
+    icon: WINDOW_ICON,
     // Nunca puede recibir foco ni activarse: no le saca el foco al juego.
     focusable: false,
     fullscreenable: false,
@@ -1872,7 +1931,7 @@ function openSettings() {
     minWidth: 860,
     minHeight: 560,
     title: 'Relic',
-    icon: ICON_PNG,
+    icon: WINDOW_ICON,
     backgroundColor: '#121211',
     autoHideMenuBar: true,
     show: false,
@@ -1891,6 +1950,9 @@ function openSettings() {
     },
   });
   hardenWebContents(settingsWin.webContents);
+  if (process.platform === 'win32' && typeof settingsWin.setIcon === 'function') {
+    try { settingsWin.setIcon(WINDOW_ICON); } catch {}
+  }
 
   settingsWin.setMenuBarVisibility(false);
   settingsWin.setAlwaysOnTop(true, 'screen-saver');
@@ -2013,6 +2075,9 @@ function openSettings() {
 
   settingsWin.on('closed', () => {
     settingsWin = null;
+    if (exampleActive && exampleUseRealConfig) {
+      stopExample();
+    }
   });
 
   return settingsWin;
@@ -2451,6 +2516,8 @@ function deactivateExample() {
   exampleMatch = null;
   exampleName = null;
   exampleClockMode = '3';
+  exampleUseRealConfig = false;
+  examplePreviewPhase = null;
   exampleToken += 1; // invalida cualquier "Ver test" que siga en vuelo
   intro = null;
   lastSent = '';
@@ -2468,7 +2535,7 @@ function deactivateExample() {
   broadcastExample();
 }
 
-async function startExample(rawQuery, clockMode = '3') {
+async function startExample(rawQuery, clockMode = '3', options = {}) {
   const token = ++exampleToken;
   const mode = normalizeClockMode(clockMode);
   const began = Date.now();
@@ -2481,6 +2548,8 @@ async function startExample(rawQuery, clockMode = '3') {
     // Se bloquea el estado en vivo ANTES de las consultas: mientras llega la
     // respuesta, los sockets siguen emitiendo y no deben pisar el panel.
     exampleActive = true;
+    exampleUseRealConfig = Boolean(options.useRealConfig);
+    examplePreviewPhase = options.previewPhase || null;
     exampleProfileId = resolved.profileId;
     exampleName = resolved.name;
     exampleClockMode = mode;
@@ -2502,6 +2571,7 @@ async function startExample(rawQuery, clockMode = '3') {
 
     exampleMatch = exampleMatchFrom(snapshot);
     exampleInfo = exampleInfoFrom(snapshot, resolved, mode, began);
+    if (examplePreviewPhase) snapshot.previewPhase = examplePreviewPhase;
 
     // Captura de pre-partida: el MISMO partido real, emitido como `lobby`.
     if (EXAMPLE_PHASE === 'lobby') {
@@ -2560,13 +2630,14 @@ async function startExample(rawQuery, clockMode = '3') {
 }
 
 /** Cambia 0:03 / 0:21 / en vivo sin volver a consultar ninguna API. */
-async function setExampleClock(clockMode) {
+async function setExampleClock(clockMode, options = {}) {
   if (!exampleActive || !exampleMatch) {
     return { ok: false, error: 'No hay ningún ejemplo activo.' };
   }
   const mode = normalizeClockMode(clockMode);
   exampleClockMode = mode;
   exampleFrozenAt = mode === 'live' ? null : Date.now();
+  if (options.previewPhase !== undefined) examplePreviewPhase = options.previewPhase;
 
   const snapshot = await buildExampleSnapshot({
     profileId: exampleProfileId,
@@ -2576,6 +2647,7 @@ async function setExampleClock(clockMode) {
     clockOffsetMs: EXAMPLE_CLOCK_OFFSETS[mode],
     match: exampleMatch,
   });
+  if (examplePreviewPhase) snapshot.previewPhase = examplePreviewPhase;
 
   // `startedAt` cambió ⇒ intro nueva. NO se limpia rivalSig: el partido y los
   // rivales son los mismos, así que el informe ya calculado se reaprovecha.
@@ -2587,6 +2659,7 @@ async function setExampleClock(clockMode) {
   }
   emit(snapshot);
   sendView(true);
+  sendBuildOrder();
   broadcastExample();
   log(`modo ejemplo · reloj ${clockModeLabel(mode)}${mode === 'live' ? ' (corre hasta 0:20)' : ' (congelado)'}`);
   return { ok: true, example: exampleStatus() };
@@ -2599,6 +2672,147 @@ function stopExample() {
   // Repinta el estado en vivo sin esperar al próximo tick del polling.
   poll().catch(() => {});
   return { ok: true, active: false };
+}
+
+async function getRecentMatchesList(limit = 10) {
+  if (!profileId) return [];
+  const stored = performanceStore.list(profileId);
+  let remote = [];
+  const cacheKey = `recent-matches:${profileId}`;
+  const cached = statsCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < 60 * 1000 && Array.isArray(cached.matches)) {
+    remote = cached.matches;
+  } else {
+    try {
+      remote = await fetchMatches(profileId, 15, 1, null, { priority: 'own' });
+      if (Array.isArray(remote) && remote.length) {
+        statsCache.set(cacheKey, { ts: Date.now(), matches: remote });
+      }
+    } catch (err) {
+      log(`historial reciente: ${err.message}`);
+    }
+  }
+  return mergeRecentMatches(remote, stored, profileId, limit);
+}
+
+const PREVIEW_AUTO_HIDE_MS = 20 * 1000;
+const PREVIEW_LOADING_CAP_MS = 60 * 1000;
+let previewAutoHideTimer = null;
+let previewWaitingForData = false;
+let previewCycleToken = 0;
+
+function clearPreviewAutoHide() {
+  if (previewAutoHideTimer) {
+    clearTimeout(previewAutoHideTimer);
+    previewAutoHideTimer = null;
+  }
+  previewWaitingForData = false;
+}
+
+function schedulePreviewAutoHide(delayMs = PREVIEW_AUTO_HIDE_MS) {
+  if (previewAutoHideTimer) clearTimeout(previewAutoHideTimer);
+  previewWaitingForData = false;
+  previewAutoHideTimer = setTimeout(() => {
+    previewAutoHideTimer = null;
+    if (exampleActive && exampleUseRealConfig) {
+      log('vista previa de toggles finalizada a los 20s');
+      stopExample();
+    }
+    if (postMatchReport && !postMatchOverlayDismissed && !(lastGood && lastGood.status === 'ongoing')) {
+      dismissPostMatch('fin de vista previa 20s');
+    }
+  }, delayMs);
+}
+
+/**
+ * Arranca la cuenta regresiva de 20s SOLO cuando ya terminó de cargar TODA la
+ * información de la vista previa (rivales, aperturas, consejos y H2H).
+ */
+function maybeArmPreviewAutoHide() {
+  if (!previewWaitingForData) return;
+  if (rivalFetching || scoutFetching || h2hFetching || smurfFetching) return;
+  log('vista previa cargada por completo: contando 20s para auto-ocultar');
+  schedulePreviewAutoHide(PREVIEW_AUTO_HIDE_MS);
+}
+
+/**
+ * Vista previa en vivo al activar/desactivar toggles en Ajustes: usa la última
+ * partida RM 1v1 real del jugador con sus opciones reales (`exampleUseRealConfig`).
+ * Los 20 segundos comienzan a contar recién cuando termina de cargar toda la info.
+ */
+async function triggerTogglePreview(phase = 'prematch') {
+  if (lastGood && lastGood.status === 'ongoing' && !lastGood.example) return;
+  if (!profileId) return;
+
+  const cycle = ++previewCycleToken;
+  clearPreviewAutoHide();
+  clearPostMatchHide();
+
+  if (phase === 'postmatch') {
+    if (exampleActive) deactivateExample();
+    let targetMatch = postMatchMatch || latestStoredMatch();
+    if (!targetMatch) {
+      const recent = await getRecentMatchesList(10);
+      const rm1v1 = recent.find((m) => m && m.is1v1 && m.rawMatch) || recent[0];
+      targetMatch = (rm1v1 && rm1v1.rawMatch) || null;
+    }
+    if (cycle !== previewCycleToken) return;
+    if (targetMatch) {
+      if (!postMatchReport || String(postMatchLastId) !== String(targetMatch.matchId)) {
+        await publishPostMatch(targetMatch, {
+          force: true,
+          persist: true,
+          profileId,
+          showOverlay: true,
+          autoHide: false,
+        });
+      } else {
+        postMatchOverlayDismissed = false;
+        broadcastPostMatch();
+      }
+      if (cycle !== previewCycleToken) return;
+      log('vista previa postmatch cargada: contando 20s para auto-ocultar');
+      schedulePreviewAutoHide(PREVIEW_AUTO_HIDE_MS);
+    }
+    return;
+  }
+
+  if (postMatchReport && !postMatchOverlayDismissed) {
+    dismissPostMatch('vista previa de toggles');
+  }
+
+  const clockMode = phase === 'durante' ? '21' : '3';
+  const needStart = !exampleActive || !exampleUseRealConfig || Number(exampleProfileId) !== Number(profileId);
+  exampleUseRealConfig = true;
+  examplePreviewPhase = phase;
+  previewWaitingForData = true;
+  // Tope defensivo por si una API externa se colgara indefinidamente
+  previewAutoHideTimer = setTimeout(() => {
+    previewAutoHideTimer = null;
+    previewWaitingForData = false;
+    if (exampleActive && exampleUseRealConfig) stopExample();
+  }, PREVIEW_LOADING_CAP_MS);
+
+  if (needStart) {
+    await startExample(String(profileId), clockMode, { useRealConfig: true, previewPhase: phase });
+  } else if (exampleClockMode !== clockMode) {
+    await setExampleClock(clockMode, { previewPhase: phase });
+  } else {
+    send('overlay:config', overlayConfig());
+    if (lastGood && lastGood.example) {
+      const updated = { ...lastGood, previewPhase: phase };
+      lastSent = '';
+      emit(updated);
+    }
+    syncIntro(lastGood, { force: true });
+    sendView(true);
+    sendBuildOrder();
+  }
+
+  if (cycle !== previewCycleToken) return;
+  await Promise.resolve();
+  if (cycle !== previewCycleToken) return;
+  maybeArmPreviewAutoHide();
 }
 
 function registerIpc() {
@@ -2635,6 +2849,7 @@ function registerIpc() {
     rivalH2H: Boolean(config.rivalH2H),
     civRecommender: Boolean(config.civRecommender),
     tgBalance: Boolean(config.tgBalance),
+    smurfDetector: Boolean(config.smurfDetector),
     autoUpdate: Boolean(config.autoUpdate),
     postMatch: config.postMatch !== false,
     postMatchComparison: Boolean(config.postMatchComparison),
@@ -2750,6 +2965,7 @@ function registerIpc() {
     persistConfig({ civHelp: enabled });
     send('overlay:config', overlayConfig());
     syncIntro(lastGood, { force: true });
+    triggerTogglePreview('prematch').catch(() => {});
     log(`ayuda de civ: ${enabled ? 'activada (0:01 → 0:20)' : 'desactivada'}`);
     return { ok: true, civHelp: enabled };
   });
@@ -2759,6 +2975,7 @@ function registerIpc() {
     persistConfig({ hideEloAt20: enabled });
     send('overlay:config', overlayConfig());
     syncIntro(lastGood, { force: true });
+    triggerTogglePreview('prematch').catch(() => {});
     log(`ocultar ELO al segundo ${hideAtMs(config) / 1000}: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, hideEloAt20: enabled };
   });
@@ -2804,6 +3021,7 @@ function registerIpc() {
       scoutSig = '';
       refreshScoutTips(lastGood, { force: true }).catch(() => {});
     }
+    triggerTogglePreview('prematch').catch(() => {});
     return { ok: true, key, enabled };
   });
 
@@ -2813,8 +3031,27 @@ function registerIpc() {
     const enabled = Boolean(raw);
     persistConfig({ tgBalance: enabled });
     send('overlay:config', overlayConfig());
+    triggerTogglePreview('prematch').catch(() => {});
     log(`balance de equipos: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, tgBalance: enabled };
+  });
+
+  ipcMain.handle('settings:smurfDetector', (_event, raw) => {
+    const enabled = Boolean(raw);
+    if (enabled && !productState().featureAccess.smurfDetector) {
+      return { ok: false, error: 'Disponible con Ultra.' };
+    }
+    persistConfig({ smurfDetector: enabled });
+    send('overlay:config', overlayConfig());
+    if (!enabled) {
+      clearSmurfReports();
+    } else if (lastGood && lastGood.status === 'ongoing') {
+      smurfSig = '';
+      refreshSmurfReports(lastGood, { force: true }).catch(() => {});
+    }
+    triggerTogglePreview('prematch').catch(() => {});
+    log(`smurf detector: ${enabled ? 'activado' : 'desactivado'}`);
+    return { ok: true, smurfDetector: enabled };
   });
 
   // "Resumen con F2": la vista compacta y SU atajo son opt-in. Apagado (por
@@ -2850,6 +3087,7 @@ function registerIpc() {
       persistConfig({ postMatchCompareMode: mode });
       send('overlay:config', overlayConfig());
       broadcastPostMatch();
+      triggerTogglePreview('postmatch').catch(() => {});
       log(`postmatch · modo de comparación: ${mode}`);
       return { ok: true, key, value: mode };
     }
@@ -2858,18 +3096,150 @@ function registerIpc() {
     }
     const enabled = Boolean(rawValue);
     if (enabled && !productState().featureAccess[key]) {
-      return { ok: false, error: 'Esa función está incluida en Pro.' };
+      return { ok: false, error: 'Disponible con Ultra.' };
     }
     persistConfig({ [key]: enabled });
     send('overlay:config', overlayConfig());
     broadcastPostMatch();
+    triggerTogglePreview('postmatch').catch(() => {});
     log(`postmatch · ${key}: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, key, enabled };
   });
 
-  ipcMain.handle('postmatch:get', () => {
+  ipcMain.handle('postmatch:get', async () => {
+    const recentMatches = await getRecentMatchesList(10);
+    if (!postMatchReport && recentMatches.length > 0 && productState().featureAccess.postMatch) {
+      const first = recentMatches[0];
+      if (first && first.rawMatch) {
+        const storedRec = performanceStore.list(profileId).find((r) => String(r.match?.matchId) === String(first.matchId));
+        postMatchLastId = String(first.matchId);
+        postMatchMatch = first.rawMatch;
+        postMatchOverlayDismissed = true;
+        postMatchReport = buildPostMatchReport({
+          match: first.rawMatch,
+          profileId,
+          records: performanceStore.list(profileId),
+          telemetry: storedRec ? storedRec.telemetry : null,
+          historyRows: [],
+          historyPending: false,
+          analysis: storedRec && storedRec.telemetry
+            ? { status: 'ready', label: 'Análisis listo', detail: 'El replay ya estaba analizado.' }
+            : { status: 'idle', label: 'Tocá la partida para analizar el replay', detail: '' },
+        });
+      }
+    }
     const payload = postMatchPayload() || { report: null, access: postMatchAccess() };
-    return { ok: true, ...payload, product: productState() };
+    return {
+      ok: true,
+      ...payload,
+      recentMatches,
+      selectedMatchId: postMatchLastId || (recentMatches[0] && recentMatches[0].matchId) || null,
+      product: productState(),
+    };
+  });
+
+  let hydratingCentralPid = null;
+  async function hydrateRecentReplaysForCentral(targetPid, candidates = []) {
+    const pid = Number(targetPid);
+    if (!pid || hydratingCentralPid === pid) return;
+    const existingWithTelemetry = performanceStore.list(pid).filter((r) => r && r.telemetry);
+    if (existingWithTelemetry.length >= 2) return;
+    const rm1v1Candidates = (Array.isArray(candidates) ? candidates : [])
+      .filter((m) => m && m.is1v1 && !m.hasTelemetry && m.rawMatch)
+      .slice(0, 2);
+    if (!rm1v1Candidates.length) return;
+    hydratingCentralPid = pid;
+    try {
+      let added = 0;
+      for (const item of rm1v1Candidates) {
+        if (Number(profileId) !== pid) break;
+        try {
+          const telemetry = await fetchReplayTelemetry(item.rawMatch, pid, {});
+          if (telemetry) {
+            performanceStore.recordMatch(item.rawMatch, pid, telemetry);
+            added += 1;
+          }
+        } catch (err) {
+          log(`central · replay #${item.matchId} no disponible: ${err.message}`);
+        }
+      }
+      if (added > 0 && settingsWin && !settingsWin.isDestroyed() && Number(profileId) === pid) {
+        const fresh = await fetchCentralDashboard({
+          profileId: pid,
+          alias: playerAlias,
+          cache: statsCache,
+          performanceStore,
+          force: false,
+          log,
+        });
+        settingsWin.webContents.send('central:update', fresh);
+      }
+    } finally {
+      if (hydratingCentralPid === pid) hydratingCentralPid = null;
+    }
+  }
+
+  ipcMain.handle('postmatch:select', async (_event, rawMatchId) => {
+    const targetId = String(rawMatchId || '').trim();
+    if (!targetId || !profileId) return { ok: false, error: 'Elegí una partida válida.' };
+    if (exampleActive) deactivateExample();
+    clearPreviewAutoHide();
+    const recentMatches = await getRecentMatchesList(15);
+    const found = recentMatches.find((m) => String(m.matchId) === targetId);
+    let targetMatch = found ? found.rawMatch : null;
+    if (!targetMatch) {
+      try {
+        targetMatch = await fetchMatchById(Number(targetId));
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    }
+    // Al revisar una partida anterior en la pestaña Postmatch, se carga
+    // exclusivamente inline abajo en Ajustes, sin abrir el overlay encima.
+    const report = await publishPostMatch(targetMatch, {
+      force: true,
+      persist: true,
+      profileId,
+      showOverlay: false,
+    });
+    if (!report) return { ok: false, error: 'No se pudo cargar el informe de esa partida.' };
+    const updatedMatches = await getRecentMatchesList(10);
+    return {
+      ok: true,
+      ...(postMatchPayload() || {}),
+      recentMatches: updatedMatches,
+      selectedMatchId: String(targetMatch.matchId),
+      overlayVisible: false,
+      product: productState(),
+    };
+  });
+
+  ipcMain.handle('postmatch:dismiss-overlay', () => {
+    dismissPostMatch('cerrado desde Central / Ajustes');
+    return { ok: true, overlayVisible: false };
+  });
+
+  ipcMain.handle('central:get', async (_event, rawOptions) => {
+    const opts = (rawOptions && typeof rawOptions === 'object')
+      ? rawOptions
+      : { force: Boolean(rawOptions) };
+    const targetPid = Number(opts.profileId) > 0 ? Number(opts.profileId) : Number(profileId);
+    const isOwn = Number.isFinite(targetPid) && targetPid === Number(profileId);
+    const data = await fetchCentralDashboard({
+      profileId: targetPid,
+      alias: opts.alias || (isOwn ? playerAlias : null),
+      cache: statsCache,
+      performanceStore: isOwn ? performanceStore : null,
+      diskCachePath: isOwn ? CENTRAL_CACHE_PATH : null,
+      force: Boolean(opts.force),
+      isOwnProfile: isOwn,
+      ownProfileId: profileId ? Number(profileId) : null,
+      log,
+    });
+    if (isOwn && data && data.ok && Array.isArray(data.recentMatches)) {
+      hydrateRecentReplaysForCentral(profileId, data.recentMatches).catch(() => {});
+    }
+    return data;
   });
 
   ipcMain.handle('settings:tactics-get', () => {
@@ -2881,12 +3251,13 @@ function registerIpc() {
 
   ipcMain.handle('settings:build-order-get', () => buildOrderPayload());
   ipcMain.handle('settings:smart-build-order', (_event, raw) => {
-    if (lastGood?.status === 'ongoing') return { ok: false, error: 'Configurá Smart Build Order antes de buscar partida.' };
-    if (!productState().featureAccess.smartBuildOrder) return { ok: false, error: 'Disponible con ProMax.' };
+    if (lastGood?.status === 'ongoing' && !lastGood?.example) return { ok: false, error: 'Configurá Smart Build Order antes de buscar partida.' };
+    if (!productState().featureAccess.smartBuildOrder) return { ok: false, error: 'Disponible con Ultra.' };
     const enabled = Boolean(raw);
     persistConfig({ smartBuildOrder: enabled });
     send('overlay:config', overlayConfig());
     sendBuildOrder();
+    triggerTogglePreview('durante').catch(() => {});
     return { ok: true, enabled };
   });
 
@@ -2895,9 +3266,21 @@ function registerIpc() {
     if (!match) {
       return { ok: false, error: 'Todavía no hay una partida terminada para analizar.' };
     }
-    const report = await publishPostMatch(match, { force: true, refreshReplay: true });
+    const report = await publishPostMatch(match, {
+      force: true,
+      refreshReplay: true,
+      showOverlay: false,
+    });
     if (!report) return { ok: false, error: 'No se pudo reconstruir el informe.' };
-    return { ok: true, ...(postMatchPayload() || {}), product: productState() };
+    const recentMatches = await getRecentMatchesList(10);
+    return {
+      ok: true,
+      ...(postMatchPayload() || {}),
+      recentMatches,
+      selectedMatchId: String(match.matchId),
+      overlayVisible: false,
+      product: productState(),
+    };
   });
 
   // Importación opcional de métricas adicionales ya normalizadas. El parser
@@ -2947,6 +3330,7 @@ function registerIpc() {
       const report = await publishPostMatch(match, {
         force: true,
         telemetry: normalized.data,
+        showOverlay: false,
       });
       if (!report) return { ok: false, error: 'No se pudo guardar la telemetría.' };
       return {
@@ -3101,6 +3485,7 @@ function registerIpc() {
     syncReviewInteraction();
     // Y también el informe del rival que ya estaba calculado.
     if (rivalReports) send('overlay:rival', projectRivalPayload(rivalReports, productState()));
+    if (smurfReports) send('overlay:smurf', smurfReports);
     // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
     if (scoutPayload) send('overlay:scout', projectScoutPayload(scoutPayload, productState()));
     sendBuildOrder();
@@ -3317,8 +3702,8 @@ function clearPostMatchHide() {
 }
 
 /**
- * Solo el informe abierto necesita mouse. El resto del tiempo la ventana sigue
- * siendo click-through y no le roba clicks al juego.
+ * El overlay nunca captura clicks ni roba foco al juego (excepto en modo mover).
+ * Todo se oculta automáticamente por temporizador o al comenzar otra partida.
  */
 function syncReviewInteraction() {
   if (!win || win.isDestroyed() || moving) return;
@@ -3399,9 +3784,11 @@ async function publishPostMatch(match, options = {}) {
     (example ? Number(exampleProfileId) === targetProfileId : Number(profileId) === targetProfileId);
   postMatchLastId = id;
   postMatchMatch = match;
-  // Un resultado nuevo vuelve a abrir el informe, aunque el anterior se haya
-  // cerrado a mano o por tiempo.
-  postMatchOverlayDismissed = false;
+  // Por defecto (partida terminada en vivo) se abre en el overlay. Al revisar
+  // partidas pasadas desde Ajustes (`showOverlay: false`), permanece inline.
+  const showOverlay = options.showOverlay !== false;
+  const allowAutoHide = showOverlay && options.autoHide !== false;
+  postMatchOverlayDismissed = !showOverlay;
   clearPostMatchHide();
 
   let telemetry = options.telemetry || (saved && saved.telemetry) || null;
@@ -3444,7 +3831,9 @@ async function publishPostMatch(match, options = {}) {
     paint();
   }) : Promise.resolve();
   paint();
-  schedulePostMatchHide(fetchingReplay ? POSTMATCH_LOADING_MAX_MS : POSTMATCH_AUTO_HIDE_MS);
+  if (allowAutoHide) {
+    schedulePostMatchHide(fetchingReplay ? POSTMATCH_LOADING_MAX_MS : POSTMATCH_AUTO_HIDE_MS);
+  }
 
   let error = null;
   if (fetchingReplay) {
@@ -3471,7 +3860,7 @@ async function publishPostMatch(match, options = {}) {
     performanceStore.recordMatch(match, targetProfileId, telemetry);
   }
   paint();
-  if (fetchingReplay) schedulePostMatchHide();
+  if (allowAutoHide && fetchingReplay) schedulePostMatchHide();
   await historyPromise;
   if (!isCurrent()) return null;
   const result = postMatchReport && postMatchReport.result;
@@ -3531,6 +3920,8 @@ function emit(state) {
   refreshScoutTips(state).catch(() => {});
   // El head-to-head es otro cálculo en segundo plano, sobre MI historial.
   refreshH2H(state).catch(() => {});
+  // Smurf Detector (Ultra): cruza cuentas vinculadas, WR, pico y eAPM en paralelo.
+  refreshSmurfReports(state).catch(() => {});
   return true;
 }
 
