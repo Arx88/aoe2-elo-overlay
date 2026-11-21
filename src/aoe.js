@@ -132,8 +132,13 @@ async function fetchMatches(profileId, perPage = 20, page = 1, ladder = null, op
 }
 
 async function fetchLatestMatch(profileId) {
-  const [match] = await fetchMatches(profileId, 1);
-  return match || null;
+  const url =
+    `${COMPANION_BASE}/api/matches?profile_ids=${encodeURIComponent(profileId)}` +
+    '&use_enums=true&page=1&per_page=3';
+  const data = await getJson(url);
+  const rawList = Array.isArray(data) ? data : (data && data.matches) || [];
+  const list = rawList.map(normalizeMatch);
+  return list.find((m) => m && m.ongoing) || list[0] || null;
 }
 
 /**

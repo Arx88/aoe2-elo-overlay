@@ -28,7 +28,9 @@ const {
   historyCutoff,
   hideLobbyCivs,
 } = require('./src/aoe');
-const { detectProfile } = require('./src/detect');
+const { detectProfile, getActiveSteamId, resolveSteamId } = require('./src/detect');
+let lastActiveSteamId = null;
+let lastSteamCheckAt = 0;
 const { CIV_SLUGS, CIV_ALIASES, civSlug } = require('./src/civs');
 const { CIV_GUIDE } = require('./src/civ-guide');
 const {
@@ -3757,6 +3759,27 @@ async function poll() {
     // Partida terminada (o nunca empezó): el carril rápido vuelve a sondear,
     // por si el jugador se pone en cola otra vez. Es idempotente.
     if (snapshot.status === 'idle' && fastLane) fastLane.resume();
+
+    // Si el perfil está en modo automático y el usuario cambió de cuenta en Steam
+    // con Relic abierto en segundo plano, cambiamos de perfil automáticamente.
+    if (snapshot.status === 'idle' && !config.profileId && Date.now() - lastSteamCheckAt >= 12000) {
+      lastSteamCheckAt = Date.now();
+      const activeSteam = getActiveSteamId();
+      if (activeSteam && activeSteam.steamId && activeSteam.steamId !== lastActiveSteamId) {
+        const previousSteam = lastActiveSteamId;
+        lastActiveSteamId = activeSteam.steamId;
+        if (previousSteam) {
+          resolveSteamId(activeSteam.steamId)
+            .then((found) => {
+              if (found && found.profileId && Number(found.profileId) !== Number(profileId)) {
+                log(`cambio de cuenta Steam detectado en vivo: ${found.alias || activeSteam.steamId} (${found.profileId})`);
+                setRuntimeProfile(found.profileId, found.alias);
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    }
 
     // La firma se calcula sin checkedAt: si nada cambió, no se repinta ni se loguea.
     if (emit(snapshot)) {

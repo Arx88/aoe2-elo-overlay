@@ -1,3 +1,10 @@
+## v2.5.9 · Prioridad directa de partida en curso y cambio automático de Steam en vivo
+
+- **Consulta de partida en curso sin cola de espera:** `fetchLatestMatch` ahora consulta directamente sin pasar por el planificador de historial en segundo plano y revisa las 3 partidas más recientes para que ninguna partida activa quede bloqueada por descargas de historial o salas previas.
+- **Cambio automático de cuenta de Steam en segundo plano:** si cambiás de cuenta en Steam con Relic abierto en la bandeja, el perfil activo se actualiza solo sin siquiera tener que abrir Ajustes.
+
+---
+
 ## v2.5.8 · Endurecimiento de detección de partida en vivo
 
 - **Inmunidad a desfase de reloj de Windows:** la validación de partida en curso ahora calibra la hora contra el encabezado `Date` del servidor, evitando que un reloj de PC desincronizado ignore la partida.
