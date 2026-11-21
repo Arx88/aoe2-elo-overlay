@@ -1,3 +1,10 @@
+## v2.5.7 · Licencia compartida en la misma PC y ajuste visual del logotipo
+
+- **Licencia por PC (1 activación simultánea):** si tu PC ya tiene un plan activo, podés cambiar a cualquier cuenta de Steam/AoE2 en esa misma computadora sin bajar a Free.
+- **Proporción más equilibrada del logotipo:** se ajustó un 10% el tamaño del logo de Relic en la barra lateral izquierda del Centro de mando.
+
+---
+
 ## v2.5.6 · Detección real de la cuenta activa de Steam
 
 - **Cambio de cuenta de Steam instantáneo:** al tocar **Detectar cuenta** (o al iniciar), Relic ahora lee directamente la sesión activa real de Steam en Windows (`ActiveUser` y `loginusers.vdf`) en lugar de quedarse pegado a la cuenta anterior que tuvo la última partida registrada. Funciona incluso con cuentas secundarias recién iniciadas.
