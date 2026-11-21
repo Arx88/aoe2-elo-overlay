@@ -574,6 +574,20 @@
   function reportIcon(name) {
     return icon(REPORT_ICON_ALIASES[name] || name) || icon('medal');
   }
+  const POSTMATCH_EMBLEMS = {
+    combat: 'combat', sword: 'combat', shield: 'defense', matchup: 'army',
+    castle: 'castle', building: 'castle', food: 'farms', wood: 'upgrades',
+    blacksmith: 'upgrades', resources: 'economy', villager: 'economy', market: 'market',
+    clock: 'tempo', age: 'tempo', trophy: 'record', crown: 'record', medal: 'record',
+    opening: 'opening', map: 'map', relic: 'relics', scout: 'cavalry',
+    trend: 'activity', focus: 'map', target: 'map', navy: 'navy',
+  };
+  function postmatchEmblem(name) {
+    const file = Object.hasOwn(POSTMATCH_EMBLEMS, name) ? POSTMATCH_EMBLEMS[name] : null;
+    return file
+      ? `<img class="pm-emblem" src="assets/icons/postmatch/${file}.webp" width="24" height="24" alt="" draggable="false"/>`
+      : reportIcon(name);
+  }
   function renderEnginePostMatch(report, access) {
     const c = report.context || {}, result = report.result || {}, eng = report.engine || {};
     const self = eng.self || {}, rival = eng.rival || null;
@@ -610,7 +624,7 @@
     // Banner protagonista de celebración arriba (Reto cumplido / Récord personal)
     const trophyBanner = (chal && chal.status === 'completed')
       ? `<section class="pm-trophy-banner is-win" aria-label="Reto cumplido">
-          <span class="pm-icon-tile is-emerald">${reportIcon('trophy')}</span>
+          <span class="pm-icon-tile is-emerald">${postmatchEmblem('trophy')}</span>
           <div class="pm-trophy-copy">
             <span class="pm-trophy-pill">${esc(tr('postmatch.challengeDone', '★ RETO CUMPLIDO'))}</span>
             <b>${esc(chal.detail)}</b>
@@ -619,7 +633,7 @@
         </section>`
       : heroLine
         ? `<section class="pm-trophy-banner is-record" aria-label="Récord personal">
-            <span class="pm-icon-tile is-gold">${reportIcon('trophy')}</span>
+            <span class="pm-icon-tile is-gold">${postmatchEmblem('trophy')}</span>
             <div class="pm-trophy-copy">
               <span class="pm-trophy-pill">${esc(tr('postmatch.personalBest', '★ DESTACADO PERSONAL'))}</span>
               <b>${esc(heroLine)}</b>
@@ -627,7 +641,7 @@
           </section>`
         : (chal && chal.status === 'pending')
           ? `<section class="pm-trophy-banner is-pending" aria-label="Reto activo">
-              <span class="pm-icon-tile is-gold">${reportIcon('target')}</span>
+              <span class="pm-icon-tile is-gold">${postmatchEmblem('target')}</span>
               <div class="pm-trophy-copy">
                 <span class="pm-trophy-pill">${esc(tr('postmatch.challengeActive', 'RETO EN CURSO'))}</span>
                 <b>${esc(chal.detail)}</b>
@@ -636,7 +650,7 @@
           : '';
     const focusObj = eng.narrative?.focus || eng.focus;
     const focusShort = focusObj
-      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('focus')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(focusObj.title)}</b><p>${esc(focusObj.detail)}</p></div></div>` : '';
+      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${postmatchEmblem('focus')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(focusObj.title)}</b><p>${esc(focusObj.detail)}</p></div></div>` : '';
 
     // 1. Spotlight horizontal de Apertura detectada + nota S–D + consejo concreto
     const stageDeltas = evo?.stageDeltas || {};
@@ -715,17 +729,14 @@
     const medalCards = medalsList.length
       ? medalsList.map((m) => {
         const isGold = m.tier === 'gold';
-        const tagText = m.tag || (isGold ? tr('postmatch.goldTag', '★ DESTACADO') : tr('postmatch.achieveTag', '▲ LO QUE HICISTE BIEN'));
+        const tagText = m.tag === 'DESTACADO DE ORO' || m.tag === 'LOGRO DE PARTIDA' ? '' : (m.tag || '');
         const badgeName = m.badgeName && m.badgeName !== m.title ? `<span class="pm-medal-name">${esc(m.badgeName)}</span>` : '';
         const metricChip = m.metric ? `<strong class="pm-medal-metric">${esc(m.metric)}</strong>` : '';
         const deltaChip = m.delta ? `<small class="pm-medal-delta">${esc(m.delta)}</small>` : '';
         return `<article class="pm-medal-card ${isGold ? 'is-gold' : 'is-green'}">
-          <span class="pm-icon-tile ${isGold ? 'is-gold' : 'is-emerald'} sm">${reportIcon(m.icon || 'medal')}</span>
+          <span class="pm-icon-tile ${isGold ? 'is-gold' : 'is-emerald'} sm">${postmatchEmblem(m.domain === 'macro_tc' ? 'clock' : (m.icon || 'medal'))}</span>
           <div class="pm-medal-body">
-            <div class="pm-medal-kicker">
-              <span class="pm-medal-tag">${esc(tagText)}</span>
-              ${badgeName}
-            </div>
+            ${tagText || badgeName ? `<div class="pm-medal-kicker">${tagText ? `<span class="pm-medal-tag">${esc(tagText)}</span>` : ''}${badgeName}</div>` : ''}
             <b>${esc(m.title)}</b>
             ${m.detail ? `<p>${esc(m.detail)}</p>` : ''}
           </div>
@@ -738,11 +749,12 @@
       ? issuesList.map((n) => {
         const metricChip = n.metric ? `<strong class="pm-issue-metric">${esc(n.metric)}</strong>` : '';
         return `<article class="pm-issue-card">
-          <span class="pm-icon-tile is-rose sm">${reportIcon(n.icon || 'target')}</span>
+          <span class="pm-icon-tile is-rose sm">${postmatchEmblem(n.icon || 'target')}</span>
           <div class="pm-issue-body">
-            <div class="pm-issue-top"><b>${esc(n.title)}</b>${metricChip}</div>
+            <div class="pm-issue-top"><b>${esc(n.title)}</b></div>
             ${n.detail ? `<p>${esc(n.detail)}</p>` : ''}
           </div>
+          ${metricChip ? `<div class="pm-medal-stat">${metricChip}</div>` : ''}
         </article>`;
       }).join('')
       : `<div class="pm-issue-clean">${reportIcon('shield')}<span>${esc(tr('postmatch.noCriticalIssues', 'Sin cuellos de botella críticos detectados en esta partida.'))}</span></div>`;

@@ -89,3 +89,154 @@ body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"])
   :is(#postMatch, #postMatchReport) .pm-duel-nums > span { font-size: 9px; }
   :is(#postMatch, #postMatchReport) .pm-queue-head { flex-wrap: wrap; gap: 2px 8px; }
 }
+
+.pm-v2 > .pm-head {
+  isolation: isolate;
+  position: relative;
+  overflow: hidden;
+  min-height: 88px;
+  padding: 15px 18px;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+  background: color-mix(in srgb, var(--text) 5%, var(--panel-bg));
+}
+
+#stage #postMatch .pm-v2 > .pm-head::after,
+#postMatchReport .pm-v2 > .pm-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .82;
+  background: linear-gradient(90deg, transparent 70%, rgb(12 16 20 / .61)),
+    url("assets/art/postmatch-v3-cabecera.webp") right 51% / cover no-repeat;
+  mask-image: linear-gradient(to right, transparent 18%, #000 70%);
+  pointer-events: none;
+}
+
+body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"])
+:is(#stage #postMatch, #postMatchReport) .pm-v2 > .pm-head::after { opacity: .14; }
+
+@media (prefers-contrast: more) {
+  :is(#stage #postMatch, #postMatchReport) .pm-v2 > .pm-head::after { opacity: .19; }
+}
+
+.pm-icon-tile:has(.pm-emblem) {
+  width: 38px;
+  height: 38px;
+  background: color-mix(in srgb, var(--pm-accent) 12%, #141b1f);
+  border-color: color-mix(in srgb, var(--pm-accent) 28%, transparent);
+}
+
+.pm-v2 .pm-icon-tile > .pm-emblem {
+  width: 27px;
+  height: 27px;
+  display: block;
+}
+
+.pm-v2 .pm-trophy-banner .pm-icon-tile:has(.pm-emblem) {
+  width: 41px;
+  height: 41px;
+}
+
+/* Launcher stays dark when a light theme is selected for the in-game overlay. */
+body:is([data-theme="claro"], [data-theme="pergamino"]) #postMatchReport .pm-v2 {
+  --pm-positive: #a7c6ae;
+  --pm-negative: #d8a298;
+  --pm-caution: #d6b685;
+}
+
+body:is([data-theme="claro"], [data-theme="pergamino"])
+#postMatchReport .pm-opening-bar .pm-grade-stamp.grade-S {
+  background: #302d24;
+}
+
+#postMatch .pm-narrative-grid { grid-template-columns: minmax(0, 1.16fr) minmax(0, 1fr); }
+@media (max-width: 750px) {
+  #postMatch .pm-narrative-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+:is(#postMatch, #postMatchReport) .pm-v2 .pm-narrative-grid {
+  align-items: start;
+  container-type: inline-size;
+}
+
+:is(#postMatch, #postMatchReport) .pm-v2 .pm-zone {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.pm-v2 .pm-zone-head {
+  min-height: 39px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.pm-v2 .pm-zone.is-good .pm-zone-head {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pm-positive) 10%, #151b1e) 18%, #151b1e35),
+    url("assets/art/postmatch-v3-destacados.webp") right 52% / cover;
+}
+.pm-v2 .pm-zone.is-bad .pm-zone-head {
+  background: color-mix(in srgb, var(--pm-negative) 8%, transparent);
+}
+.pm-v2 .pm-zone-head h3 { font-size: 14px; letter-spacing: normal; text-transform: none; }
+.pm-v2 .pm-zone-head small { font-size: 11px; }
+
+:is(#postMatch, #postMatchReport) .pm-v2 :is(.pm-medal-card,.pm-issue-card) {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) minmax(0, min(112px, 26%));
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+:is(#postMatch, #postMatchReport) .pm-v2 .pm-medal-card.is-gold {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pm-accent) 12%, transparent), color-mix(in srgb, var(--text) 4.5%, transparent));
+}
+:is(#postMatch, #postMatchReport) .pm-v2 .pm-issue-card {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pm-negative) 8%, transparent), color-mix(in srgb, var(--text) 4%, transparent));
+}
+.pm-v2 :is(.pm-medal-body > b,.pm-issue-top > b) { font-size: 14px; }
+.pm-v2 :is(.pm-medal-body > p,.pm-issue-body > p) { color: var(--pm-rival); font-size: 12px; line-height: 1.4; }
+.pm-v2 .pm-medal-kicker { margin-bottom: 4px; }
+.pm-v2 .pm-medal-name {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 11px;
+  letter-spacing: .02em;
+}
+.pm-v2 .pm-medal-stat { justify-self: end; align-self: center; }
+.pm-v2 :is(.pm-medal-metric, .pm-issue-metric) {
+  padding: 0;
+  background: none;
+  font-size: 17px;
+  line-height: 1.14;
+  white-space: normal;
+}
+.pm-v2 .pm-medal-delta { font-size: 11px; white-space: normal; }
+
+.pm-v2 .pm-focus > .pm-icon-tile,
+.pm-v2 :is(.pm-medal-card,.pm-issue-card) > .pm-icon-tile {
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.pm-v2 .pm-focus > .pm-icon-tile { align-self: center; }
+.pm-v2 .pm-focus > .pm-icon-tile > .pm-emblem {
+  object-fit: contain;
+  object-position: center;
+  margin: 0;
+}
+
+@container (max-width: 440px) {
+  :is(#postMatch, #postMatchReport) .pm-v2 :is(.pm-medal-card,.pm-issue-card) {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .pm-v2 .pm-medal-stat { grid-column: 2; justify-self: start; text-align: left; align-items: start; }
+}

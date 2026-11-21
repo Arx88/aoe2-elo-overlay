@@ -227,10 +227,12 @@ body:has(.nav-item[data-page="central"].active) .pages { padding-top: 13px; }
   pointer-events: none;
 }
 .page[data-page="central"] .cx-chart-head {
-  --central-section-art: url("assets/art/central-elo.webp");
+  --central-section-art: url("assets/art/central-archivo.webp");
 }
 .page[data-page="central"] .cx-chart-head::before {
   background-image: linear-gradient(0deg, #141c21, transparent 78%), var(--central-section-art);
+  background-position: right 65%;
+  opacity: .79;
 }
 .page[data-page="central"] .cx-civs-card { --central-section-art: url("assets/art/central-civs.webp"); }
 .page[data-page="central"] .cx-maps-card { --central-section-art: url("assets/art/central-mapas.webp"); }

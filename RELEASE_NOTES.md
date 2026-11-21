@@ -1,3 +1,11 @@
+## v2.7.1 · Mejoras visuales en Postmatch y Central
+
+- **Postmatch:** cifras más visibles y su evidencia al lado en «Lo que hiciste bien» y «Lo que te costó».
+- **Arte de Postmatch:** cabecera ilustrada, emblemas propios por tipo de logro e icono centrado en «Próxima partida».
+- **Central:** ilustración cartográfica en la cabecera de Evolución de ELO, con la gráfica despejada.
+
+---
+
 ## v2.7.0 · Postmatch v3 con 40+ destacados, Feedback integrado, detección en vivo blindada y adaptación DPI
 
 - **Postmatch v3 en 3 zonas con lectura en 3 segundos:** resumen narrativo con barra de veredicto y rachas, zona verde/oro (*Lo que hiciste bien y mejoraste* con hasta 3 medallas de dominios distintos), zona roja sutil (*Lo que te costó*) y una única misión clara para la próxima partida, dejando el análisis técnico organizado en pestañas (*Evolución y Curva*, *Duelo vs Rival* y *Mejoras, Colas y Combate*).
