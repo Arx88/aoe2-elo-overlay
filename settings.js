@@ -66,6 +66,7 @@ const RIVAL_LABELS = {
 };
 const tgBalanceInput = el('tgBalance');
 const smurfDetectorInput = el('smurfDetector');
+const hideWhenMinimizedInput = el('hideWhenMinimized');
 // "Resumen con F2": vista resumida del scouting con su atajo. Apagada de
 // fábrica: sin permiso explícito no se captura una tecla global y el
 // informe se ve completo.
@@ -95,6 +96,10 @@ const goToCentralBtn = el('goToCentralBtn');
 const tacticalReportEl = el('tacticalReport');
 const smartBuildOrderInput = el('smartBuildOrder');
 const buildOrderReportEl = el('buildOrderReport');
+const railPlanBtn = el('railPlan');
+const railPlanIcon = el('railPlanIcon');
+const railPlanKicker = el('railPlanKicker');
+const railPlanGlyph = el('railPlanGlyph');
 const railPlanLabel = el('railPlanLabel');
 const planName = el('planName');
 const planDescription = el('planDescription');
@@ -234,6 +239,24 @@ function renderProduct(product) {
         : t('plans.free', 'Free');
   railPlanLabel.textContent = planLabel;
   planName.textContent = planLabel;
+  const railTier = (product.plan === 'promax' || product.plan === 'beta') ? 'ultra'
+    : product.plan === 'pro' ? 'pro' : 'free';
+  if (railPlanBtn) railPlanBtn.dataset.tier = railTier;
+  if (railPlanIcon) {
+    railPlanIcon.src = railTier === 'ultra'
+      ? 'assets/icons/crown.png'
+      : railTier === 'pro'
+        ? 'assets/icons/medal.png'
+        : 'assets/icons/shield.png';
+  }
+  if (railPlanKicker) {
+    railPlanKicker.textContent = railTier === 'free'
+      ? t('plans.kickerFree', 'Plan actual')
+      : t('plans.kickerActive', 'Plan activo');
+  }
+  if (railPlanGlyph) {
+    railPlanGlyph.textContent = railTier === 'ultra' ? '✦' : railTier === 'pro' ? '◆' : '→';
+  }
   if (product.accessSource === 'access-key') {
     planDescription.textContent = t('plansPage.descKey', 'Acceso de prueba Ultra por clave. No es una suscripción.');
   } else if (product.plan === 'pro' || product.plan === 'promax') {
@@ -426,6 +449,29 @@ function paintPostMatch(payload) {
   }
   postMatchReportEl.innerHTML = TacticalUI.renderPostMatch(report, postMatchAccess);
   applyDataWidths(postMatchReportEl);
+  bindPostMatchTabs(postMatchReportEl);
+}
+
+function bindPostMatchTabs(container) {
+  if (!container) return;
+  const tabs = [...container.querySelectorAll('[data-pm-tab]')];
+  const panes = [...container.querySelectorAll('[data-pm-pane]')];
+  if (!tabs.length || !panes.length) return;
+  tabs.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.pmTab;
+      if (!target) return;
+      tabs.forEach((b) => {
+        const on = b.dataset.pmTab === target;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-selected', String(on));
+      });
+      panes.forEach((pane) => {
+        pane.classList.toggle('is-active', pane.dataset.pmPane === target);
+      });
+      applyDataWidths(container);
+    });
+  });
 }
 
 async function loadPostMatch() {
@@ -1046,6 +1092,13 @@ tgBalanceInput.addEventListener('change', () =>
 smurfDetectorInput?.addEventListener('change', () =>
   applyToggle(smurfDetectorInput, (on) => window.settings.smurfDetector(on), 'Smurf Detector'),
 );
+hideWhenMinimizedInput?.addEventListener('change', () =>
+  applyToggle(
+    hideWhenMinimizedInput,
+    (on) => window.settings.hideWhenMinimized(on),
+    t('skins.hideMinimizedTitle', 'Ocultar si AoE2 está minimizado'),
+  ),
+);
 
 // Resumen con F2: el atajo y la vista compacta son opt-in. Al apagarlo se
 // libera la tecla (deja de ser global) y el panel vuelve al informe completo.
@@ -1304,6 +1357,7 @@ async function loadCurrent() {
   scoutF2Input.checked = Boolean(info.scoutF2);
   tgBalanceInput.checked = Boolean(info.tgBalance);
   if (smurfDetectorInput) smurfDetectorInput.checked = Boolean(info.smurfDetector);
+  if (hideWhenMinimizedInput) hideWhenMinimizedInput.checked = Boolean(info.hideWhenMinimized);
   postMatchInput.checked = info.postMatch !== false;
   postMatchComparisonInput.checked = Boolean(info.postMatchComparison);
   if (postMatchCompareModeInput) {
@@ -1814,6 +1868,103 @@ el('prefsPlanBtn')?.addEventListener('click', () => {
   setPrefsPopover(false);
   goTo('plans');
 });
+
+/* ============ FEEDBACK MODAL (GEAR POPOVER -> ADMIN APP) ============ */
+let feedbackCategory = 'suggestion';
+let feedbackBusy = false;
+
+function openFeedbackModal() {
+  const modal = el('feedbackModal');
+  if (!modal) return;
+  setPrefsPopover(false);
+  const statusEl = el('feedbackStatus');
+  if (statusEl) {
+    statusEl.textContent = '';
+    statusEl.classList.remove('is-error');
+  }
+  modal.hidden = false;
+  el('feedbackMessage')?.focus();
+}
+
+function closeFeedbackModal() {
+  const modal = el('feedbackModal');
+  if (modal) modal.hidden = true;
+}
+
+el('prefsFeedbackBtn')?.addEventListener('click', openFeedbackModal);
+el('feedbackCloseBtn')?.addEventListener('click', closeFeedbackModal);
+el('feedbackCancelBtn')?.addEventListener('click', closeFeedbackModal);
+el('feedbackModal')?.addEventListener('click', (event) => {
+  if (event.target === el('feedbackModal')) closeFeedbackModal();
+});
+document.querySelectorAll('.fb-cat').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    feedbackCategory = btn.dataset.fbCat || 'suggestion';
+    document.querySelectorAll('.fb-cat').forEach((b) => {
+      const active = b === btn;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-checked', String(active));
+    });
+  });
+});
+el('feedbackMessage')?.addEventListener('input', () => {
+  const len = (el('feedbackMessage')?.value || '').length;
+  const counter = el('feedbackCount');
+  if (counter) counter.textContent = `${len} / 1200`;
+});
+el('feedbackForm')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (feedbackBusy || !window.settings?.submitFeedback) return;
+  const msgEl = el('feedbackMessage');
+  const contactEl = el('feedbackContact');
+  const statusEl = el('feedbackStatus');
+  const submitBtn = el('feedbackSubmitBtn');
+  const message = (msgEl?.value || '').trim();
+  if (message.length < 5) {
+    if (statusEl) {
+      statusEl.textContent = t('feedback.tooShort', 'Escribí al menos 5 caracteres.');
+      statusEl.classList.add('is-error');
+    }
+    msgEl?.focus();
+    return;
+  }
+  feedbackBusy = true;
+  if (submitBtn) submitBtn.disabled = true;
+  if (statusEl) {
+    statusEl.textContent = t('feedback.sending', 'Enviando feedback…');
+    statusEl.classList.remove('is-error');
+  }
+  try {
+    const res = await window.settings.submitFeedback({
+      category: feedbackCategory,
+      message,
+      contact: (contactEl?.value || '').trim(),
+    });
+    if (!res || !res.ok) {
+      if (statusEl) {
+        statusEl.textContent = (res && res.error) || t('feedback.error', 'No se pudo enviar el feedback.');
+        statusEl.classList.add('is-error');
+      }
+      return;
+    }
+    if (msgEl) msgEl.value = '';
+    if (el('feedbackCount')) el('feedbackCount').textContent = '0 / 1200';
+    if (statusEl) {
+      statusEl.textContent = t('feedback.sent', '¡Gracias! Tu feedback fue enviado correctamente.');
+      statusEl.classList.remove('is-error');
+    }
+    setStatus(t('feedback.sent', '¡Gracias! Tu feedback fue enviado correctamente.'));
+    setTimeout(() => closeFeedbackModal(), 1300);
+  } catch (err) {
+    if (statusEl) {
+      statusEl.textContent = (err && err.message) || t('feedback.error', 'No se pudo enviar el feedback.');
+      statusEl.classList.add('is-error');
+    }
+  } finally {
+    feedbackBusy = false;
+    if (submitBtn) submitBtn.disabled = false;
+  }
+});
 function paintSoundToggle() {
   const btn = el('prefsSoundBtn');
   if (!btn || typeof UiSfx !== 'object') return;
@@ -1853,7 +2004,10 @@ document.addEventListener('click', (event) => {
   }
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') setPrefsPopover(false);
+  if (event.key === 'Escape') {
+    setPrefsPopover(false);
+    closeFeedbackModal();
+  }
 });
 
 function syncWizardAccount(info) {

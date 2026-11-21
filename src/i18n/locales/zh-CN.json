@@ -304,7 +304,10 @@
     "posMovingHint": "将浮窗拖到任意位置，然后点击“完成”或按 Esc。",
     "posSaved": "位置已保存：浮窗将固定在该处。",
     "themeStatus": "主题：{name}",
-    "opacityStatus": "不透明度：{pct}%"
+    "opacityStatus": "不透明度：{pct}%",
+    "visibilityGroup": "自动显示控制",
+    "hideMinimizedTitle": "AoE2 最小化时隐藏",
+    "hideMinimizedDesc": "当《帝国时代 II》最小化超过 5 秒时自动隐藏悬浮窗，恢复窗口后重新显示"
   },
   "updater": {
     "installed": "当前版本",
@@ -398,7 +401,8 @@
     "anaReplays": "正在分析录像…",
     "anaTips": "正在分析对手录像…",
     "updateReady": "更新 v{ver} 已就绪 · 退出时自动安装",
-    "updateAvail": "发现新版本 v{ver} · 请在设置中打开“检查更新”"
+    "updateAvail": "发现新版本 v{ver} · 请在设置中打开“检查更新”",
+    "previewHighlightPrefix": "预览 · 已开启"
   },
   "plans": {
     "badgeConfig": "设置",
@@ -632,5 +636,26 @@
     "noDataYet": "暂无足够数据。",
     "recentEyebrow": "交互式对局历史",
     "recentTitle": "你的最近对局 · 点击即可打开赛后复盘"
+  },
+  "feedback": {
+    "openBtn": "发送反馈",
+    "eyebrow": "直达开发团队",
+    "title": "发送反馈",
+    "subtitle": "告诉我们你的改进建议、新功能想法或遇到的问题。",
+    "catSuggestion": "功能建议",
+    "catBug": "问题反馈",
+    "catUi": "界面 / 视觉",
+    "catOther": "其他",
+    "messageLabel": "反馈内容",
+    "messagePlaceholder": "写下你的想法、建议或遇到的问题…",
+    "contactLabel": "Discord 或邮箱（选填）",
+    "contactPlaceholder": "如需回复请留下联系方式（如用户名或邮箱）",
+    "metaHint": "发送时将自动附带 Relic 版本号、语言与当前账号信息。",
+    "cancelBtn": "取消",
+    "submitBtn": "发送反馈",
+    "tooShort": "请至少输入 5 个字符。",
+    "sending": "正在发送反馈…",
+    "sent": "感谢！你的反馈已成功提交。",
+    "error": "暂时无法发送反馈，请稍后再试。"
   }
 }

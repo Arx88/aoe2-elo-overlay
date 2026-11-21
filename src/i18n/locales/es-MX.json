@@ -304,7 +304,10 @@
     "posMovingHint": "Arrastra el panel a donde quieras y toca \"Listo\" (o Esc).",
     "posSaved": "Posición guardada: el panel queda ahí y no vuelve a moverse.",
     "themeStatus": "Diseño: {name}",
-    "opacityStatus": "Opacidad: {pct}%"
+    "opacityStatus": "Opacidad: {pct}%",
+    "visibilityGroup": "Visibilidad automática",
+    "hideMinimizedTitle": "Ocultar si AoE2 está minimizado",
+    "hideMinimizedDesc": "Oculta el overlay si Age of Empires II queda minimizado más de 5 segundos y vuelve al restaurarlo"
   },
   "updater": {
     "installed": "Versión instalada",
@@ -398,7 +401,8 @@
     "anaReplays": "Analizando replays…",
     "anaTips": "Analizando replays del rival…",
     "updateReady": "Actualización v{ver} lista · se instala al salir",
-    "updateAvail": "Actualización v{ver} disponible · abre Actualizaciones en Ajustes"
+    "updateAvail": "Actualización v{ver} disponible · abre Actualizaciones en Ajustes",
+    "previewHighlightPrefix": "Vista previa · Activado"
   },
   "plans": {
     "badgeConfig": "CONFIGURACIÓN",
@@ -632,5 +636,26 @@
     "noDataYet": "Sin datos suficientes.",
     "recentEyebrow": "HISTORIAL INTERACTIVO",
     "recentTitle": "Tus últimas partidas · clic para abrir Postmatch"
+  },
+  "feedback": {
+    "openBtn": "Enviar feedback",
+    "eyebrow": "LÍNEA DIRECTA CON EL EQUIPO",
+    "title": "Enviar feedback",
+    "subtitle": "Cuéntanos qué mejorar, propone una función nueva o reporta un error.",
+    "catSuggestion": "Sugerencia",
+    "catBug": "Reportar bug",
+    "catUi": "Diseño / UI",
+    "catOther": "Otro",
+    "messageLabel": "Tu mensaje",
+    "messagePlaceholder": "Escribe tu idea, sugerencia o el problema que encontraste…",
+    "contactLabel": "Discord o Email (opcional)",
+    "contactPlaceholder": "Para responderte si hace falta (ej. usuario o correo)",
+    "metaHint": "Se adjunta automáticamente tu versión de Relic, idioma y perfil activo.",
+    "cancelBtn": "Cancelar",
+    "submitBtn": "Enviar feedback",
+    "tooShort": "Escribe al menos 5 caracteres.",
+    "sending": "Enviando feedback…",
+    "sent": "¡Gracias! Tu feedback fue enviado correctamente.",
+    "error": "No se pudo enviar el feedback ahora."
   }
 }

@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('overlay', {
   onPostMatch: (callback) => ipcRenderer.on('postmatch:update', (_event, payload) => callback(payload)),
   // Aviso de actualización: el overlay es click-through, así que es solo visual.
   onUpdate: (callback) => ipcRenderer.on('overlay:update', (_event, payload) => callback(payload)),
+  // Resalte sutil del bloque recién activado durante la vista previa de toggles.
+  onHighlight: (callback) => ipcRenderer.on('overlay:highlight', (_event, payload) => callback(payload)),
   moveDone: () => ipcRenderer.send('overlay:move-done'),
   // Cierra el informe postmatch y devuelve el overlay a click-through.
   dismissPostMatch: () => ipcRenderer.send('postmatch:dismiss'),

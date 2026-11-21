@@ -304,7 +304,10 @@
     "posMovingHint": "Drag the panel wherever you want and click \"Done\" (or press Esc).",
     "posSaved": "Position saved: the panel will stay there.",
     "themeStatus": "Theme: {name}",
-    "opacityStatus": "Opacity: {pct}%"
+    "opacityStatus": "Opacity: {pct}%",
+    "visibilityGroup": "Automatic visibility",
+    "hideMinimizedTitle": "Hide when AoE2 is minimized",
+    "hideMinimizedDesc": "Hides the overlay if Age of Empires II stays minimized for more than 5 seconds and restores it on return"
   },
   "updater": {
     "installed": "Installed version",
@@ -398,7 +401,8 @@
     "anaReplays": "Analyzing replays…",
     "anaTips": "Analyzing rival replays…",
     "updateReady": "Update v{ver} ready · installs on exit",
-    "updateAvail": "Update v{ver} available · open Updates in Settings"
+    "updateAvail": "Update v{ver} available · open Updates in Settings",
+    "previewHighlightPrefix": "Preview · Enabled"
   },
   "plans": {
     "badgeConfig": "SETTINGS",
@@ -632,5 +636,26 @@
     "noDataYet": "Not enough data yet.",
     "recentEyebrow": "INTERACTIVE HISTORY",
     "recentTitle": "Your latest matches · click to open Postmatch"
+  },
+  "feedback": {
+    "openBtn": "Send feedback",
+    "eyebrow": "DIRECT LINE TO THE TEAM",
+    "title": "Send feedback",
+    "subtitle": "Tell us what to improve, suggest a new feature, or report a bug.",
+    "catSuggestion": "Suggestion",
+    "catBug": "Report bug",
+    "catUi": "Design / UI",
+    "catOther": "Other",
+    "messageLabel": "Your message",
+    "messagePlaceholder": "Write your idea, suggestion, or the issue you ran into…",
+    "contactLabel": "Discord or Email (optional)",
+    "contactPlaceholder": "If you want a reply (e.g. username or email)",
+    "metaHint": "Your Relic version, language, and active profile are attached automatically.",
+    "cancelBtn": "Cancel",
+    "submitBtn": "Send feedback",
+    "tooShort": "Please write at least 5 characters.",
+    "sending": "Sending feedback…",
+    "sent": "Thanks! Your feedback was sent.",
+    "error": "Could not send feedback right now."
   }
 }

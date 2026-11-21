@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('settings', {
   auto: () => ipcRenderer.invoke('settings:auto'),
   theme: (theme) => ipcRenderer.invoke('settings:theme', theme),
   opacity: (value) => ipcRenderer.invoke('settings:opacity', value),
+  hideWhenMinimized: (on) => ipcRenderer.invoke('settings:hideWhenMinimized', on),
+  submitFeedback: (payload) => ipcRenderer.invoke('feedback:submit', payload),
   civHelp: (on) => ipcRenderer.invoke('settings:civHelp', on),
   hideEloAt20: (on) => ipcRenderer.invoke('settings:hideEloAt20', on),
   hideAtSeconds: (seconds) => ipcRenderer.invoke('settings:hideAtSeconds', seconds),

@@ -885,73 +885,210 @@ function summarizeFormFromSeries(eloSeries) {
 }
 
 /**
- * Las métricas de la última partida se cruzan por ID. La referencia se forma
- * con partidas anteriores del mismo modo y con valor para cada métrica.
+ * Las métricas de la última partida y forma reciente comparadas contra la ventana
+ * seleccionable de las últimas 10 o 20 partidas del mismo modo (ELO, winrate,
+ * duración válida, eAPM y uso de TC local).
  */
 function computeLastMatchVsAvg({
   modeMatches = [],
+  eloSeries = [],
   insightsRows = [],
   storedRecords = [],
   isOwnProfile = true,
+  modeLabel = null,
 }) {
-  const [latestMatch, ...rest] = modeMatches;
-  if (!latestMatch?.matchId) return null;
-  const mode = resolveMode(latestMatch.leaderboardId);
-  if (!mode) return null;
-  const prior = rest.filter(row => resolveMode(row.leaderboardId)?.key === mode.key);
-  const insightById = new Map(insightsRows.filter(row => row.matchId != null).map(row => [String(row.matchId), row]));
-  const recordsById = new Map(storedRecords.filter(row => row.matchId || row.match?.matchId)
-    .map(row => [String(row.matchId || row.match.matchId), row]));
-  const id = String(latestMatch.matchId);
-  const eapm = (m) => {
+  const [latestMatch, ...rest] = Array.isArray(modeMatches) ? modeMatches : [];
+  const series = Array.isArray(eloSeries) ? eloSeries : [];
+  const latestSeries = series.length ? series[series.length - 1] : null;
+  if (!latestMatch?.matchId && series.length < 3) return null;
+
+  const mode = latestMatch ? resolveMode(latestMatch.leaderboardId) : null;
+  const prior = latestMatch && mode
+    ? rest.filter((row) => resolveMode(row.leaderboardId)?.key === mode.key)
+    : [];
+
+  // Deduplicar filas de AoE2Insights por matchId (en TG vienen 1 fila por jugador)
+  const insightById = new Map();
+  const uniqueInsightEapms = [];
+  for (const row of (Array.isArray(insightsRows) ? insightsRows : [])) {
+    const val = Number(row?.meanEapm ?? row?.eapm);
+    const valid = Number.isFinite(val) && val > 5 && val < 250;
+    const key = row?.matchId != null ? String(row.matchId) : null;
+    if (key) {
+      if (!insightById.has(key) || (valid && !(Number(insightById.get(key)?.meanEapm ?? insightById.get(key)?.eapm) > 5))) {
+        insightById.set(key, row);
+      }
+    }
+  }
+  const latestId = latestMatch?.matchId != null ? String(latestMatch.matchId) : null;
+  for (const [k, row] of insightById.entries()) {
+    if (latestId && k === latestId) continue;
+    const val = Number(row?.meanEapm ?? row?.eapm);
+    if (Number.isFinite(val) && val > 5 && val < 250) {
+      uniqueInsightEapms.push({
+        matchId: k,
+        startedAt: Number(row?.startedAt) || 0,
+        eapm: val,
+      });
+    }
+  }
+  uniqueInsightEapms.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+
+  const recordsById = new Map((Array.isArray(storedRecords) ? storedRecords : [])
+    .filter((row) => row && (row.matchId || row.match?.matchId))
+    .map((row) => [String(row.matchId || row.match.matchId), row]));
+
+  const eapmOf = (m) => {
+    if (!m?.matchId) return null;
     const row = insightById.get(String(m.matchId));
     const value = Number(row?.meanEapm ?? row?.eapm);
-    return value > 5 && value < 250 ? value : null;
+    return Number.isFinite(value) && value > 5 && value < 250 ? value : null;
   };
-  const tc = (m) => {
+  const tcOf = (m) => {
+    if (!m?.matchId) return null;
     const rec = recordsById.get(String(m.matchId));
     const self = rec?.telemetry?.engineSummary?.self ?? rec?.telemetry?.engine?.self;
     const value = self?.tcUtilizationEarly ?? self?.tcUtilization;
     return Number.isFinite(value) ? value : null;
   };
-  const minutes = (m) => Number.isFinite(m.durationSeconds) && m.durationSeconds > 0
-    ? m.durationSeconds / 60 : null;
+  // Filtrar partidas válidas (>= 3 min y < 6 h) para evitar que dodges de 10s distorsionen el promedio
+  const validMinutes = (m) => (
+    Number.isFinite(m?.durationSeconds) && m.durationSeconds >= 180 && m.durationSeconds < 6 * 3600
+      ? m.durationSeconds / 60
+      : null
+  );
+
   const summary = {
-    matchId: id,
-    won: latestMatch.won,
-    mapName: latestMatch.mapName,
-    myCiv: latestMatch.myCiv,
-    rivalCiv: latestMatch.rivalCiv,
-    ratingDiff: latestMatch.myRatingDiff,
-    durationSeconds: latestMatch.durationSeconds,
-    startedAt: latestMatch.startedAt,
-    modeLabel: latestMatch.modeLabel,
+    matchId: latestId,
+    won: latestMatch?.won ?? (typeof latestSeries?.won === 'boolean' ? latestSeries.won : null),
+    mapName: latestMatch?.mapName || null,
+    myCiv: latestMatch?.myCiv || null,
+    rivalCiv: latestMatch?.rivalCiv || null,
+    ratingDiff: latestMatch?.myRatingDiff ?? latestSeries?.diff ?? null,
+    durationSeconds: latestMatch?.durationSeconds ?? null,
+    startedAt: latestMatch?.startedAt ?? latestSeries?.startedAt ?? null,
+    modeLabel: latestMatch?.modeLabel || modeLabel || null,
   };
+
   const buildWindow = (winN) => {
     const metrics = [];
-    const add = (id, label, get, unit, sampleUnit, neutral = true) => {
-      const last = get(latestMatch);
-      const sample = prior.map(get).filter(Number.isFinite).slice(0, winN);
-      if (!Number.isFinite(last) || sample.length < 2) return;
-      const mean = avg(sample, 1);
-      const delta = Math.round((last - mean) * 10) / 10;
-      metrics.push({
-        id, label,
-        latestText: `${Math.round(last * 10) / 10}${unit}`,
-        avgText: `${mean}${unit}`,
-        deltaText: `${delta > 0 ? '+' : ''}${delta}${unit === '%' ? ' pp' : unit}`,
-        improved: delta > 0,
-        neutral: neutral || delta === 0,
-        sampleText: `${sample.length} ${sampleUnit} previos del modo`,
-      });
-    };
-    add('duration', 'Duración', minutes, ' min', 'resultados');
-    add('eapm', 'Ritmo eAPM', eapm, '', 'replays');
-    if (isOwnProfile) add('tc', 'Uso estimado de TC', tc, '%', 'replays', false);
+
+    // 1. ELO actual vs promedio de las últimas N partidas del modo (siempre reacciona a 10 vs 20)
+    if (series.length >= 3) {
+      const slice = series.slice(-winN);
+      const currentElo = series[series.length - 1].rating;
+      const meanElo = avg(slice.map((p) => p.rating), 0);
+      if (Number.isFinite(currentElo) && Number.isFinite(meanElo)) {
+        const delta = Math.round(currentElo - meanElo);
+        metrics.push({
+          id: 'eloAvg',
+          label: `ELO vs media (${slice.length} pj)`,
+          latestText: `${Math.round(currentElo)}`,
+          avgText: `${Math.round(meanElo)}`,
+          deltaText: `${delta > 0 ? '+' : ''}${delta} ELO`,
+          improved: delta > 0,
+          neutral: delta === 0,
+          sampleText: `Media de tus últ. ${slice.length} clasificatorias`,
+        });
+      }
+
+      // 2. Winrate en ventana N (Últ. 10 vs Últ. 20)
+      const known = series.filter((p) => typeof p.won === 'boolean');
+      if (known.length >= 3) {
+        const wSlice = known.slice(-winN);
+        const wins = wSlice.filter((p) => p.won).length;
+        const losses = wSlice.length - wins;
+        const wr = pct(wins, wSlice.length);
+        const net = wSlice.length >= 2
+          ? (wSlice[wSlice.length - 1].rating - wSlice[0].rating + (wSlice[0].diff || 0))
+          : (wSlice[0]?.diff || 0);
+        metrics.push({
+          id: 'windowWr',
+          label: `Winrate últ. ${wSlice.length}`,
+          latestText: `${wr}%`,
+          avgText: `${wins}V - ${losses}D`,
+          deltaText: `${net > 0 ? '+' : ''}${Math.round(net)} ELO`,
+          improved: net > 0 || (net === 0 && wr >= 50),
+          neutral: net === 0 && wr === 50,
+          sampleText: `Balance en tus últ. ${wSlice.length} partidas`,
+        });
+      }
+    }
+
+    // 3. Duración (filtrando dodges < 3 min)
+    if (latestMatch) {
+      const lastMin = validMinutes(latestMatch);
+      const durSample = prior.map(validMinutes).filter(Number.isFinite).slice(0, winN);
+      if (Number.isFinite(lastMin) && durSample.length >= 2) {
+        const mean = avg(durSample, 1);
+        const delta = Math.round((lastMin - mean) * 10) / 10;
+        metrics.push({
+          id: 'duration',
+          label: 'Duración',
+          latestText: `${Math.round(lastMin * 10) / 10} min`,
+          avgText: `${mean} min`,
+          deltaText: `${delta > 0 ? '+' : ''}${delta} min`,
+          improved: delta > 0,
+          neutral: true,
+          sampleText: `${durSample.length} partidas previas del modo`,
+        });
+      }
+
+      // 4. Ritmo eAPM (usa todo el pool de replays AoE2Insights del modo hasta winN)
+      const lastEapm = eapmOf(latestMatch);
+      if (Number.isFinite(lastEapm)) {
+        const priorFromMatches = prior.map(eapmOf).filter(Number.isFinite);
+        const pool = priorFromMatches.length >= winN
+          ? priorFromMatches.slice(0, winN)
+          : uniqueInsightEapms.map((r) => r.eapm).slice(0, winN);
+        if (pool.length >= 2) {
+          const mean = avg(pool, 1);
+          const delta = Math.round((lastEapm - mean) * 10) / 10;
+          metrics.push({
+            id: 'eapm',
+            label: 'Ritmo eAPM',
+            latestText: `${Math.round(lastEapm * 10) / 10}`,
+            avgText: `${mean}`,
+            deltaText: `${delta > 0 ? '+' : ''}${delta}`,
+            improved: delta > 0,
+            neutral: true,
+            sampleText: pool.length < winN
+              ? `${pool.length} replays disponibles del modo`
+              : `${pool.length} replays previos del modo`,
+          });
+        }
+      }
+
+      // 5. Uso estimado de TC (solo perfil propio con replays locales analizados)
+      if (isOwnProfile) {
+        const lastTc = tcOf(latestMatch);
+        const tcSample = prior.map(tcOf).filter(Number.isFinite).slice(0, winN);
+        if (Number.isFinite(lastTc) && tcSample.length >= 2) {
+          const mean = avg(tcSample, 1);
+          const delta = Math.round((lastTc - mean) * 10) / 10;
+          metrics.push({
+            id: 'tc',
+            label: 'Uso estimado de TC',
+            latestText: `${Math.round(lastTc * 10) / 10}%`,
+            avgText: `${mean}%`,
+            deltaText: `${delta > 0 ? '+' : ''}${delta} pp`,
+            improved: delta > 0,
+            neutral: delta === 0,
+            sampleText: tcSample.length < winN
+              ? `${tcSample.length} replays locales disponibles`
+              : `${tcSample.length} replays locales previos`,
+          });
+        }
+      }
+    }
+
     return { windowSize: winN, metrics };
   };
 
-  return { summary, windows: { 10: buildWindow(10), 20: buildWindow(20) } };
+  const w10 = buildWindow(10);
+  const w20 = buildWindow(20);
+  if (!w10.metrics.length && !w20.metrics.length) return null;
+  return { summary, windows: { 10: w10, 20: w20 } };
 }
 
 /** Construye el dashboard por modo con la cobertura de cada fuente. */
@@ -962,6 +1099,7 @@ function computeCentralAnalytics({
   ladderTeam = null,
   profileData = null,
   matches1v1 = [],
+  matchesTeam = [],
   matchesAll = [],
   storedRecords = [],
   insights1v1 = null,
@@ -973,6 +1111,7 @@ function computeCentralAnalytics({
   const pid = Number(profileId);
   const rawAll = matchesAll.length ? matchesAll : matches;
   const raw1v1 = matches1v1.length ? matches1v1 : rawAll.filter((m) => isRm1v1Match(m));
+  const rawTeam = matchesTeam.length ? matchesTeam : rawAll.filter((m) => isRmTeamMatch(m));
 
   const allSummaries = mergeRecentMatches(rawAll, isOwnProfile ? storedRecords : [], pid, 60);
   const rm1v1Summaries = mergeRecentMatches(
@@ -981,7 +1120,12 @@ function computeCentralAnalytics({
     pid,
     50,
   );
-  const rmTeamSummaries = allSummaries.filter((m) => m.isTeam);
+  const rmTeamSummaries = mergeRecentMatches(
+    rawTeam,
+    isOwnProfile ? storedRecords.filter((r) => isRmTeamMatch(r?.match)) : [],
+    pid,
+    50,
+  );
 
   // Ladders oficiales desde Companion + World's Edge
   const companionLadders = Array.isArray(profileData?.leaderboards) ? profileData.leaderboards : [];
@@ -1125,9 +1269,11 @@ function computeCentralAnalytics({
     const modeInsRows = modeId === 'rm_1v1' ? parsedRows1v1 : modeId === 'rm_team' ? parsedRowsTeam : [];
     const lastMatchVsAvg = computeLastMatchVsAvg({
       modeMatches: fallbackMatches,
+      eloSeries,
       insightsRows: modeInsRows,
       storedRecords: validRecords,
       isOwnProfile,
+      modeLabel: MODE_LABELS[modeId],
     });
 
     modes[modeId] = {
@@ -1223,9 +1369,11 @@ function computeCentralAnalytics({
     }),
     lastMatchVsAvg: computeLastMatchVsAvg({
       modeMatches: allSummaries,
+      eloSeries: modes.rm_1v1?.eloSeries?.length >= 6 ? modes.rm_1v1.eloSeries : (modes.rm_team?.eloSeries || []),
       insightsRows: [...parsedRows1v1, ...parsedRowsTeam],
       storedRecords: validRecords,
       isOwnProfile,
+      modeLabel: 'Global',
     }),
     radarAxes: buildHonestRadar({
       ladder: globalLadder,
@@ -1341,11 +1489,12 @@ async function fetchCentralDashboard({
     }
   }
 
-  const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesAllRes, insights1v1Res, insightsTeamRes] = await Promise.allSettled([
+  const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesTeamRes, matchesAllRes, insights1v1Res, insightsTeamRes] = await Promise.allSettled([
     fetchPersonalStats([pid], 3, 7000),
     fetchPersonalStats([pid], 4, 7000),
     getJson(`https://data.aoe2companion.com/api/profiles/${encodeURIComponent(pid)}?use_enums=true&extend=stats`, 10000),
     fetchMatches(pid, 40, 1, 'rm_1v1', { priority: 'own' }),
+    fetchMatches(pid, 40, 1, 'rm_team', { priority: 'own' }),
     fetchMatches(pid, 30, 1, null, { priority: 'own' }),
     fetchOpeningRows(pid, { mode: resolveMode(3), limit: 100 }),
     fetchOpeningRows(pid, { mode: resolveMode(4), limit: 100 }),
@@ -1355,6 +1504,7 @@ async function fetchCentralDashboard({
   let ladderTeam = statsTeamRes.status === 'fulfilled' ? (statsTeamRes.value.get(pid) || null) : null;
   let profileData = profileDataRes.status === 'fulfilled' ? profileDataRes.value : null;
   let matches1v1 = matches1v1Res.status === 'fulfilled' ? matches1v1Res.value : [];
+  let matchesTeam = matchesTeamRes.status === 'fulfilled' ? matchesTeamRes.value : [];
   let matchesAll = matchesAllRes.status === 'fulfilled' ? matchesAllRes.value : [];
   let insights1v1 = insights1v1Res.status === 'fulfilled' ? insights1v1Res.value : null;
   let insightsTeam = insightsTeamRes.status === 'fulfilled' ? insightsTeamRes.value : null;
@@ -1381,6 +1531,7 @@ async function fetchCentralDashboard({
     ladderTeam,
     profileData,
     matches1v1,
+    matchesTeam,
     matchesAll,
     insights1v1,
     insightsTeam,

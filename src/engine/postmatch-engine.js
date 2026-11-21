@@ -37,9 +37,255 @@ const TC_RESEARCH_SECONDS = Object.freeze({
   280: 40,  // Patrulla urbana (Town Patrol)
 });
 
+/** IDs verificados en replays reales de AoE2 DE. */
+const ECO_TECH_NAMES = Object.freeze({
+  202: 'Hacha de doble filo',
+  203: 'Sierra de arco',
+  221: 'Sierra de dos hombres',
+  14: 'Collera',
+  13: 'Arado pesado',
+  12: 'Rotación de cultivos',
+  55: 'Minería de oro',
+  182: 'Canteras de oro',
+  278: 'Minería de piedra',
+  279: 'Canteras de piedra',
+  213: 'Carretilla',
+  249: 'Carro de mano',
+});
+
+const BLACKSMITH_TECH_NAMES = Object.freeze({
+  67: 'Forja',
+  68: 'Fundición de hierro',
+  75: 'Alto horno',
+  74: 'Armadura láminas inf.',
+  76: 'Cota de malla inf.',
+  77: 'Armadura placas inf.',
+  81: 'Armadura láminas cab.',
+  82: 'Cota de malla cab.',
+  80: 'Armadura placas cab.',
+  199: 'Emplumado',
+  200: 'Punzones',
+  201: 'Brazalete',
+  211: 'Armadura acolchada arq.',
+  212: 'Armadura cuero arq.',
+  219: 'Armadura anillas arq.',
+});
+
+const COMBAT_KEY_TECH_NAMES = Object.freeze({
+  435: 'Pureza de sangre',
+  39: 'Ganadería',
+  437: 'Anillo de pulgar',
+  93: 'Balística',
+  47: 'Química',
+  315: 'Leva',
+});
+
 const MILITARY_BUILDING_TYPES = new Set([12, 87, 101, 49, 45, 82, 104, 1665]);
-const MILITARY_COMMANDS = new Set(['Move', 'DeAttackMove', 'AttackGround', 'Patrol', 'Formation', 'Stance', 'Target', 'Attack', 'Order']);
+const MILITARY_COMMANDS = new Set(['Move', 'DeAttackMove', 'AttackGround', 'Patrol', 'Formation', 'Stance', 'Target', 'Attack', 'Order', 'Stop']);
 const ECO_COMMANDS = new Set(['DeQueue', 'Queue', 'Multiqueue', 'Build', 'Wall', 'Research', 'Buy', 'Sell', 'Tribute', 'Gatherpoint', 'GatherPoint', 'BackToWork', 'Repair', 'Interact']);
+const GUNPOWDER_UNIT_IDS = new Set([5, 46, 557, 771, 773, 1126, 1128]); // incluye Arambai (solo armadura arq., no Emplumado)
+const RANGED_OVERRIDE_IDS = new Set([827, 829, 1738, 1740, 1759, 1761]); // Carreta de guerra coreana, Ratha
+const CAV_ARMOR_ONLY_IDS = new Set([1120, 1122, 1744, 1746]); // Elefante con balista / Elefante de asedio (solo Armadura de cab.)
+const SPEAR_LINE_UNIT_IDS = new Set([93, 358, 359]);
+const NON_BLACKSMITH_UNIT_IDS = new Set([13, 17, 36, 42, 125, 128, 286, 440, 1001, 1003, 1263, 1704, 1706, 1708, 1904, 1907]);
+
+/**
+ * Clasifica cada unidad entrenada según la rama real de Herrería que la beneficia:
+ * - cavalry: Armadura cab. (81/82/80) + Ataque cuerpo a cuerpo (67/68/75)
+ * - cavArmorOnly: Elefantes con balista / de asedio -> SOLO Armadura cab. (81/82/80)
+ * - ranged:  Ataque/alcance arq. (199/200/201) + Armadura arq. (211/212/219)
+ * - gunpowder: SOLO Armadura arq. (211/212/219); NO usa Emplumado/Punzones (Artillero, Jenízaro, Conquistador, Arambai)
+ * - infantry: Armadura inf. (74/76/77) + Ataque cuerpo a cuerpo (67/68/75)
+ * - none: Asedio, Monjes, Barcos y Comercio (0 dependencia obligatoria de Herrería terrestre)
+ */
+function classifyCombatClass(unitId, bType, unit) {
+  if (NON_BLACKSMITH_UNIT_IDS.has(unitId) || [45, 49, 84, 104, 1189, 1806].includes(bType)) return 'none';
+  if (CAV_ARMOR_ONLY_IDS.has(unitId)) return 'cavArmorOnly';
+  if (RANGED_OVERRIDE_IDS.has(unitId)) return 'ranged';
+  if (GUNPOWDER_UNIT_IDS.has(unitId)) return 'gunpowder';
+  if ([101, 86, 153].includes(bType)) return 'cavalry';
+  if ([87, 10, 14].includes(bType)) return 'ranged';
+  if ([12, 20, 498].includes(bType)) return 'infantry';
+  const k = String(unit?.key || '');
+  if (/jenizaro|conquistador|artillero|arambai/.test(k)) return 'gunpowder';
+  if (/lanzapiedras|petardo|organo|husita|cohete|canon|ariete|onagro|mangana|escorpion|mangonel|monje|misionero|mercante|carreta-de-merc|mula|torre-de-asedio|pesquero|galera|barco|carabela|dromon|brulote|tortuga|drakkar/.test(k)) return 'none';
+  if (/arquero|mangudai|chu-ko-nu|plumas|ballestero|kipchak|ratan|genoves|hondero|hostigador|carreta-de-guerra|carro-de-guerra/.test(k)) return 'ranged';
+  if (/caballero|paladin|jinete|catafracta|boyardo|tarkan|husar|keshik|leitis|konnik|coustillier|mameluco|elefante|camello|shrivamsha|monaspa|savar|centurion|estepa|caballeria|explorador/.test(k)) return 'cavalry';
+  return 'infantry';
+}
+
+function computeArmyTechRelevance(state, durationMs) {
+  const cls = state.armyClasses || {};
+  const candidates = [
+    { id: 'cavalry', label: 'Caballería', units: cls.cavalry || 0 },
+    { id: 'cavArmorOnly', label: 'Elefantes de asedio/balista', units: cls.cavArmorOnly || 0 },
+    { id: 'ranged', label: 'Unidades a distancia', units: cls.ranged || 0 },
+    { id: 'infantry', label: 'Infantería', units: cls.infantry || 0 },
+    { id: 'gunpowder', label: 'Pólvora / proyectil', units: cls.gunpowder || 0 },
+  ].sort((a, b) => b.units - a.units);
+
+  const primary = candidates[0];
+  if (!primary || primary.units < 12) {
+    return {
+      primaryClass: null,
+      primaryLabel: null,
+      primaryUnits: 0,
+      relevantCount: 0,
+      relevantExpected: 0,
+      relevantNames: [],
+      wellEquipped: false,
+      criticalMissing: null,
+    };
+  }
+
+  const bs = state.blacksmithTechs;
+  const has = (id) => bs.has(id);
+  const countIn = (ids) => ids.filter(has).length;
+  const namesIn = (ids) => ids.filter(has).map((id) => BLACKSMITH_TECH_NAMES[id]).filter(Boolean);
+
+  const reachedImp = state.imperialReachedMs != null && durationMs - state.imperialReachedMs >= 120_000;
+  const reachedCastle = state.castleReachedMs != null && durationMs - state.castleReachedMs >= 120_000;
+  const reachedFeudal = state.feudalReachedMs != null && durationMs - state.feudalReachedMs >= 120_000;
+
+  let relevantIds = [];
+  let relevantExpected = 2;
+  let wellEquipped = false;
+  let criticalMissing = null;
+
+  if (primary.id === 'cavalry') {
+    const armorIds = [81, 82, 80];
+    const atkIds = [67, 68, 75];
+    relevantIds = [...armorIds, ...atkIds];
+    const armor = countIn(armorIds);
+    const atk = countIn(atkIds);
+    const total = armor + atk;
+    relevantExpected = reachedImp ? 6 : reachedCastle ? 4 : 2;
+    wellEquipped = (reachedCastle ? (armor >= 2 && total >= 3) : (armor >= 1 && total >= 2)) ||
+      (total >= 4 && armor >= 2);
+    if (reachedCastle && primary.units >= 18 && armor === 0) {
+      criticalMissing = {
+        id: 'neg-bs-cav-armor',
+        title: `Peleaste con ${primary.units} uds de caballería sin armadura de Herrería`,
+        metric: '0 armadura cab.',
+        detail: `Tu unidad principal fue caballería pero no investigaste Armadura de láminas/cota: los flechazos y centros urbanos te castigan el doble.`,
+        focusTitle: 'Priorizar armadura de caballería en Herrería',
+        focusDetail: `Jugaste ${primary.units} unidades de caballería sin armadura de Herrería. Armadura de láminas y Cota de malla son prioridad antes de atacar.`,
+      };
+    } else if (reachedCastle && primary.units >= 28 && total <= 1) {
+      criticalMissing = {
+        id: 'neg-bs-cav-low',
+        title: `Caballería con pocas mejoras de Herrería (${total}/${relevantExpected})`,
+        metric: `${total}/${relevantExpected} cab.`,
+        detail: `Con ${primary.units} uds de caballería conviene acompañar al menos con armadura de caballería y Forja/Fundición.`,
+        focusTitle: 'Acompañar tu caballería con mejoras de Herrería',
+        focusDetail: `Solo investigaste ${total} mejora aplicable a tu caballería (${primary.units} uds). Priorizá armadura + ataque cuerpo a cuerpo.`,
+      };
+    }
+  } else if (primary.id === 'ranged') {
+    const atkIds = [199, 200, 201];
+    const armorIds = [211, 212, 219];
+    relevantIds = [...atkIds, ...armorIds];
+    const atk = countIn(atkIds);
+    const armor = countIn(armorIds);
+    const total = atk + armor;
+    relevantExpected = reachedImp ? 6 : reachedCastle ? 4 : 2;
+    const hasBallistics = state.combatTechs.has(93);
+    wellEquipped = (reachedCastle ? (atk >= 2 && (total >= 3 || hasBallistics)) : (atk >= 1 && total >= 2));
+    if (reachedFeudal && primary.units >= 15 && !has(199)) {
+      criticalMissing = {
+        id: 'neg-bs-ranged-fletching',
+        title: `Peleaste con ${primary.units} uds a distancia sin Emplumado`,
+        metric: 'Sin Emplumado',
+        detail: `Emplumado (+1 ataque y +1 alcance) es la mejora obligatoria para arqueros, hostigadores y arqueros a caballo.`,
+        focusTitle: 'Priorizar Emplumado y Punzones para tus arqueros',
+        focusDetail: `Sacaste ${primary.units} unidades a distancia sin Emplumado. El +1 de alcance decide todos los intercambios de arqueros.`,
+      };
+    } else if (reachedCastle && primary.units >= 20 && has(199) && !has(200)) {
+      criticalMissing = {
+        id: 'neg-bs-ranged-bodkin',
+        title: `Faltó Punzones (+1 alcance) para tus ${primary.units} uds a distancia`,
+        metric: 'Sin Punzones',
+        detail: `En Edad de los Castillos, Punzones es la primera mejora clave apenas subís si tu núcleo es a distancia.`,
+        focusTitle: 'Investigar Punzones apenas llegás a Castillos',
+        focusDetail: `Con ${primary.units} unidades a distancia, Punzones es el pico de poder inmediato al subir a Castillos.`,
+      };
+    }
+  } else if (primary.id === 'cavArmorOnly') {
+    // Elefantes con balista / de asedio: SOLO aprovechan Armadura de caballería (no Forja ni Emplumado)
+    const armorIds = [81, 82, 80];
+    relevantIds = [...armorIds];
+    const armor = countIn(armorIds);
+    relevantExpected = reachedImp ? 3 : 2;
+    wellEquipped = armor >= 2;
+    if (reachedCastle && primary.units >= 20 && armor === 0) {
+      criticalMissing = {
+        id: 'neg-bs-cavarmor-only',
+        title: `Jugaste ${primary.units} elefantes de balista/asedio sin armadura de caballería`,
+        metric: '0/3 armadura cab.',
+        detail: `Estas unidades NO usan mejoras de arquero ni Forja, pero sí aprovechan Armadura de caballería (láminas/cota/placas).`,
+        focusTitle: 'Investigar armadura de caballería para tus elefantes',
+        focusDetail: `Los elefantes con balista/asedio toman armadura de caballería en Herrería (no de arquero).`,
+      };
+    }
+  } else if (primary.id === 'gunpowder') {
+    // Pólvora solo se beneficia de Armadura de arqueros (NUNCA de Emplumado/Punzones)
+    const armorIds = [211, 212, 219];
+    relevantIds = [...armorIds];
+    const armor = countIn(armorIds);
+    relevantExpected = reachedImp ? 3 : 2;
+    wellEquipped = armor >= 2;
+    if (reachedCastle && primary.units >= 20 && armor === 0) {
+      criticalMissing = {
+        id: 'neg-bs-gp-armor',
+        title: `Unidades de pólvora (${primary.units}) sin armadura de arqueros`,
+        metric: '0 armadura arq.',
+        detail: `Artilleros/Jenízaros/Conquistadores no usan Emplumado, pero sí aprovechan la armadura de arqueros para sobrevivir a proyectiles.`,
+        focusTitle: 'Sumar armadura de arqueros para tu pólvora',
+        focusDetail: `Jugaste ${primary.units} unidades de pólvora sin armadura de proyectil. Mejorar armadura de arqueros duplica su aguante.`,
+      };
+    }
+  } else if (primary.id === 'infantry') {
+    const armorIds = [74, 76, 77];
+    const atkIds = [67, 68, 75];
+    relevantIds = [...armorIds, ...atkIds];
+    const armor = countIn(armorIds);
+    const atk = countIn(atkIds);
+    const total = armor + atk;
+    const mostlySpears = (cls.spearLine || 0) >= primary.units * 0.75;
+    relevantExpected = mostlySpears ? (reachedImp ? 3 : 2) : (reachedImp ? 6 : reachedCastle ? 4 : 2);
+    wellEquipped = mostlySpears ? (armor >= 2) : (reachedCastle ? (armor >= 2 && total >= 3) : (total >= 2));
+    if (reachedCastle && !mostlySpears && primary.units >= 20 && armor === 0 && atk === 0) {
+      criticalMissing = {
+        id: 'neg-bs-inf-none',
+        title: `Peleaste con ${primary.units} uds de infantería sin mejoras de Herrería`,
+        metric: '0 infantería',
+        detail: `La infantería depende de armadura y ataque cuerpo a cuerpo para cerrar distancia y ganar choques.`,
+        focusTitle: 'Mejorar armadura y ataque de tu infantería',
+        focusDetail: `Sacaste ${primary.units} unidades de infantería sin mejoras aplicables de Herrería.`,
+      };
+    }
+  }
+
+  const relevantNames = namesIn(relevantIds);
+  return {
+    primaryClass: primary.id,
+    primaryLabel: primary.label,
+    primaryUnits: primary.units,
+    relevantCount: relevantNames.length,
+    relevantExpected,
+    relevantNames,
+    wellEquipped,
+    criticalMissing,
+  };
+}
+
+function readBuildId(payload) {
+  if (!payload || typeof payload !== 'object') return 0;
+  if (Number.isFinite(payload.building_id) && payload.building_id > 0) return Number(payload.building_id);
+  const data = payload.data;
+  if (!Array.isArray(data) || data.length < 16) return 0;
+  return (data[12] | (data[13] << 8) | (data[14] << 16) | (data[15] << 24)) >>> 0;
+}
 
 function unitInfo(id) {
   return UNIT_TABLE[id] || { name: `Unidad ${id}`, key: `unidad-${id}`, trainSeconds: 25 };
@@ -111,6 +357,7 @@ function createSlotState(slot, civ, ages = null) {
     marketEarlyOps: 0,
     workshops: new Map(),     // buildingKey -> { typeId, busyUntil, intervals, units, firstMs, lastMs }
     unitCounts: new Map(),    // unitKey -> { key, name, count }
+    armyClasses: { cavalry: 0, cavArmorOnly: 0, ranged: 0, infantry: 0, spearLine: 0, gunpowder: 0, none: 0 },
     villagerEvents: [],       // { ms, amount }
     militaryEvents: [],       // { ms, amount }
     villagersOrdered: 0,
@@ -127,6 +374,21 @@ function createSlotState(slot, civ, ages = null) {
     townBellCount: 0,
     tributesSent: 0,
     selfDeleted: 0,
+    formationsCount: 0,
+    stancesCount: 0,
+    backToWorkCount: 0,
+    stopMicroCount: 0,
+    wallsPlaced: 0,
+    repairsCount: 0,
+    farmsBuilt: 0,
+    housesBuilt: 0,
+    castlesBuilt: 0,
+    extraTcsBuilt: 0,
+    towersBuilt: 0,
+    ecoTechs: new Map(),       // techId -> ms
+    blacksmithTechs: new Map(),// techId -> ms
+    combatTechs: new Map(),    // techId -> ms
+    loomMs: null,
     firstTcOrderMs: null,
     lastTcOrderMs: null,
   };
@@ -395,6 +657,92 @@ function finalizePlayer(state, durationMs) {
   const biggestTcGap = findBiggestTcGap(state, durationMs);
   const marketProfile = buildMarketProfile(state);
 
+  // Ritmo temprano vs tardío (resistencia de late game) y minuto pico de intensidad
+  let eapmEarly = null;
+  let eapmLate = null;
+  let eapmRetentionPct = null;
+  if (durationMs >= 22 * 60_000 && state.effectiveActionTimes.length >= 60) {
+    const splitMs = 18 * 60_000;
+    const earlyCount = state.effectiveActionTimes.filter((t) => t < splitMs).length;
+    const lateCount = state.effectiveActionTimes.length - earlyCount;
+    const lateMin = Math.max(1, (durationMs - splitMs) / 60_000);
+    eapmEarly = Math.round((earlyCount / 18) * 10) / 10;
+    eapmLate = Math.round((lateCount / lateMin) * 10) / 10;
+    if (eapmEarly >= 15) {
+      eapmRetentionPct = Math.round((eapmLate / eapmEarly) * 100);
+    }
+  }
+  const minuteBuckets = new Map();
+  for (const t of state.effectiveActionTimes) {
+    const m = Math.floor(t / 60_000);
+    if (m < 5) continue; // ignora clics iniciales de arranque (min 0-4) para detectar picos reales de batalla/macro
+    minuteBuckets.set(m, (minuteBuckets.get(m) || 0) + 1);
+  }
+  let peakEapm = null;
+  let peakEapmMinute = null;
+  for (const [m, cnt] of minuteBuckets.entries()) {
+    if (peakEapm == null || cnt > peakEapm) {
+      peakEapm = cnt;
+      peakEapmMinute = m;
+    }
+  }
+
+  const doubleBitAxeMs = state.ecoTechs.get(202) ?? null;
+  const bowSawMs = state.ecoTechs.get(203) ?? null;
+  const wheelbarrowMs = state.ecoTechs.get(213) ?? null;
+  const handCartMs = state.ecoTechs.get(249) ?? null;
+  const doubleBitAxeDelaySec = (doubleBitAxeMs != null && state.feudalReachedMs != null)
+    ? Math.max(0, Math.round((doubleBitAxeMs - state.feudalReachedMs) / 1000))
+    : null;
+  const bowSawDelaySec = (bowSawMs != null && state.castleReachedMs != null)
+    ? Math.max(0, Math.round((bowSawMs - state.castleReachedMs) / 1000))
+    : null;
+
+  const armyRelevance = computeArmyTechRelevance(state, durationMs);
+  const fStartMs = state.feudalReachedMs ?? Infinity;
+  const fEndMs = state.castleReachedMs ?? durationMs;
+  const feudalMilitaryOrdered = state.feudalReachedMs != null
+    ? state.militaryEvents.reduce((sum, ev) => (ev.ms >= fStartMs && ev.ms <= fEndMs ? sum + ev.amount : sum), 0)
+    : 0;
+  const castleDurationSec = (state.castleReachedMs != null && durationMs > state.castleReachedMs)
+    ? Math.round((durationMs - state.castleReachedMs) / 1000)
+    : 0;
+
+  const techProfile = {
+    ecoCount: state.ecoTechs.size,
+    blacksmithCount: state.blacksmithTechs.size,
+    combatKeyCount: state.combatTechs.size,
+    hasDoubleBitAxe: doubleBitAxeMs != null,
+    doubleBitAxeDelaySec,
+    hasBowSaw: bowSawMs != null,
+    bowSawDelaySec,
+    hasWheelbarrow: wheelbarrowMs != null,
+    hasHandCart: handCartMs != null,
+    hasBloodlines: state.combatTechs.has(435),
+    hasBallistics: state.combatTechs.has(93),
+    ecoNames: [...state.ecoTechs.keys()].map((id) => ECO_TECH_NAMES[id]).filter(Boolean).slice(0, 6),
+    blacksmithNames: [...state.blacksmithTechs.keys()].map((id) => BLACKSMITH_TECH_NAMES[id]).filter(Boolean).slice(0, 6),
+    combatKeyNames: [...state.combatTechs.keys()].map((id) => COMBAT_KEY_TECH_NAMES[id]).filter(Boolean).slice(0, 4),
+    armyRelevance,
+  };
+
+  const timings = {
+    feudalSeconds: state.feudalReachedMs != null ? Math.round(state.feudalReachedMs / 1000) : null,
+    castleSeconds: state.castleReachedMs != null ? Math.round(state.castleReachedMs / 1000) : null,
+    imperialSeconds: state.imperialReachedMs != null ? Math.round(state.imperialReachedMs / 1000) : null,
+    firstMilitarySeconds: state.firstMilitaryMs != null ? Math.round(state.firstMilitaryMs / 1000) : null,
+    castleDurationSec,
+  };
+
+  const macroBuilds = {
+    farms: state.farmsBuilt,
+    houses: state.housesBuilt,
+    castles: state.castlesBuilt,
+    extraTcs: state.extraTcsBuilt,
+    towers: state.towersBuilt,
+    walls: state.wallsPlaced,
+  };
+
   return {
     villagersOrdered: state.villagersOrdered,
     townCenters: state.tcs.size,
@@ -413,19 +761,33 @@ function finalizePlayer(state, durationMs) {
     tcUtilizationTotal,
     biggestTcGap,
     militaryOrdered: state.militaryOrdered,
+    feudalMilitaryOrdered,
+    armyClasses: { ...state.armyClasses },
     workshopsCount: state.workshops.size,
     workshopUtilization,
     topUnits,
     topWorkshops,
     apm: Math.round((state.totalActions / durMin) * 10) / 10,
     eapm: Math.round((state.effectiveActions / durMin) * 10) / 10,
+    eapmEarly,
+    eapmLate,
+    eapmRetentionPct,
+    peakEapm,
+    peakEapmMinute,
     militarySharePct,
     ecoSharePct: militarySharePct != null ? 100 - militarySharePct : null,
+    timings,
+    techProfile,
+    macroBuilds,
     combatMicro: {
       controlSharePct,
       combatOrders,
       moveOrders: state.moveCount,
       tcReturnSec,
+      formations: state.formationsCount,
+      stances: state.stancesCount,
+      backToWork: state.backToWorkCount,
+      stopMicro: state.stopMicroCount,
     },
     marketProfile,
     habits: {
@@ -436,6 +798,10 @@ function finalizePlayer(state, durationMs) {
       townBell: state.townBellCount,
       tributes: state.tributesSent,
       selfDeleted: state.selfDeleted,
+      backToWork: state.backToWorkCount,
+      formations: state.formationsCount,
+      stances: state.stancesCount,
+      walls: state.wallsPlaced,
     },
   };
 }
@@ -740,112 +1106,528 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
   return { openingSummary, stages };
 }
 
-function buildHighlightsAndFocus(self, rival) {
-  const highlights = [];
+function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary = null, stages = null, isTeamGame = false, selfCiv = null } = {}) {
+  const positives = [];
+  const negatives = [];
+  const durMin = Math.max(1, (Number(durationMs) || 0) / 60_000);
+  const tp = self.techProfile || {};
+  const ar = tp.armyRelevance || null;
+  const rtp = rival?.techProfile || {};
+  const tm = self.timings || {};
+  const rtm = rival?.timings || {};
+  const mb = self.macroBuilds || {};
+  const cm = self.combatMicro || {};
+  const cls = self.armyClasses || {};
+  const civLower = String(selfCiv || '').toLowerCase();
 
-  if (self.tcIdleDarkSeconds != null && self.tcIdleDarkSeconds <= 15 && self.villagersOrdered >= 15) {
-    highlights.push({
-      id: 'dark-clean-v1',
-      tone: 'good',
-      icon: 'villager',
-      title: 'Alta Edad muy limpia',
-      detail: `Solo ${fmtDurShort(self.tcIdleDarkSeconds)} de TC inactivo (${String(self.tcUtilizationDark ?? 0).replace('.', ',')}%).`,
+  const addPos = (item) => positives.push({ tone: 'good', tier: 'green', score: 65, ...item });
+  const addNeg = (item) => negatives.push({ tone: 'warn', severity: 65, ...item });
+
+  // ==================== POOL POSITIVO (12 DOMINIOS DISTINTOS) ====================
+  // 1. Macro TC (Reloj Suizo / Continuidad)
+  if (self.tcIdleDarkSeconds != null && self.tcIdleDarkSeconds <= 14 && self.villagersOrdered >= 15) {
+    addPos({
+      id: 'medal-dark-clean', domain: 'macro_tc', tier: self.tcIdleDarkSeconds <= 6 ? 'gold' : 'green',
+      score: self.tcIdleDarkSeconds <= 6 ? 88 : 79, icon: 'villager',
+      badgeName: 'Reloj Suizo',
+      title: `Alta Edad muy limpia (${fmtDurShort(self.tcIdleDarkSeconds)} inactivo)`,
+      metric: `${String(self.tcUtilizationDark ?? 0).replace('.', ',')}% TC`,
+      detail: `Solo ${fmtDurShort(self.tcIdleDarkSeconds)} sin producir en Alta Edad.`,
     });
   } else if (self.tcUtilization != null && self.villagersOrdered >= 20 &&
-      (self.tcUtilization >= 92 || (self.tcIdleSeconds != null && self.tcIdleSeconds <= 45))) {
-    highlights.push({
-      id: 'tc-continuity-v1',
-      tone: 'good',
-      icon: 'villager',
-      title: 'Continuidad de TC',
-      detail: `${String(self.tcUtilization).replace('.', ',')}% en Alta + Feudal · ${fmtDurShort(self.tcIdleSeconds ?? 0)} inactivo.`,
+      (self.tcUtilization >= 91 || (self.tcIdleSeconds != null && self.tcIdleSeconds <= 45))) {
+    addPos({
+      id: 'medal-tc-continuity', domain: 'macro_tc', tier: self.tcUtilization >= 95 ? 'gold' : 'green',
+      score: self.tcUtilization >= 95 ? 86 : 75, icon: 'villager',
+      badgeName: 'Pulso de Aldeanos',
+      title: `Continuidad de TC al ${String(self.tcUtilization).replace('.', ',')}%`,
+      metric: `${fmtDurShort(self.tcIdleSeconds ?? 0)} idle`,
+      detail: `Macro firme en Alta + Feudal (${fmtDurShort(self.tcIdleSeconds ?? 0)} inactivo).`,
+    });
+  } else if (!isTeamGame && rival && self.tcIdleEarlySeconds != null && rival.tcIdleEarlySeconds != null &&
+      rival.tcIdleEarlySeconds - self.tcIdleEarlySeconds >= 35) {
+    const saved = Math.round(rival.tcIdleEarlySeconds - self.tcIdleEarlySeconds);
+    addPos({
+      id: 'medal-tc-vs-rival', domain: 'macro_tc', score: 78, icon: 'villager',
+      badgeName: 'Macro Más Limpio',
+      title: `${fmtDurShort(saved)} menos de TC inactivo que el rival`,
+      metric: `${fmtDurShort(self.tcIdleEarlySeconds)} vs ${fmtDurShort(rival.tcIdleEarlySeconds)}`,
+      detail: `Sacaste ventaja real de tiempo de Centro Urbano frente al rival.`,
     });
   }
 
-  if (self.workshopsCount >= 4 && (self.workshopUtilization ?? 0) >= 80) {
-    highlights.push({
-      id: 'workshops-active-v1',
-      tone: 'good',
-      icon: 'sword',
-      title: 'Talleres bien aprovechados',
-      detail: `${self.workshopsCount} edificios militares al ${self.workshopUtilization}% de uso.`,
+  // 2. Carrera de Edades (solo 1v1 compara contra el rival; en TG evalúa apertura objetiva)
+  if (!isTeamGame && tm.castleSeconds != null && rtm.castleSeconds != null && rtm.castleSeconds - tm.castleSeconds >= 30) {
+    const lead = Math.round(rtm.castleSeconds - tm.castleSeconds);
+    addPos({
+      id: 'medal-castle-first', domain: 'tempo_ages', tier: lead >= 75 ? 'gold' : 'green',
+      score: lead >= 75 ? 87 : 80, icon: 'castle',
+      badgeName: 'Carrera de Edades',
+      title: `Llegaste ${fmtDurShort(lead)} antes a Castillos`,
+      metric: fmtClockShort(tm.castleSeconds),
+      detail: `Castillos en ${fmtClockShort(tm.castleSeconds)} frente a ${fmtClockShort(rtm.castleSeconds)} del rival.`,
     });
-  } else if (rival && self.militaryOrdered >= 20 && rival.militaryOrdered >= 10 &&
+  } else if (!isTeamGame && tm.feudalSeconds != null && rtm.feudalSeconds != null && rtm.feudalSeconds - tm.feudalSeconds >= 25) {
+    const lead = Math.round(rtm.feudalSeconds - tm.feudalSeconds);
+    addPos({
+      id: 'medal-feudal-first', domain: 'tempo_ages', score: 76, icon: 'age',
+      badgeName: 'Avance Veloz',
+      title: `Feudal ${fmtDurShort(lead)} antes que el rival`,
+      metric: fmtClockShort(tm.feudalSeconds),
+      detail: `Subiste en ${fmtClockShort(tm.feudalSeconds)} (rival ${fmtClockShort(rtm.feudalSeconds)}).`,
+    });
+  } else if (openingSummary && openingSummary.grade === 'S') {
+    addPos({
+      id: 'medal-opening-s', domain: 'tempo_ages', tier: 'gold', score: 84, icon: 'opening',
+      badgeName: 'Apertura de Manual',
+      title: `${openingSummary.name} · Calificación S`,
+      metric: openingSummary.feudalSeconds ? `Feudal ${fmtClockShort(openingSummary.feudalSeconds)}` : 'Grado S',
+      detail: openingSummary.tip || 'Ejecución de apertura de altísimo nivel para tu banda.',
+    });
+  }
+
+  // 3. Iniciativa Militar Temprana (solo 1v1 para evitar comparar Pocket vs Flank en TG)
+  if (!isTeamGame && tm.firstMilitarySeconds != null && rtm.firstMilitarySeconds != null &&
+      rtm.firstMilitarySeconds - tm.firstMilitarySeconds >= 40 && self.militaryOrdered >= 10) {
+    const lead = Math.round(rtm.firstMilitarySeconds - tm.firstMilitarySeconds);
+    addPos({
+      id: 'medal-first-strike', domain: 'initiative', score: 77, icon: 'scout',
+      badgeName: 'Iniciativa Militar',
+      title: `Primera unidad ${fmtDurShort(lead)} antes que el rival`,
+      metric: fmtClockShort(tm.firstMilitarySeconds),
+      detail: `Marcaste el ritmo militar desde el minuto ${fmtClockShort(tm.firstMilitarySeconds)}.`,
+    });
+  }
+
+  // 4. Mejoras Económicas a tiempo (Hacha de doble filo / Sierra de arco / Eco techs)
+  if (tp.hasDoubleBitAxe && tp.doubleBitAxeDelaySec != null && tp.doubleBitAxeDelaySec <= 75 &&
+      (!tm.castleSeconds || (tp.hasBowSaw && (tp.bowSawDelaySec == null || tp.bowSawDelaySec <= 90)))) {
+    addPos({
+      id: 'medal-eco-techs', domain: 'eco_techs', tier: tp.ecoCount >= 5 ? 'gold' : 'green',
+      score: tp.hasBowSaw ? 83 : 76, icon: 'wood',
+      badgeName: 'Maestro Leñador',
+      title: tp.hasBowSaw ? 'Hacha y Sierra de arco al instante' : 'Hacha de doble filo puntual',
+      metric: `${tp.ecoCount} mejoras eco`,
+      detail: `Activaste madera a los +${tp.doubleBitAxeDelaySec} s de llegar a Feudal${tp.hasBowSaw ? ` y Sierra en Castillos` : ''}.`,
+    });
+  } else if (tp.ecoCount >= 4 && (isTeamGame || rtp.ecoCount == null || tp.ecoCount >= rtp.ecoCount + 2)) {
+    addPos({
+      id: 'medal-eco-lead', domain: 'eco_techs', score: 75, icon: 'resources',
+      badgeName: 'Economía Mejorada',
+      title: `${tp.ecoCount} mejoras económicas investigadas`,
+      metric: `${tp.ecoCount} techs eco`,
+      detail: tp.ecoNames?.length ? `Incluye ${tp.ecoNames.slice(0, 3).join(', ')}.` : 'Sostuviste las tecnologías clave de recolección.',
+    });
+  }
+
+  // 5. Herrería y Mejoras de Combate ACOMPAÑANDO TU COMPOSICIÓN REAL (nunca conteo crudo vs rival)
+  if (ar && ar.primaryClass && ar.wellEquipped) {
+    const classBadge = ar.primaryClass === 'cavalry' ? 'Caballería Blindada'
+      : ar.primaryClass === 'cavArmorOnly' ? 'Elefantes Blindados'
+        : ar.primaryClass === 'ranged' ? 'Puntería Forjada'
+          : ar.primaryClass === 'gunpowder' ? 'Pólvora Blindada'
+            : 'Infantería de Hierro';
+    const techList = ar.relevantNames.slice(0, 3).join(', ');
+    addPos({
+      id: 'medal-blacksmith-relevant', domain: 'blacksmith_techs',
+      tier: ar.relevantCount >= ar.relevantExpected ? 'gold' : 'green',
+      score: ar.relevantCount >= ar.relevantExpected ? 84 : 78, icon: 'blacksmith',
+      badgeName: classBadge,
+      title: `Herrería al día para tu ${ar.primaryLabel.toLowerCase()} (${ar.relevantCount}/${ar.relevantExpected})`,
+      metric: `${ar.relevantCount}/${ar.relevantExpected} clave`,
+      detail: techList ? `Acompañaste tus ${ar.primaryUnits} uds con ${techList}.` : `Tus unidades principales pelearon bien equipadas.`,
+    });
+  }
+
+  // 6. Volumen Militar / Talleres
+  if (self.workshopsCount >= 4 && (self.workshopUtilization ?? 0) >= 78) {
+    addPos({
+      id: 'medal-workshops', domain: 'workshops', score: 76, icon: 'building',
+      badgeName: 'Fábrica Imparable',
+      title: `${self.workshopsCount} edificios militares al ${self.workshopUtilization}%`,
+      metric: `${self.militaryOrdered} uds`,
+      detail: `Producción fluida y constante sin cuellos de botella en tus talleres.`,
+    });
+  }
+  if (rival && self.militaryOrdered >= 20 && rival.militaryOrdered >= 10 &&
       self.militaryOrdered >= rival.militaryOrdered * 1.2) {
     const pctMore = Math.round(((self.militaryOrdered - rival.militaryOrdered) / rival.militaryOrdered) * 100);
-    highlights.push({
-      id: 'military-volume-v1',
-      tone: 'good',
-      icon: 'sword',
-      title: 'Superioridad militar',
-      detail: `${self.militaryOrdered} unidades frente a ${rival.militaryOrdered} del rival (+${pctMore}%).`,
+    addPos({
+      id: 'medal-army-volume', domain: 'army_power', tier: pctMore >= 45 ? 'gold' : 'green',
+      score: pctMore >= 45 ? 84 : 77, icon: 'sword',
+      badgeName: 'Marea Militar',
+      title: `+${pctMore}% más ejército producido que el rival`,
+      metric: `${self.militaryOrdered} vs ${rival.militaryOrdered}`,
+      detail: `Superaste en volumen militar durante toda la partida.`,
     });
   }
 
-  if (self.habits.attackMove + self.habits.patrol >= 12) {
-    highlights.push({
-      id: 'combat-micro-v1',
-      tone: 'good',
-      icon: 'combat',
-      title: 'Control activo en combate',
-      detail: `${self.habits.attackMove + self.habits.patrol} órdenes de Attack-Move / Patrol.`,
+  // 7. Boom Económico / Ventaja de Aldeanos
+  if (rival && self.villagersOrdered >= 40 && self.villagersOrdered >= rival.villagersOrdered + 10) {
+    const diff = self.villagersOrdered - rival.villagersOrdered;
+    addPos({
+      id: 'medal-vil-lead', domain: 'economy_boom', tier: diff >= 22 ? 'gold' : 'green',
+      score: diff >= 22 ? 84 : 76, icon: 'villager',
+      badgeName: 'Motor Económico',
+      title: `+${diff} aldeanos pedidos por encima del rival`,
+      metric: `${self.villagersOrdered} vs ${rival.villagersOrdered}`,
+      detail: `Construiste una ventaja de economía clara con ${self.townCenters} TC.`,
+    });
+  } else if (self.townCenters >= 3 && self.villagersOrdered >= 75) {
+    addPos({
+      id: 'medal-boom-3tc', domain: 'economy_boom', score: 71, icon: 'castle',
+      badgeName: 'Boom de 3 TC',
+      title: `Expansión sólida (${self.townCenters} TC · ${self.villagersOrdered} aldeanos)`,
+      metric: `${mb.farms || 0} granjas`,
+      detail: `Escalaste bien tu economía hacia Castillos e Imperial.`,
     });
   }
 
-  // Alertas accionables con iconografía (máx. 1–2 para completar 3 badges)
+  // 8. Micro de Combate (Attack-Move / Patrol / Formaciones / Posturas)
+  const combatMicroTotal = self.habits.attackMove + self.habits.patrol;
+  const tacticalMicro = (cm.formations || 0) + (cm.stances || 0);
+  if (combatMicroTotal >= 12 || (combatMicroTotal >= 6 && tacticalMicro >= 8)) {
+    addPos({
+      id: 'medal-combat-micro', domain: 'micro_combat', tier: combatMicroTotal >= 25 ? 'gold' : 'green',
+      score: combatMicroTotal >= 25 ? 80 : 72, icon: 'combat',
+      badgeName: 'Micro Quirúrgica',
+      title: `Control activo (${combatMicroTotal} Attack-Move/Patrol)`,
+      metric: tacticalMicro >= 4 ? `+${tacticalMicro} posturas` : `${cm.controlSharePct ?? 0}% control`,
+      detail: `Evitaste sobre-enfocar unidades en pelea con órdenes limpias de combate.`,
+    });
+  }
+
+  // 9. Micro Defensiva Limpia (BackToWork sin Campana Urbana)
+  if ((cm.backToWork || 0) >= 3 && self.habits.townBell === 0) {
+    addPos({
+      id: 'medal-clean-defense', domain: 'defensive_micro', score: 74, icon: 'shield',
+      badgeName: 'Defensa Limpia',
+      title: `0 Campanas Urbanas · ${cm.backToWork} retornos puntuales`,
+      metric: 'Eco sin frenar',
+      detail: `Guareciste aldeanos de forma selectiva sin paralizar el resto de tu economía.`,
+    });
+  }
+
+  // 10. Resistencia de Late Game / Ciclo de TC veloz / Ritmo eAPM
+  if (self.eapmRetentionPct != null && self.eapmRetentionPct >= 95 && (self.eapmLate || 0) >= 35) {
+    addPos({
+      id: 'medal-stamina', domain: 'stamina_pace', tier: self.eapmRetentionPct >= 105 ? 'gold' : 'green',
+      score: 81, icon: 'trend',
+      badgeName: 'Resistencia de Late Game',
+      title: `Sostuviste tu ritmo hasta el final (${self.eapmEarly} → ${self.eapmLate} eAPM)`,
+      metric: `${self.eapmRetentionPct}% ritmo`,
+      detail: `No perdiste velocidad tras el min 18${self.peakEapm ? ` · pico ${self.peakEapm} eAPM al min ${self.peakEapmMinute}` : ''}.`,
+    });
+  } else if (cm.tcReturnSec != null && cm.tcReturnSec <= 18 && self.villagersOrdered >= 25) {
+    addPos({
+      id: 'medal-tc-cycle', domain: 'stamina_pace', score: 75, icon: 'clock',
+      badgeName: 'Ciclo Relámpago',
+      title: `Volviste al TC cada ${cm.tcReturnSec} s en promedio`,
+      metric: `${cm.tcReturnSec} s/ciclo`,
+      detail: `Tu memoria muscular de hotkey de TC mantuvo la cola siempre viva.`,
+    });
+  }
+
+  // 11. Control de Mapa (Castillos / Murallas)
+  if (mb.castles >= 2) {
+    addPos({
+      id: 'medal-map-castles', domain: 'map_control', score: 74, icon: 'castle',
+      badgeName: 'Arquitecto de Castillos',
+      title: `Control territorial con ${mb.castles} Castillos`,
+      metric: `${mb.castles} Castillos`,
+      detail: `Aseguraste colinas y zonas clave del mapa con fortificaciones.`,
+    });
+  }
+
+  // 12. Ejército Combinado (2+ ramas militares activas >= 12 uds cada una)
+  const activeBranches = [
+    { label: 'Caballería', units: (cls.cavalry || 0) + (cls.cavArmorOnly || 0) },
+    { label: 'Distancia', units: cls.ranged || 0 },
+    { label: 'Infantería', units: cls.infantry || 0 },
+    { label: 'Pólvora', units: cls.gunpowder || 0 },
+  ].filter((b) => b.units >= 12).sort((a, b) => b.units - a.units);
+  if (activeBranches.length >= 2) {
+    const pair = activeBranches.slice(0, 2);
+    const pairSum = pair.reduce((s, b) => s + b.units, 0);
+    addPos({
+      id: 'medal-combined-arms', domain: 'combined_arms', score: 78, icon: 'matchup',
+      badgeName: 'Ejército Combinado',
+      title: `Combinaste ${pair[0].label} y ${pair[1].label} (${pairSum} uds)`,
+      metric: `${pair[0].units} + ${pair[1].units}`,
+      detail: `Mezclaste ramas complementarias para cubrir counters y sostener peleas.`,
+    });
+  }
+
+  // 13. Pico de Adrenalina (minuto de máxima intensidad real en eAPM)
+  if (self.peakEapm != null && self.peakEapmMinute != null &&
+      (self.peakEapm >= 65 || (self.eapm && self.peakEapm >= 48 && self.peakEapm >= self.eapm * 1.55))) {
+    addPos({
+      id: 'medal-peak-adrenaline', domain: 'adrenaline', tier: self.peakEapm >= 80 ? 'gold' : 'green',
+      score: self.peakEapm >= 80 ? 82 : 75, icon: 'trend',
+      badgeName: 'Pico de Adrenalina',
+      title: `Alcanzaste ${self.peakEapm} eAPM en el minuto ${self.peakEapmMinute}`,
+      metric: `${self.peakEapm} eAPM`,
+      detail: `Tu tramo de mayor intensidad y respuesta mecánica de toda la partida.`,
+    });
+  }
+
+  // 14. Etapa de Nivel S (Feudal / Castillos / Imperial impecable)
+  const stageList = Array.isArray(stages) ? stages : [];
+  const topStageS = ['imperial', 'castle', 'feudal']
+    .map((id) => stageList.find((s) => s.id === id && s.status === 'ready' && s.grade === 'S'))
+    .find(Boolean);
+  if (topStageS) {
+    const sLabel = topStageS.id === 'imperial' ? 'Imperial Demoledor'
+      : topStageS.id === 'castle' ? 'Castillos de Nivel S'
+        : 'Feudal Impecable';
+    addPos({
+      id: `medal-stage-s-${topStageS.id}`, domain: 'stage_mastery', tier: 'gold',
+      score: 85, icon: topStageS.id === 'imperial' ? 'crown' : topStageS.id === 'castle' ? 'castle' : 'barracks',
+      badgeName: sLabel,
+      title: `Ejecución nivel S en ${topStageS.label}`,
+      metric: topStageS.metric || 'Grado S',
+      detail: topStageS.tip || `Dominaste ${topStageS.label} muy por encima de la referencia de tu banda.`,
+    });
+  }
+
+  // 15. Motor Agrícola (45+ granjas + mejora de molino)
+  const hasFarmTech = (tp.ecoNames || []).some((n) => /Collera|Arado pesado|Rotación/i.test(n));
+  if (mb.farms >= 45 && hasFarmTech) {
+    const bestFarmTech = ['Rotación de cultivos', 'Arado pesado', 'Collera'].find((t) => (tp.ecoNames || []).includes(t)) || 'mejoras de granja';
+    addPos({
+      id: 'medal-farm-engine', domain: 'farm_eco', score: 74, icon: 'food',
+      badgeName: 'Motor Agrícola',
+      title: `Sostuviste tu comida con ${mb.farms} granjas`,
+      metric: `${mb.farms} granjas`,
+      detail: `Combinaste gran volumen agrícola con ${bestFarmTech} para no frenar producción.`,
+    });
+  }
+
+  // 16. Economía al Máximo (Carretilla + Carro de mano completos)
+  if (tp.hasWheelbarrow && tp.hasHandCart && durMin >= 25) {
+    addPos({
+      id: 'medal-eco-max', domain: 'eco_max', score: 73, icon: 'resources',
+      badgeName: 'Eco al Máximo',
+      title: 'Carretilla y Carro de mano completados',
+      metric: 'Recolección +100%',
+      detail: `Llevaste la eficiencia de tus aldeanos al máximo en partida larga.`,
+    });
+  }
+
+  // 17. Picos de Poder (2+ tecnologías decisivas: Balística, Química, Pureza de sangre, Ganadería, Leva, Anillo de pulgar)
+  if ((tp.combatKeyCount || 0) >= 2 && (tp.combatKeyNames || []).length >= 2) {
+    const picked = tp.combatKeyNames.slice(0, 3).join(', ');
+    addPos({
+      id: 'medal-power-spikes', domain: 'power_spikes', score: 76, icon: 'relic',
+      badgeName: 'Picos de Poder',
+      title: `Activaste ${tp.combatKeyNames.slice(0, 2).join(' y ')}`,
+      metric: `${tp.combatKeyCount} techs clave`,
+      detail: `Investigaste mejoras decisivas de impacto inmediato (${picked}).`,
+    });
+  }
+
+  // ==================== POOL NEGATIVO (12+ DETECTORES REALES) ====================
+  // 1. Mayor bache de TC exacto (con hora y causa)
+  if (self.biggestTcGap && self.biggestTcGap.durationSec >= 25) {
+    addNeg({
+      id: 'neg-tc-gap', domain: 'macro_tc',
+      severity: self.biggestTcGap.durationSec >= 55 ? 92 : 80,
+      icon: 'clock',
+      title: `Bache de TC de ${fmtDurShort(self.biggestTcGap.durationSec)} en ${self.biggestTcGap.age}`,
+      metric: `${fmtClockShort(self.biggestTcGap.startSec)}–${fmtClockShort(self.biggestTcGap.endSec)}`,
+      detail: `Ocurrió ${self.biggestTcGap.cause === 'combat' ? `mientras microeabas (${self.biggestTcGap.militaryOrdersInGap} órdenes mil.)` : self.biggestTcGap.cause === 'eco' ? 'durante tareas eco' : 'sin presión militar registrada'}.`,
+    });
+  } else {
+    const fIdleCheck = self.tcIdleFeudalPerTcSeconds ?? self.tcIdleFeudalSeconds;
+    if (fIdleCheck != null && fIdleCheck >= 95) {
+      addNeg({
+        id: 'neg-feudal-tc', domain: 'macro_tc', severity: fIdleCheck >= 140 ? 88 : 76,
+        icon: 'clock',
+        title: `Fuga de TC en Feudal (${fmtDurShort(fIdleCheck)})`,
+        metric: `${String(self.tcUtilizationFeudal ?? 0).replace('.', ',')}% TC`,
+        detail: `${fmtDurShort(fIdleCheck)}${(self.feudalActiveTcs || 1) > 1 ? `/TC en ${self.feudalActiveTcs} TC` : ''} sin sacar aldeanos en Feudal.`,
+      });
+    }
+  }
+
+  // 2. Herrería SOLO cuando falta una mejora obligatoria PARA TU PROPIA COMPOSICIÓN (nunca por conteo vs rival)
+  if (ar && ar.criticalMissing) {
+    addNeg({
+      id: ar.criticalMissing.id, domain: 'blacksmith_techs', severity: 88,
+      icon: 'blacksmith',
+      title: ar.criticalMissing.title,
+      metric: ar.criticalMissing.metric,
+      detail: ar.criticalMissing.detail,
+    });
+  }
+
+  // 3. Faltó Hacha de doble filo o Sierra de arco (mejoras de madera clave)
+  if (tm.feudalSeconds != null && durMin >= 15 && !tp.hasDoubleBitAxe && self.villagersOrdered >= 22) {
+    addNeg({
+      id: 'neg-no-dba', domain: 'eco_techs', severity: 85,
+      icon: 'wood',
+      title: 'No investigaste Hacha de doble filo',
+      metric: 'Madera −20%',
+      detail: `Pasaste por Feudal sin la mejora de madera más rentable del juego.`,
+    });
+  } else if (tm.castleSeconds != null && (tm.castleDurationSec || 0) >= 180 && durMin >= 23 &&
+      tp.hasDoubleBitAxe && !tp.hasBowSaw && self.villagersOrdered >= 40) {
+    addNeg({
+      id: 'neg-no-bowsaw', domain: 'eco_techs', severity: 77,
+      icon: 'wood',
+      title: 'Faltó Sierra de arco en Castillos',
+      metric: 'Eco madera',
+      detail: `Te quedaste sin la mejora de madera de Castillos para sostener granjas y talleres.`,
+    });
+  } else if (tp.hasDoubleBitAxe && tp.doubleBitAxeDelaySec != null && tp.doubleBitAxeDelaySec >= 210) {
+    addNeg({
+      id: 'neg-late-dba', domain: 'eco_techs', severity: 70,
+      icon: 'wood',
+      title: `Hacha de doble filo tardía (+${fmtDurShort(tp.doubleBitAxeDelaySec)} tras Feudal)`,
+      metric: `+${fmtDurShort(tp.doubleBitAxeDelaySec)}`,
+      detail: `Conviene investigarla apenas subís a Feudal para acelerar granjas y edificios.`,
+    });
+  }
+
+  // 4. Llegada tardía a Castillos o Feudal vs Rival (solo 1v1; ignora 2TC Feudal Boom y agresión Feudal extendida)
+  const isTwoTcFeudalBoom = (self.feudalActiveTcs || 1) >= 2 && (self.villagersOrdered || 0) >= 55;
+  const heavierFeudalAggro = (self.feudalMilitaryOrdered || 0) >= ((rival?.feudalMilitaryOrdered || 0) + 8);
+  if (!isTeamGame && !isTwoTcFeudalBoom && !heavierFeudalAggro &&
+      tm.castleSeconds != null && rtm.castleSeconds != null && tm.castleSeconds - rtm.castleSeconds >= 65) {
+    const behind = Math.round(tm.castleSeconds - rtm.castleSeconds);
+    addNeg({
+      id: 'neg-late-castle', domain: 'tempo_ages', severity: behind >= 120 ? 86 : 76,
+      icon: 'castle',
+      title: `Llegaste ${fmtDurShort(behind)} después a Castillos`,
+      metric: `${fmtClockShort(tm.castleSeconds)} vs ${fmtClockShort(rtm.castleSeconds)}`,
+      detail: `El rival tomó ventana de tecnología y presión antes en Edad de los Castillos.`,
+    });
+  } else if (!isTeamGame && tm.feudalSeconds != null && rtm.feudalSeconds != null && tm.feudalSeconds - rtm.feudalSeconds >= 50) {
+    const behind = Math.round(tm.feudalSeconds - rtm.feudalSeconds);
+    addNeg({
+      id: 'neg-late-feudal', domain: 'tempo_ages', severity: 74,
+      icon: 'age',
+      title: `Feudal ${fmtDurShort(behind)} más tarde que el rival`,
+      metric: `${fmtClockShort(tm.feudalSeconds)} vs ${fmtClockShort(rtm.feudalSeconds)}`,
+      detail: `Cediste la iniciativa inicial por demora al pasar a Feudal.`,
+    });
+  }
+
+  // 5. Talleres militares saturados
   const saturatedWs = (self.topWorkshops || []).find((w) => w.status === 'saturated');
   if (saturatedWs) {
-    highlights.push({
-      id: 'workshop-queue-saturated-v1',
-      tone: 'warn',
+    addNeg({
+      id: 'neg-workshop-sat', domain: 'workshops', severity: saturatedWs.peakQueue >= 7 ? 84 : 76,
       icon: 'building',
-      title: `Colas altas en ${saturatedWs.name}`,
-      detail: `Pico de ${Math.round(saturatedWs.peakQueue)} uds en cola (${saturatedWs.count} edif.): te faltó sumar producción.`,
+      title: `Colas saturadas en ${saturatedWs.name} (pico ${Math.round(saturatedWs.peakQueue)})`,
+      metric: `Faltaron ~${Math.max(1, (saturatedWs.recommendedCount || (saturatedWs.count + 1)) - saturatedWs.count)}`,
+      detail: `Acumulaste recursos en cola en ${saturatedWs.count} edif.: sumar producción te daba más ejército a la vez.`,
     });
   }
 
-  const fIdleCheck = self.tcIdleFeudalPerTcSeconds ?? self.tcIdleFeudalSeconds;
-  if (fIdleCheck != null && fIdleCheck >= 120) {
-    highlights.push({
-      id: 'feudal-tc-leak-v1',
-      tone: 'warn',
-      icon: 'clock',
-      title: 'Fuga de TC en Feudal',
-      detail: `${fmtDurShort(fIdleCheck)}${(self.feudalActiveTcs || 1) > 1 ? `/TC en ${self.feudalActiveTcs} TC` : ''} sin producir (${String(self.tcUtilizationFeudal ?? 0).replace('.', ',')}%).`,
+  // 6. Déficit de volumen militar vs rival (en TG no penaliza si estabas haciendo boom de 3+ TC)
+  const isBoomingPocket = isTeamGame && (self.townCenters >= 3 || (rival && self.villagersOrdered >= rival.villagersOrdered + 15));
+  if (!isBoomingPocket && rival && self.militaryOrdered >= 10 && rival.militaryOrdered >= 20 &&
+      self.militaryOrdered < rival.militaryOrdered * 0.76) {
+    const deficit = rival.militaryOrdered - self.militaryOrdered;
+    addNeg({
+      id: 'neg-army-deficit', domain: 'army_power', severity: 82,
+      icon: 'sword',
+      title: `Producción militar debajo del rival (${self.militaryOrdered} vs ${rival.militaryOrdered})`,
+      metric: `−${deficit} uds`,
+      detail: `Con ${self.workshopsCount} talleres quedaste corto de masa militar frente al rival.`,
     });
   }
 
-  if (self.militaryOrdered >= 25 && self.habits.attackMove + self.habits.patrol === 0 && self.habits.move >= 100) {
-    highlights.push({
-      id: 'no-attack-move-v1',
-      tone: 'warn',
-      icon: 'combat',
-      title: 'Sin Attack-Move / Patrol',
-      detail: `${self.habits.move} clics de mover y 0 órdenes de combate en área.`,
-    });
-  }
-
-  if (self.habits.market >= 10) {
-    highlights.push({
-      id: 'market-heavy-v1',
-      tone: 'warn',
-      icon: 'market',
-      title: 'Uso alto de Mercado',
-      detail: `${self.habits.market} operaciones: revisá el balance de aldeanos.`,
-    });
-  }
-
+  // 7. Campana Urbana
   if (self.habits.townBell >= 2) {
-    highlights.push({
-      id: 'town-bell-v1',
-      tone: 'warn',
+    addNeg({
+      id: 'neg-town-bell', domain: 'defensive_micro', severity: 86,
       icon: 'shield',
-      title: 'Campana Urbana',
-      detail: `Usada ${self.habits.townBell} veces: frena toda tu economía.`,
+      title: `Campana Urbana usada ${self.habits.townBell} veces`,
+      metric: `×${self.habits.townBell}`,
+      detail: `Paraliza toda tu economía a la vez; guarecé manualmente solo el grupo atacado.`,
     });
   }
 
-  // Un solo foco accionable universal de AoE2 (nunca consejos contextuales de tech)
+  // 8. Sin Attack-Move / Patrol en peleas (solo si jugaste cuerpo a cuerpo y tampoco usaste Stop-micro)
+  const meleeUnits = (cls.cavalry || 0) + (cls.infantry || 0);
+  if (meleeUnits >= 20 && combatMicroTotal === 0 && (cm.stopMicro || 0) === 0 && self.habits.move >= 90) {
+    addNeg({
+      id: 'neg-no-attack-move', domain: 'micro_combat', severity: 78,
+      icon: 'combat',
+      title: 'Sin Attack-Move ni Patrol en peleas cuerpo a cuerpo',
+      metric: `${self.habits.move} clics Move`,
+      detail: `0 órdenes de ataque en área con ${meleeUnits} uds melee: tus unidades persiguen a un solo objetivo sin pegar.`,
+    });
+  }
+
+  // 9. Desbalance de recursos reflejado en Mercado (respeta bono de Mercado de Sarracenos)
+  const marketLimit = civLower.includes('saracen') ? 16 : 10;
+  if (self.habits.market >= marketLimit || (!civLower.includes('saracen') && self.marketProfile?.sold?.wood >= 500 && self.marketProfile?.bought?.food >= 300)) {
+    addNeg({
+      id: 'neg-market-heavy', domain: 'economy_boom', severity: 74,
+      icon: 'market',
+      title: `Uso intensivo del Mercado (${self.habits.market} ops)`,
+      metric: `${self.habits.market} ops`,
+      detail: self.marketProfile?.note || 'Revisá el reparto temprano de aldeanos para no perder oro en comisiones.',
+    });
+  }
+
+  // 10. Caída de ritmo en late game (fatiga)
+  if (self.eapmRetentionPct != null && self.eapmRetentionPct <= 72 && (self.eapmEarly || 0) >= 30) {
+    const drop = 100 - self.eapmRetentionPct;
+    addNeg({
+      id: 'neg-stamina-drop', domain: 'stamina_pace', severity: 73,
+      icon: 'trend',
+      title: `Tu ritmo cayó ${drop}% tras el min 18 (${self.eapmEarly} → ${self.eapmLate} eAPM)`,
+      metric: `−${drop}% eAPM`,
+      detail: `En partidas largas bajó tu velocidad de producción y micro en el tramo decisivo.`,
+    });
+  }
+
+  // 11. Estancamiento en 1 TC en Castillos largo (solo 1v1)
+  if (!isTeamGame && tm.castleSeconds != null && durMin >= 26 && self.townCenters <= 1 &&
+      rival && rival.townCenters >= 2 && self.villagersOrdered < rival.villagersOrdered - 12) {
+    addNeg({
+      id: 'neg-1tc-behind', domain: 'economy_boom', severity: 79,
+      icon: 'villager',
+      title: `Te quedaste en 1 TC frente a ${rival.townCenters} TC del rival`,
+      metric: `${self.villagersOrdered} vs ${rival.villagersOrdered} ald.`,
+      detail: `Si el push en 1 TC no cierra la partida, el rival despega en economía.`,
+    });
+  }
+
+  // Ordenar por impacto real y asegurar 1 por dominio
+  const pickByDomain = (list, key, max) => {
+    const sorted = [...list].sort((a, b) => (b[key] || 0) - (a[key] || 0));
+    const seen = new Set();
+    const out = [];
+    for (const item of sorted) {
+      if (item.domain && seen.has(item.domain)) continue;
+      if (item.domain) seen.add(item.domain);
+      out.push(item);
+      if (out.length >= max) break;
+    }
+    return out;
+  };
+
+  const rankedPositives = pickByDomain(positives, 'score', 12);
+  const rankedNegatives = pickByDomain(negatives, 'severity', 6);
+
+  // Backwards-compatible `highlights` (máx. 3 mezclados como antes para consumidores legacy)
+  const highlights = [
+    ...rankedPositives.slice(0, 2),
+    ...rankedNegatives.slice(0, 1),
+  ].slice(0, 3);
+  if (highlights.length < 3) {
+    for (const extra of [...rankedPositives.slice(2), ...rankedNegatives.slice(1)]) {
+      if (highlights.length >= 3) break;
+      highlights.push(extra);
+    }
+  }
+
+  // Un solo foco accionable universal derivado del cuello de botella #1 real
   const earlySelfPerTc = (self.tcIdleDarkSeconds != null && self.tcIdleFeudalPerTcSeconds != null)
     ? Math.round((self.tcIdleDarkSeconds + self.tcIdleFeudalPerTcSeconds) * 10) / 10
     : self.tcIdleSeconds;
@@ -854,31 +1636,77 @@ function buildHighlightsAndFocus(self, rival) {
       ? Math.round((rival.tcIdleDarkSeconds + rival.tcIdleFeudalPerTcSeconds) * 10) / 10
       : rival.tcIdleSeconds)
     : null;
+  const topNeg = rankedNegatives[0] || null;
   let focus = null;
-  if (earlySelfPerTc != null && earlySelfPerTc >= 90 && (earlyRivalPerTc == null || earlySelfPerTc > earlyRivalPerTc)) {
-    focus = {
-      title: 'Reducir huecos de TC en Alta + Feudal',
-      detail: `Registraste ${fmtDurShort(earlySelfPerTc)}${(self.feudalActiveTcs || 1) > 1 ? '/TC' : ''} de TC inactivo antes de Castillos (${String(self.tcUtilization).replace('.', ',')}%${earlyRivalPerTc != null ? ` · rival ${fmtDurShort(earlyRivalPerTc)}` : ''}). Mantené el ciclo de TC constante en Feudal.`,
-    };
-  } else if (self.habits.townBell >= 2) {
+  if (self.habits.townBell >= 2) {
     focus = {
       title: 'Evitar la Campana Urbana',
       detail: `Tocaste la campana ${self.habits.townBell} veces: paraliza toda tu economía. Guarecé manualmente solo el grupo de aldeanos bajo ataque.`,
     };
-  } else if (self.militaryOrdered >= 25 && self.habits.attackMove + self.habits.patrol === 0 && self.habits.move >= 100) {
+  } else if (earlySelfPerTc != null && earlySelfPerTc >= 90 && (earlyRivalPerTc == null || earlySelfPerTc > earlyRivalPerTc)) {
     focus = {
-      title: 'Usar Attack-Move o Patrullar en peleas',
-      detail: `Registraste ${self.habits.move} órdenes de mover y 0 de Attack-Move/Patrullar. Usarlo evita que tus unidades persigan a un solo objetivo sin disparar.`,
+      title: 'Reducir huecos de TC en Alta + Feudal',
+      detail: `Registraste ${fmtDurShort(earlySelfPerTc)}${(self.feudalActiveTcs || 1) > 1 ? '/TC' : ''} de TC inactivo antes de Castillos (${String(self.tcUtilization).replace('.', ',')}%${earlyRivalPerTc != null ? ` · rival ${fmtDurShort(earlyRivalPerTc)}` : ''}). Mantené el ciclo de TC constante en Feudal.`,
     };
-  } else if (rival && self.militaryOrdered >= 10 && self.militaryOrdered < rival.militaryOrdered * 0.8) {
+  } else if (topNeg?.domain === 'blacksmith_techs' && ar?.criticalMissing) {
+    focus = {
+      title: ar.criticalMissing.focusTitle,
+      detail: ar.criticalMissing.focusDetail,
+    };
+  } else if (topNeg?.id === 'neg-no-dba' || topNeg?.id === 'neg-no-bowsaw') {
+    focus = {
+      title: topNeg.id === 'neg-no-dba' ? 'Activar Hacha de doble filo al subir a Feudal' : 'Activar Sierra de arco al subir a Castillos',
+      detail: `Es la mejora económica de mayor retorno inmediato: te financia granjas y edificios militares sin ahogar la madera.`,
+    };
+  } else if (topNeg?.id === 'neg-workshop-sat' && saturatedWs) {
+    focus = {
+      title: `Sumar un ${saturatedWs.name} adicional al escalar`,
+      detail: `Llegaste a ${Math.round(saturatedWs.peakQueue)} unidades en cola en ${saturatedWs.count} edif.: agregar un taller extra convierte esos recursos en ejército en el mapa.`,
+    };
+  } else if (topNeg?.id === 'neg-no-attack-move') {
+    focus = {
+      title: 'Usar Attack-Move o Patrullar en peleas cuerpo a cuerpo',
+      detail: `Registraste ${self.habits.move} órdenes de mover y 0 de Attack-Move/Patrullar con ${meleeUnits} uds melee. Usarlo evita que tus unidades persigan a un solo objetivo sin pegar.`,
+    };
+  } else if (topNeg?.id === 'neg-army-deficit' && rival) {
     focus = {
       title: 'Sostener producción militar constante',
       detail: `Encargaste ${self.militaryOrdered} unidades frente a ${rival.militaryOrdered} del rival (${self.workshopsCount} talleres activos). Sumar talleres antes de flotar recursos evita quedarte sin masa.`,
     };
-  } else if (self.habits.market >= 8) {
+  } else if (topNeg?.id === 'neg-stamina-drop') {
+    focus = {
+      title: 'Mantener el ritmo de producción en late game',
+      detail: `Tu eAPM bajó de ${self.eapmEarly} a ${self.eapmLate} después del min 18. Apoyate en hotkeys de talleres y selección múltiple en partidas largas.`,
+    };
+  } else if (topNeg?.id === 'neg-late-castle') {
+    focus = {
+      title: 'Acelerar el paso a Edad de los Castillos',
+      detail: `${topNeg.title} (${topNeg.metric}). Ajustá el salto de granjas y oro en Feudal para no ceder la ventana de Castillos.`,
+    };
+  } else if (topNeg?.id === 'neg-late-feudal') {
+    focus = {
+      title: 'Ajustar el clic a Feudal',
+      detail: `${topNeg.title} (${topNeg.metric}). Revisá la transición de comida en Alta Edad para tomar iniciativa antes.`,
+    };
+  } else if (topNeg?.id === 'neg-1tc-behind') {
+    focus = {
+      title: 'Sumar un 2.º TC al llegar a Castillos',
+      detail: `${topNeg.title}. Si tu push en 1 TC no cierra la partida, agregar un TC extra evita quedarte atrás en economía.`,
+    };
+  } else if (topNeg?.id === 'neg-late-dba') {
+    focus = {
+      title: 'Activar Hacha de doble filo apenas subís a Feudal',
+      detail: `${topNeg.title}. Investigarla ni bien llegás a Feudal acelera granjas y edificios militares toda la partida.`,
+    };
+  } else if (topNeg?.id === 'neg-market-heavy') {
     focus = {
       title: 'Equilibrar reparto de aldeanos',
       detail: `Usaste el Mercado ${self.habits.market} veces. Revisá si acumulaste exceso de un recurso por falta de ajuste temprano de aldeanos.`,
+    };
+  } else if (topNeg) {
+    focus = {
+      title: topNeg.title,
+      detail: topNeg.detail,
     };
   } else if (self.tcUtilization != null && self.tcUtilization >= 90) {
     focus = {
@@ -887,7 +1715,12 @@ function buildHighlightsAndFocus(self, rival) {
     };
   }
 
-  return { highlights: highlights.slice(0, 3), focus };
+  return {
+    highlights,
+    positives: rankedPositives,
+    negatives: rankedNegatives,
+    focus,
+  };
 }
 
 /**
@@ -896,7 +1729,7 @@ function buildHighlightsAndFocus(self, rival) {
 function analyzePostmatchEngine(operations, {
   selfSlot, rivalSlot = null, selfCiv = null, rivalCiv = null,
   selfAges = null, rivalAges = null, opening = null, openingShort = null,
-  playerElo = null, durationMs = 0,
+  playerElo = null, durationMs = 0, isTeamGame = false,
 } = {}) {
   const list = Array.isArray(operations) ? operations : [];
   if (!list.length || !Number.isFinite(Number(selfSlot))) return null;
@@ -950,9 +1783,27 @@ function analyzePostmatchEngine(operations, {
     else if (info.type === 'TownBell') state.townBellCount += 1;
     else if (info.type === 'Tribute') state.tributesSent += 1;
     else if (info.type === 'Delete') state.selfDeleted += 1;
+    else if (info.type === 'Formation') state.formationsCount += 1;
+    else if (info.type === 'Stance') state.stancesCount += 1;
+    else if (info.type === 'BackToWork') state.backToWorkCount += 1;
+    else if (info.type === 'Stop') state.stopMicroCount += 1;
+    else if (info.type === 'Wall') state.wallsPlaced += 1;
+    else if (info.type === 'Repair') state.repairsCount += 1;
+    else if (info.type === 'Build') {
+      const bid = readBuildId(info.payload);
+      if (bid === 50) state.farmsBuilt += 1;
+      else if (bid === 70) state.housesBuilt += 1;
+      else if (bid === 82) state.castlesBuilt += 1;
+      else if (bid === 621 || bid === 109) state.extraTcsBuilt += 1;
+      else if (bid === 79 || bid === 234 || bid === 235) state.towersBuilt += 1;
+    }
 
     if (info.type === 'Research') {
       const techId = Number(info.payload.technology_type);
+      if (techId === 22 && state.loomMs == null) state.loomMs = info.ms;
+      if (ECO_TECH_NAMES[techId] && !state.ecoTechs.has(techId)) state.ecoTechs.set(techId, info.ms);
+      if (BLACKSMITH_TECH_NAMES[techId] && !state.blacksmithTechs.has(techId)) state.blacksmithTechs.set(techId, info.ms);
+      if (COMBAT_KEY_TECH_NAMES[techId] && !state.combatTechs.has(techId)) state.combatTechs.set(techId, info.ms);
       const tcSec = tcResearchDuration(techId, state.civ);
       if (tcSec > 0 && !state.seenTcTechs.has(techId)) {
         state.seenTcTechs.add(techId);
@@ -1005,6 +1856,9 @@ function analyzePostmatchEngine(operations, {
         state.militaryOrdered += amount;
         state.militaryEvents.push({ ms: info.ms, amount });
         if (state.firstMilitaryMs == null) state.firstMilitaryMs = info.ms;
+        const combatClass = classifyCombatClass(unitId, bType, unit);
+        state.armyClasses[combatClass] = (state.armyClasses[combatClass] || 0) + amount;
+        if (SPEAR_LINE_UNIT_IDS.has(unitId)) state.armyClasses.spearLine += amount;
         const bucket = state.unitCounts.get(unit.key) || { key: unit.key, unitId, name: unit.name, count: 0 };
         bucket.count += amount;
         state.unitCounts.set(unit.key, bucket);
@@ -1048,10 +1902,13 @@ function analyzePostmatchEngine(operations, {
   const rival = rivalState ? finalizePlayer(rivalState, maxMs) : null;
   const timeline = buildTimelineBuckets(selfState, rivalState, maxMs, 12);
   const { openingSummary, stages } = buildStageGrades(self, selfState, { opening, openingShort, playerElo, durationMs: maxMs });
-  const { highlights, focus } = buildHighlightsAndFocus(self, rival);
+  const { highlights, positives, negatives, focus } = buildHighlightsAndFocus(self, rival, {
+    durationMs: maxMs, openingSummary, stages, isTeamGame: Boolean(isTeamGame), selfCiv,
+  });
 
   return {
     version: VERSION,
+    isTeamGame: Boolean(isTeamGame),
     durationSeconds: Math.round((maxMs / 1000) * 10) / 10,
     self,
     rival,
@@ -1059,6 +1916,8 @@ function analyzePostmatchEngine(operations, {
     stages,
     timeline,
     highlights,
+    positives,
+    negatives,
     focus,
   };
 }

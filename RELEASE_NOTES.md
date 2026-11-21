@@ -1,3 +1,13 @@
+## v2.7.0 · Postmatch v3 con 40+ destacados, Feedback integrado, detección en vivo blindada y adaptación DPI
+
+- **Postmatch v3 en 3 zonas con lectura en 3 segundos:** resumen narrativo con barra de veredicto y rachas, zona verde/oro (*Lo que hiciste bien y mejoraste* con hasta 3 medallas de dominios distintos), zona roja sutil (*Lo que te costó*) y una única misión clara para la próxima partida, dejando el análisis técnico organizado en pestañas (*Evolución y Curva*, *Duelo vs Rival* y *Mejoras, Colas y Combate*).
+- **Más de 40 destacados con relevancia táctica real y memoria anti-repetición:** suma rachas de victoria, escaleras de mejora de 3 partidas consecutivas, récords personales, hazañas de ELO/mapa/civilización y personalidad de la partida, evaluando Herrería y consejos según las unidades reales de tu ejército, el resultado y si jugaste 1v1 o Team Game.
+- **Botón de Feedback integrado:** enviá sugerencias o reportes directo desde el ícono de ajustes del Centro de mando, con enlace inmediato al panel de administración.
+- **Interfaz más clara y adaptable a cualquier escala de Windows:** gráficos de Postmatch y tarjetas de evolución fluidos sin desbordes de etiquetas, compensación automática de zoom para pantallas con escalado Windows (125 % / 150 % / 175 %), indicador *Beta* en la pestaña **Durante**, etiqueta imperial para el plan **Ultra**, **Ayuda de civ** movida a **Durante**, ejemplo visual al activar **Smurf Detector** y opción para ocultar el overlay si AoE2 se minimiza por más de 5 segundos.
+- **Detección de partidas en vivo y Central reforzadas:** corrección de filtros `Últ. 10` vs `Últ. 20` en Central, recuperación automática tras suspensión de Windows, reconexión silenciosa ante sockets colgados y actualización en segundo plano de replays guardados al nuevo motor.
+
+---
+
 ## v2.6.1 · Central de estadísticas renovada
 
 - Nueva cabecera de perfil y cuatro ilustraciones propias para Central.

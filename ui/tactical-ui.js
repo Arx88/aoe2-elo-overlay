@@ -119,18 +119,18 @@
     const asset = ICONS[name];
     return asset ? `<img class="product-icon" src="assets/icons/${asset}.png" alt="" draggable="false">` : '';
   }
-  function note(title, message, state = 'empty') { return `<div class="intel-note ${esc(state)}"><span>${icon(state === 'loading' ? 'history' : 'target')}</span><div><b>${esc(title)}</b><p>${esc(message)}</p></div></div>`; }
-  function section(title, content, ico = 'map', extra = '') { return `<section class="intel-block ${extra}"><h4>${icon(ico)}${esc(title)}</h4>${content}</section>`; }
-  function dataState(report, label) {
-    if (!report || report.loading) return note(label, 'Consultando datos…', 'loading');
-    if (report.modePending) return note(label, 'Esperando el modo confirmado de la partida.');
-    if (report.modeUnavailable) return note(label, 'Esta fuente no ofrece datos de este modo.');
+  function note(title, message, state = 'empty', feature = '') { return `<div class="intel-note ${esc(state)}"${feature ? ` data-feature="${esc(feature)}"` : ''}><span>${icon(state === 'loading' ? 'history' : 'target')}</span><div><b>${esc(title)}</b><p>${esc(message)}</p></div></div>`; }
+  function section(title, content, ico = 'map', extra = '', feature = '') { return `<section class="intel-block ${extra}"${feature ? ` data-feature="${esc(feature)}"` : ''}><h4>${icon(ico)}${esc(title)}</h4>${content}</section>`; }
+  function dataState(report, label, feature = '') {
+    if (!report || report.loading) return note(label, 'Consultando datos…', 'loading', feature);
+    if (report.modePending) return note(label, 'Esperando el modo confirmado de la partida.', 'empty', feature);
+    if (report.modeUnavailable) return note(label, 'Esta fuente no ofrece datos de este modo.', 'empty', feature);
     return '';
   }
   function mapBlock(report, mapName, detail) {
-    const pending = dataState(report, 'Perfil del mapa'); if (pending) return pending;
+    const pending = dataState(report, 'Perfil del mapa', 'rivalFavorites'); if (pending) return pending;
     const m = report.mapStats;
-    if (!m || !m.games) return note(mapName || 'Mapa actual', report.error ? 'No se pudo consultar el historial. Se reintentará.' : 'Sin partidas públicas de este mapa en la muestra.');
+    if (!m || !m.games) return note(mapName || 'Mapa actual', report.error ? 'No se pudo consultar el historial. Se reintentará.' : 'Sin partidas públicas de este mapa en la muestra.', 'empty', 'rivalFavorites');
     const known = m.resultGames == null ? m.games : m.resultGames;
     const wins = m.wins;
     const value = known < 5 ? `${number(wins)}/${number(known)}` : m.winRate == null ? '—' : `${number(m.winRate)}%`;
@@ -141,42 +141,42 @@
       : '<p class="intel-muted">Sin elecciones de civ verificadas en la muestra.</p>';
     return section(tr('postmatch.mapRecordIn', `En ${locMap(m.name || mapName) || 'este mapa'}`, { map: locMap(m.name || mapName) || mapName }),
       `<p class="intel-statline"><b>${value}</b> · ${number(wins)} victorias ${resultLabel} en ${number(known)} resultados conocidos${report.partial ? ' · parcial' : ''}</p>` +
-      (detail ? civCoverage : ''), 'map');
+      (detail ? civCoverage : ''), 'map', '', 'rivalFavorites');
   }
   function historyBlock(report) {
     const title = tr('postmatch.last5Title', 'Últimas 5 partidas');
-    const pending = dataState(report, title); if (pending) return pending;
+    const pending = dataState(report, title, 'rivalCivs'); if (pending) return pending;
     const rows = Array.isArray(report.history) ? report.history.slice(0, 5) : [];
-    if (!rows.length) return note(title, report.error ? 'El historial no está disponible ahora.' : 'Sin partidas recientes de este modo.');
+    if (!rows.length) return note(title, report.error ? 'El historial no está disponible ahora.' : 'Sin partidas recientes de este modo.', 'empty', 'rivalCivs');
     const entries = rows.map((row, index) => {
       const outcome = row.won === true ? tr('postmatch.win', 'Victoria') : row.won === false ? tr('postmatch.loss', 'Derrota') : 'Resultado pendiente';
       return `<li class="intel-history-row${index === 0 ? ' recent' : ''}"><strong>${civLabel(row.civ)}</strong><small>${esc(locMap(row.mapName) || 'Mapa sin dato')}</small><b class="result-letter ${row.won === true ? 'win' : row.won === false ? 'loss' : ''}" title="${outcome}" aria-label="${outcome}">${row.won === true ? 'V' : row.won === false ? 'D' : '—'}</b></li>`;
     }).join('');
-    return `<section class="intel-block history-block"><div class="intel-history-head"><h4>${icon('history')}${esc(title)}</h4><p class="intel-history-label">${esc(tr('postmatch.moreRecentTop', 'Más reciente arriba · mismo modo'))}</p></div><ol class="intel-history-list">${entries}</ol></section>`;
+    return `<section class="intel-block history-block" data-feature="rivalCivs"><div class="intel-history-head"><h4>${icon('history')}${esc(title)}</h4><p class="intel-history-label">${esc(tr('postmatch.moreRecentTop', 'Más reciente arriba · mismo modo'))}</p></div><ol class="intel-history-list">${entries}</ol></section>`;
   }
   function openingBlock(report, currentCiv) {
     const hasCiv = Boolean(civSlug(currentCiv));
     const title = hasCiv ? tr('postmatch.openingsCiv', 'Aperturas de su civilización') : tr('postmatch.openingsHistory', 'Aperturas del historial');
-    const pending = dataState(report, title); if (pending) return pending;
+    const pending = dataState(report, title, 'rivalOpenings'); if (pending) return pending;
     const o = report.openings;
-    if (report.openingError || o?.error) return note(title, 'No se pudieron consultar los replays.');
+    if (report.openingError || o?.error) return note(title, 'No se pudieron consultar los replays.', 'empty', 'rivalOpenings');
     if (!o || report.pendingOpenings || o.loading || (hasCiv && civSlug(o.openingCiv) !== civSlug(currentCiv))) {
-      return note(title, 'Buscando replays en el mapa…', 'loading');
+      return note(title, 'Buscando replays en el mapa…', 'loading', 'rivalOpenings');
     }
-    if (o.modeUnavailable) return note(title, 'No hay análisis de replays para este modo.');
+    if (o.modeUnavailable) return note(title, 'No hay análisis de replays para este modo.', 'empty', 'rivalOpenings');
     const pick = hasCiv ? o.mapCivFavorite : o.mapFavorite;
     const n = Number(hasCiv ? o.mapCivAnalyzed : o.mapAnalyzed) || 0;
-    if (!pick || !n) return note(title, 'Sin aperturas clasificadas en este mapa.');
-    return section(title, `<div class="intel-opening"><b>${esc(locOpening(pick.name, pick.short || pick.name))}</b><span>${esc(tr('postmatch.replaysOf', `${number(pick.count)} de ${number(n)} replays`, { a: number(pick.count), b: number(n) }))}</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword', openingArtClass(pick.name || pick.short).trim());
+    if (!pick || !n) return note(title, 'Sin aperturas clasificadas en este mapa.', 'empty', 'rivalOpenings');
+    return section(title, `<div class="intel-opening"><b>${esc(locOpening(pick.name, pick.short || pick.name))}</b><span>${esc(tr('postmatch.replaysOf', `${number(pick.count)} de ${number(n)} replays`, { a: number(pick.count), b: number(n) }))}</span></div><p class="intel-muted">${hasCiv ? civLabel(currentCiv) : 'Todas sus civs en este mapa'}${n < 6 ? ' · muestra chica' : ''}</p>`, 'sword', openingArtClass(pick.name || pick.short).trim(), 'rivalOpenings');
   }
   function h2hBlock(report) {
     const title = tr('prematch.h2hTitle', 'Tu cara a cara');
-    const pending = dataState(report, title); if (pending) return pending;
+    const pending = dataState(report, title, 'rivalH2H'); if (pending) return pending;
     const h = report.h2h;
-    if (report.h2hPending || !h) return note(title, 'Consultando tus enfrentamientos…', 'loading');
-    if (h.error) return note(title, 'No se pudo consultar tu historial.');
-    if (h.modeUnavailable || h.modePending) return note(title, h.modePending ? 'Esperando el modo confirmado.' : 'Sin historial compatible con este modo.');
-    return section(title, `<div class="intel-h2h"><b>${number(h.wins)} <small>V</small> <i>—</i> ${number(h.losses)} <small>D</small></b><p>${h.games ? `${number(h.games)} enfrentamientos confirmados` : `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`}${h.asAllies ? ` · ${number(h.asAllies)} como aliados` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'combat');
+    if (report.h2hPending || !h) return note(title, 'Consultando tus enfrentamientos…', 'loading', 'rivalH2H');
+    if (h.error) return note(title, 'No se pudo consultar tu historial.', 'empty', 'rivalH2H');
+    if (h.modeUnavailable || h.modePending) return note(title, h.modePending ? 'Esperando el modo confirmado.' : 'Sin historial compatible con este modo.', 'empty', 'rivalH2H');
+    return section(title, `<div class="intel-h2h"><b>${number(h.wins)} <small>V</small> <i>—</i> ${number(h.losses)} <small>D</small></b><p>${h.games ? `${number(h.games)} enfrentamientos confirmados` : `Sin enfrentamientos en ${number(h.scanned || 0)} partidas revisadas`}${h.asAllies ? ` · ${number(h.asAllies)} como aliados` : ''}${h.unresolved ? ` · ${number(h.unresolved)} con equipos sin confirmar` : ''}</p></div>`, 'combat', '', 'rivalH2H');
   }
   const OPENING_LABELS_ES = {
     'Scout rush': 'Scouts',
@@ -243,15 +243,15 @@
   }
   function tacticalBlock(tip, detail, matchup, civ, map) {
     const title = 'Aperturas del historial';
-    if (!tip || tip.loading) return note(title, 'Buscando aperturas del rival…', 'loading');
-    if (tip.modePending || tip.modeUnavailable) return note(title, tip.modePending ? 'Esperando el modo confirmado.' : 'Este modo todavía no tiene replays compatibles.');
-    if (tip.error && !tip.sample) return note(title, 'La fuente de replays no respondió.');
+    if (!tip || tip.loading) return note(title, 'Buscando aperturas del rival…', 'loading', 'smartTips');
+    if (tip.modePending || tip.modeUnavailable) return note(title, tip.modePending ? 'Esperando el modo confirmado.' : 'Este modo todavía no tiene replays compatibles.', 'empty', 'smartTips');
+    if (tip.error && !tip.sample) return note(title, 'La fuente de replays no respondió.', 'empty', 'smartTips');
     const c = tip.tacticalPlan?.context || tip.context;
     const current = matchup?.openings?.length > 0;
     const openings = current ? matchup.openings : tip.likelyOpenings || [];
     const opening = openings[0];
     if (!c || !opening?.sample || !opening.games) {
-      return note(title, 'Sin aperturas clasificadas en el historial consultado.');
+      return note(title, 'Sin aperturas clasificadas en el historial consultado.', 'empty', 'smartTips');
     }
     const read = `<div class="intel-opening-signal"><b>${esc(opening.short || opening.name)}</b><span>${number(opening.games)} de ${number(opening.sample)} replays clasificados</span></div>`;
     const scope = [current ? `${civ} en ${map}` : c.scopeLabel, c.modeLabel,
@@ -272,7 +272,7 @@
     return section(title, read + `<p class="intel-signal-scope">${esc(scope)}</p>` +
       split + weaknessLine +
       (caveat ? `<p class="intel-muted">${esc(caveat)}</p>` : '') +
-      (question ? `<p class="intel-check">${icon('target')}${esc(question)}</p>` : '') + alternatives, 'scout', 'tactical-block' + openingArtClass(opening.name || opening.short));
+      (question ? `<p class="intel-check">${icon('target')}${esc(question)}</p>` : '') + alternatives, 'scout', 'tactical-block' + openingArtClass(opening.name || opening.short), 'smartTips');
   }
   function historicalCivBlock(tip, map, report, options = {}) {
     const pred = report?.prediction?.status === 'ready' && report.prediction.top3?.length ? report.prediction
@@ -306,7 +306,7 @@
       const threat = pred.threat?.threat
         ? `<p class="pred-threat">${icon('sword')}<span><b>${esc(pred.top3[0].civ)}</b> — ${esc(pred.threat.threat)}</span></p>`
         : '';
-      return `<section class="intel-block civ-picks predicted"><div class="pred-head"><h4>${icon('matchup')}${esc(title)}</h4><span class="pred-conf${pool.poolType === 'specialist' ? ' is-accent' : ''}">${esc(confLabel)}</span></div><p class="civ-picks-scope">${esc(scopeParts)}</p>${randomBanner}<ul class="civ-picks-list">${cards}</ul>${threat}</section>`;
+      return `<section class="intel-block civ-picks predicted" data-feature="civRecommender"><div class="pred-head"><h4>${icon('matchup')}${esc(title)}</h4><span class="pred-conf${pool.poolType === 'specialist' ? ' is-accent' : ''}">${esc(confLabel)}</span></div><p class="civ-picks-scope">${esc(scopeParts)}</p>${randomBanner}<ul class="civ-picks-list">${cards}</ul>${threat}</section>`;
     }
     const title = 'Sus civs más jugadas';
     const stats = report?.mapStats;
@@ -315,41 +315,41 @@
     const render = (rows, scope) => section(title, `<p class="civ-picks-scope">${esc(scope)}</p>
       <ul class="civ-picks-list">${rows.map((row) => `<li>${civBadge(row.name)}
         <strong>${esc(row.name)}</strong><span>${number(row.games)} de ${number(row.sample)}</span></li>`).join('')}</ul>`,
-      'matchup', 'civ-picks');
+      'matchup', 'civ-picks', 'civRecommender');
     if (count > 0 && observed.length) {
       const scope = [map, report.mode?.label, 'partidas con civ conocida', report.partial ? 'muestra en carga' : null]
         .filter(Boolean).join(' · ');
       return render(observed.map((row) => ({ ...row, sample: count })), scope);
     }
-    if (!tip || tip.loading) return note(title, 'Consultando elecciones anteriores…', 'loading');
-    if (tip.modePending || tip.modeUnavailable || tip.error) return note(title, 'Historial del modo no disponible.');
+    if (!tip || tip.loading) return note(title, 'Consultando elecciones anteriores…', 'loading', 'civRecommender');
+    if (tip.modePending || tip.modeUnavailable || tip.error) return note(title, 'Historial del modo no disponible.', 'empty', 'civRecommender');
     const context = tip.context;
     const choices = (Array.isArray(tip.likelyCivs) ? tip.likelyCivs : [])
       .filter((row) => civSlug(row.name)).slice(0, 3);
-    if (!context || context.mapName !== map || !choices.length) return note(title, 'Sin muestra de elecciones en este mapa.');
+    if (!context || context.mapName !== map || !choices.length) return note(title, 'Sin muestra de elecciones en este mapa.', 'empty', 'civRecommender');
     return render(choices, [map, context.modeLabel, 'replays consultados',
       tip.stale ? 'datos guardados' : tip.provisional ? 'muestra inicial' : null].filter(Boolean).join(' · '));
   }
   function lobbyRecommendBlock(tip, map) {
     const rec = Array.isArray(tip?.recommend) ? tip.recommend.find((entry) => entry && entry.basis === 'combined' && civSlug(entry.civ)) : null;
     if (!rec) return '';
-    return `<section class="intel-block lobby-counter"><div class="lobby-counter-row"><span class="lobby-counter-crest">${civBadge(rec.civ)}</span><div class="lobby-counter-copy"><span>Counter-pick sugerido</span><b>${esc(rec.civ)}</b><p>Vos ${number(rec.mine?.winRate)}% (${number(rec.mine?.games)} pj) · Rival pierde ${number(rec.vsRival?.lossRate)}% (${number(rec.vsRival?.games)} pj)${map ? ` en ${esc(map)}` : ''}</p></div></div></section>`;
+    return `<section class="intel-block lobby-counter" data-feature="civRecommender"><div class="lobby-counter-row"><span class="lobby-counter-crest">${civBadge(rec.civ)}</span><div class="lobby-counter-copy"><span>Counter-pick sugerido</span><b>${esc(rec.civ)}</b><p>Vos ${number(rec.mine?.winRate)}% (${number(rec.mine?.games)} pj) · Rival pierde ${number(rec.vsRival?.lossRate)}% (${number(rec.vsRival?.games)} pj)${map ? ` en ${esc(map)}` : ''}</p></div></div></section>`;
   }
   function matchupBlock(tip, matchup, ownCiv, rivalCiv, map, report) {
     const title = 'Antecedentes de este cruce';
     if (!civSlug(rivalCiv)) return historicalCivBlock(tip, map, report);
-    if (!civSlug(ownCiv)) return note(title, 'Esperando tu civilización.');
-    if (!tip || tip.loading) return note(title, 'Buscando el cruce para este mapa…', 'loading');
-    if (tip.modePending || tip.modeUnavailable) return note(title, 'Sin historial compatible con el modo.');
-    if (tip.error) return note(title, 'La fuente de replays no respondió.');
-    if (!matchup) return note(title, 'Esperando datos del cruce actual.', 'loading');
-    if (matchup.teamGame) return note(title, 'El resultado de equipo no mide este mano a mano.');
-    if (!matchup.games) return note(title, 'Sin resultados para este cruce en el mapa.');
+    if (!civSlug(ownCiv)) return note(title, 'Esperando tu civilización.', 'empty', 'civRecommender');
+    if (!tip || tip.loading) return note(title, 'Buscando el cruce para este mapa…', 'loading', 'civRecommender');
+    if (tip.modePending || tip.modeUnavailable) return note(title, 'Sin historial compatible con el modo.', 'empty', 'civRecommender');
+    if (tip.error) return note(title, 'La fuente de replays no respondió.', 'empty', 'civRecommender');
+    if (!matchup) return note(title, 'Esperando datos del cruce actual.', 'loading', 'civRecommender');
+    if (matchup.teamGame) return note(title, 'El resultado de equipo no mide este mano a mano.', 'empty', 'civRecommender');
+    if (!matchup.games) return note(title, 'Sin resultados para este cruce en el mapa.', 'empty', 'civRecommender');
     const against = (matchup.against || []).map((row) => `<p class="intel-muted">Ante ${esc(row.name)} · ${number(row.losses)}/${number(row.games)} derrotas</p>`).join('');
     return section(title, `<p class="intel-matchup">${civLabel(ownCiv)} <span>vs</span> ${civLabel(rivalCiv)}</p>
       <p class="intel-statline"><b>${number(matchup.losses)}/${number(matchup.games)}</b> derrotas del rival en el mapa</p>
       ${matchup.games < 6 ? '<p class="intel-muted">Muestra chica.</p>' : ''}
-      ${against}`, 'matchup');
+      ${against}`, 'matchup', '', 'civRecommender');
   }
   function renderAutomaticOpportunities(plans = [], { detail = false } = {}) {
     const ready = plans.filter((plan) => plan?.status === 'ready');
@@ -634,8 +634,9 @@
               </div>
             </section>`
           : '';
-    const focusShort = eng.focus
-      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('focus')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(eng.focus.title)}</b><p>${esc(eng.focus.detail)}</p></div></div>` : '';
+    const focusObj = eng.narrative?.focus || eng.focus;
+    const focusShort = focusObj
+      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${reportIcon('focus')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(focusObj.title)}</b><p>${esc(focusObj.detail)}</p></div></div>` : '';
 
     // 1. Spotlight horizontal de Apertura detectada + nota S–D + consejo concreto
     const stageDeltas = evo?.stageDeltas || {};
@@ -652,7 +653,7 @@
       ${showCommunity && op.grade ? `<strong class="pm-grade-stamp grade-${op.grade}">${esc(op.grade)}</strong>` : ''}
     </section>` : '';
 
-    // 2. Tira de 4 Edades explícitas: Alta Edad · Feudal · Castillos · Imperial
+    // 2. Tira compacta de 4 Edades explícitas: Alta Edad · Feudal · Castillos · Imperial
     const STAGE_TONE = { S: 'is-gold', A: 'is-emerald', B: 'is-sky', C: 'is-amber', D: 'is-rose' };
     const stageStrip = (eng.stages || []).length
       ? `<section class="pm-stages-v2" aria-label="Calificación por edad">${eng.stages.map((s) => {
@@ -665,7 +666,7 @@
           ? `<strong class="pm-grade-stamp${ready ? ` grade-${s.grade}` : ''}">${ready ? esc(s.grade) : '—'}</strong>`
           : (ready && sd ? `<strong class="pm-grade-stamp">${sd.betterThanPct}%</strong>` : '<strong class="pm-grade-stamp">—</strong>');
         const tileTone = ready && showCommunity ? (STAGE_TONE[s.grade] || 'is-slate') : 'is-slate';
-        return `<article class="pm-stage-card${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}">
+        return `<article class="pm-stage-card${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}"${s.tip ? ` title="${esc(s.tip)}"` : ''}>
           <div class="pm-stage-top">
             <span class="pm-icon-tile ${tileTone} sm">${reportIcon(s.id)}</span>
             <div class="pm-stage-head">
@@ -675,15 +676,95 @@
             ${stampHtml}
           </div>
           <div class="pm-stage-meta"><span>${esc(s.metric || '—')}</span>${deltaChip}</div>
-          ${s.tip ? `<p class="pm-stage-tip">${esc(s.tip)}</p>` : ''}
         </article>`;
       }).join('')}</section>` : '';
 
-    const badges = (eng.highlights || []).slice(0, 3).map((h) => {
-      const warn = h.tone === 'warn';
-      const pictogram = warn ? 'target' : h.icon || 'medal';
-      return `<div class="pm-badge ${warn ? 'is-warn' : 'is-good'}"><span class="pm-icon-tile ${warn ? 'is-rose' : 'is-gold'} sm">${reportIcon(pictogram)}</span><div><span class="pm-badge-tag">${esc(warn ? tr('postmatch.fixTag', '▼ A CORREGIR') : tr('postmatch.achieveTag', '★ LOGRO'))}</span><b>${esc(h.title)}</b><small>${esc(h.detail)}</small></div></div>`;
-    }).join('');
+    // 3. NARRATIVA EN 3 ZONAS (Legible en 3 segundos: Veredicto + Verde/Oro + Rojo sutil + Ámbar Foco)
+    const rawNarrative = eng.narrative || null;
+    const rawMedals = rawNarrative && Array.isArray(rawNarrative.medals)
+      ? rawNarrative.medals
+      : ((eng.positives && eng.positives.length) ? eng.positives : (eng.highlights || []).filter((h) => h.tone !== 'warn'));
+    const filteredMedals = showPersonal
+      ? rawMedals
+      : rawMedals.filter((m) => !m.requiresHistory && !String(m.id || '').startsWith('evo-'));
+    const fallbackEnginePos = (!showPersonal && filteredMedals.length < 3 && Array.isArray(eng.positives))
+      ? eng.positives.filter((p) => !filteredMedals.some((m) => m.id === p.id || (m.domain && m.domain === p.domain)))
+      : [];
+    const medalsList = [...filteredMedals, ...fallbackEnginePos].slice(0, 3);
+
+    const rawIssues = rawNarrative && Array.isArray(rawNarrative.issues)
+      ? rawNarrative.issues
+      : ((eng.negatives && eng.negatives.length) ? eng.negatives : (eng.highlights || []).filter((h) => h.tone === 'warn'));
+    const filteredIssues = showPersonal
+      ? rawIssues
+      : rawIssues.filter((n) => !String(n.id || '').startsWith('evo-'));
+    const fallbackEngineNeg = (!showPersonal && filteredIssues.length < 2 && Array.isArray(eng.negatives))
+      ? eng.negatives.filter((n) => !filteredIssues.some((x) => x.id === n.id || (x.domain && x.domain === n.domain)))
+      : [];
+    const issuesList = [...filteredIssues, ...fallbackEngineNeg].slice(0, 2);
+
+    const streakObj = showPersonal ? (rawNarrative?.streak || evo?.improvementStreak || null) : null;
+    const verdictText = rawNarrative?.verdict || '';
+    const verdictBar = (verdictText || streakObj)
+      ? `<div class="pm-verdict-bar">
+          ${verdictText ? `<p class="pm-verdict-copy">${esc(verdictText)}</p>` : ''}
+          ${streakObj ? `<span class="pm-streak-pill">${reportIcon('trophy')}<span>${esc(streakObj.label)}</span></span>` : ''}
+        </div>`
+      : '';
+
+    const medalCards = medalsList.length
+      ? medalsList.map((m) => {
+        const isGold = m.tier === 'gold';
+        const tagText = m.tag || (isGold ? tr('postmatch.goldTag', '★ DESTACADO') : tr('postmatch.achieveTag', '▲ LO QUE HICISTE BIEN'));
+        const badgeName = m.badgeName && m.badgeName !== m.title ? `<span class="pm-medal-name">${esc(m.badgeName)}</span>` : '';
+        const metricChip = m.metric ? `<strong class="pm-medal-metric">${esc(m.metric)}</strong>` : '';
+        const deltaChip = m.delta ? `<small class="pm-medal-delta">${esc(m.delta)}</small>` : '';
+        return `<article class="pm-medal-card ${isGold ? 'is-gold' : 'is-green'}">
+          <span class="pm-icon-tile ${isGold ? 'is-gold' : 'is-emerald'} sm">${reportIcon(m.icon || 'medal')}</span>
+          <div class="pm-medal-body">
+            <div class="pm-medal-kicker">
+              <span class="pm-medal-tag">${esc(tagText)}</span>
+              ${badgeName}
+            </div>
+            <b>${esc(m.title)}</b>
+            ${m.detail ? `<p>${esc(m.detail)}</p>` : ''}
+          </div>
+          ${(metricChip || deltaChip) ? `<div class="pm-medal-stat">${metricChip}${deltaChip}</div>` : ''}
+        </article>`;
+      }).join('')
+      : `<p class="pm-zone-empty">${esc(tr('postmatch.medalsBaseline', 'Sumá más minutos o partidas para desbloquear medallas de ejecución y récords personales.'))}</p>`;
+
+    const issueCards = issuesList.length
+      ? issuesList.map((n) => {
+        const metricChip = n.metric ? `<strong class="pm-issue-metric">${esc(n.metric)}</strong>` : '';
+        return `<article class="pm-issue-card">
+          <span class="pm-icon-tile is-rose sm">${reportIcon(n.icon || 'target')}</span>
+          <div class="pm-issue-body">
+            <div class="pm-issue-top"><b>${esc(n.title)}</b>${metricChip}</div>
+            ${n.detail ? `<p>${esc(n.detail)}</p>` : ''}
+          </div>
+        </article>`;
+      }).join('')
+      : `<div class="pm-issue-clean">${reportIcon('shield')}<span>${esc(tr('postmatch.noCriticalIssues', 'Sin cuellos de botella críticos detectados en esta partida.'))}</span></div>`;
+
+    const narrativeGrid = `<section class="pm-narrative-grid" aria-label="Resumen de ejecución">
+      <div class="pm-zone is-good">
+        <div class="pm-zone-head">
+          <span class="pm-zone-dot is-good" aria-hidden="true"></span>
+          <h3>${esc(tr('postmatch.zoneGoodTitle', 'Lo que hiciste bien y mejoraste'))}</h3>
+          <small>${medalsList.length ? `${medalsList.length} ${medalsList.length === 1 ? 'destacado' : 'destacados'}` : ''}</small>
+        </div>
+        <div class="pm-zone-list">${medalCards}</div>
+      </div>
+      <div class="pm-zone is-bad">
+        <div class="pm-zone-head">
+          <span class="pm-zone-dot is-bad" aria-hidden="true"></span>
+          <h3>${esc(tr('postmatch.zoneBadTitle', 'Lo que te costó'))}</h3>
+          <small>${issuesList.length ? `${issuesList.length} ${issuesList.length === 1 ? 'ajuste' : 'ajustes'}` : 'Limpio'}</small>
+        </div>
+        <div class="pm-zone-list">${issueCards}</div>
+      </div>
+    </section>`;
 
     const evoTitle = !showPersonal
       ? tr('postmatch.evolutionBenchmark', 'Métricas de esta partida')
@@ -733,7 +814,7 @@
       ${evoCard({ ...(em.eapm || {}), label: tr('postmatch.eapm', 'Ritmo eAPM') }, self.eapm != null ? dec(self.eapm, 1) : '—', '')}
     </div>`;
 
-    // 3. Duelo cara a cara con escudos de civilización a izquierda (Vos) y derecha (Rival) + barras espejadas
+    // 4. Duelo cara a cara con escudos + barras espejadas + carrera de edades
     const selfCrest = civBadge(c.civ);
     const rivalCrest = civBadge(eng.rivalCiv);
     const duelFaceHead = `<div class="pm-duel-face">
@@ -747,7 +828,8 @@
       const bW = Math.max(6, Math.min(100, Math.round(((Number(bVal) || 0) / max) * 100)));
       const aLead = bVal != null && (lowerWins ? aVal < bVal : aVal > bVal);
       const bLead = bVal != null && (lowerWins ? bVal < aVal : bVal > aVal);
-      return `<div class="pm-duel-split">
+      const splitTone = aLead ? ' is-lead-self' : bLead ? ' is-lead-rival' : '';
+      return `<div class="pm-duel-split${splitTone}">
         <div class="pm-duel-nums">
           <b class="${aLead ? 'is-accent' : ''}">${aTxt}</b>
           <span>${esc(label)}</span>
@@ -761,6 +843,47 @@
     };
     const rivalEarlyIdle = rival?.tcIdleEarlySeconds ?? rival?.tcIdleSeconds;
     const rivalTotalIdle = rival?.tcIdleTotalSeconds ?? rival?.tcIdleSeconds;
+    const selfTp = self.techProfile || null;
+    const rivalTp = rival?.techProfile || null;
+    const selfTm = self.timings || null;
+    const rivalTm = rival?.timings || null;
+
+    const ageRaceRows = (selfTm && (selfTm.feudalSeconds || selfTm.castleSeconds || selfTm.imperialSeconds))
+      ? [
+        selfTm.feudalSeconds || rivalTm?.feudalSeconds
+          ? { lbl: locAge('feudal', 'Feudal'), a: selfTm.feudalSeconds, b: rivalTm?.feudalSeconds }
+          : null,
+        selfTm.castleSeconds || rivalTm?.castleSeconds
+          ? { lbl: locAge('castle', 'Castillos'), a: selfTm.castleSeconds, b: rivalTm?.castleSeconds }
+          : null,
+        selfTm.imperialSeconds || rivalTm?.imperialSeconds
+          ? { lbl: locAge('imperial', 'Imperial'), a: selfTm.imperialSeconds, b: rivalTm?.imperialSeconds }
+          : null,
+      ].filter(Boolean)
+      : [];
+
+    const isTeamGame = Boolean(eng.isTeamGame || c.mode?.size === 'team');
+    const ageRaceBox = ageRaceRows.length
+      ? `<div class="pm-race-box">
+          <div class="pm-queue-head">
+            <span>${esc(isTeamGame ? tr('postmatch.yourAgesTitle', 'Tus llegadas de edad') : tr('postmatch.ageRaceTitle', 'Carrera de edades'))}</span>
+            <b>${isTeamGame ? esc(tr('postmatch.you', 'Vos')) : `${esc(tr('postmatch.you', 'Vos'))} vs ${esc(rivalLabel)}`}</b>
+          </div>
+          <div class="pm-race-rows">${ageRaceRows.map((row) => {
+            const diff = (!isTeamGame && row.a != null && row.b != null) ? Math.round(row.b - row.a) : null;
+            const cls = diff == null || Math.abs(diff) < 5 ? '' : diff > 0 ? ' is-win' : ' is-loss';
+            const diffTxt = diff == null || Math.abs(diff) < 5
+              ? ''
+              : `<em class="pm-race-diff${cls}">${diff > 0 ? `−${fmtIdle(diff)} antes` : `+${fmtIdle(Math.abs(diff))} tarde`}</em>`;
+            return `<div class="pm-race-row${cls}">
+              <b class="is-self">${row.a != null ? clock(row.a) : '—'}</b>
+              <span>${esc(row.lbl)}${diffTxt}</span>
+              <b class="is-rival">${!isTeamGame && row.b != null ? clock(row.b) : '—'}</b>
+            </div>`;
+          }).join('')}</div>
+        </div>`
+      : '';
+
     const duelBlock = `<div class="pm-duel">
       ${duelFaceHead}
       ${duelRow(tr('postmatch.duelVils', 'Aldeanos pedidos'), self.villagersOrdered, rival?.villagersOrdered, `${number(self.villagersOrdered)} · ${self.townCenters} TC`, rival ? `${number(rival.villagersOrdered)} · ${rival.townCenters} TC` : '')}
@@ -769,7 +892,33 @@
       ${duelRow(tr('postmatch.duelArmy', 'Pedidos de unidades'), self.militaryOrdered, rival?.militaryOrdered, number(self.militaryOrdered), rival ? number(rival.militaryOrdered) : '')}
     </div>`;
 
-    // 4. Producción y colas militares (saturación + edificios recomendados + Mercado decodificado + composición)
+    // 5. Mejoras económicas, Herrería acorde a TU composición y Macro del replay
+    const mb = self.macroBuilds || null;
+    const ar = selfTp?.armyRelevance || null;
+    const bsContextLabel = ar && ar.primaryLabel
+      ? `${tr('postmatch.bsTechs', 'Herrería y Combate')} · ${ar.primaryLabel} (${number(ar.relevantCount)}/${number(ar.relevantExpected)} clave)`
+      : tr('postmatch.bsTechs', 'Herrería y Combate');
+    const techChips = (names, kind) => (Array.isArray(names) && names.length)
+      ? names.slice(0, 8).map((nm) => `<span class="pm-tech-chip is-${kind}">${esc(nm)}</span>`).join('')
+      : `<span class="pm-tech-none">${esc(tr('postmatch.noneDetected', 'Sin mejoras detectadas'))}</span>`;
+    const techBox = (selfTp || mb)
+      ? `<div class="pm-tech-box">
+          <div class="pm-queue-head">
+            <span>${esc(tr('postmatch.techsTitle', 'Mejoras clave y macro'))}</span>
+            <b>${selfTp ? `${number(selfTp.ecoCount || 0)} Eco · ${number(selfTp.blacksmithCount || 0)} Herrería${selfTp.combatKeyCount ? ` · ${number(selfTp.combatKeyCount)} Clave` : ''}` : ''}</b>
+          </div>
+          ${selfTp ? `<div class="pm-tech-group"><small>${esc(tr('postmatch.ecoTechs', 'Economía'))}</small><div class="pm-tech-chips">${techChips(selfTp.ecoNames, 'eco')}</div></div>` : ''}
+          ${selfTp ? `<div class="pm-tech-group"><small>${esc(bsContextLabel)}</small><div class="pm-tech-chips">${techChips([...(selfTp.blacksmithNames || []), ...(selfTp.combatKeyNames || [])], 'bs')}</div></div>` : ''}
+          ${mb ? `<div class="pm-macro-pills">
+            <span><b>${number(mb.farms || 0)}</b> ${esc(tr('postmatch.farms', 'granjas'))}</span>
+            <span><b>${number(mb.houses || 0)}</b> ${esc(tr('postmatch.houses', 'casas'))}</span>
+            <span><b>${number(mb.castles || 0)}</b> ${esc(tr('postmatch.castles', 'castillos'))}</span>
+            <span><b>${number(self.townCenters || 1)}</b> TC</span>
+          </div>` : ''}
+        </div>`
+      : '';
+
+    // 6. Producción y colas militares (saturación + edificios recomendados + Mercado decodificado + composición)
     const wsRows = (self.topWorkshops || []).slice(0, 3).map((w) => {
       const sat = w.status === 'saturated';
       const wName = locBuilding(w);
@@ -794,47 +943,76 @@
       </div>
     </div>`;
 
-    // 5. Bloque entrenador: Mayor bache exacto de TC + Patrón repetido + Foco (con SVGs centrados)
+    // 7. Bloque entrenador (bache exacto + patrón repetido)
     const gapRow = self.biggestTcGap
       ? `<div class="pm-coach-row is-gap"><span class="pm-icon-tile is-rose sm">${reportIcon('clock')}</span><div><span class="pm-coach-k">${esc(tr('postmatch.biggestGap', 'Mayor bache de TC'))}</span><b>${esc(self.biggestTcGap.summary)}</b></div></div>` : '';
     const pat = showPersonal ? evo?.recurringPattern : null;
     const patRow = pat
       ? `<div class="pm-coach-row is-warn"><span class="pm-icon-tile is-amber sm">${reportIcon('target')}</span><div><span class="pm-coach-k">${esc(pat.title)}</span><b>${esc(pat.detail)}</b></div></div>` : '';
-    const coachPanel = (gapRow || patRow || focusShort)
-      ? `<div class="pm-coach-stack">${gapRow}${patRow}${focusShort}</div>` : '';
+    const coachPanel = (gapRow || patRow)
+      ? `<div class="pm-coach-stack">${gapRow}${patRow}</div>` : '';
 
     const cm = self.combatMicro || {};
     const microVal = cm.controlSharePct != null ? `${dec(cm.controlSharePct, 1)}%` : `${number((self.habits?.attackMove || 0) + (self.habits?.patrol || 0))}`;
     const microSub = cm.moveOrders > 0 ? `<small>${number(cm.combatOrders || 0)}/${number(cm.moveOrders)}</small>` : '';
     const tcCycleVal = cm.tcReturnSec != null ? `${number(cm.tcReturnSec)} s` : '—';
+    const fourthHabit = self.eapmRetentionPct != null
+      ? `<div><span>${esc(tr('postmatch.lateStamina', 'Ritmo Late'))}</span><b>${number(self.eapmRetentionPct)}% <small>${dec(self.eapmEarly, 0)}→${dec(self.eapmLate, 0)}</small></b></div>`
+      : `<div><span>${esc(tr('postmatch.market', 'Mercado'))}</span><b>${number(self.habits?.market || 0)} <small>${esc(tr('postmatch.ops', 'ops'))}</small></b></div>`;
     const habitsStrip = `<div class="pm-habits">
       <div><span>APM / eAPM</span><b>${self.apm != null ? dec(self.apm, 1) : '—'} <small>/ ${self.eapm != null ? dec(self.eapm, 1) : '—'}</small></b></div>
       <div><span>${esc(tr('postmatch.combatMicro', 'Micro combate'))}</span><b>${microVal} ${microSub}</b></div>
       <div><span>${esc(tr('postmatch.tcCycle', 'Ciclo TC'))}</span><b>${tcCycleVal}</b></div>
-      <div><span>${esc(tr('postmatch.market', 'Mercado'))}</span><b>${number(self.habits?.market || 0)} <small>${esc(tr('postmatch.ops', 'ops'))}</small></b></div>
+      ${fourthHabit}
     </div>`;
+
+    // Nivel 2: Detalle técnico organizado en 3 pestañas limpias (visible en Relic Launcher; oculto en overlay por CSS)
+    const duelRightHtml = `${ageRaceBox}${coachPanel}`;
+    const techLeftHtml = techBox || queueBox;
+    const techRightHtml = techBox ? `${queueBox}${coachPanel}` : coachPanel;
+    const deepDive = `<section class="pm-deep-dive" aria-label="Análisis técnico detallado">
+      <div class="pm-tabs" role="tablist">
+        <button type="button" class="pm-tab is-active" role="tab" aria-selected="true" data-pm-tab="evo">${esc(tr('postmatch.tabEvo', 'Evolución y Curva'))}</button>
+        <button type="button" class="pm-tab" role="tab" aria-selected="false" data-pm-tab="duel">${esc(tr('postmatch.tabDuel', 'Duelo vs Rival'))}</button>
+        <button type="button" class="pm-tab" role="tab" aria-selected="false" data-pm-tab="tech">${esc(tr('postmatch.tabTech', 'Mejoras, Colas y Combate'))}</button>
+      </div>
+      <div class="pm-columns">
+        <div class="pm-tab-pane is-active" role="tabpanel" data-pm-pane="evo">
+          <div class="pm-eyebrow"><span>${esc(evoTitle)}</span><i></i></div>
+          ${evoGrid}
+          <div class="pm-pane-grid is-evo">
+            <div class="pm-col">${productionCurveSvg(eng.timeline, rivalLabel)}</div>
+            <div class="pm-col">${habitsStrip}</div>
+          </div>
+        </div>
+        <div class="pm-tab-pane" role="tabpanel" data-pm-pane="duel">
+          <div class="pm-eyebrow"><span>${esc(tr('postmatch.duelTitle', 'Duelo de partida'))}</span><i></i></div>
+          <div class="pm-pane-grid${duelRightHtml ? '' : ' is-single'}">
+            <div class="pm-col">${duelBlock}</div>
+            ${duelRightHtml ? `<div class="pm-col">${duelRightHtml}</div>` : ''}
+          </div>
+        </div>
+        <div class="pm-tab-pane" role="tabpanel" data-pm-pane="tech">
+          <div class="pm-eyebrow"><span>${esc(tr('postmatch.techPanelTitle', 'Tecnologías, producción y colas'))}</span><i></i></div>
+          <div class="pm-pane-grid${techRightHtml ? '' : ' is-single'}">
+            <div class="pm-col">${techLeftHtml}</div>
+            ${techRightHtml ? `<div class="pm-col">${techRightHtml}</div>` : ''}
+          </div>
+          ${report.combat ? combatBlock(report.combat) : ''}
+        </div>
+      </div>
+    </section>
+    <p class="pm-overlay-hint">${esc(tr('postmatch.overlayDeepHint', 'Curva, duelo vs rival, mejoras eco/herrería y colas completas en Relic → Postmatch'))}</p>`;
 
     return `<div class="pm-v2 detail is-${result.status === 'won' ? 'won' : result.status === 'lost' ? 'lost' : 'neutral'}">
       ${header}
+      ${verdictBar}
       ${trophyBanner}
       ${openingBar}
       ${stageStrip}
-      ${badges ? `<div class="pm-badges">${badges}</div>` : ''}
-      <div class="pm-columns">
-        <section class="pm-col">
-          <div class="pm-eyebrow"><span>${esc(evoTitle)}</span><i></i></div>
-          ${evoGrid}
-          ${productionCurveSvg(eng.timeline, rivalLabel)}
-          ${habitsStrip}
-        </section>
-        <section class="pm-col">
-          <div class="pm-eyebrow"><span>${esc(tr('postmatch.duelTitle', 'Duelo de partida'))}</span><i></i></div>
-          ${duelBlock}
-          ${queueBox}
-          ${coachPanel}
-        </section>
-      </div>
-      ${report.combat ? combatBlock(report.combat) : ''}
+      ${narrativeGrid}
+      ${focusShort}
+      ${deepDive}
       <footer class="pm-foot"><span>${esc(tr('postmatch.localReplay', report.data?.sourceLabel || 'Replay local'))}</span><span>${showPersonal && report.mapBenchmark?.games ? `${number(report.mapBenchmark.wins)} V · ${number(report.mapBenchmark.losses)} D · ${esc(locMap(c.mapName) || c.mapName)}` : ''}</span></footer>
     </div>`;
   }
@@ -1415,6 +1593,7 @@
       const cards = lmBucket.metrics.map((m) => {
         const tone = m.neutral ? 'neutral' : (m.improved ? 'win' : 'loss');
         const arrow = m.neutral ? '' : (m.improved ? '▲ ' : '▼ ');
+        const avgPrefix = m.id === 'windowWr' ? 'Balance' : 'Promedio';
         return `<div class="cx-lm-metric">
           <div class="cx-lm-top">
             <span>${esc(m.label)}</span>
@@ -1422,7 +1601,7 @@
           </div>
           <div class="cx-lm-vals">
             <strong>${esc(m.latestText)}</strong>
-            <small>Promedio: <em>${esc(m.avgText)}</em></small>
+            <small>${avgPrefix}: <em>${esc(m.avgText)}</em></small>
           </div>
           <small class="cx-lm-sub">${esc(m.sampleText)}</small>
         </div>`;
@@ -1431,7 +1610,7 @@
       return `<section class="cx-card cx-lm-card">
         <header class="cx-card-head">
           <div>
-            <h3>Última partida</h3>
+            <h3>Última partida y forma reciente</h3>
             <div class="cx-lm-title-row">
               <span class="cx-lm-outcome ${outcomeCls}">${esc(outcomeLbl)}</span>
               ${subBits ? `<span class="cx-lm-meta">${esc(subBits)}</span>` : ''}
@@ -1442,7 +1621,7 @@
             <button type="button" class="cx-sort-btn${lmWindow === 20 ? ' active' : ''}" data-lm-window="20">Últ. 20</button>
           </div>
         </header>
-        <p class="cx-card-context">Comparación con partidas previas · ${esc(lmSummary.modeLabel || mode.label)}</p>
+        <p class="cx-card-context">Comparación contra tus últimas ${lmWindow} partidas · ${esc(lmSummary.modeLabel || mode.label)}</p>
         <div class="cx-lm-grid">${cards}</div>
       </section>`;
     })() : '';

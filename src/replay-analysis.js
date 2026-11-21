@@ -19,7 +19,7 @@ const { seeOrder, pickCheckpoint } = require('./opening-review');
 const { observeQueue, collectCastlesWindow, supportedMap } = require('./castles-window');
 const { analyzePostmatchEngine } = require('./engine/postmatch-engine');
 
-const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v5';
+const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v7';
 
 const AGES = ['dark', 'feudal', 'castle', 'imperial'];
 const IDS = {
@@ -554,6 +554,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     openingShort: openingShort(opening.name),
     playerElo: matchPlayer && Number.isFinite(Number(matchPlayer.rating)) ? Number(matchPlayer.rating) : null,
     durationMs,
+    isTeamGame: playerCount > 2,
   });
   if (engineSummary && Number.isFinite(engineSummary.self?.eapm)) {
     metrics.eapm = {

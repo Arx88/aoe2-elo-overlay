@@ -12,6 +12,7 @@ const {
   Notification,
   nativeImage,
   dialog,
+  powerMonitor,
 } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -61,6 +62,7 @@ const { fetchReplayTelemetry } = require('./src/replay');
 const { createProductStateCache, effectivePreferences } = require('./src/product');
 const { buildSmartBuildOrder } = require('./src/build-orders');
 const { detectSmurfsForPlayers } = require('./src/smurf');
+const { createMinimizeController, GameWindowWatcher } = require('./src/game-window');
 const { projectOverlayState, projectRivalPayload, projectScoutPayload } = require('./src/presentation');
 const i18n = require('./src/i18n');
 const licenseClient = require('./src/license-client');
@@ -133,6 +135,8 @@ const DEFAULT_CONFIG = {
   // Balance de equipos: promedio de ELO RM 1v1 por equipo en team games.
   tgBalance: false,
   smurfDetector: false,
+  // Ocultar overlay si Age of Empires II: DE queda minimizado por más de 5 segundos.
+  hideWhenMinimized: false,
   // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
   // nueva, la descarga e instala sola (nunca en media partida). Apagada de
   // fábrica: se activa desde la pestaña Updater.
@@ -847,6 +851,38 @@ function clearSmurfReports() {
   if (smurfReports) sendSmurf(null);
 }
 
+function buildExampleSmurfPreview(state) {
+  if (!state || !state.example || !Array.isArray(state.players)) return null;
+  const rivals = state.players.filter((p) => p && !p.isYou && Number(p.profileId) > 0);
+  if (!rivals.length) return null;
+  const byPlayer = {};
+  const first = rivals[0];
+  byPlayer[first.profileId] = {
+    profileId: Number(first.profileId),
+    flagged: true,
+    level: 'high',
+    label: 'SMURF',
+    shortReason: 'alt 1640',
+    reasons: ['Vista previa · Cuenta vinculada en 1640 ELO (+410)'],
+    score: 75,
+    example: true,
+  };
+  if (rivals.length >= 2) {
+    const second = rivals[1];
+    byPlayer[second.profileId] = {
+      profileId: Number(second.profileId),
+      flagged: true,
+      level: 'possible',
+      label: 'SMURF?',
+      shortReason: '74%·26pj',
+      reasons: ['Vista previa · 74% WR en solo 26 partidas de RM 1v1'],
+      score: 45,
+      example: true,
+    };
+  }
+  return { ts: Date.now(), matchId: String(state.match?.matchId || 'ejemplo'), byPlayer, example: true };
+}
+
 async function refreshSmurfReports(state, options = {}) {
   const view = viewConfig();
   if (DEMO || !view.smurfDetector || !state || state.status !== 'ongoing') {
@@ -868,6 +904,14 @@ async function refreshSmurfReports(state, options = {}) {
   try {
     const byPlayer = await detectSmurfsForPlayers(players, { cache: statsCache, log });
     if (!lastGood || lastGood.status !== 'ongoing' || !viewConfig().smurfDetector) return;
+    const anyFlagged = Object.values(byPlayer || {}).some((entry) => entry && entry.flagged);
+    if (!anyFlagged && state.example && previewHighlightFeature === 'smurfDetector') {
+      const sample = buildExampleSmurfPreview(state);
+      if (sample) {
+        sendSmurf(sample);
+        return;
+      }
+    }
     sendSmurf({ ts: Date.now(), matchId: String(matchId), byPlayer });
   } catch (err) {
     log(`smurf detector: ${err.message}`);
@@ -1745,12 +1789,74 @@ function showUpdateNotice(notice) {
   }
 }
 
+let lastAutoDetectRetryAt = 0;
+let manuallyHiddenByHotkey = false;
+let gameWindowWatcher = null;
+let minimizeController = null;
+let activePreviewHighlight = null;
+let previewHighlightSeq = 0;
+
+function sendPreviewHighlight(feature = null) {
+  activePreviewHighlight = feature
+    ? { feature: String(feature), seq: ++previewHighlightSeq }
+    : null;
+  send('overlay:highlight', activePreviewHighlight);
+}
+
+function initMinimizeWatcher() {
+  if (!minimizeController) {
+    minimizeController = createMinimizeController({
+      delayMs: 5000,
+      canHide: () => Boolean(
+        config.hideWhenMinimized &&
+        win && !win.isDestroyed() &&
+        !exampleActive &&
+        !moving &&
+        !manuallyHiddenByHotkey,
+      ),
+      onHide: () => {
+        if (win && !win.isDestroyed() && win.isVisible()) {
+          win.hide();
+          log('overlay oculto automáticamente: AoE2 minimizado por más de 5s');
+        }
+      },
+      onShow: () => {
+        if (win && !win.isDestroyed() && !manuallyHiddenByHotkey) {
+          win.setAlwaysOnTop(true, 'screen-saver');
+          win.showInactive();
+          log('overlay restaurado automáticamente: AoE2 volvió a primer plano');
+        }
+      },
+    });
+  }
+  const wanted = Boolean(config.hideWhenMinimized) && !DEMO && !SHOT;
+  minimizeController.setEnabled(wanted);
+  if (wanted) {
+    if (!gameWindowWatcher) {
+      gameWindowWatcher = new GameWindowWatcher({
+        ownPid: process.pid,
+        log,
+        onState: (state) => {
+          if (minimizeController) minimizeController.updateState(state);
+        },
+      });
+    }
+    gameWindowWatcher.start();
+  } else if (gameWindowWatcher) {
+    gameWindowWatcher.stop();
+  }
+}
+
 function toggleOverlay() {
   if (!win || win.isDestroyed()) return;
   if (win.isVisible()) {
+    manuallyHiddenByHotkey = true;
     win.hide();
     log('overlay oculto (Ctrl+Alt+E para volver)');
   } else {
+    manuallyHiddenByHotkey = false;
+    if (minimizeController) minimizeController.cancelAndShow();
+    win.setAlwaysOnTop(true, 'screen-saver');
     win.showInactive();
     log('overlay visible');
   }
@@ -1779,8 +1885,55 @@ function hardenWebContents(wc) {
   }
 }
 
+/**
+ * Compensa suavemente el escalado DPI de Windows (125%, 150%, 175%, 200%)
+ * para que la app no se vea gigante ni desborde en pantallas con Zoom activo.
+ * A 100% (scaleFactor === 1) devuelve 1.0 exacto sin alterar nada.
+ */
+function computeAdaptiveZoom(display, kind = 'settings') {
+  const sf = Number(display && display.scaleFactor) || 1;
+  const wa = (display && display.workArea) || { width: 1920, height: 1080 };
+  let zoom = 1;
+  if (sf > 1.02) {
+    const exp = kind === 'overlay' ? 0.62 : 0.55;
+    const floor = kind === 'overlay' ? 0.74 : 0.76;
+    zoom = Math.max(floor, 1 / Math.pow(sf, exp));
+  }
+  if (kind === 'settings' && (wa.height < 640 || wa.width < 1020)) {
+    const fitH = wa.height / 720;
+    const fitW = wa.width / 1060;
+    zoom = Math.min(zoom, Math.max(0.75, Math.min(fitH, fitW)));
+  }
+  return Math.round(clamp(zoom, 0.72, 1) * 100) / 100;
+}
+
+function getWindowDisplay(targetWin) {
+  try {
+    if (targetWin && !targetWin.isDestroyed()) {
+      return screen.getDisplayMatching(targetWin.getBounds());
+    }
+  } catch { /* fallback primary */ }
+  return screen.getPrimaryDisplay();
+}
+
+function applyAdaptiveZoom(targetWin, kind = 'settings') {
+  if (!targetWin || targetWin.isDestroyed()) return 1;
+  const display = getWindowDisplay(targetWin);
+  const zoom = computeAdaptiveZoom(display, kind);
+  try {
+    targetWin.webContents.setVisualZoomLevelLimits(1, 1);
+    if (Math.abs(targetWin.webContents.getZoomFactor() - zoom) > 0.01) {
+      targetWin.webContents.setZoomFactor(zoom);
+    }
+  } catch { /* ventana cerrándose */ }
+  return zoom;
+}
+
 function createWindow() {
-  const width = Math.round(config.width * Number(config.scale || 1));
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const initialZoom = computeAdaptiveZoom(primaryDisplay, 'overlay');
+  const maxW = Math.max(320, primaryDisplay.workArea.width - 32);
+  const width = Math.min(maxW, Math.round(config.width * Number(config.scale || 1) * initialZoom));
   const height = 140;
   const opacity = clamp(Number(config.opacity) || 1, 0.15, 1);
   const start = initialPosition(width, height);
@@ -1816,6 +1969,11 @@ function createWindow() {
     },
   });
   hardenWebContents(win.webContents);
+  applyAdaptiveZoom(win, 'overlay');
+  win.webContents.on('did-finish-load', () => applyAdaptiveZoom(win, 'overlay'));
+  win.on('moved', () => {
+    applyAdaptiveZoom(win, 'overlay');
+  });
 
   // Errores del panel al log: sin esto un fallo se ve como "Iniciando…" eterno.
   win.webContents.on('console-message', (_event, _level, message) => {
@@ -1925,11 +2083,17 @@ function openSettings() {
     return settingsWin;
   }
 
+  const wa = screen.getPrimaryDisplay().workArea;
+  const initWidth = Math.min(1040, Math.max(720, wa.width - 44));
+  const initHeight = Math.min(720, Math.max(500, wa.height - 44));
+  const minW = Math.min(740, Math.max(600, wa.width - 24));
+  const minH = Math.min(480, Math.max(400, wa.height - 24));
+
   settingsWin = new BrowserWindow({
-    width: 960,
-    height: 680,
-    minWidth: 860,
-    minHeight: 560,
+    width: initWidth,
+    height: initHeight,
+    minWidth: minW,
+    minHeight: minH,
     title: 'Relic',
     icon: WINDOW_ICON,
     backgroundColor: '#121211',
@@ -1950,6 +2114,9 @@ function openSettings() {
     },
   });
   hardenWebContents(settingsWin.webContents);
+  applyAdaptiveZoom(settingsWin, 'settings');
+  settingsWin.webContents.on('did-finish-load', () => applyAdaptiveZoom(settingsWin, 'settings'));
+  settingsWin.on('moved', () => applyAdaptiveZoom(settingsWin, 'settings'));
   if (process.platform === 'win32' && typeof settingsWin.setIcon === 'function') {
     try { settingsWin.setIcon(WINDOW_ICON); } catch {}
   }
@@ -2156,6 +2323,11 @@ function startLive() {
     // cartel "Partida encontrada", sin esperar ni un solo request. El roster
     // (onMatched) llega en el mismo lote y lo reemplaza en milisegundos.
     onFound: (matchId) => {
+      // Una partida real SIEMPRE tiene prioridad sobre una vista previa de toggles.
+      if (exampleActive && exampleUseRealConfig) {
+        clearPreviewAutoHide();
+        deactivateExample();
+      }
       const at = Date.now();
       liveMatchAt = at;
       preMatchGraceUntil = at + 20000;
@@ -2175,6 +2347,10 @@ function startLive() {
       });
     },
     onMatched: (item) => {
+      if (exampleActive && exampleUseRealConfig) {
+        clearPreviewAutoHide();
+        deactivateExample();
+      }
       liveMatchAt = Date.now();
       preMatchGraceUntil = liveMatchAt + 20000;
       if (fastLane) fastLane.pause();
@@ -2236,6 +2412,10 @@ function startLive() {
     onLobby: (lobby) => {
       // Si ya hay match de ranked, ese manda: no lo pisa una sala ajena.
       if (matchFoundActive()) return;
+      if (exampleActive && exampleUseRealConfig) {
+        clearPreviewAutoHide();
+        deactivateExample();
+      }
       liveLobbyAt = Date.now();
       showLobby(lobby);
     },
@@ -2528,11 +2708,13 @@ function deactivateExample() {
   clearTimeout(introTimer);
   introTimer = null;
   send('overlay:config', overlayConfig()); // vuelven las opciones REALES
+  sendPreviewHighlight(null);
   syncIntro(null, { force: true }); // ELO visible de nuevo, ayuda oculta
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.webContents.send('settings:clock', null);
   }
   broadcastExample();
+  if (minimizeController) minimizeController.recheck();
 }
 
 async function startExample(rawQuery, clockMode = '3', options = {}) {
@@ -2669,6 +2851,10 @@ function stopExample() {
   if (!exampleActive) return { ok: true, active: false };
   deactivateExample();
   log('modo ejemplo terminado: el panel vuelve al estado real');
+  // Si ya había una partida apareada en el socket, la mostramos al instante.
+  if (queueWatcher && queueWatcher.reemitIfMatched()) {
+    return { ok: true, active: false };
+  }
   // Repinta el estado en vivo sin esperar al próximo tick del polling.
   poll().catch(() => {});
   return { ok: true, active: false };
@@ -2740,16 +2926,23 @@ function maybeArmPreviewAutoHide() {
  * partida RM 1v1 real del jugador con sus opciones reales (`exampleUseRealConfig`).
  * Los 20 segundos comienzan a contar recién cuando termina de cargar toda la info.
  */
-async function triggerTogglePreview(phase = 'prematch') {
+async function triggerTogglePreview(phase = 'prematch', highlightFeature = null) {
   if (lastGood && lastGood.status === 'ongoing' && !lastGood.example) return;
   if (!profileId) return;
 
   const cycle = ++previewCycleToken;
   clearPreviewAutoHide();
   clearPostMatchHide();
+  if (minimizeController) minimizeController.cancelAndShow();
+  if (win && !win.isDestroyed() && !manuallyHiddenByHotkey && !win.isVisible()) {
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.showInactive();
+  }
+  sendPreviewHighlight(highlightFeature);
 
   if (phase === 'postmatch') {
     if (exampleActive) deactivateExample();
+    sendPreviewHighlight(highlightFeature);
     let targetMatch = postMatchMatch || latestStoredMatch();
     if (!targetMatch) {
       const recent = await getRecentMatchesList(10);
@@ -2771,6 +2964,7 @@ async function triggerTogglePreview(phase = 'prematch') {
         broadcastPostMatch();
       }
       if (cycle !== previewCycleToken) return;
+      sendPreviewHighlight(highlightFeature);
       log('vista previa postmatch cargada: contando 20s para auto-ocultar');
       schedulePreviewAutoHide(PREVIEW_AUTO_HIDE_MS);
     }
@@ -2781,7 +2975,9 @@ async function triggerTogglePreview(phase = 'prematch') {
     dismissPostMatch('vista previa de toggles');
   }
 
-  const clockMode = phase === 'durante' ? '21' : '3';
+  // En Durante, "Ayuda de civ" vive en la ventana 0:01–hideAt (clockMode '3');
+  // Smart Build Order usa '21' para mostrar la vista limpia durante la partida.
+  const clockMode = phase === 'durante' && highlightFeature !== 'civHelp' ? '21' : '3';
   const needStart = !exampleActive || !exampleUseRealConfig || Number(exampleProfileId) !== Number(profileId);
   exampleUseRealConfig = true;
   examplePreviewPhase = phase;
@@ -2795,7 +2991,7 @@ async function triggerTogglePreview(phase = 'prematch') {
 
   if (needStart) {
     await startExample(String(profileId), clockMode, { useRealConfig: true, previewPhase: phase });
-  } else if (exampleClockMode !== clockMode) {
+  } else if (exampleClockMode !== clockMode || examplePreviewPhase !== phase) {
     await setExampleClock(clockMode, { previewPhase: phase });
   } else {
     send('overlay:config', overlayConfig());
@@ -2810,6 +3006,15 @@ async function triggerTogglePreview(phase = 'prematch') {
   }
 
   if (cycle !== previewCycleToken) return;
+  if (highlightFeature === 'smurfDetector' && lastGood && lastGood.example && viewConfig().smurfDetector) {
+    const hasFlagged = smurfReports && smurfReports.byPlayer &&
+      Object.values(smurfReports.byPlayer).some((entry) => entry && entry.flagged);
+    if (!hasFlagged) {
+      const sample = buildExampleSmurfPreview(lastGood);
+      if (sample) sendSmurf(sample);
+    }
+  }
+  sendPreviewHighlight(highlightFeature);
   await Promise.resolve();
   if (cycle !== previewCycleToken) return;
   maybeArmPreviewAutoHide();
@@ -2850,6 +3055,7 @@ function registerIpc() {
     civRecommender: Boolean(config.civRecommender),
     tgBalance: Boolean(config.tgBalance),
     smurfDetector: Boolean(config.smurfDetector),
+    hideWhenMinimized: Boolean(config.hideWhenMinimized),
     autoUpdate: Boolean(config.autoUpdate),
     postMatch: config.postMatch !== false,
     postMatchComparison: Boolean(config.postMatchComparison),
@@ -2958,6 +3164,32 @@ function registerIpc() {
     return { ok: true, opacity: value };
   });
 
+  ipcMain.handle('settings:hideWhenMinimized', (_event, raw) => {
+    const enabled = Boolean(raw);
+    persistConfig({ hideWhenMinimized: enabled });
+    initMinimizeWatcher();
+    log(`ocultar si AoE2 minimizado (>5s): ${enabled ? 'activado' : 'desactivado'}`);
+    return { ok: true, hideWhenMinimized: enabled };
+  });
+
+  ipcMain.handle('feedback:submit', async (_event, payload = {}) => {
+    const apiUrl = process.env.AOE2_LICENSE_API_URL || config.licenseApiUrl || licenseClient.DEFAULT_API_URL;
+    const plan = productState().plan || 'free';
+    const result = await licenseClient.submitRemoteFeedback({
+      apiUrl,
+      category: payload.category,
+      message: payload.message,
+      contact: payload.contact,
+      profileId,
+      alias: playerAlias || '',
+      plan,
+      appVersion: app.getVersion(),
+      locale: i18n.getLocale(config.language),
+    });
+    log(`feedback enviado: ${result.ok ? `ok (id=${result.id ?? '—'})` : result.error}`);
+    return result;
+  });
+
   // Las dos opciones nuevas. Se aplican EN CALIENTE: si hay una partida en
   // curso se recalcula la vista con el reloj ya andando, sin reiniciar nada.
   ipcMain.handle('settings:civHelp', (_event, raw) => {
@@ -2965,7 +3197,7 @@ function registerIpc() {
     persistConfig({ civHelp: enabled });
     send('overlay:config', overlayConfig());
     syncIntro(lastGood, { force: true });
-    triggerTogglePreview('prematch').catch(() => {});
+    triggerTogglePreview('durante', enabled ? 'civHelp' : null).catch(() => {});
     log(`ayuda de civ: ${enabled ? 'activada (0:01 → 0:20)' : 'desactivada'}`);
     return { ok: true, civHelp: enabled };
   });
@@ -2975,7 +3207,7 @@ function registerIpc() {
     persistConfig({ hideEloAt20: enabled });
     send('overlay:config', overlayConfig());
     syncIntro(lastGood, { force: true });
-    triggerTogglePreview('prematch').catch(() => {});
+    triggerTogglePreview('prematch', enabled ? 'hideEloAt20' : null).catch(() => {});
     log(`ocultar ELO al segundo ${hideAtMs(config) / 1000}: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, hideEloAt20: enabled };
   });
@@ -3021,7 +3253,7 @@ function registerIpc() {
       scoutSig = '';
       refreshScoutTips(lastGood, { force: true }).catch(() => {});
     }
-    triggerTogglePreview('prematch').catch(() => {});
+    triggerTogglePreview('prematch', enabled ? key : null).catch(() => {});
     return { ok: true, key, enabled };
   });
 
@@ -3031,7 +3263,7 @@ function registerIpc() {
     const enabled = Boolean(raw);
     persistConfig({ tgBalance: enabled });
     send('overlay:config', overlayConfig());
-    triggerTogglePreview('prematch').catch(() => {});
+    triggerTogglePreview('prematch', enabled ? 'tgBalance' : null).catch(() => {});
     log(`balance de equipos: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, tgBalance: enabled };
   });
@@ -3049,7 +3281,7 @@ function registerIpc() {
       smurfSig = '';
       refreshSmurfReports(lastGood, { force: true }).catch(() => {});
     }
-    triggerTogglePreview('prematch').catch(() => {});
+    triggerTogglePreview('prematch', enabled ? 'smurfDetector' : null).catch(() => {});
     log(`smurf detector: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, smurfDetector: enabled };
   });
@@ -3072,6 +3304,7 @@ function registerIpc() {
       return { ok: false, error: 'F2 ya está en uso. Se mantiene el informe completo.' };
     }
     send('overlay:config', overlayConfig());
+    triggerTogglePreview('prematch', enabled ? 'scoutF2' : null).catch(() => {});
     log(`resumen con F2: ${enabled ? 'activado (F2 alterna resumen/detalle)' : 'desactivado (informe completo, F2 libre)'}`);
     return { ok: true, scoutF2: enabled };
   });
@@ -3087,7 +3320,7 @@ function registerIpc() {
       persistConfig({ postMatchCompareMode: mode });
       send('overlay:config', overlayConfig());
       broadcastPostMatch();
-      triggerTogglePreview('postmatch').catch(() => {});
+      triggerTogglePreview('postmatch', 'postMatchComparison').catch(() => {});
       log(`postmatch · modo de comparación: ${mode}`);
       return { ok: true, key, value: mode };
     }
@@ -3101,7 +3334,7 @@ function registerIpc() {
     persistConfig({ [key]: enabled });
     send('overlay:config', overlayConfig());
     broadcastPostMatch();
-    triggerTogglePreview('postmatch').catch(() => {});
+    triggerTogglePreview('postmatch', enabled ? key : null).catch(() => {});
     log(`postmatch · ${key}: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, key, enabled };
   });
@@ -3257,7 +3490,7 @@ function registerIpc() {
     persistConfig({ smartBuildOrder: enabled });
     send('overlay:config', overlayConfig());
     sendBuildOrder();
-    triggerTogglePreview('durante').catch(() => {});
+    triggerTogglePreview('durante', enabled ? 'smartBuildOrder' : null).catch(() => {});
     return { ok: true, enabled };
   });
 
@@ -3489,6 +3722,7 @@ function registerIpc() {
     // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
     if (scoutPayload) send('overlay:scout', projectScoutPayload(scoutPayload, productState()));
     sendBuildOrder();
+    if (activePreviewHighlight) send('overlay:highlight', activePreviewHighlight);
 
     // Si el renderer se recargó mientras el chip de actualización estaba
     // vigente, lo repintamos (se apaga solo por su propio timer).
@@ -3522,9 +3756,13 @@ function applyHeight(height) {
   if (!win) return;
   const display = screen.getDisplayMatching(win.getBounds());
   const workArea = display.workArea;
+  const overlayZoom = applyAdaptiveZoom(win, 'overlay');
   const reviewing = reviewVisible() && !moving;
-  const overlayWidth = Math.round(config.width * Number(config.scale || 1));
-  const reviewWidth = Math.max(320, Math.min(1120, workArea.width - 40));
+  const overlayWidth = Math.min(
+    Math.max(300, workArea.width - 32),
+    Math.round(config.width * Number(config.scale || 1) * overlayZoom),
+  );
+  const reviewWidth = Math.max(320, Math.min(Math.round(1080 * overlayZoom), workArea.width - 40));
 
   // Techo ADAPTATIVO al monitor, no un número fijo. El tope viejo (640 px)
   // venía de cuando el panel era solo el roster: con el informe del rival,
@@ -3533,11 +3771,12 @@ function applyHeight(height) {
   // límite es el área de trabajo del monitor menos el margen superior.
   const offset = Math.max(0, Number(config.offsetY) || 0);
   const maxHeight = Math.max(200, workArea.height - offset - 16);
-  const target = clamp(Math.round(height), 110, maxHeight);
-  if (target < Math.round(height)) {
+  const scaledHeight = Math.round(Number(height) * overlayZoom);
+  const target = clamp(scaledHeight, 110, maxHeight);
+  if (target < scaledHeight) {
     log(
-      `alto recortado: el contenido pide ${Math.round(height)} px y el monitor ` +
-        `deja ${maxHeight} (workArea ${workArea.height}, offset ${offset})`,
+      `alto recortado: el contenido pide ${scaledHeight} px y el monitor ` +
+        `deja ${maxHeight} (workArea ${workArea.height}, offset ${offset}, zoom ${overlayZoom})`,
     );
   }
   const [currentWidth] = win.getContentSize();
@@ -3582,6 +3821,7 @@ function setMovable(enabled) {
   clearTimeout(moveSaveTimer);
 
   if (moving) {
+    if (minimizeController) minimizeController.cancelAndShow();
     win.setIgnoreMouseEvents(false);
     win.setFocusable(true);
     win.setAlwaysOnTop(true, 'screen-saver');
@@ -3595,6 +3835,7 @@ function setMovable(enabled) {
     config.y = y;
     persistConfig({ position: 'custom', x, y });
     syncReviewInteraction();
+    if (minimizeController) minimizeController.recheck();
     log(`posición guardada: x=${x} y=${y} (queda fija ahí, sin molestar en partida)`);
   }
 
@@ -3792,11 +4033,16 @@ async function publishPostMatch(match, options = {}) {
   clearPostMatchHide();
 
   let telemetry = options.telemetry || (saved && saved.telemetry) || null;
+  const hadCachedTelemetry = Boolean(telemetry);
   const replayAllowed = Boolean(viewConfig().postMatch) && postMatchAccess().replay;
-  const refreshLegacyReplay = options.refreshReplay && telemetry?.source?.id === 'aoe2rec-js' &&
-    ['0.1.25', '0.1.25+command-adapter-v2', '0.1.25+command-adapter-v3', '0.1.25+command-adapter-v4'].includes(telemetry.source.version);
+  const missingRichTelemetry = Boolean(telemetry?.engineSummary && !telemetry.engineSummary.self?.techProfile?.armyRelevance);
+  const refreshLegacyReplay = Boolean(telemetry && (
+    missingRichTelemetry ||
+    (options.refreshReplay && telemetry?.source?.id === 'aoe2rec-js' &&
+      ['0.1.25', '0.1.25+command-adapter-v2', '0.1.25+command-adapter-v3', '0.1.25+command-adapter-v4', '0.1.25+command-adapter-v5', '0.1.25+command-adapter-v6'].includes(telemetry.source.version))
+  ));
   const fetchingReplay = replayAllowed && options.autoReplay !== false && (!telemetry || refreshLegacyReplay);
-  let analysis = fetchingReplay
+  let analysis = fetchingReplay && !hadCachedTelemetry
     ? { status: 'downloading', label: 'Descargando partida', detail: 'Buscando la grabación de la partida.' }
     : telemetry
     ? { status: 'ready', label: 'Análisis listo', detail: 'El replay ya estaba analizado.' }
@@ -3840,17 +4086,21 @@ async function publishPostMatch(match, options = {}) {
     try {
       telemetry = await fetchReplayTelemetry(match, targetProfileId, {
         onStatus: (next) => {
-          analysis = next;
-          paint();
+          if (!hadCachedTelemetry) {
+            analysis = next;
+            paint();
+          }
         },
       });
       analysis = { status: 'ready', label: 'Análisis listo', detail: 'Replay descargado y analizado.' };
     } catch (err) {
       error = err.message;
-      analysis = {
-        status: 'error', label: 'No se pudo analizar el replay',
-        detail: err.message,
-      };
+      analysis = hadCachedTelemetry
+        ? { status: 'ready', label: 'Análisis listo', detail: 'Se conserva el análisis guardado.' }
+        : {
+          status: 'error', label: 'No se pudo analizar el replay',
+          detail: err.message,
+        };
       log(`postmatch: replay de #${id} no analizado: ${err.message}`);
     }
   }
@@ -3908,6 +4158,11 @@ function emit(state) {
     lastOngoingMatchId = ongoingId;
     clearRivalReports();
     clearScoutTips();
+    // Asegurar que Windows DWM mantenga el overlay por encima del juego al detectar partida nueva.
+    if (win && !win.isDestroyed() && !manuallyHiddenByHotkey && !(minimizeController && minimizeController.isHiddenByMinimized())) {
+      win.setAlwaysOnTop(true, 'screen-saver');
+      if (!win.isVisible()) win.showInactive();
+    }
   }
   if (!ongoingId) lastOngoingMatchId = null;
 
@@ -3943,7 +4198,8 @@ function panelMaxHeight() {
   if (!win || win.isDestroyed()) return 0;
   const display = screen.getDisplayMatching(win.getBounds());
   const offset = Math.max(0, Number(config.offsetY) || 0);
-  return Math.max(200, display.workArea.height - offset - 16);
+  const zoom = computeAdaptiveZoom(display, 'overlay');
+  return Math.max(200, Math.round((display.workArea.height - offset - 16) / zoom));
 }
 
 /** Reenvía el modo de scouting activo (compacto / detalle) al renderer. */
@@ -4113,6 +4369,23 @@ async function poll() {
   const startedAt = Date.now();
 
   try {
+    // Si la autodetección falló al iniciar (p. ej. tras actualizar por timeout/firewall),
+    // reintentamos cada 15 s para que el usuario no quede sin detección de partidas.
+    if (!profileId && !NO_PROFILE && !config.profileId && Date.now() - lastAutoDetectRetryAt >= 15000) {
+      lastAutoDetectRetryAt = Date.now();
+      try {
+        const detected = await detectProfile(log);
+        if (detected && detected.profileId) {
+          log(`perfil auto-detectado en reintento: ${detected.alias || 'sin alias'} (${detected.profileId})`);
+          polling = false;
+          setRuntimeProfile(detected.profileId, detected.alias);
+          return lastStatus;
+        }
+      } catch {
+        /* se reintenta en el próximo ciclo */
+      }
+    }
+
     const snapshot = await buildSnapshot({
       profileId,
       cache: statsCache,
@@ -4307,6 +4580,12 @@ async function bootstrap() {
     }
   }
   createWindow();
+  screen.on('display-metrics-changed', () => {
+    applyAdaptiveZoom(win, 'overlay');
+    applyAdaptiveZoom(settingsWin, 'settings');
+    sendView(true);
+  });
+  initMinimizeWatcher();
   startPolling();
   startLive();
 
@@ -4415,16 +4694,20 @@ if (!gotLock) {
       })
       .catch((err) => log(`bootstrap falló: ${(err && (err.stack || err.message)) || err}`));
 
-    globalShortcut.register('Control+Alt+E', () => {
-      if (!win) return;
-      if (win.isVisible()) {
-        win.hide();
-        log('overlay oculto (Ctrl+Alt+E para volver)');
-      } else {
-        win.showInactive();
-        log('overlay visible');
-      }
-    });
+    globalShortcut.register('Control+Alt+E', () => toggleOverlay());
+
+    // Al volver de suspensión o desbloquear Windows los websockets suelen quedar
+    // silenciosamente muertos: reiniciamos detección en vivo y refrescamos.
+    if (powerMonitor && typeof powerMonitor.on === 'function') {
+      const recoverLive = (reason) => {
+        if (!profileId || DEMO || NO_PROFILE) return;
+        log(`sistema ${reason}: reconectando detección en vivo de partidas`);
+        startLive();
+        poll().catch(() => {});
+      };
+      powerMonitor.on('resume', () => recoverLive('reanudado'));
+      powerMonitor.on('unlock-screen', () => recoverLive('desbloqueado'));
+    }
 
     globalShortcut.register('Control+Alt+S', () => {
       log('abriendo configuración (Ctrl+Alt+S)');
@@ -4466,6 +4749,8 @@ if (!gotLock) {
     clearInterval(heartbeatTimer);
     clearTimeout(introTimer);
     stopLive();
+    if (gameWindowWatcher) gameWindowWatcher.stop();
+    if (minimizeController) minimizeController.dispose();
     if (tray && !tray.isDestroyed()) tray.destroy();
   });
 

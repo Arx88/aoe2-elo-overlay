@@ -2795,3 +2795,77 @@ body.scout-detail #scoutInfo {
   padding-top: 0.6rem;
   padding-bottom: 0.6rem;
 }
+
+/* =====================================================================
+   RESALTE SUTIL EN VISTA PREVIA DE TOGGLES
+   Marca exactamente qué bloque del overlay se acaba de activar al probar
+   una opción en Ajustes (click-through, sin tapar texto ni recargar UI).
+   ===================================================================== */
+@keyframes preview-hl-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1.5px rgba(226, 196, 130, 0.72),
+      0 0 16px rgba(214, 179, 108, 0.16),
+      inset 0 0 0 1px rgba(226, 196, 130, 0.14);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(240, 214, 154, 0.92),
+      0 0 24px rgba(226, 196, 130, 0.28),
+      inset 0 0 0 1px rgba(240, 214, 154, 0.22);
+  }
+}
+
+.preview-hl-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-bottom: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 196, 130, 0.45);
+  background: rgba(18, 22, 26, 0.88);
+  color: #ecd49d;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
+}
+
+.preview-hl-bar[hidden] {
+  display: none;
+}
+
+.preview-hl-bar::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e8cb88;
+  box-shadow: 0 0 8px rgba(232, 203, 136, 0.85);
+}
+
+.preview-hl {
+  position: relative;
+  border-radius: 9px;
+  box-shadow:
+    0 0 0 1.5px rgba(226, 196, 130, 0.72),
+    0 0 16px rgba(214, 179, 108, 0.16),
+    inset 0 0 0 1px rgba(226, 196, 130, 0.14) !important;
+  background-image: linear-gradient(135deg, rgba(226, 196, 130, 0.085), transparent 62%);
+  animation: preview-hl-pulse 1.9s ease-in-out 2;
+  transition: box-shadow 220ms ease;
+}
+
+.intel-block.preview-hl,
+.intel-note.preview-hl {
+  padding: 8px 10px;
+  margin-inline: -6px;
+}
+
+.row.preview-hl {
+  padding-inline: 6px;
+  margin-inline: -6px;
+}

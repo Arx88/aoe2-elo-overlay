@@ -40,6 +40,8 @@ const SOCKET_BASE = process.env.AOE_COMPANION_SOCKET || 'wss://socket.aoe2compan
 
 const RECONNECT_MIN_MS = 2000;
 const RECONNECT_MAX_MS = 60000;
+// Si el handshake inicial queda colgado (p. ej. antivirus/firewall tras actualizar), abortar rápido.
+const CONNECT_TIMEOUT_MS = 15000;
 // Si en 45 segundos no llegó ni un mensaje (ni pong), la conexión está zombie.
 const WATCHDOG_MS = 45000;
 
@@ -224,11 +226,15 @@ class Socket {
       return;
     }
     this.ws = ws;
+    // Watchdog de conexión inicial: si el handshake TLS/WS queda colgado en CONNECTING
+    // (frecuente justo después de una actualización por inspección de Windows Defender/Firewall),
+    // abortamos a los 15 s y reconectamos en vez de quedar mudos para siempre.
+    this.armWatchdog(CONNECT_TIMEOUT_MS);
 
     ws.onopen = () => {
       this.retries = 0;
       this.log(`socket ${this.name}: conectado`);
-      this.armWatchdog();
+      this.armWatchdog(WATCHDOG_MS);
     };
     ws.onmessage = (event) => {
       this.armWatchdog();
@@ -258,10 +264,10 @@ class Socket {
     };
   }
 
-  armWatchdog() {
+  armWatchdog(timeoutMs = WATCHDOG_MS) {
     clearTimeout(this.watchdog);
     this.watchdog = setTimeout(() => {
-      this.log(`socket ${this.name}: ${WATCHDOG_MS / 1000}s sin mensajes, reconectando`);
+      this.log(`socket ${this.name}: ${Math.round(timeoutMs / 1000)}s sin respuesta, reconectando`);
       try {
         if (this.ws) this.ws.close();
       } catch {
@@ -269,7 +275,7 @@ class Socket {
       }
       // Si el close no llega (socket colgado), forzamos la reconexión igual.
       this.scheduleReconnect();
-    }, WATCHDOG_MS);
+    }, timeoutMs);
   }
 
   scheduleReconnect() {
@@ -375,9 +381,19 @@ class FastLane {
       3000,
     );
     if (this.closed) return;
-    if (events && (hasMyQueue(events, this.profileId) || findMyMatch(events, this.profileId))) {
-      this.log('carril rápido: hay cola otra vez · se reactiva solo');
+    const matched = events ? findMyMatch(events, this.profileId) : null;
+    if (events && (hasMyQueue(events, this.profileId) || matched)) {
+      this.log(`carril rápido: ${matched ? 'partida apareada detectada en sonda' : 'hay cola otra vez'} · se reactiva solo`);
       this.resume();
+      if (matched) {
+        const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
+        if (this.closed) return;
+        const chosen = full && full.length ? full : events;
+        if (chosen && chosen.length) {
+          this.polls += 1;
+          this.onSnapshot(chosen);
+        }
+      }
       return;
     }
     if (this.paused) this.probeAfterPause();
@@ -777,6 +793,15 @@ class QueueWatcher {
   /** Partida apareada y vigente (o null). */
   get matched() {
     return this.matchedId ? this.items.get(this.matchedId) || null : null;
+  }
+
+  /** Re-emite la partida apareada activa (p. ej. al cancelar una vista previa). */
+  reemitIfMatched() {
+    const current = this.matched;
+    if (!current) return false;
+    this.lastMatchedJson = JSON.stringify(current);
+    this.onMatched(current);
+    return true;
   }
 
   /**

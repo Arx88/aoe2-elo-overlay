@@ -58,10 +58,18 @@ body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"])
   height: 18px;
 }
 
+/* Overlay in-game: ultra legible en 3 segundos (solo Resumen 3 Zonas + Foco; detalle técnico en Launcher) */
+#postMatch .pm-deep-dive { display: none; }
+#postMatch .pm-overlay-hint { display: block; }
+#postMatch .pm-narrative-grid { grid-template-columns: 1fr; gap: 8px; }
+#postMatch .pm-zone { padding: 10px 11px; gap: 7px; }
+#postMatch .pm-medal-card,
+#postMatch .pm-issue-card { padding: 7px 9px; gap: 8px; }
+
 @media (min-width: 781px) {
   :is(#postMatch, #postMatchReport) .pm-v2 { gap: 12px; }
   :is(#postMatch, #postMatchReport) .pm-col { gap: 10px; }
-  :is(#postMatch, #postMatchReport) .pm-columns {
+  :is(#postMatch, #postMatchReport) .pm-v2 > .pm-columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 18px;
   }
@@ -77,13 +85,6 @@ body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"])
   :is(#postMatch, #postMatchReport) .pm-v2 > .pm-head { align-self: stretch; margin: 0; }
   :is(#postMatch, #postMatchReport) .pm-v2:has(> .pm-opening-bar) > .pm-head { grid-area: 1 / 1; }
   :is(#postMatch, #postMatchReport) .pm-v2:has(> .pm-opening-bar) > .pm-opening-bar { grid-area: 1 / 2; }
-  :is(#postMatch, #postMatchReport) .pm-columns { grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr); }
-  :is(#postMatch, #postMatchReport) .pm-columns > .pm-col:has(> .pm-duel):has(> .pm-queue-box) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: start;
-  }
-  :is(#postMatch, #postMatchReport) .pm-col > :is(.pm-eyebrow, .pm-coach-stack) { grid-column: 1 / -1; }
   :is(#postMatch, #postMatchReport) .pm-duel-nums { gap: 4px; }
   :is(#postMatch, #postMatchReport) .pm-duel-nums > span { font-size: 9px; }
   :is(#postMatch, #postMatchReport) .pm-queue-head { flex-wrap: wrap; gap: 2px 8px; }

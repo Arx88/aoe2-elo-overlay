@@ -9,7 +9,8 @@ const i18n = require('../src/i18n');
 const AppI18n = require('../ui/i18n');
 const TacticalUI = require('../ui/tactical-ui');
 const { TOKEN_PREFIX } = require('../src/product');
-const { checkRemoteEntitlement, validateApiUrl } = require('../src/license-client');
+const { checkRemoteEntitlement, submitRemoteFeedback, validateApiUrl } = require('../src/license-client');
+const { createMinimizeController } = require('../src/game-window');
 
 async function run() {
   // 1) Locales soportados y nombres oficiales verificados contra AoE2 DE
@@ -214,7 +215,81 @@ async function run() {
   assert.doesNotMatch(centralHtml, /\sstyle="/, 'Central dashboard must obey strict CSP without inline style attributes');
   assert.doesNotMatch(recentHtml, /\sstyle="/, 'Recent matches list must obey strict CSP without inline style attributes');
 
-  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, Central charts & build isolation)');
+  // 6) Últimas 10 vs Últimas 20: con 25 partidas deben producir promedios distintos
+  const bigCentral = computeCentralAnalytics({
+    profileId: 25399083,
+    alias: 'PSX | Acido',
+    ladder1v1: { rating: 1420, peak: 1450, rank: 5000, wins: 150, losses: 100, streak: 4 },
+    matches1v1: Array.from({ length: 25 }, (_, idx) => ({
+      matchId: 7000 + idx,
+      mapName: 'Arabia',
+      leaderboardId: 3,
+      leaderboardName: 'RM 1v1',
+      startedAt: 1700000000000 - idx * 3600000,
+      finishedAt: 1700000000000 - idx * 3600000 + (idx < 11 ? 1200000 : 2400000),
+      ongoing: false,
+      players: [
+        { profileId: 25399083, name: 'PSX | Acido', civ: 'Franks', team: 1, won: idx < 10, matchRating: 1420 - idx * 5, matchRatingDiff: idx < 10 ? 15 : -15 },
+        { profileId: 9100 + idx, name: `Rival ${idx}`, civ: 'Mayans', team: 2, won: idx >= 10, matchRating: 1400 },
+      ],
+    })),
+    storedRecords: [],
+  });
+  const w10 = bigCentral.modes.rm_1v1.lastMatchVsAvg.windows[10];
+  const w20 = bigCentral.modes.rm_1v1.lastMatchVsAvg.windows[20];
+  assert.ok(w10.metrics.length >= 3 && w20.metrics.length >= 3);
+  assert.notEqual(
+    JSON.stringify(w10.metrics),
+    JSON.stringify(w20.metrics),
+    'Últ. 10 y Últ. 20 deben mostrar promedios distintos cuando hay >10 partidas',
+  );
+
+  // 7) Feedback client + AoE2 minimized 5s controller + colocación de controles en settings.html
+  const fbShort = await submitRemoteFeedback({ message: 'hi', fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true }) }) });
+  assert.equal(fbShort.ok, false);
+  const fbOk = await submitRemoteFeedback({
+    apiUrl: 'https://licensing.test.workers.dev',
+    category: 'suggestion',
+    message: 'Excelente overlay para AoE2!',
+    profileId: 25399083,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true, id: 42 }) }),
+  });
+  assert.equal(fbOk.ok, true);
+  assert.equal(fbOk.id, 42);
+
+  let hiddenCalls = 0;
+  let shownCalls = 0;
+  let pendingFn = null;
+  const ctrl = createMinimizeController({
+    delayMs: 5000,
+    canHide: () => true,
+    onHide: () => { hiddenCalls += 1; },
+    onShow: () => { shownCalls += 1; },
+    setTimer: (fn) => { pendingFn = fn; return 1; },
+    clearTimer: () => { pendingFn = null; },
+  });
+  ctrl.setEnabled(true);
+  ctrl.updateState('minimized');
+  assert.equal(hiddenCalls, 0);
+  assert.equal(typeof pendingFn, 'function');
+  pendingFn();
+  assert.equal(hiddenCalls, 1);
+  assert.equal(ctrl.isHiddenByMinimized(), true);
+  ctrl.updateState('visible');
+  assert.equal(shownCalls, 1);
+  assert.equal(ctrl.isHiddenByMinimized(), false);
+
+  const settingsHtml = fs.readFileSync(path.join(__dirname, '..', 'settings.html'), 'utf8');
+  const overlaySec = settingsHtml.split('<section class="page" data-page="overlay">')[1].split('<section class="page" data-page="tactics">')[0];
+  const tacticsSec = settingsHtml.split('<section class="page" data-page="tactics">')[1].split('<section class="page" data-page="postmatch">')[0];
+  const skinsSec = settingsHtml.split('<section class="page" data-page="skins">')[1].split('<section class="page" data-page="updater">')[0];
+  assert.doesNotMatch(overlaySec, /id="civHelp"/, 'civHelp no debe estar en Prematch');
+  assert.match(tacticsSec, /id="civHelp"/, 'civHelp debe estar en Durante');
+  assert.match(skinsSec, /id="hideWhenMinimized"/, 'hideWhenMinimized debe estar en Apariencia');
+  assert.match(settingsHtml, /id="prefsFeedbackBtn"/, 'Feedback debe estar en el popover de tuerca');
+  assert.match(settingsHtml, /id="feedbackModal"/, 'Modal de feedback debe existir');
+
+  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, Central 10/20, Feedback, Minimize 5s & build isolation)');
 }
 
 run().catch((err) => {

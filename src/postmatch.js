@@ -179,6 +179,60 @@ function sanitizeEngineSide(side) {
     combatOrders: Math.round(num(side.combatMicro.combatOrders, 0, 500000) || 0),
     moveOrders: Math.round(num(side.combatMicro.moveOrders, 0, 500000) || 0),
     tcReturnSec: num(side.combatMicro.tcReturnSec, 1, 600) != null ? Math.round(side.combatMicro.tcReturnSec) : null,
+    formations: Math.round(num(side.combatMicro.formations, 0, 50000) || 0),
+    stances: Math.round(num(side.combatMicro.stances, 0, 50000) || 0),
+    backToWork: Math.round(num(side.combatMicro.backToWork, 0, 50000) || 0),
+    stopMicro: Math.round(num(side.combatMicro.stopMicro, 0, 50000) || 0),
+  } : null;
+  const tm = side.timings && typeof side.timings === 'object' ? {
+    feudalSeconds: num(side.timings.feudalSeconds, 0, 86400) != null ? Math.round(side.timings.feudalSeconds) : null,
+    castleSeconds: num(side.timings.castleSeconds, 0, 86400) != null ? Math.round(side.timings.castleSeconds) : null,
+    imperialSeconds: num(side.timings.imperialSeconds, 0, 86400) != null ? Math.round(side.timings.imperialSeconds) : null,
+    firstMilitarySeconds: num(side.timings.firstMilitarySeconds, 0, 86400) != null ? Math.round(side.timings.firstMilitarySeconds) : null,
+  } : null;
+  const arRaw = side.techProfile && side.techProfile.armyRelevance && typeof side.techProfile.armyRelevance === 'object'
+    ? side.techProfile.armyRelevance : null;
+  const ar = arRaw ? {
+    primaryClass: ['cavalry', 'cavArmorOnly', 'ranged', 'infantry', 'gunpowder'].includes(arRaw.primaryClass) ? arRaw.primaryClass : null,
+    primaryLabel: text(arRaw.primaryLabel, 40) || null,
+    primaryUnits: Math.round(num(arRaw.primaryUnits, 0, 50000) || 0),
+    relevantCount: Math.round(num(arRaw.relevantCount, 0, 20) || 0),
+    relevantExpected: Math.round(num(arRaw.relevantExpected, 0, 20) || 0),
+    relevantNames: Array.isArray(arRaw.relevantNames) ? arRaw.relevantNames.slice(0, 6).map((s) => text(s, 40)).filter(Boolean) : [],
+    wellEquipped: Boolean(arRaw.wellEquipped),
+    criticalMissing: arRaw.criticalMissing && text(arRaw.criticalMissing.title) ? {
+      id: text(arRaw.criticalMissing.id, 40) || 'neg-bs',
+      title: text(arRaw.criticalMissing.title, 100),
+      metric: text(arRaw.criticalMissing.metric, 40) || null,
+      detail: text(arRaw.criticalMissing.detail, 200) || '',
+      focusTitle: text(arRaw.criticalMissing.focusTitle, 100) || '',
+      focusDetail: text(arRaw.criticalMissing.focusDetail, 220) || '',
+    } : null,
+  } : null;
+  const tp = side.techProfile && typeof side.techProfile === 'object' ? {
+    ecoCount: Math.round(num(side.techProfile.ecoCount, 0, 50) || 0),
+    blacksmithCount: Math.round(num(side.techProfile.blacksmithCount, 0, 50) || 0),
+    combatKeyCount: Math.round(num(side.techProfile.combatKeyCount, 0, 50) || 0),
+    hasDoubleBitAxe: Boolean(side.techProfile.hasDoubleBitAxe),
+    doubleBitAxeDelaySec: num(side.techProfile.doubleBitAxeDelaySec, 0, 86400) != null ? Math.round(side.techProfile.doubleBitAxeDelaySec) : null,
+    hasBowSaw: Boolean(side.techProfile.hasBowSaw),
+    bowSawDelaySec: num(side.techProfile.bowSawDelaySec, 0, 86400) != null ? Math.round(side.techProfile.bowSawDelaySec) : null,
+    hasWheelbarrow: Boolean(side.techProfile.hasWheelbarrow),
+    hasHandCart: Boolean(side.techProfile.hasHandCart),
+    hasBloodlines: Boolean(side.techProfile.hasBloodlines),
+    hasBallistics: Boolean(side.techProfile.hasBallistics),
+    ecoNames: Array.isArray(side.techProfile.ecoNames) ? side.techProfile.ecoNames.slice(0, 6).map((s) => text(s, 40)).filter(Boolean) : [],
+    blacksmithNames: Array.isArray(side.techProfile.blacksmithNames) ? side.techProfile.blacksmithNames.slice(0, 6).map((s) => text(s, 40)).filter(Boolean) : [],
+    combatKeyNames: Array.isArray(side.techProfile.combatKeyNames) ? side.techProfile.combatKeyNames.slice(0, 4).map((s) => text(s, 40)).filter(Boolean) : [],
+    armyRelevance: ar,
+  } : null;
+  const mb = side.macroBuilds && typeof side.macroBuilds === 'object' ? {
+    farms: Math.round(num(side.macroBuilds.farms, 0, 1000) || 0),
+    houses: Math.round(num(side.macroBuilds.houses, 0, 500) || 0),
+    castles: Math.round(num(side.macroBuilds.castles, 0, 100) || 0),
+    extraTcs: Math.round(num(side.macroBuilds.extraTcs, 0, 100) || 0),
+    towers: Math.round(num(side.macroBuilds.towers, 0, 200) || 0),
+    walls: Math.round(num(side.macroBuilds.walls, 0, 1000) || 0),
   } : null;
   const mp = side.marketProfile && typeof side.marketProfile === 'object' && num(side.marketProfile.totalOps, 1, 50000) != null ? {
     totalOps: Math.round(side.marketProfile.totalOps),
@@ -220,8 +274,16 @@ function sanitizeEngineSide(side) {
     topWorkshops,
     apm: num(side.apm, 0, 2000) != null ? rounded(side.apm) : null,
     eapm: num(side.eapm, 0, 2000) != null ? rounded(side.eapm) : null,
+    eapmEarly: num(side.eapmEarly, 0, 2000) != null ? rounded(side.eapmEarly) : null,
+    eapmLate: num(side.eapmLate, 0, 2000) != null ? rounded(side.eapmLate) : null,
+    eapmRetentionPct: num(side.eapmRetentionPct, 0, 500) != null ? Math.round(side.eapmRetentionPct) : null,
+    peakEapm: num(side.peakEapm, 0, 2000) != null ? Math.round(side.peakEapm) : null,
+    peakEapmMinute: num(side.peakEapmMinute, 0, 1000) != null ? Math.round(side.peakEapmMinute) : null,
     militarySharePct: num(side.militarySharePct, 0, 100) != null ? Math.round(side.militarySharePct) : null,
     ecoSharePct: num(side.ecoSharePct, 0, 100) != null ? Math.round(side.ecoSharePct) : null,
+    timings: tm,
+    techProfile: tp,
+    macroBuilds: mb,
     combatMicro: cm,
     marketProfile: mp,
     habits: {
@@ -232,6 +294,10 @@ function sanitizeEngineSide(side) {
       townBell: Math.round(num(h.townBell, 0, 5000) || 0),
       tributes: Math.round(num(h.tributes, 0, 5000) || 0),
       selfDeleted: Math.round(num(h.selfDeleted, 0, 50000) || 0),
+      backToWork: Math.round(num(h.backToWork, 0, 50000) || 0),
+      formations: Math.round(num(h.formations, 0, 50000) || 0),
+      stances: Math.round(num(h.stances, 0, 50000) || 0),
+      walls: Math.round(num(h.walls, 0, 50000) || 0),
     },
   };
 }
@@ -270,19 +336,29 @@ function normalizeEngineSummary(raw) {
       metric: text(s.metric, 80),
       tip: text(s.tip, 140),
     })) : [];
-  const highlights = Array.isArray(raw.highlights) ? raw.highlights.slice(0, 3)
+  const cleanInsightList = (list, max, defaultTone) => (Array.isArray(list) ? list.slice(0, max)
     .filter((item) => item && text(item.title) && text(item.detail))
     .map((item) => ({
       id: text(item.id, 60),
-      tone: item.tone === 'warn' ? 'warn' : 'good',
+      domain: text(item.domain, 40) || null,
+      tone: item.tone === 'warn' ? 'warn' : (item.tone === 'good' ? 'good' : defaultTone),
+      tier: item.tier === 'gold' ? 'gold' : 'green',
+      score: finite(item.score, 0, 200) != null ? Math.round(item.score) : null,
+      severity: finite(item.severity, 0, 200) != null ? Math.round(item.severity) : null,
       icon: text(item.icon, 30) || 'medal',
-      title: text(item.title, 80),
+      badgeName: text(item.badgeName, 50) || null,
+      metric: text(item.metric, 50) || null,
+      title: text(item.title, 90),
       detail: text(item.detail, 180),
-    })) : [];
+    })) : []);
+  const highlights = cleanInsightList(raw.highlights, 3, 'good');
+  const positives = cleanInsightList(raw.positives, 12, 'good');
+  const negatives = cleanInsightList(raw.negatives, 6, 'warn');
   const focus = raw.focus && text(raw.focus.title) && text(raw.focus.detail)
     ? { title: text(raw.focus.title, 90), detail: text(raw.focus.detail, 220) } : null;
   return {
     version: raw.version,
+    isTeamGame: Boolean(raw.isTeamGame),
     durationSeconds: finite(raw.durationSeconds, 0, 86400) != null ? rounded(raw.durationSeconds) : null,
     self,
     rival,
@@ -290,6 +366,8 @@ function normalizeEngineSummary(raw) {
     stages,
     timeline,
     highlights,
+    positives,
+    negatives,
     focus,
   };
 }
@@ -439,6 +517,16 @@ function buildPersonalEvolution(telemetry, records, current) {
         const curM = engine.self.habits?.market || 0;
         completed = curM < prevM;
         detail = completed ? `Bajaste el Mercado de ${prevM} a ${curM} ops` : `Mercado: ${curM} ops (antes ${prevM})`;
+      } else if (/Herrería/i.test(prevFocus)) {
+        const curBs = engine.self.techProfile?.blacksmithCount || 0;
+        completed = curBs >= 2;
+        detail = completed ? `Investigaste ${curBs} mejoras de Herrería hoy` : `Objetivo: investigar al menos 2 mejoras de Herrería (hoy ${curBs})`;
+      } else if (/Hacha de doble filo/i.test(prevFocus)) {
+        completed = Boolean(engine.self.techProfile?.hasDoubleBitAxe);
+        detail = completed ? 'Activaste Hacha de doble filo a tiempo' : 'Pendiente: investigar Hacha de doble filo en Feudal';
+      } else if (/Sierra de arco/i.test(prevFocus)) {
+        completed = Boolean(engine.self.techProfile?.hasBowSaw);
+        detail = completed ? 'Investigaste Sierra de arco en Castillos' : 'Pendiente: investigar Sierra de arco en Castillos';
       } else if (/militar/i.test(prevFocus)) {
         completed = Number.isFinite(nowVals.militaryPerMin) && Number.isFinite(prevVals0.militaryPerMin) && nowVals.militaryPerMin > prevVals0.militaryPerMin;
         const fmtR = (v) => String(v).replace('.', ',');
@@ -484,6 +572,109 @@ function buildPersonalEvolution(telemetry, records, current) {
     }
   }
 
+  // Mejora progresiva seguida (3 partidas al hilo mejorando la misma métrica: ej. 64 s -> 39 s -> 18 s)
+  let consecutiveImprovement = null;
+  if (priorVals.length >= 2) {
+    const idleChain = [priorVals[1]?.tcIdleSeconds, priorVals[0]?.tcIdleSeconds, nowVals.tcIdleSeconds];
+    const utilChain = [priorVals[1]?.tcUtilization, priorVals[0]?.tcUtilization, nowVals.tcUtilization];
+    const eapmChain = [priorVals[1]?.eapm, priorVals[0]?.eapm, nowVals.eapm];
+    if (idleChain.every(Number.isFinite) && idleChain[0] - idleChain[1] >= 5 && idleChain[1] - idleChain[2] >= 5) {
+      consecutiveImprovement = {
+        kind: 'tc_idle',
+        steps: 3,
+        chainLabel: `${Math.round(idleChain[0])} s → ${Math.round(idleChain[1])} s → ${Math.round(idleChain[2])} s`,
+        title: `3 partidas seguidas bajando tu TC inactivo`,
+        detail: `Progresión real: ${Math.round(idleChain[0])} s → ${Math.round(idleChain[1])} s → ${Math.round(idleChain[2])} s en Alta + Feudal.`,
+      };
+    } else if (utilChain.every(Number.isFinite) && utilChain[1] - utilChain[0] >= 1 && utilChain[2] - utilChain[1] >= 1) {
+      const f = (v) => String(v).replace('.', ',');
+      consecutiveImprovement = {
+        kind: 'tc_util',
+        steps: 3,
+        chainLabel: `${f(utilChain[0])}% → ${f(utilChain[1])}% → ${f(utilChain[2])}%`,
+        title: `3 partidas seguidas subiendo tu continuidad de TC`,
+        detail: `Escalada constante: ${f(utilChain[0])}% → ${f(utilChain[1])}% → ${f(utilChain[2])}%.`,
+      };
+    } else if (eapmChain.every(Number.isFinite) && eapmChain[1] - eapmChain[0] >= 2 && eapmChain[2] - eapmChain[1] >= 2) {
+      const f = (v) => String(v).replace('.', ',');
+      consecutiveImprovement = {
+        kind: 'eapm',
+        steps: 3,
+        chainLabel: `${f(eapmChain[0])} → ${f(eapmChain[1])} → ${f(eapmChain[2])}`,
+        title: `3 partidas seguidas acelerando tu eAPM`,
+        detail: `Subiste tu ritmo mecánico paso a paso: ${f(eapmChain[0])} → ${f(eapmChain[1])} → ${f(eapmChain[2])} eAPM.`,
+      };
+    }
+  }
+
+  // Calentamiento de sesión (partidas jugadas en las últimas 3 horas)
+  let sessionWarmup = null;
+  if (current.startedAt && prior.length >= 1) {
+    const SESSION_MS = 3 * 60 * 60 * 1000;
+    const sameSession = prior.filter((r) => {
+      const at = timestamp(r.startedAt);
+      return at && current.startedAt - at <= SESSION_MS;
+    });
+    if (sameSession.length >= 1) {
+      const firstRow = sameSession[sameSession.length - 1];
+      const firstVals = extract(firstRow.telemetry.engineSummary, firstRow.telemetry.durationSeconds);
+      const matchNum = sameSession.length + 1;
+      if (Number.isFinite(nowVals.tcUtilization) && Number.isFinite(firstVals.tcUtilization) &&
+          nowVals.tcUtilization - firstVals.tcUtilization >= 2.5) {
+        const diff = rounded(nowVals.tcUtilization - firstVals.tcUtilization, 1);
+        sessionWarmup = {
+          matchNumber: matchNum,
+          metric: `Partida #${matchNum}`,
+          deltaLabel: `+${String(diff).replace('.', ',')} pp TC`,
+          title: `Ya entraste en calor (+${String(diff).replace('.', ',')} pp TC en esta sesión)`,
+          detail: `En tu partida #${matchNum} de hoy mejoraste respecto a tu arranque (${String(firstVals.tcUtilization).replace('.', ',')}% → ${String(nowVals.tcUtilization).replace('.', ',')}%).`,
+        };
+      } else if (Number.isFinite(nowVals.eapm) && Number.isFinite(firstVals.eapm) &&
+          nowVals.eapm - firstVals.eapm >= 4) {
+        const diff = rounded(nowVals.eapm - firstVals.eapm, 1);
+        sessionWarmup = {
+          matchNumber: matchNum,
+          metric: `Partida #${matchNum}`,
+          deltaLabel: `+${String(diff).replace('.', ',')} eAPM`,
+          title: `Ya entraste en calor (+${String(diff).replace('.', ',')} eAPM en esta sesión)`,
+          detail: `Tu velocidad efectiva creció desde la 1.ª partida de hoy (${String(firstVals.eapm).replace('.', ',')} → ${String(nowVals.eapm).replace('.', ',')} eAPM).`,
+        };
+      }
+    }
+  }
+
+  // Rachas de ejecución consecutivas (efecto hábito real basado en tus replays locales)
+  let improvementStreak = null;
+  const chain = [engine, ...prior.map((r) => r.telemetry.engineSummary)];
+  if (chain.length >= 2) {
+    const countStreak = (pred) => {
+      let n = 0;
+      for (const item of chain) {
+        if (pred(item)) n += 1;
+        else break;
+      }
+      return n;
+    };
+    const tcStreak = countStreak((e) => (e.self.tcUtilizationEarly ?? e.self.tcUtilization ?? 0) >= 90);
+    const woodStreak = countStreak((e) => Boolean(e.self.techProfile?.hasDoubleBitAxe) &&
+      e.self.techProfile?.doubleBitAxeDelaySec != null && e.self.techProfile.doubleBitAxeDelaySec <= 90);
+    const armedStreak = countStreak((e) => Boolean(e.self.techProfile?.armyRelevance?.wellEquipped));
+    const noBellStreak = countStreak((e) => (e.self.habits?.townBell || 0) === 0 && (e.self.villagersOrdered || 0) >= 25);
+    if (consecutiveImprovement) {
+      improvementStreak = { count: consecutiveImprovement.steps, label: `${consecutiveImprovement.title} (${consecutiveImprovement.chainLabel})`, kind: 'climb' };
+    } else if (tcStreak >= 2) {
+      improvementStreak = { count: tcStreak, label: `${tcStreak} partidas seguidas con TC ≥ 90%`, kind: 'tc' };
+    } else if (armedStreak >= 3) {
+      improvementStreak = { count: armedStreak, label: `${armedStreak} partidas seguidas equipando bien tu ejército`, kind: 'blacksmith' };
+    } else if (woodStreak >= 3) {
+      improvementStreak = { count: woodStreak, label: `${woodStreak} partidas seguidas con Hacha puntual`, kind: 'eco' };
+    } else if (noBellStreak >= 4) {
+      improvementStreak = { count: noBellStreak, label: `${noBellStreak} partidas seguidas sin Campana Urbana`, kind: 'defense' };
+    }
+  }
+
+  const idsOf = (row) => row?.telemetry?.engineSummary?.positives?.slice(0, 3).map((p) => p.id).filter(Boolean) || [];
+
   return {
     sampleSize: prior.length,
     headline,
@@ -491,6 +682,600 @@ function buildPersonalEvolution(telemetry, records, current) {
     stageDeltas,
     sessionChallenge,
     recurringPattern,
+    consecutiveImprovement,
+    sessionWarmup,
+    improvementStreak,
+    prevPositiveIds: idsOf(prior[0]),
+    recentMedalIds: [idsOf(prior[0]), idsOf(prior[1]), idsOf(prior[2])],
+  };
+}
+
+function fmtShortClock(sec) {
+  if (!Number.isFinite(sec) || sec < 0) return '—';
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Combina telemetría del replay (30+ detectores), tu evolución personal e historia
+ * de rachas/matchups para construir 3 bloques claros y siempre frescos:
+ *   1) Lo que hiciste bien y mejoraste (mezcla 3 sabores: Historia/Momentum + Evolución + Ejecución,
+ *      con memoria anti-repetición de 3 partidas)
+ *   2) Lo que te costó (máx. 2 cuellos de botella reales, coherentes con victoria y modo)
+ *   3) Veredicto emocional en 1 frase + racha + 1 foco accionable
+ */
+function buildPostmatchNarrative(engine, evolution, resultStatus, {
+  isTeamGame = false,
+  current = null,
+  player = null,
+  rivalPlayer = null,
+  records = null,
+  historyRows = null,
+  benchmark = null,
+} = {}) {
+  if (!engine || !engine.self) return null;
+  const fmtDec = (v) => String(v).replace('.', ',');
+  const em = evolution?.metrics || {};
+  const recentIds = Array.isArray(evolution?.recentMedalIds)
+    ? evolution.recentMedalIds
+    : [evolution?.prevPositiveIds || [], [], []];
+  const prev1Set = new Set(recentIds[0] || []);
+  const prev2Set = new Set(recentIds[1] || []);
+  const prev3Set = new Set(recentIds[2] || []);
+  const teamMode = Boolean(isTeamGame || engine.isTeamGame);
+  const posPool = [];
+  const negPool = [];
+
+  // Historial reciente deduplicado del mismo modo (records locales + historyRows de API)
+  const modeHistory = (() => {
+    if (!current || !current.startedAt) return [];
+    const merged = new Map();
+    for (const row of [...(Array.isArray(historyRows) ? historyRows : []), ...(Array.isArray(records) ? records : [])]) {
+      if (!row || !identity(row.matchId) || identity(row.matchId) === current.matchId) continue;
+      if (row.profileId != null && identity(row.profileId) !== identity(current.profileId)) continue;
+      if (current.leaderboardId && modeId(row.leaderboardId) !== current.leaderboardId) continue;
+      const at = timestamp(row.startedAt);
+      if (!at || at >= current.startedAt) continue;
+      const key = identity(row.matchId);
+      const prev = merged.get(key);
+      merged.set(key, prev ? {
+        ...prev,
+        ...row,
+        won: typeof row.won === 'boolean' ? row.won : prev.won,
+        rating: finite(row.rating, 100, 4000) ?? prev.rating ?? null,
+        ratingDiff: finite(row.ratingDiff) ?? prev.ratingDiff ?? null,
+        match: row.match || prev.match || null,
+      } : row);
+    }
+    return [...merged.values()].sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt));
+  })();
+
+  // A0. FAMILIA HISTORIA, RACHAS Y MOMENTUM (hacerte sentir el progreso y la historia de cada partida)
+  let winStreakCount = 0;
+  if (resultStatus === 'won') {
+    winStreakCount = 1;
+    for (const row of modeHistory) {
+      if (row.won === true) winStreakCount += 1;
+      else if (row.won === false) break;
+    }
+    if (winStreakCount >= 3) {
+      posPool.push({
+        id: 'story-win-streak', domain: 'win_streak', flavor: 'story', requiresHistory: true,
+        tier: 'gold', score: 97, icon: 'trophy',
+        tag: 'EN RACHA', badgeName: 'Racha Imparable',
+        title: `¡${winStreakCount} victorias seguidas!`,
+        metric: `${winStreakCount} V al hilo`,
+        detail: `Venís en tu mejor inercia: ${winStreakCount} triunfos consecutivos en este modo.`,
+      });
+    } else if (winStreakCount === 2) {
+      posPool.push({
+        id: 'story-win-streak-2', domain: 'win_streak', flavor: 'story', requiresHistory: true,
+        tier: 'green', score: 83, icon: 'trophy',
+        tag: 'EN RACHA', badgeName: 'Doble Victoria',
+        title: '2 victorias consecutivas',
+        metric: '2 V al hilo',
+        detail: `Dos triunfos seguidos: consolidaste tu buena racha en este modo.`,
+      });
+    } else {
+      // ¿Cortó una mala racha de >= 2 derrotas?
+      let priorLosses = 0;
+      for (const row of modeHistory) {
+        if (row.won === false) priorLosses += 1;
+        else if (row.won === true) break;
+      }
+      if (priorLosses >= 2) {
+        posPool.push({
+          id: 'story-comeback-break', domain: 'win_streak', flavor: 'story', requiresHistory: true,
+          tier: 'gold', score: 92, icon: 'shield',
+          tag: 'CAMBIO DE INERCIA', badgeName: 'Vuelta al Triunfo',
+          title: `Cortaste una racha de ${priorLosses} derrotas`,
+          metric: 'Racha cortada',
+          detail: `Diste vuelta la tendencia y volviste a sumar en este modo.`,
+        });
+      }
+    }
+
+    // Escalada neta de ELO en las últimas 3-5 partidas
+    const diffSamples = [
+      finite(current?.ratingDiff),
+      ...modeHistory.slice(0, 4).map((r) => finite(r.ratingDiff)),
+    ].filter((d) => d != null);
+    if (diffSamples.length >= 3) {
+      const netElo = Math.round(diffSamples.reduce((s, d) => s + d, 0));
+      if (netElo >= 25) {
+        posPool.push({
+          id: 'story-elo-climb', domain: 'elo_momentum', flavor: 'story', requiresHistory: true,
+          tier: netElo >= 45 ? 'gold' : 'green', score: netElo >= 45 ? 93 : 84, icon: 'trend',
+          tag: 'ESCALADA', badgeName: 'Subida de ELO',
+          title: `Sumaste +${netElo} ELO en tus últimas ${diffSamples.length} partidas`,
+          metric: `+${netElo} ELO`,
+          detail: `Tu ranking viene creciendo de forma sostenida en este tramo.`,
+        });
+      }
+    }
+
+    // Nuevo techo reciente de ELO
+    const curRating = finite(player?.rating, 100, 4000);
+    const curDiff = finite(current?.ratingDiff);
+    const newElo = (curRating != null && curDiff != null) ? Math.round(curRating + curDiff) : null;
+    const priorRatings = modeHistory.map((r) => finite(r.rating, 100, 4000)).filter((v) => v != null);
+    if (newElo != null && priorRatings.length >= 4 && newElo > Math.max(...priorRatings)) {
+      posPool.push({
+        id: 'story-new-elo-peak', domain: 'elo_peak', flavor: 'story', requiresHistory: true,
+        tier: 'gold', score: 98, icon: 'crown',
+        tag: 'NUEVO TECHO', badgeName: 'Pico de ELO',
+        title: `Nuevo máximo reciente: ${newElo.toLocaleString('es-AR')} ELO`,
+        metric: `${newElo} ELO`,
+        detail: `Superaste tu punto más alto de las últimas ${priorRatings.length + 1} partidas en este modo.`,
+      });
+    }
+
+    // Mata-Gigantes (1v1 contra rival +40 ELO arriba)
+    const rivalRating = finite(rivalPlayer?.rating, 100, 4000);
+    if (!teamMode && curRating != null && rivalRating != null && rivalRating - curRating >= 40) {
+      const gap = Math.round(rivalRating - curRating);
+      posPool.push({
+        id: 'story-giant-slayer', domain: 'matchup_feat', flavor: 'story',
+        tier: 'gold', score: 95, icon: 'sword',
+        tag: 'HAZAÑA', badgeName: 'Mata-Gigantes',
+        title: `Venciste a un rival +${gap} ELO arriba tuyo`,
+        metric: `+${gap} ELO rival`,
+        delta: curDiff != null ? `+${curDiff} ELO` : null,
+        detail: `Ganaste un cruce cuesta arriba frente a ${rivalPlayer?.name || 'un rival superior'} (${rivalRating} ELO).`,
+      });
+    }
+
+    // Revancha cobrada / Le tenés la medida (historial contra el MISMO rival)
+    const rivalPid = identity(rivalPlayer?.profileId);
+    if (!teamMode && rivalPid) {
+      const vsSameRival = modeHistory.filter((r) => {
+        const ps = r.match?.players;
+        return Array.isArray(ps) && ps.some((p) => identity(p.profileId) === rivalPid);
+      });
+      if (vsSameRival.length >= 1) {
+        const lastVs = vsSameRival[0];
+        const winsVs = vsSameRival.filter((r) => r.won === true).length + 1;
+        const lossesVs = vsSameRival.filter((r) => r.won === false).length;
+        if (lastVs.won === false) {
+          posPool.push({
+            id: 'story-rival-revenge', domain: 'rival_h2h', flavor: 'story', requiresHistory: true,
+            tier: 'gold', score: 94, icon: 'matchup',
+            tag: 'REVANCHA', badgeName: 'Revancha Cobrada',
+            title: `Le diste vuelta el cruce a ${rivalPlayer?.name || 'tu rival'}`,
+            metric: `${winsVs}-${lossesVs}`,
+            detail: `Habías caído en el encuentro previo ante este mismo rival y hoy ganaste.`,
+          });
+        } else if (winsVs >= 2 && winsVs > lossesVs) {
+          posPool.push({
+            id: 'story-rival-owned', domain: 'rival_h2h', flavor: 'story', requiresHistory: true,
+            tier: 'green', score: 83, icon: 'matchup',
+            tag: 'DOMINIO H2H', badgeName: 'Le Tenés la Medida',
+            title: `Historial ${winsVs}-${lossesVs} frente a ${rivalPlayer?.name || 'tu rival'}`,
+            metric: `${winsVs}-${lossesVs}`,
+            detail: `Volviste a imponerte contra un rival que ya conocías.`,
+          });
+        }
+      }
+    }
+
+    // Dueño del Mapa (racha de 3+ victorias en el mapa o >= 65% WR con >= 5 partidas)
+    const mapLabel = current?.mapName && current.mapName !== '—' ? current.mapName : null;
+    if (mapLabel) {
+      let mapStreak = 1;
+      const mapRows = modeHistory.filter((r) => mapKey(r.mapName) === mapKey(mapLabel));
+      for (const r of mapRows) {
+        if (r.won === true) mapStreak += 1;
+        else if (r.won === false) break;
+      }
+      if (mapStreak >= 3) {
+        posPool.push({
+          id: 'story-map-streak', domain: 'map_mastery', flavor: 'story', requiresHistory: true,
+          tier: 'gold', score: 89, icon: 'map',
+          tag: 'TU TERRENO', badgeName: `Dueño de ${mapLabel}`,
+          title: `${mapStreak} victorias seguidas en ${mapLabel}`,
+          metric: `${mapStreak} V en mapa`,
+          detail: `Tenés totalmente leído este mapa en tu historial reciente.`,
+        });
+      } else if (benchmark && benchmark.games >= 4 && ((benchmark.wins + 1) / (benchmark.games + 1)) >= 0.65) {
+        const totalG = benchmark.games + 1;
+        const totalW = benchmark.wins + 1;
+        const pct = Math.round((totalW / totalG) * 100);
+        posPool.push({
+          id: 'story-map-wr', domain: 'map_mastery', flavor: 'story', requiresHistory: true,
+          tier: 'green', score: 80, icon: 'map',
+          tag: 'MAPA FUERTE', badgeName: 'Terreno Favorito',
+          title: `${pct}% de victorias en ${mapLabel}`,
+          metric: `${totalW}V–${benchmark.losses}D`,
+          detail: `Seguís construyendo un registro muy sólido cada vez que toca ${mapLabel}.`,
+        });
+      }
+    }
+
+    // Maestría de Civilización (invicto 3+ seguidas o >= 65% WR con esta civ)
+    if (current?.civ) {
+      const civRows = modeHistory.filter((r) => r.civ && mapKey(r.civ) === mapKey(current.civ));
+      let civStreak = 1;
+      for (const r of civRows) {
+        if (r.won === true) civStreak += 1;
+        else if (r.won === false) break;
+      }
+      const civW = civRows.filter((r) => r.won === true).length + 1;
+      const civL = civRows.filter((r) => r.won === false).length;
+      if (civStreak >= 3) {
+        posPool.push({
+          id: 'story-civ-streak', domain: 'civ_mastery', flavor: 'story', requiresHistory: true,
+          tier: 'gold', score: 88, icon: 'shield',
+          tag: 'MAESTRÍA DE CIV', badgeName: `Invicto con ${current.civ}`,
+          title: `${civStreak} victorias seguidas jugando ${current.civ}`,
+          metric: `${civStreak} V al hilo`,
+          detail: `Dominás los tiempos y el plan de juego de esta civilización.`,
+        });
+      } else if (civW + civL >= 4 && (civW / (civW + civL)) >= 0.65) {
+        const pct = Math.round((civW / (civW + civL)) * 100);
+        posPool.push({
+          id: 'story-civ-wr', domain: 'civ_mastery', flavor: 'story', requiresHistory: true,
+          tier: 'green', score: 79, icon: 'shield',
+          tag: 'CIV FUERTE', badgeName: 'Civilización Confiable',
+          title: `${pct}% de efectividad reciente con ${current.civ}`,
+          metric: `${civW}V–${civL}D`,
+          detail: `Es una de tus elecciones más rentables en este modo.`,
+        });
+      }
+    }
+  }
+
+  // Personalidad de ritmo de partida: Victoria Relámpago (<20m) o Batalla Épica (>=45m)
+  const durSec = engine.durationSeconds || current?.elapsedSeconds || null;
+  if (resultStatus === 'won' && durSec != null && durSec >= 480 && durSec <= 1200) {
+    posPool.push({
+      id: 'story-blitz-win', domain: 'match_pace', flavor: 'story',
+      tier: 'gold', score: 86, icon: 'scout',
+      tag: 'RITMO ARROLLADOR', badgeName: 'Victoria Relámpago',
+      title: `Cerraste la partida en ${fmtShortClock(durSec)}`,
+      metric: fmtShortClock(durSec),
+      detail: `Definiste antes del minuto 20 con presión constante sin darle respiro al rival.`,
+    });
+  } else if (durSec != null && durSec >= 2700) {
+    const mins = Math.round(durSec / 60);
+    if (resultStatus === 'won') {
+      posPool.push({
+        id: 'story-marathon-win', domain: 'match_pace', flavor: 'story',
+        tier: 'gold', score: 87, icon: 'castle',
+        tag: 'BATALLA ÉPICA', badgeName: 'Resistencia de Acero',
+        title: `Ganaste una maratón de ${mins} minutos`,
+        metric: `${mins} min`,
+        detail: `Sostuviste el pulso en late game y definiste una partida larguísima.`,
+      });
+    } else if (resultStatus === 'lost' && (engine.self.eapmRetentionPct == null || engine.self.eapmRetentionPct >= 82)) {
+      posPool.push({
+        id: 'story-marathon-fight', domain: 'match_pace', flavor: 'story',
+        tier: 'green', score: 79, icon: 'shield',
+        tag: 'AGUANTE', badgeName: 'Batalla de Igual a Igual',
+        title: `Peleaste ${mins} minutos sin bajar el ritmo`,
+        metric: `${mins} min`,
+        detail: `Aunque se escapó al final, mantuviste la intensidad durante toda la batalla.`,
+      });
+    }
+  }
+
+  // Mejora progresiva seguida (3 partidas al hilo mejorando) + Calentamiento de sesión
+  if (evolution?.consecutiveImprovement) {
+    const ci = evolution.consecutiveImprovement;
+    posPool.push({
+      id: `evo-climb-${ci.kind}`, domain: 'progressive_climb', flavor: 'evolution', requiresHistory: true,
+      tier: 'gold', score: 95, icon: 'trend',
+      tag: 'MEJORA SEGUIDA', badgeName: 'En Plena Evolución',
+      title: ci.title,
+      metric: `${ci.steps} al hilo`,
+      delta: ci.chainLabel,
+      detail: ci.detail,
+    });
+  }
+  if (evolution?.sessionWarmup) {
+    const sw = evolution.sessionWarmup;
+    posPool.push({
+      id: 'evo-session-warmup', domain: 'session_warmup', flavor: 'evolution', requiresHistory: true,
+      tier: 'green', score: 84, icon: 'clock',
+      tag: 'SESIÓN DE HOY', badgeName: 'Ya Entraste en Calor',
+      title: sw.title,
+      metric: sw.metric,
+      delta: sw.deltaLabel,
+      detail: sw.detail,
+    });
+  }
+
+  // A. Inyectar récords personales y superaciones reales vs tu propia media
+  if (evolution?.sampleSize >= 2) {
+    if (em.tcUtilization?.isBest) {
+      posPool.push({
+        id: 'evo-tc-record', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
+        tier: 'gold', score: 100, icon: 'trophy',
+        tag: 'RÉCORD PERSONAL', badgeName: 'Reloj Suizo',
+        title: `Mejor uso de TC de tus últimas ${evolution.sampleSize + 1} partidas`,
+        metric: `${fmtDec(em.tcUtilization.current)}%`,
+        delta: `+${fmtDec(em.tcUtilization.delta)} pp vs media`,
+        detail: `Superaste tu media personal (${fmtDec(em.tcUtilization.median)}%).`,
+      });
+    } else if (em.tcUtilization?.improved && em.tcUtilization.delta >= 1.8) {
+      posPool.push({
+        id: 'evo-tc-up', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
+        tier: 'green', score: 88, icon: 'villager',
+        tag: 'MEJORASTE TU MEDIA', badgeName: 'TC Más Firme',
+        title: `Subiste +${fmtDec(em.tcUtilization.delta)} pp tu continuidad de TC`,
+        metric: `${fmtDec(em.tcUtilization.current)}%`,
+        delta: `Media ${fmtDec(em.tcUtilization.median)}%`,
+        detail: `Mejor que el ${em.tcUtilization.betterThanPct}% de tus últimas ${em.tcUtilization.sampleSize} partidas.`,
+      });
+    }
+
+    if (em.tcIdleSeconds?.isBest) {
+      posPool.push({
+        id: 'evo-idle-record', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
+        tier: 'gold', score: 98, icon: 'clock',
+        tag: 'RÉCORD PERSONAL', badgeName: 'Cero Pausas',
+        title: `Menor tiempo de TC inactivo (${Math.round(em.tcIdleSeconds.current)} s)`,
+        metric: `${Math.round(em.tcIdleSeconds.current)} s`,
+        delta: `−${Math.round(Math.abs(em.tcIdleSeconds.delta))} s vs media`,
+        detail: `Tu marca más limpia en Alta + Feudal hasta ahora.`,
+      });
+    } else if (em.tcIdleSeconds?.improved && Math.abs(em.tcIdleSeconds.delta) >= 12) {
+      posPool.push({
+        id: 'evo-idle-up', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
+        tier: 'green', score: 85, icon: 'clock',
+        tag: 'MEJORASTE TU MEDIA', badgeName: 'Menos Huecos',
+        title: `Recortaste ${Math.round(Math.abs(em.tcIdleSeconds.delta))} s de TC inactivo`,
+        metric: `${Math.round(em.tcIdleSeconds.current)} s`,
+        delta: `Media ${Math.round(em.tcIdleSeconds.median)} s`,
+        detail: `Mejor que el ${em.tcIdleSeconds.betterThanPct}% de tus previas.`,
+      });
+    }
+
+    if (em.eapm?.isBest) {
+      posPool.push({
+        id: 'evo-eapm-record', domain: 'stamina_pace', flavor: 'evolution', requiresHistory: true,
+        tier: 'gold', score: 96, icon: 'trend',
+        tag: 'RÉCORD PERSONAL', badgeName: 'Pulso Acelerado',
+        title: `Récord de ritmo mecánico (${fmtDec(em.eapm.current)} eAPM)`,
+        metric: `${fmtDec(em.eapm.current)} eAPM`,
+        delta: `+${fmtDec(em.eapm.delta)} vs media`,
+        detail: `Tu velocidad efectiva más alta en las últimas ${evolution.sampleSize + 1} partidas.`,
+      });
+    } else if (em.eapm?.improved && em.eapm.delta >= 4) {
+      posPool.push({
+        id: 'evo-eapm-up', domain: 'stamina_pace', flavor: 'evolution', requiresHistory: true,
+        tier: 'green', score: 84, icon: 'trend',
+        tag: 'MEJORASTE TU MEDIA', badgeName: 'Ritmo en Subida',
+        title: `Jugaste +${fmtDec(em.eapm.delta)} eAPM sobre tu promedio`,
+        metric: `${fmtDec(em.eapm.current)} eAPM`,
+        delta: `Media ${fmtDec(em.eapm.median)}`,
+        detail: `Mejor ritmo que el ${em.eapm.betterThanPct}% de tus últimas ${em.eapm.sampleSize}.`,
+      });
+    }
+
+    if (em.militaryPerMin?.isBest) {
+      posPool.push({
+        id: 'evo-mil-record', domain: 'army_power', flavor: 'evolution', requiresHistory: true,
+        tier: 'gold', score: 95, icon: 'sword',
+        tag: 'RÉCORD PERSONAL', badgeName: 'Presión Imparable',
+        title: `Récord de producción militar (${fmtDec(em.militaryPerMin.current)}/min)`,
+        metric: `${fmtDec(em.militaryPerMin.current)}/min`,
+        delta: `+${fmtDec(em.militaryPerMin.delta)}/min`,
+        detail: `Nunca habías sacado ejército a este ritmo en tus previas.`,
+      });
+    } else if (em.militaryPerMin?.improved && em.militaryPerMin.betterThanPct >= 70) {
+      posPool.push({
+        id: 'evo-mil-up', domain: 'army_power', flavor: 'evolution', requiresHistory: true,
+        tier: 'green', score: 83, icon: 'sword',
+        tag: 'MEJORASTE TU MEDIA', badgeName: 'Más Presión',
+        title: `Ritmo militar superior al ${em.militaryPerMin.betterThanPct}% de tus partidas`,
+        metric: `${fmtDec(em.militaryPerMin.current)}/min`,
+        delta: `+${fmtDec(em.militaryPerMin.delta)}/min`,
+        detail: `Produjiste más masa por minuto que tu media (${fmtDec(em.militaryPerMin.median)}/min).`,
+      });
+    }
+
+    if (em.villagersPerMin?.improved && em.villagersPerMin.delta >= 0.25) {
+      posPool.push({
+        id: 'evo-vil-up', domain: 'economy_boom', flavor: 'evolution', requiresHistory: true,
+        tier: em.villagersPerMin.isBest ? 'gold' : 'green',
+        score: em.villagersPerMin.isBest ? 93 : 82, icon: 'villager',
+        tag: em.villagersPerMin.isBest ? 'RÉCORD PERSONAL' : 'MEJORASTE TU MEDIA',
+        badgeName: 'Eco Acelerada',
+        title: `Más ritmo de aldeanos (+${fmtDec(em.villagersPerMin.delta)}/min vs media)`,
+        metric: `${fmtDec(em.villagersPerMin.current)}/min`,
+        delta: `Media ${fmtDec(em.villagersPerMin.median)}/min`,
+        detail: `Escalaste tu economía más rápido que tu propio promedio.`,
+      });
+    }
+
+    // Regresiones claras frente a tu propia media -> pool negativo
+    if (em.tcUtilization && em.tcUtilization.delta != null && em.tcUtilization.delta <= -3.5) {
+      negPool.push({
+        id: 'evo-tc-drop', domain: 'macro_tc', severity: 81, icon: 'clock',
+        title: `Uso de TC debajo de tu media (${fmtDec(em.tcUtilization.current)}% vs ${fmtDec(em.tcUtilization.median)}%)`,
+        metric: `${fmtDec(em.tcUtilization.delta)} pp`,
+        detail: `Bajaste ${fmtDec(Math.abs(em.tcUtilization.delta))} puntos respecto a tus últimas ${em.tcUtilization.sampleSize} partidas.`,
+      });
+    }
+    if (em.eapm && em.eapm.delta != null && em.eapm.delta <= -7) {
+      negPool.push({
+        id: 'evo-eapm-drop', domain: 'stamina_pace', severity: 72, icon: 'trend',
+        title: `Ritmo más lento que tu media (${fmtDec(em.eapm.current)} vs ${fmtDec(em.eapm.median)} eAPM)`,
+        metric: `${fmtDec(em.eapm.delta)} eAPM`,
+        detail: `Estuviste por debajo de tu velocidad habitual en esta partida.`,
+      });
+    }
+  }
+
+  // B. Incorporar el pool rico del motor (30+ detectores) con memoria anti-repetición de 3 partidas
+  const TG_SKIP_POS = new Set(['medal-castle-first', 'medal-feudal-first', 'medal-first-strike', 'medal-blacksmith-lead']);
+  const TG_SKIP_NEG = new Set(['neg-late-castle', 'neg-late-feudal', 'neg-1tc-behind', 'neg-blacksmith-behind']);
+  const WIN_SKIP_NEG = new Set(['neg-late-castle', 'neg-late-feudal', 'neg-1tc-behind', 'neg-army-deficit', 'neg-blacksmith-behind']);
+
+  const enginePos = (engine.positives && engine.positives.length)
+    ? engine.positives
+    : (engine.highlights || []).filter((h) => h.tone !== 'warn');
+  for (const p of enginePos) {
+    if (p.id === 'medal-blacksmith-lead') continue;
+    if (teamMode && TG_SKIP_POS.has(p.id)) continue;
+    const decay = prev1Set.has(p.id) ? 18 : prev2Set.has(p.id) ? 10 : prev3Set.has(p.id) ? 5 : 0;
+    const flavor = p.id === 'medal-peak-adrenaline' ? 'story' : 'execution';
+    posPool.push({
+      ...p,
+      flavor,
+      tag: p.tag || (p.tier === 'gold' ? 'DESTACADO DE ORO' : 'LOGRO DE PARTIDA'),
+      badgeName: p.badgeName || p.title,
+      score: (p.score || 70) - decay,
+    });
+  }
+
+  const engineNeg = (engine.negatives && engine.negatives.length)
+    ? engine.negatives
+    : (engine.highlights || []).filter((h) => h.tone === 'warn');
+  for (const n of engineNeg) {
+    if (n.id === 'neg-blacksmith-behind') continue;
+    if (teamMode && TG_SKIP_NEG.has(n.id)) continue;
+    if (resultStatus === 'won' && WIN_SKIP_NEG.has(n.id)) continue;
+    negPool.push({
+      ...n,
+      severity: n.severity || 72,
+    });
+  }
+
+  // Si aún hay un bache de TC significativo (>= 25 s) sin reflejar en negPool, agregarlo
+  if (engine.self.biggestTcGap && engine.self.biggestTcGap.durationSec >= 25 && !negPool.some((n) => n.domain === 'macro_tc')) {
+    negPool.push({
+      id: 'gap-fallback', domain: 'macro_tc', severity: 78, icon: 'clock',
+      title: `Mayor bache de TC (${engine.self.biggestTcGap.age})`,
+      metric: `${engine.self.biggestTcGap.durationSec} s`,
+      detail: engine.self.biggestTcGap.summary,
+    });
+  }
+
+  const pickDistinct = (items, key, max) => {
+    const sorted = [...items].sort((a, b) => (b[key] || 0) - (a[key] || 0));
+    const seen = new Set();
+    const out = [];
+    for (const item of sorted) {
+      const dom = item.domain || item.id;
+      if (dom && seen.has(dom)) continue;
+      if (dom) seen.add(dom);
+      out.push(item);
+      if (out.length >= max) break;
+    }
+    return out;
+  };
+
+  // Selector balanceado de 3 sabores (1 Historia/Momentum + 1 Evolución personal + 1 Ejecución táctica)
+  const pickBalancedMedals = (pool, max = 3) => {
+    const sorted = [...pool].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const seenDomains = new Set();
+    const chosen = [];
+    const takeBestOfFlavor = (flavorName) => {
+      const hit = sorted.find((item) => item.flavor === flavorName && !seenDomains.has(item.domain || item.id));
+      if (hit) {
+        seenDomains.add(hit.domain || hit.id);
+        chosen.push(hit);
+      }
+    };
+    takeBestOfFlavor('story');
+    takeBestOfFlavor('evolution');
+    takeBestOfFlavor('execution');
+    for (const item of sorted) {
+      if (chosen.length >= max) break;
+      const dom = item.domain || item.id;
+      if (dom && seenDomains.has(dom)) continue;
+      if (dom) seenDomains.add(dom);
+      chosen.push(item);
+    }
+    return chosen.sort((a, b) => {
+      if ((b.tier === 'gold') !== (a.tier === 'gold')) return b.tier === 'gold' ? 1 : -1;
+      return (b.score || 0) - (a.score || 0);
+    });
+  };
+
+  const issues = pickDistinct(negPool, 'severity', 2);
+  const issueDomains = new Set(issues.map((x) => x.domain).filter(Boolean));
+  const coherentPosPool = posPool.filter((p) => {
+    if (!p.domain || !issueDomains.has(p.domain)) return true;
+    return String(p.id || '').startsWith('evo-') || String(p.id || '').startsWith('story-');
+  });
+  const medals = pickBalancedMedals(coherentPosPool.length ? coherentPosPool : posPool, 3);
+
+  // Pill de racha superior: prioriza racha de victorias si >= 2, luego rachas de mejora/ejecución
+  const headerStreak = winStreakCount >= 2
+    ? { count: winStreakCount, label: `${winStreakCount} victorias seguidas`, kind: 'win' }
+    : (evolution?.improvementStreak || null);
+
+  // Veredicto humano en 1 frase (dopamina honesta incluso en derrota)
+  const recordCount = medals.filter((m) => m.tier === 'gold').length;
+  const improvedCount = medals.filter((m) => m.id?.startsWith('evo-')).length;
+  let verdict = '';
+  if (resultStatus === 'lost') {
+    if (recordCount > 0) {
+      verdict = `Perdiste el mapa, pero dejaste ${recordCount === 1 ? '1 marca sobresaliente' : `${recordCount} marcas sobresalientes`} en tu ejecución.`;
+    } else if (improvedCount > 0 || medals.length >= 2) {
+      verdict = `Perdiste la partida, pero destacaste en ${medals.length} pilares reales de juego.`;
+    } else {
+      verdict = `Partida exigente: acá tenés el cuello de botella clave para dar vuelta la próxima.`;
+    }
+  } else if (resultStatus === 'won') {
+    if (winStreakCount >= 3) {
+      verdict = `¡Imparable! ${winStreakCount} victorias seguidas con ejecución sólida.`;
+    } else if (recordCount > 0) {
+      verdict = `Victoria sólida con ${recordCount === 1 ? '1 sello dorado' : `${recordCount} sellos dorados`} de ejecución.`;
+    } else if (medals.length >= 2) {
+      verdict = `Buena victoria: dominaste ${medals.length} áreas clave en la partida.`;
+    } else {
+      verdict = `Victoria confirmada · revisá tu punto de ajuste para seguir escalando.`;
+    }
+  } else {
+    verdict = medals.length ? `Destacaste en ${medals.length} áreas clave durante la partida.` : '';
+  }
+
+  // Foco coherente: si ganaste y el foco original del motor era un trade-off estratégico filtrado, usar el ajuste real #1
+  let alignedFocus = engine.focus || null;
+  const focusWasFilteredTradeoff = resultStatus === 'won' && alignedFocus &&
+    /Castillos|clic a Feudal|2\.º TC|producción militar constante|Desventaja en Herrería/i.test(alignedFocus.title || '');
+  const focusWasTgRole = teamMode && alignedFocus &&
+    /Castillos|clic a Feudal|2\.º TC|Desventaja en Herrería/i.test(alignedFocus.title || '');
+  if (focusWasFilteredTradeoff || focusWasTgRole) {
+    if (issues.length) {
+      alignedFocus = { title: issues[0].title, detail: issues[0].detail };
+    } else {
+      alignedFocus = {
+        title: 'Ejecución táctica sólida',
+        detail: `Sostuviste bien tu plan de partida sin fugas críticas de macro ni mejoras obligatorias pendientes.`,
+      };
+    }
+  }
+
+  return {
+    verdict,
+    streak: headerStreak,
+    medals,
+    issues,
+    focus: alignedFocus,
   };
 }
 
@@ -618,6 +1403,7 @@ function storedMatch(input, record) {
       profileId: Number(identity(player.profileId)), name: text(player.name) || null,
       civ: text(player.civ) || null, team: finite(player.team, 0, 16),
       won: typeof player.won === 'boolean' ? player.won : null,
+      rating: finite(player.rating, 100, 4000),
       matchRatingDiff: finite(player.matchRatingDiff),
     }));
   const self = players.find((player) => player.profileId === record.profileId);
@@ -652,6 +1438,7 @@ function recordFromMatch(match, profileId, telemetry, now = Date.now()) {
     won, startedAt, finishedAt,
     elapsedSeconds: startedAt && finishedAt && finishedAt >= startedAt
       ? Math.round((finishedAt - startedAt) / 1000) : null,
+    rating: finite(player.rating, 100, 4000),
     ratingDiff: finite(player.matchRatingDiff),
     updatedAt: finite(now, 1) || Date.now(), telemetry: null,
   };
@@ -670,6 +1457,7 @@ function sanitizeRecord(raw) {
     won: typeof raw.won === 'boolean' ? raw.won : null,
     startedAt: timestamp(raw.startedAt), finishedAt: timestamp(raw.finishedAt),
     elapsedSeconds: finite(raw.elapsedSeconds, 0, 86400),
+    rating: finite(raw.rating, 100, 4000),
     ratingDiff: finite(raw.ratingDiff), updatedAt: timestamp(raw.updatedAt) || Date.now(),
     telemetry: null,
   };
@@ -857,8 +1645,8 @@ function comparableTelemetry(row, current, telemetry) {
   // Adapter extensions preserve the command metrics. Newly available age
   // arrivals only compare to other metrics with the same definition.
   const commandVersion = (source) => source.id === 'aoe2rec-js' && source.type === 'replay-analysis' &&
-    ['0.1.25+command-adapter-v3', '0.1.25+command-adapter-v4', '0.1.25+command-adapter-v5'].includes(source.version)
-    ? 'command-orders-v3-v5' : source.version;
+    ['0.1.25+command-adapter-v3', '0.1.25+command-adapter-v4', '0.1.25+command-adapter-v5', '0.1.25+command-adapter-v6', '0.1.25+command-adapter-v7'].includes(source.version)
+    ? 'command-orders-v3-v7' : source.version;
   if (telemetry.source.id !== other.source.id || commandVersion(telemetry.source) !== commandVersion(other.source) ||
       telemetry.source.type !== other.source.type ||
       mapKey(a.civ) !== mapKey(b.civ) || mapKey(a.opening) !== mapKey(b.opening) ||
@@ -1027,14 +1815,28 @@ function buildPostMatchReport(options = {}) {
   const rivalPlayer = (match && Array.isArray(match.players) ? match.players : [])
     .find((p) => identity(p.profileId) !== identity(profileId) &&
       (ownTeam == null || p.team == null || Number(p.team) !== ownTeam));
+  const resultStatus = complete && typeof current.won === 'boolean' ? (current.won ? 'won' : 'lost') : 'pending';
+  const evolution = telemetry && telemetry.engineSummary
+    ? buildPersonalEvolution(telemetry, records, current)
+    : null;
+  const resolvedMode = resolveMode(current.leaderboardId);
+  const isTeamMatch = resolvedMode?.size === 'team' || (Array.isArray(match?.players) && match.players.length > 2);
   const engineData = telemetry && telemetry.engineSummary ? {
     ...telemetry.engineSummary,
+    isTeamGame: Boolean(telemetry.engineSummary.isTeamGame || isTeamMatch),
     rivalName: rivalPlayer ? text(rivalPlayer.name) || 'Rival' : 'Rival',
     rivalCiv: rivalPlayer ? text(rivalPlayer.civ) || null : null,
-    evolution: buildPersonalEvolution(telemetry, records, current),
+    evolution,
+    narrative: buildPostmatchNarrative(telemetry.engineSummary, evolution, resultStatus, {
+      isTeamGame: isTeamMatch,
+      current,
+      player,
+      rivalPlayer,
+      records,
+      historyRows: options.historyRows,
+      benchmark,
+    }),
   } : null;
-
-  const resultStatus = complete && typeof current.won === 'boolean' ? (current.won ? 'won' : 'lost') : 'pending';
   const report = {
     version: 1, matchId, profileId: Number(profileId), updatedAt: now,
     status: resultStatus === 'pending' ? 'pending' : 'ready',

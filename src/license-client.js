@@ -160,10 +160,70 @@ async function checkRemoteEntitlement({
   }
 }
 
+async function submitRemoteFeedback({
+  apiUrl = DEFAULT_API_URL,
+  category = 'suggestion',
+  message = '',
+  contact = '',
+  profileId = null,
+  alias = '',
+  plan = 'free',
+  appVersion = '0.0.0',
+  locale = 'es-MX',
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const base = validateApiUrl(apiUrl);
+  if (!base) return { ok: false, error: 'Servicio de feedback no configurado.' };
+  const cleanMsg = String(message || '').trim();
+  if (cleanMsg.length < 5) return { ok: false, error: 'Escribí al menos 5 caracteres.' };
+  if (typeof fetchImpl !== 'function') return { ok: false, error: 'Sin conexión disponible.' };
+
+  const validCat = ['suggestion', 'bug', 'ui', 'other'].includes(category) ? category : 'suggestion';
+  const rawPid = profileId != null ? Number(profileId) : null;
+  const pid = Number.isSafeInteger(rawPid) && rawPid > 0 ? rawPid : null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+  try {
+    const res = await fetchImpl(`${base}/v1/feedback`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        category: validCat,
+        message: cleanMsg.slice(0, 1500),
+        contact: String(contact || '').trim().slice(0, 120),
+        profileId: pid,
+        alias: String(alias || '').trim().slice(0, 80),
+        plan: String(plan || 'free').slice(0, 24),
+        appVersion: String(appVersion || '0.0.0').slice(0, 32),
+        locale: String(locale || '').slice(0, 16),
+        machineHash: getMachineHash(),
+      }),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 429) {
+        return { ok: false, error: 'Enviaste varios mensajes seguidos. Probá de nuevo en un rato.' };
+      }
+      return { ok: false, error: data.error || `Error del servidor (HTTP ${res.status})` };
+    }
+    return { ok: true, id: data.id || null };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err?.name === 'AbortError' ? 'Tiempo de espera agotado.' : 'No se pudo conectar con el servidor.',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 module.exports = {
   DEFAULT_API_URL,
   RELEASE_PUBLIC_KEYS,
   getMachineHash,
   validateApiUrl,
   checkRemoteEntitlement,
+  submitRemoteFeedback,
 };

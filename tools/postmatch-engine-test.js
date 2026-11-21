@@ -343,4 +343,239 @@ function op(playerId, ms, type, payload = {}) {
   assert.doesNotMatch(lockedHtml, /class="pm-v2/);
 }
 
+// 4. Rich telemetry detectors (eco/blacksmith techs, age race, macro builds, clean defense) + 3-zone narrative + tabs
+{
+  const ops = [];
+  // Self (slot 1): clean Dark Age -> Feudal at 550s -> Castle at 1050s -> Eco + Blacksmith + Bloodlines + Ballistics + Castles + Farms + BackToWork
+  for (let i = 0; i < 16; i += 1) {
+    ops.push(op(1, i * 25_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100], building_type: 109 }));
+  }
+  ops.push(op(1, 400_000, 'Research', { technology_type: 22, building_ids: [100] })); // Loom 25s
+  ops.push(op(1, 425_000, 'Research', { technology_type: 101, building_ids: [100] })); // Feudal -> 555s
+  ops.push(op(1, 570_000, 'Research', { technology_type: 202, building_ids: [110] })); // Double-Bit Axe (+15s after Feudal)
+  ops.push(op(1, 590_000, 'Research', { technology_type: 14, building_ids: [111] })); // Horse Collar
+  ops.push(op(1, 610_000, 'Research', { technology_type: 67, building_ids: [112] })); // Forging
+  ops.push(op(1, 630_000, 'Research', { technology_type: 81, building_ids: [112] })); // Scale Barding Armor
+  ops.push(op(1, 660_000, 'Research', { technology_type: 435, building_ids: [113] })); // Bloodlines
+  ops.push(op(1, 890_000, 'Research', { technology_type: 102, building_ids: [100] })); // Castle -> 1050s
+  ops.push(op(1, 1_065_000, 'Research', { technology_type: 203, building_ids: [110] })); // Bow Saw (+15s after Castle)
+  ops.push(op(1, 1_080_000, 'Research', { technology_type: 68, building_ids: [112] })); // Iron Casting
+  ops.push(op(1, 1_100_000, 'Research', { technology_type: 82, building_ids: [112] })); // Chain Barding Armor
+  ops.push(op(1, 1_120_000, 'Research', { technology_type: 93, building_ids: [114] })); // Ballistics
+  for (let i = 0; i < 12; i += 1) ops.push(op(1, 600_000 + i * 20_000, 'Build', { building_id: 50 })); // 12 Farms
+  ops.push(op(1, 1_150_000, 'Build', { building_id: 82 })); // Castle 1
+  ops.push(op(1, 1_300_000, 'Build', { building_id: 82 })); // Castle 2
+  for (let i = 0; i < 4; i += 1) ops.push(op(1, 700_000 + i * 30_000, 'BackToWork', {}));
+  for (let i = 0; i < 20; i += 1) {
+    ops.push(op(1, 620_000 + i * 35_000, 'DeQueue', { unit_id: 38, amount: 2, building_ids: [201, 202], building_type: 101 }));
+  }
+
+  // Rival (slot 2): later Castle (1220s), 0 Blacksmith, fewer units
+  for (let i = 0; i < 12; i += 1) {
+    ops.push(op(2, i * 25_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [300], building_type: 109 }));
+  }
+  ops.push(op(2, 520_000, 'Research', { technology_type: 101, building_ids: [300] })); // Feudal -> 650s
+  ops.push(op(2, 1_060_000, 'Research', { technology_type: 102, building_ids: [300] })); // Castle -> 1220s
+  for (let i = 0; i < 10; i += 1) {
+    ops.push(op(2, 750_000 + i * 40_000, 'DeQueue', { unit_id: 4, amount: 2, building_ids: [301], building_type: 87 }));
+  }
+
+  const res = analyzePostmatchEngine(ops, {
+    selfSlot: 1, rivalSlot: 2, selfCiv: 'Franks', rivalCiv: 'Britons',
+    opening: 'Scout Rush', openingShort: 'Scouts', playerElo: 1250, durationMs: 1_500_000,
+  });
+
+  assert.equal(res.self.techProfile.hasDoubleBitAxe, true);
+  assert.equal(res.self.techProfile.hasBowSaw, true);
+  assert.equal(res.self.techProfile.ecoCount, 3);
+  assert.equal(res.self.techProfile.blacksmithCount, 4);
+  assert.equal(res.self.techProfile.combatKeyCount, 2);
+  assert.equal(res.self.macroBuilds.farms, 12);
+  assert.equal(res.self.macroBuilds.castles, 2);
+  assert.equal(res.self.combatMicro.backToWork, 4);
+  assert.ok(res.self.timings.castleSeconds < res.rival.timings.castleSeconds - 100);
+  assert.ok(res.positives.length >= 4, `expected >= 4 distinct positives, got ${res.positives.length}`);
+  assert.ok(res.positives.some((p) => p.id === 'medal-blacksmith-relevant'), 'must award unit-matched Caballería Blindada');
+  assert.ok(res.positives.some((p) => p.id === 'medal-castle-first'), 'must award Carrera de Edades');
+  assert.ok(res.positives.some((p) => p.id === 'medal-eco-techs'), 'must award Maestro Leñador');
+  assert.ok(res.positives.some((p) => p.id === 'medal-clean-defense'), 'must award Defensa Limpia');
+  assert.equal(res.self.techProfile.armyRelevance.primaryClass, 'cavalry');
+  assert.equal(res.self.techProfile.armyRelevance.wellEquipped, true);
+  assert.equal(res.self.techProfile.armyRelevance.criticalMissing, null);
+
+  const norm = normalizeTelemetry({
+    schemaVersion: 1, matchId: '2001', profileId: '25399083', clock: 'game', durationSeconds: 1500,
+    source: { id: 'aoe2rec-local', type: 'replay-analysis', version: '2.6.1' },
+    context: { mapName: 'Arabia', leaderboardId: 3, civ: 'Franks', gameSpeed: 'normal', startingAge: 'dark' },
+    metrics: { apm: { value: res.self.apm, definition: 'raw-command-apm-v1' }, eapm: { value: res.self.eapm, definition: 'debounced-command-eapm-v1' } },
+    phases: {}, engineSummary: res,
+  }, { matchId: '2001', profileId: '25399083' });
+  assert.equal(norm.status, 'ready');
+
+  const rep = buildPostMatchReport({
+    match: {
+      matchId: '2001', startedAt: '2026-11-21T10:00:00Z', finishedAt: '2026-11-21T10:25:00Z',
+      leaderboardId: 3, mapName: 'Arabia',
+      players: [
+        { profileId: '25399083', name: 'PSX | Acido', civ: 'Franks', team: 1, won: true, ratingDiff: 15 },
+        { profileId: '88888888', name: 'Rival', civ: 'Britons', team: 2, won: false, ratingDiff: -15 },
+      ],
+    },
+    profileId: '25399083', telemetry: norm.data, records: [],
+  });
+  assert.ok(rep.engine.narrative && rep.engine.narrative.medals.length === 3);
+  assert.equal(new Set(rep.engine.narrative.medals.map((m) => m.domain)).size, 3, 'top 3 medals must be from 3 distinct domains');
+
+  const html = TacticalUI.renderPostMatch(rep, { replay: true, comparison: true });
+  assert.match(html, /class="pm-verdict-bar"/);
+  assert.match(html, /class="pm-narrative-grid"/);
+  assert.match(html, /class="pm-zone is-good"/);
+  assert.match(html, /class="pm-zone is-bad"/);
+  assert.match(html, /class="pm-medal-card /);
+  assert.match(html, /class="pm-deep-dive"/);
+  assert.match(html, /data-pm-tab="evo"/);
+  assert.match(html, /data-pm-tab="duel"/);
+  assert.match(html, /data-pm-tab="tech"/);
+  assert.match(html, /class="pm-tech-box"/);
+  assert.match(html, /class="pm-race-box"/);
+  assert.match(html, /Hacha de doble filo/);
+  assert.match(html, /Sierra de arco/);
+  assert.match(html, /Forja/);
+  assert.doesNotMatch(html, /\sstyle=/i, 'CSP: zero inline style attributes');
+}
+
+// 5. Tactical AoE2 sense checks:
+//    - Pure Cavalry (3 relevant BS techs) vs rival who switched 3 lines (10 BS techs) -> ZERO Blacksmith penalty!
+//    - Monks + Siege (0 BS techs) -> ZERO Blacksmith penalty!
+//    - Crossbows with 0 Fletching -> flags missing Emplumado!
+//    - Team Game -> never compares Castle timing against 1 arbitrary opponent!
+{
+  // 5a: Pure Cavalry vs 10-tech rival
+  const cavOps = [];
+  for (let i = 0; i < 16; i += 1) cavOps.push(op(1, i * 25_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100], building_type: 109 }));
+  cavOps.push(op(1, 450_000, 'Research', { technology_type: 101, building_ids: [100] })); // Feudal
+  cavOps.push(op(1, 900_000, 'Research', { technology_type: 102, building_ids: [100] })); // Castle
+  cavOps.push(op(1, 1_080_000, 'Research', { technology_type: 81, building_ids: [112] })); // Scale Barding
+  cavOps.push(op(1, 1_120_000, 'Research', { technology_type: 82, building_ids: [112] })); // Chain Barding
+  cavOps.push(op(1, 1_160_000, 'Research', { technology_type: 67, building_ids: [112] })); // Forging
+  for (let i = 0; i < 15; i += 1) cavOps.push(op(1, 1_080_000 + i * 20_000, 'DeQueue', { unit_id: 38, amount: 2, building_ids: [201, 202], building_type: 101 }));
+  // Rival researched 10 random blacksmith techs across all 3 lines
+  for (const tid of [67, 68, 74, 76, 81, 82, 199, 200, 211, 212]) {
+    cavOps.push(op(2, 600_000 + tid * 1000, 'Research', { technology_type: tid, building_ids: [312] }));
+  }
+  const cavRes = analyzePostmatchEngine(cavOps, { selfSlot: 1, rivalSlot: 2, selfCiv: 'Franks', durationMs: 1_600_000 });
+  assert.equal(cavRes.negatives.some((n) => n.domain === 'blacksmith_techs'), false, 'pure cav with 3/4 relevant techs must NEVER be penalized vs 10-tech rival');
+  assert.ok(cavRes.positives.some((p) => p.id === 'medal-blacksmith-relevant' && p.badgeName === 'Caballería Blindada'));
+
+  // 5b: Monks + Siege (0 Blacksmith techs) -> ZERO Blacksmith penalty
+  const siegeOps = [];
+  for (let i = 0; i < 16; i += 1) siegeOps.push(op(1, i * 25_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100], building_type: 109 }));
+  siegeOps.push(op(1, 450_000, 'Research', { technology_type: 101, building_ids: [100] }));
+  siegeOps.push(op(1, 880_000, 'Research', { technology_type: 102, building_ids: [100] }));
+  for (let i = 0; i < 15; i += 1) siegeOps.push(op(1, 1_060_000 + i * 25_000, 'DeQueue', { unit_id: 125, amount: 2, building_ids: [210], building_type: 104 })); // Monks
+  for (let i = 0; i < 8; i += 1) siegeOps.push(op(1, 1_100_000 + i * 35_000, 'DeQueue', { unit_id: 280, amount: 1, building_ids: [211], building_type: 49 })); // Mangonels
+  const siegeRes = analyzePostmatchEngine(siegeOps, { selfSlot: 1, selfCiv: 'Aztecs', durationMs: 1_500_000 });
+  assert.equal(siegeRes.self.techProfile.armyRelevance.primaryClass, null);
+  assert.equal(siegeRes.negatives.some((n) => n.domain === 'blacksmith_techs'), false, 'Monks + Siege must NEVER be criticized for 0 Blacksmith');
+
+  // 5c: Archers with 0 Fletching -> flags missing Emplumado
+  const archOps = [];
+  for (let i = 0; i < 16; i += 1) archOps.push(op(1, i * 25_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100], building_type: 109 }));
+  archOps.push(op(1, 450_000, 'Research', { technology_type: 101, building_ids: [100] }));
+  for (let i = 0; i < 10; i += 1) archOps.push(op(1, 620_000 + i * 25_000, 'DeQueue', { unit_id: 4, amount: 2, building_ids: [203], building_type: 87 })); // 20 Archers
+  const archRes = analyzePostmatchEngine(archOps, { selfSlot: 1, selfCiv: 'Britons', durationMs: 1_200_000 });
+  assert.equal(archRes.self.techProfile.armyRelevance.primaryClass, 'ranged');
+  assert.ok(archRes.negatives.some((n) => n.id === 'neg-bs-ranged-fletching'), '20 Archers without Fletching MUST flag missing Emplumado');
+
+  // 5d: Team Game ignores arbitrary 1v1 rival Castle timing difference
+  const tgOps = [
+    ...cavOps,
+    op(2, 350_000, 'Research', { technology_type: 101, building_ids: [300] }),
+    op(2, 650_000, 'Research', { technology_type: 102, building_ids: [300] }), // Rival Pocket fast castle
+  ];
+  const tgRes = analyzePostmatchEngine(tgOps, { selfSlot: 1, rivalSlot: 2, selfCiv: 'Franks', durationMs: 1_600_000, isTeamGame: true });
+  assert.equal(tgRes.negatives.some((n) => n.id === 'neg-late-castle'), false, 'TG must NEVER flag late Castle vs an arbitrary opponent');
+}
+
+// 6. Momentum, Streaks, Progressive Improvement Ladders, Giant Slayer, Revenge, Blitz & 3-flavor variety
+{
+  const mkPrior = (id, minsAgo, { won, rating, ratingDiff, tcIdle, tcUtil, eapm, rivalId = '777' }) => {
+    const startedAt = Date.now() - minsAgo * 60_000;
+    const norm = normalizeTelemetry({
+      schemaVersion: 1, matchId: id, profileId: '25399083', clock: 'game', durationSeconds: 1100,
+      source: { id: 'aoe2rec-local', type: 'replay-analysis', version: '2.6.1' },
+      context: { mapName: 'Arabia', leaderboardId: 3, civ: 'Franks', gameSpeed: 'normal', startingAge: 'dark' },
+      metrics: { apm: { value: eapm + 10, definition: 'raw-command-apm-v1' }, eapm: { value: eapm, definition: 'debounced-command-eapm-v1' } },
+      phases: {},
+      engineSummary: {
+        version: 'postmatch-engine-v1', durationSeconds: 1100,
+        self: {
+          villagersOrdered: 52, townCenters: 2, tcIdleSeconds: tcIdle, tcIdleEarlySeconds: tcIdle,
+          tcUtilization: tcUtil, tcUtilizationEarly: tcUtil, militaryOrdered: 36, workshopsCount: 4,
+          eapm, apm: eapm + 10, habits: { move: 120, attackMove: 14, patrol: 4, market: 1, townBell: 0 },
+        },
+        positives: [{ id: 'medal-dark-clean', domain: 'macro_tc', tier: 'gold', score: 88, title: 'Alta limpia', detail: 'ok' }],
+      },
+    }, { matchId: id, profileId: '25399083' });
+    return {
+      matchId: id, profileId: '25399083', startedAt, finishedAt: startedAt + 1_100_000,
+      leaderboardId: 3, mapName: 'Arabia', civ: 'Franks', won, rating, ratingDiff,
+      match: {
+        matchId: id, leaderboardId: 3, mapName: 'Arabia',
+        players: [
+          { profileId: 25399083, name: 'PSX | Acido', civ: 'Franks', team: 1, won, rating, matchRatingDiff: ratingDiff },
+          { profileId: Number(rivalId), name: 'RivalX', civ: 'Britons', team: 2, won: !won, rating: rating + 20 },
+        ],
+      },
+      telemetry: norm.data,
+    };
+  };
+
+  // 3 consecutive wins + progressive TC idle reduction (64s -> 38s -> 16s) + Giant Slayer (+60 ELO rival) + Blitz (<20m)
+  const records = [
+    mkPrior('3001', 120, { won: true, rating: 1200, ratingDiff: 15, tcIdle: 64, tcUtil: 88.0, eapm: 38 }),
+    mkPrior('3002', 60, { won: true, rating: 1215, ratingDiff: 16, tcIdle: 38, tcUtil: 92.0, eapm: 43 }),
+  ];
+  const curNorm = normalizeTelemetry({
+    schemaVersion: 1, matchId: '3003', profileId: '25399083', clock: 'game', durationSeconds: 980,
+    source: { id: 'aoe2rec-local', type: 'replay-analysis', version: '2.6.1' },
+    context: { mapName: 'Arabia', leaderboardId: 3, civ: 'Franks', gameSpeed: 'normal', startingAge: 'dark' },
+    metrics: { apm: { value: 58, definition: 'raw-command-apm-v1' }, eapm: { value: 49, definition: 'debounced-command-eapm-v1' } },
+    phases: {},
+    engineSummary: {
+      version: 'postmatch-engine-v1', durationSeconds: 980,
+      self: {
+        villagersOrdered: 48, townCenters: 2, tcIdleSeconds: 16, tcIdleEarlySeconds: 16,
+        tcUtilization: 96.5, tcUtilizationEarly: 96.5, militaryOrdered: 42, workshopsCount: 4,
+        eapm: 49, apm: 58, habits: { move: 120, attackMove: 16, patrol: 4, market: 0, townBell: 0 },
+      },
+      positives: [
+        { id: 'medal-dark-clean', domain: 'macro_tc', tier: 'gold', score: 88, badgeName: 'Reloj Suizo', title: 'Alta limpia', detail: 'ok' },
+        { id: 'medal-combined-arms', domain: 'combined_arms', tier: 'green', score: 78, badgeName: 'Ejército Combinado', title: 'Combinaste Caballería y Distancia', detail: 'ok' },
+      ],
+    },
+  }, { matchId: '3003', profileId: '25399083' });
+
+  const rep = buildPostMatchReport({
+    match: {
+      matchId: '3003', startedAt: Date.now() - 10 * 60_000, finishedAt: Date.now(),
+      leaderboardId: 3, mapName: 'Arabia',
+      players: [
+        { profileId: '25399083', name: 'PSX | Acido', civ: 'Franks', team: 1, won: true, rating: 1231, matchRatingDiff: 21 },
+        { profileId: '99999', name: 'GrandMaster', civ: 'Mayans', team: 2, won: false, rating: 1295, matchRatingDiff: -21 },
+      ],
+    },
+    profileId: '25399083', telemetry: curNorm.data, records,
+  });
+
+  assert.ok(rep.engine.evolution.consecutiveImprovement, 'must detect 3-match progressive improvement');
+  assert.match(rep.engine.evolution.consecutiveImprovement.chainLabel, /64 s → 38 s → 16 s/);
+  assert.ok(rep.engine.evolution.sessionWarmup, 'must detect same-session warm-up improvement');
+  assert.equal(rep.engine.narrative.streak.count, 3);
+  assert.match(rep.engine.narrative.streak.label, /3 victorias seguidas/);
+  assert.equal(rep.engine.narrative.medals.length, 3);
+  const flavors = new Set(rep.engine.narrative.medals.map((m) => m.flavor));
+  assert.equal(flavors.size, 3, `expected 3 distinct flavors (story + evolution + execution), got ${[...flavors].join(',')}`);
+}
+
 console.log('postmatch-engine-test: ok');

@@ -30,6 +30,98 @@ let postMatchEnabled = false;
 let postMatchAccess = { comparison: true, replay: true };
 const updateToastEl = document.getElementById('updateToast');
 const updateToastText = document.getElementById('updateToastText');
+const previewHighlightBarEl = document.getElementById('previewHighlightBar');
+let previewHighlight = null;
+
+const PREVIEW_HIGHLIGHT_LABELS = {
+  civHelp: () => tr('overlay.civHelpTitle', 'Ayuda de civ'),
+  hideEloAt20: () => tr('overlay.hideEloName', 'Ocultar Overlay'),
+  tgBalance: () => tr('overlay.tgBalanceTitle', 'Balance de equipos'),
+  smurfDetector: () => tr('overlay.smurfTitle', 'Smurf Detector'),
+  rivalCivs: () => tr('overlay.rivalCivsTitle', 'Últimas 5 civs del rival'),
+  rivalFavorites: () => tr('overlay.rivalFavTitle', 'Civ más usada en el mapa'),
+  rivalOpenings: () => tr('overlay.rivalOpeningsTitle', 'Aperturas reales del rival'),
+  smartTips: () => tr('overlay.smartTipsTitle', 'Lectura de apertura'),
+  rivalH2H: () => tr('overlay.rivalH2HTitle', 'Enfrentamientos previos'),
+  civRecommender: () => tr('overlay.civRecTitle', 'Historial y cruce de civilizaciones'),
+  scoutF2: () => tr('overlay.scoutF2Title', 'Resumen con F2'),
+  smartBuildOrder: () => tr('tactics.sboTitle', 'Smart Build Order'),
+  postMatch: () => tr('postmatchPage.summaryTitle', 'Resumen postmatch'),
+  postMatchComparison: () => tr('postmatchPage.compareTitle', 'Comparar mi evolución'),
+  postMatchReplay: () => tr('postmatchPage.replayTitle', 'Análisis del replay'),
+};
+
+function resolveHighlightTargets(feature) {
+  if (!feature) return [];
+  const visible = (nodes) => [...nodes].filter((n) => n && !n.hidden && n.offsetParent !== null);
+  switch (feature) {
+    case 'civHelp':
+      return visible([civHelpEl]);
+    case 'hideEloAt20':
+      return visible([panel]);
+    case 'tgBalance': {
+      const bal = visible([balanceEl]);
+      return bal.length ? bal : visible([panel]);
+    }
+    case 'smurfDetector': {
+      const pills = visible(rowsEl ? rowsEl.querySelectorAll('.smurf-pill') : []);
+      if (pills.length) return pills;
+      const rivals = visible(rowsEl ? rowsEl.querySelectorAll('.row:not(.you)') : []);
+      return rivals.length ? rivals : visible([panel]);
+    }
+    case 'rivalOpenings': {
+      const direct = visible(scoutingEl ? scoutingEl.querySelectorAll('[data-feature="rivalOpenings"]') : []);
+      if (direct.length) return direct;
+      return visible(scoutingEl ? scoutingEl.querySelectorAll('[data-feature="smartTips"]') : []);
+    }
+    case 'rivalCivs':
+    case 'rivalFavorites':
+    case 'smartTips':
+    case 'rivalH2H':
+    case 'civRecommender':
+      return visible(scoutingEl ? scoutingEl.querySelectorAll(`[data-feature="${feature}"]`) : []);
+    case 'scoutF2': {
+      const toggle = visible(scoutingEl ? scoutingEl.querySelectorAll('.scout-toggle') : []);
+      return toggle.length ? toggle : visible(scoutingEl ? scoutingEl.querySelectorAll('.scout-head') : []);
+    }
+    case 'smartBuildOrder':
+      return visible([smartBuildOrderEl]);
+    case 'postMatch':
+      return visible([postMatchEl]);
+    case 'postMatchComparison': {
+      const parts = visible(postMatchEl ? postMatchEl.querySelectorAll('.pm-narrative-grid, .pm-trophy-banner, .pm-mode-tag') : []);
+      return parts.length ? parts : visible([postMatchEl]);
+    }
+    case 'postMatchReplay': {
+      const parts = visible(postMatchEl ? postMatchEl.querySelectorAll('.pm-stages-v2, .pm-opening-bar, .pm-zone.is-good') : []);
+      return parts.length ? parts : visible([postMatchEl]);
+    }
+    default:
+      return [];
+  }
+}
+
+function applyPreviewHighlight() {
+  document.querySelectorAll('.preview-hl').forEach((node) => node.classList.remove('preview-hl'));
+  const feature = previewHighlight && previewHighlight.feature ? previewHighlight.feature : null;
+  const isPreviewContext = Boolean(feature) && !moving && (
+    (lastState && lastState.example) ||
+    (postMatchEl && !postMatchEl.hidden)
+  );
+  if (!isPreviewContext) {
+    if (previewHighlightBarEl) previewHighlightBarEl.hidden = true;
+    return;
+  }
+  const targets = resolveHighlightTargets(feature);
+  for (const el of targets) el.classList.add('preview-hl');
+  if (previewHighlightBarEl) {
+    const labelFn = PREVIEW_HIGHLIGHT_LABELS[feature];
+    const label = labelFn ? labelFn() : feature;
+    const prefix = tr('hud.previewHighlightPrefix', 'Vista previa · Activado');
+    previewHighlightBarEl.textContent = `${prefix}: ${label}`;
+    previewHighlightBarEl.hidden = false;
+  }
+}
 
 function tr(key, fallback, vars = null) {
   if (typeof AppI18n === 'object' && AppI18n.t) {
@@ -462,6 +554,7 @@ function applyVisibility() {
   panel.classList.toggle('reviewing', reviewing);
   analysisEl.hidden = analysisStage() == null;
 
+  applyPreviewHighlight();
   scheduleHeight();
 }
 
@@ -2116,6 +2209,13 @@ window.overlay.onConfig((config) => {
 
 window.overlay.onState(render);
 window.overlay.onUpdate(showUpdateToast);
+if (window.overlay.onHighlight) {
+  window.overlay.onHighlight((payload) => {
+    previewHighlight = payload && payload.feature ? payload : null;
+    applyPreviewHighlight();
+    scheduleHeight();
+  });
+}
 window.overlay.onMovable(setMoving);
 if (window.overlay.onPostMatch) window.overlay.onPostMatch(renderPostMatch);
 if (window.overlay.onBuildOrder) window.overlay.onBuildOrder(renderBuildOrder);

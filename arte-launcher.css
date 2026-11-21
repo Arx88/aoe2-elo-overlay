@@ -148,7 +148,6 @@ body::before {
 .page[data-page="central"] { container: central-page / inline-size; }
 body:has(.nav-item[data-page="central"].active) .content-head { padding-block: 12px 6px; }
 body:has(.nav-item[data-page="central"].active) .pages { padding-top: 13px; }
-body:has(.nav-item[data-page="central"].active) .rail-nav { margin-block: 14px auto; }
 .page[data-page="central"] .central-topbar { margin-bottom: 18px; }
 .page[data-page="central"] .cx-v4 { gap: 18px; }
 .page[data-page="central"] .cx-hero {

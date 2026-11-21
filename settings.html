@@ -52,13 +52,13 @@
             <img class="product-icon" src="assets/icons/eye.png" alt="">
             <span data-i18n="nav.overlay">Prematch</span>
           </button>
-          <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Durante</span></button>
+          <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Durante</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
           <button class="nav-item" data-page="postmatch" type="button"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span data-i18n="nav.postmatch">Postmatch</span></button>
           <button class="nav-item" data-page="skins" type="button">
             <img class="product-icon" src="assets/icons/palette.png" alt="" draggable="false">
             <span data-i18n="nav.skins">Apariencia</span>
           </button>
-          <button class="nav-item" data-page="plans" type="button"><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"><span data-i18n="nav.plans">Plan y acceso</span></button>
+          <button class="nav-item" data-page="plans" type="button"><img class="product-icon" src="assets/icons/crown.png" alt="" draggable="false"><span data-i18n="nav.plans">Plan y acceso</span></button>
           <button class="nav-item" data-page="updater" type="button">
             <img class="product-icon" src="assets/icons/update.png" alt="" draggable="false">
             <span data-i18n="nav.updater">Actualizaciones</span>
@@ -67,7 +67,14 @@
 
         <div class="launcher-rail-art" aria-hidden="true"></div>
         <div class="rail-foot">
-          <button id="railPlan" class="rail-plan" data-goto="plans" type="button"><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"><span id="railPlanLabel">Cargando acceso</span></button>
+          <button id="railPlan" class="rail-plan" data-goto="plans" data-tier="free" type="button">
+            <span class="rail-plan-emblem" aria-hidden="true"><img id="railPlanIcon" class="product-icon" src="assets/icons/crown.png" alt="" draggable="false"></span>
+            <span class="rail-plan-copy">
+              <small id="railPlanKicker" class="rail-plan-kicker">Plan activo</small>
+              <strong id="railPlanLabel" class="rail-plan-name">Cargando acceso</strong>
+            </span>
+            <span id="railPlanGlyph" class="rail-plan-glyph" aria-hidden="true">✦</span>
+          </button>
           <div class="rail-build">
             <span class="rail-build-meta"><span id="version" class="rail-version"></span><span>By acido</span></span>
             <button id="appPrefsBtn" class="rail-gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Ajustes de la app e idioma" title="Idioma y ajustes de cuenta">
@@ -84,6 +91,7 @@
             </div>
             <div class="prefs-pop-divider"></div>
             <div class="prefs-pop-actions">
+              <button id="prefsFeedbackBtn" class="prefs-pop-link prefs-pop-feedback" type="button" data-i18n="feedback.openBtn">Enviar feedback</button>
               <button id="prefsSoundBtn" class="prefs-pop-link" type="button">Sonidos de interfaz · Activos</button>
               <button id="prefsPlanBtn" class="prefs-pop-link" type="button" data-i18n="nav.plans">Plan y acceso</button>
               <button id="prefsVerifyBtn" class="prefs-pop-link" type="button" data-i18n="plans.refreshBtn">Verificar acceso</button>
@@ -182,18 +190,8 @@
           <section class="page" data-page="overlay">
             <div class="workflow"><div><span>01</span><strong data-i18n="overlay.wf1Title">Leé al rival</strong><small data-i18n="overlay.wf1Sub">Mapa · civs · aperturas</small></div><i aria-hidden="true"></i><div><span>02</span><strong data-i18n="overlay.wf2Title">Elegí un plan</strong><small data-i18n="overlay.wf2Sub">Evidencia del mismo contexto</small></div><i aria-hidden="true"></i><div><span>03</span><strong data-i18n="overlay.wf3Title">Entrá a jugar</strong><small data-i18n="overlay.wf3Sub">El overlay se aparta</small></div></div>
             <p class="section-intro" data-i18n="overlay.intro">Elegí qué información querés ver. Cada dato indica su muestra y cada consejo explica qué observación lo respalda.</p>
-            <div class="group-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><i></i><em>2</em></div>
+            <div class="group-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><i></i><em>1</em></div>
             <div class="block">
-              <label class="row tog" for="civHelp">
-                <span class="ric"><img class="product-icon" src="assets/icons/shield.png" alt="" draggable="false"></span>
-                <span class="tcopy">
-                  <span class="rname" data-i18n="overlay.civHelpTitle">Ayuda de civ</span>
-                  <span class="rdesc" id="civHelpDesc">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
-                </span>
-                <input id="civHelp" type="checkbox" />
-                <span class="sw" aria-hidden="true"></span>
-              </label>
-
               <label class="row tog" for="hideEloAt20">
                 <span class="ric"><img class="product-icon" src="assets/icons/clock.png" alt="" draggable="false"></span>
                 <span class="tcopy">
@@ -316,8 +314,19 @@
           <section class="page" data-page="tactics">
             <div class="section-banner"><img class="product-icon" src="assets/icons/combat.png" alt="" draggable="false"><div><h2 data-i18n="tactics.bannerTitle">Referencias por civilización</h2><p data-i18n="tactics.bannerDesc">Consultá las rutas de ambas civilizaciones y el historial del mapa cuando esté disponible.</p></div></div>
             <p class="section-intro" data-i18n="tactics.intro">Las rutas de Feudal, Castillos e Imperial se consultan acá. Representan opciones, no el estado actual de tu partida.</p>
-            <div class="group-head"><span data-i18n="tactics.guideGroup">Guía de apertura</span><i></i></div>
-            <div class="block"><label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · Ultra</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label></div>
+            <div class="group-head"><span data-i18n="tactics.guideGroup">Guía de apertura</span><i></i><em>2</em></div>
+            <div class="block">
+              <label class="row tog" for="civHelp">
+                <span class="ric"><img class="product-icon" src="assets/icons/shield.png" alt="" draggable="false"></span>
+                <span class="tcopy">
+                  <span class="rname" data-i18n="overlay.civHelpTitle">Ayuda de civ</span>
+                  <span class="rdesc" id="civHelpDesc">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
+                </span>
+                <input id="civHelp" type="checkbox" />
+                <span class="sw" aria-hidden="true"></span>
+              </label>
+              <label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · Ultra</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+            </div>
             <div id="buildOrderReport" class="tactics-report-slot" aria-live="polite"></div>
             <div class="group-head"><span data-i18n="tactics.oppGroup">Oportunidades frente al rival</span><i></i></div>
             <div id="tacticalReport" class="tactics-report-slot" aria-live="polite"></div>
@@ -457,6 +466,19 @@
                 <button id="moveBtn" class="btn" type="button" data-i18n="skins.moveBtn">Mover</button>
               </div>
             </div>
+
+            <div class="group-head"><span data-i18n="skins.visibilityGroup">Visibilidad automática</span><i></i></div>
+            <div class="block">
+              <label class="row tog" for="hideWhenMinimized">
+                <span class="ric"><img class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
+                <span class="tcopy">
+                  <span class="rname" data-i18n="skins.hideMinimizedTitle">Ocultar si AoE2 está minimizado</span>
+                  <span class="rdesc" data-i18n="skins.hideMinimizedDesc">Oculta el overlay si Age of Empires II queda minimizado más de 5 segundos y vuelve al restaurarlo</span>
+                </span>
+                <input id="hideWhenMinimized" type="checkbox" />
+                <span class="sw" aria-hidden="true"></span>
+              </label>
+            </div>
           </section>
 
           <!-- ============ UPDATER ============ -->
@@ -521,6 +543,42 @@
           <button id="civHelpTipNo" class="btn" type="button" data-i18n="common.civTipNo">No, gracias</button>
           <button id="civHelpTipYes" class="btn gold" type="button" data-i18n="common.civTipYes">Aumentar visibilidad a 40 segundos</button>
         </div>
+      </div>
+    </div>
+
+    <div id="feedbackModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+      <div class="modal-card feedback-modal-card">
+        <div class="feedback-modal-head">
+          <div>
+            <span class="eyebrow" data-i18n="feedback.eyebrow">RELATO DIRECTO AL EQUIPO</span>
+            <h3 id="feedbackModalTitle" data-i18n="feedback.title">Enviar feedback</h3>
+          </div>
+          <button id="feedbackCloseBtn" class="winbtn" type="button" aria-label="Cerrar">×</button>
+        </div>
+        <p class="feedback-modal-sub" data-i18n="feedback.subtitle">Contanos qué te gustaría mejorar, proponer una función nueva o reportar un error.</p>
+        <form id="feedbackForm" class="feedback-form">
+          <div class="feedback-cats" role="radiogroup" aria-label="Tipo de mensaje">
+            <button type="button" class="fb-cat active" data-fb-cat="suggestion" aria-checked="true" data-i18n="feedback.catSuggestion">Sugerencia</button>
+            <button type="button" class="fb-cat" data-fb-cat="bug" aria-checked="false" data-i18n="feedback.catBug">Reportar bug</button>
+            <button type="button" class="fb-cat" data-fb-cat="ui" aria-checked="false" data-i18n="feedback.catUi">Diseño / UI</button>
+            <button type="button" class="fb-cat" data-fb-cat="other" aria-checked="false" data-i18n="feedback.catOther">Otro</button>
+          </div>
+          <label class="feedback-field-label" for="feedbackMessage">
+            <span data-i18n="feedback.messageLabel">Tu mensaje</span>
+            <span id="feedbackCount" class="mono">0 / 1200</span>
+          </label>
+          <textarea id="feedbackMessage" class="field feedback-textarea" rows="5" maxlength="1200" required placeholder="Escribí tu idea, sugerencia o el problema que encontraste…" data-i18n-placeholder="feedback.messagePlaceholder"></textarea>
+          <label class="feedback-field-label" for="feedbackContact">
+            <span data-i18n="feedback.contactLabel">Discord o Email (opcional)</span>
+          </label>
+          <input id="feedbackContact" class="field" type="text" maxlength="120" autocomplete="off" placeholder="Para responderte si hace falta (ej. usuario#0000 o correo)" data-i18n-placeholder="feedback.contactPlaceholder" />
+          <p class="feedback-meta-hint" data-i18n="feedback.metaHint">Se adjunta automáticamente tu versión de Relic, idioma y perfil activo.</p>
+          <div id="feedbackStatus" class="feedback-status" role="status" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button id="feedbackCancelBtn" class="btn" type="button" data-i18n="feedback.cancelBtn">Cancelar</button>
+            <button id="feedbackSubmitBtn" class="btn gold" type="submit" data-i18n="feedback.submitBtn">Enviar feedback</button>
+          </div>
+        </form>
       </div>
     </div>
 
