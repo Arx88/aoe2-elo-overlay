@@ -158,6 +158,11 @@ async function run() {
   assert.equal(revRes.active, false);
 
   // 4) Verificar empaquetado seguro e instalador NSIS
+  const detect = require('../src/detect');
+  assert.equal(detect.accountIdToSteamId64(0x2ca13eac), '76561198709030572');
+  assert.equal(detect.parseRegDword('    ActiveUser    REG_DWORD    0x2ca13eac', 'ActiveUser'), 0x2ca13eac);
+  assert.equal(detect.parseRegDword('    ActiveUser    REG_DWORD    0x0', 'ActiveUser'), null);
+  assert.equal(detect.parseLoginUsersVdf('"users"{\n"76561198000000001"{"MostRecent" "0" "Timestamp" "1700000000"}\n"76561198000000002"{"MostRecent" "1" "Timestamp" "1600000000"}\n}'), '76561198000000002');
   const builderCfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'electron-builder.json'), 'utf8'));
   assert.ok(builderCfg.files.includes('!admin-app/**'), 'admin-app debe quedar fuera del instalador público');
   assert.ok(builderCfg.files.includes('!licensing-api/**'), 'licensing-api debe quedar fuera del instalador público');

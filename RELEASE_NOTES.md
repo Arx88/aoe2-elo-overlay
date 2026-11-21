@@ -1,3 +1,9 @@
+## v2.5.6 · Detección real de la cuenta activa de Steam
+
+- **Cambio de cuenta de Steam instantáneo:** al tocar **Detectar cuenta** (o al iniciar), Relic ahora lee directamente la sesión activa real de Steam en Windows (`ActiveUser` y `loginusers.vdf`) en lugar de quedarse pegado a la cuenta anterior que tuvo la última partida registrada. Funciona incluso con cuentas secundarias recién iniciadas.
+
+---
+
 ## v2.5.5 · Pulido de textos y asistente inicial de Relic
 
 - **Etiqueta más clara en Prematch:** la opción de ocultado automático ahora dice **"Ocultar Overlay 20 segundos"** (actualizada en los 4 idiomas: español, inglés y chino).
