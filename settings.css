@@ -2876,3 +2876,167 @@ main.content {
   padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 .relic-redeem-row .field { flex: 1; min-width: 220px; }
+
+/* ============ RAIL USER PILL + CUENTA SESSION CARD ============ */
+.rail-user {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 24, 27, 0.85);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.rail-user:hover {
+  border-color: rgba(199, 173, 118, 0.42);
+  background: rgba(27, 34, 38, 0.94);
+}
+.rail-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #f3dfae;
+  background: radial-gradient(circle at 35% 15%, rgba(199, 173, 118, 0.34), rgba(26, 31, 35, 0.96));
+  border: 1px solid rgba(199, 173, 118, 0.4);
+}
+.rail-user.is-signed .rail-user-avatar {
+  color: #0e1612;
+  background: linear-gradient(135deg, #e5c989, #b89652);
+  border-color: transparent;
+}
+.rail-user-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rail-user-name {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-user-sub {
+  font-size: 10.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-user-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex: none;
+  background: rgba(255, 255, 255, 0.22);
+}
+.rail-user.is-signed .rail-user-dot {
+  background: #6ee7b7;
+  box-shadow: 0 0 8px rgba(110, 231, 183, 0.65);
+}
+
+.account-session-card {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(199, 173, 118, 0.26);
+  background: linear-gradient(120deg, rgba(28, 35, 39, 0.92), rgba(18, 22, 26, 0.96));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+.acc-auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.acc-auth-row[hidden] {
+  display: none;
+}
+.acc-auth-copy {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  flex: 1;
+}
+.acc-auth-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #14120c;
+  background: linear-gradient(135deg, #e5c989, #b89652);
+  box-shadow: 0 4px 14px rgba(199, 173, 118, 0.24);
+}
+.acc-auth-avatar.is-guest {
+  color: #f0d7a3;
+  background: radial-gradient(circle at 35% 15%, rgba(199, 173, 118, 0.26), rgba(22, 28, 32, 0.96));
+  border: 1px solid rgba(199, 173, 118, 0.4);
+  box-shadow: none;
+}
+.acc-auth-title {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 660;
+  color: var(--strong);
+}
+.acc-auth-desc {
+  margin: 0;
+}
+.acc-auth-user {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.acc-auth-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.acc-auth-name-row strong {
+  font-size: 15px;
+  font-weight: 660;
+  color: var(--strong);
+}
+.acc-google-chip {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  color: #9ae6c5;
+  background: rgba(110, 231, 183, 0.12);
+  border: 1px solid rgba(110, 231, 183, 0.34);
+}
+.acc-auth-email {
+  margin: 0;
+  color: var(--muted);
+}
+.acc-auth-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.acc-auth-actions.is-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}

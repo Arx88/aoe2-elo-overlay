@@ -11,7 +11,7 @@
     "title": "Bienvenido a Relic",
     "subtitle": "Elige tu idioma y vincula tu cuenta de Age of Empires II en menos de un minuto.",
     "step1": "Idioma",
-    "step2": "Cuenta",
+    "step2": "Jugador",
     "step3": "Listo",
     "langTitle": "Elige tu idioma",
     "langDesc": "Las unidades, edificios, civilizaciones, edades y textos coincidirán con Age of Empires II: DE.",
@@ -29,7 +29,18 @@
     "back": "Atrás",
     "next": "Continuar",
     "skip": "Omitir por ahora",
-    "finish": "Entrar al Centro de mando"
+    "finish": "Entrar al Centro de mando",
+    "stepAuth": "Sesión",
+    "authTitle": "Inicia sesión en Relic",
+    "authDesc": "Conecta tu cuenta de Google para sincronizar tu plan, usar Relic hasta en 2 PCs y canjear claves prepago.",
+    "authBtn": "Continuar con Google",
+    "authSignedIn": "Sesión iniciada",
+    "authSwitch": "Cambiar cuenta",
+    "authPerk1": "Plan sincronizado",
+    "authPerk2": "Hasta 2 PCs activas",
+    "authPerk3": "Sesión cifrada en Windows",
+    "summaryAuth": "Sesión de Relic",
+    "summaryNoAuth": "Sin iniciar sesión (puedes hacerlo luego en Cuenta)"
   },
   "nav": {
     "player": "Cuenta",
@@ -128,7 +139,14 @@
     "pasteNumeric": "Pega un profile ID numérico",
     "searchFail": "No se pudo buscar",
     "saveFail": "No se pudo guardar el perfil",
-    "profilePrefix": "Perfil"
+    "profilePrefix": "Perfil",
+    "sessionGroup": "Sesión de Relic",
+    "playerGroup": "Jugador de AoE2 vinculado",
+    "googleTitle": "Inicia sesión con Google",
+    "googleDesc": "Sincroniza tu plan, gestiona tus PCs activas y canjea claves prepago.",
+    "googleBtn": "Continuar con Google",
+    "managePcsBtn": "PCs y plan",
+    "logoutBtn": "Cerrar sesión"
   },
   "overlay": {
     "wf1Title": "Lee al rival",

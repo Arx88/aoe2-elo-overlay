@@ -67,6 +67,14 @@
 
         <div class="launcher-rail-art" aria-hidden="true"></div>
         <div class="rail-foot">
+          <button id="railUser" class="rail-user" data-goto="player" type="button" title="Sesión de Relic">
+            <span id="railUserAvatar" class="rail-user-avatar" aria-hidden="true">G</span>
+            <span class="rail-user-copy">
+              <strong id="railUserName" class="rail-user-name" data-i18n="account.googleBtn">Continuar con Google</strong>
+              <small id="railUserSub" class="rail-user-sub">Sin sesión iniciada</small>
+            </span>
+            <span id="railUserDot" class="rail-user-dot" aria-hidden="true"></span>
+          </button>
           <button id="railPlan" class="rail-plan" data-goto="plans" data-tier="free" type="button">
             <span class="rail-plan-emblem" aria-hidden="true"><img id="railPlanIcon" class="product-icon" src="assets/icons/crown.png" alt="" draggable="false"></span>
             <span class="rail-plan-copy">
@@ -112,7 +120,45 @@
         <div class="pages">
           <!-- ============ PLAYER DETECTION ============ -->
           <section class="page active" data-page="player">
-            <div class="group-head"><span data-i18n="account.activeGroup">Cuenta activa</span><i></i></div>
+            <div class="group-head"><span data-i18n="account.sessionGroup">Sesión de Relic</span><i></i></div>
+            <div class="account-session-card" id="accountSessionCard" aria-live="polite">
+              <div id="accAuthSignedOut" class="acc-auth-row">
+                <div class="acc-auth-copy">
+                  <div class="acc-auth-avatar is-guest" aria-hidden="true">G</div>
+                  <div>
+                    <h3 class="acc-auth-title" data-i18n="account.googleTitle">Iniciá sesión con Google</h3>
+                    <p class="mini acc-auth-desc" data-i18n="account.googleDesc">Sincronizá tu plan, administrá tus PCs activas y canjeá claves prepagas.</p>
+                  </div>
+                </div>
+                <div class="acc-auth-actions">
+                  <button id="accGoogleLoginBtn" class="btn gold relic-google-btn" type="button">
+                    <span class="g-mark" aria-hidden="true">G</span>
+                    <span data-i18n="account.googleBtn">Continuar con Google</span>
+                  </button>
+                  <span id="accAuthStatus" class="inline-status" role="status"></span>
+                </div>
+              </div>
+
+              <div id="accAuthSignedIn" class="acc-auth-row" hidden>
+                <div class="acc-auth-copy">
+                  <div id="accUserAvatar" class="acc-auth-avatar" aria-hidden="true">R</div>
+                  <div class="acc-auth-user">
+                    <div class="acc-auth-name-row">
+                      <strong id="accUserName">—</strong>
+                      <span class="chip acc-google-chip">Google</span>
+                      <span id="accSeatsBadge" class="relic-seats-badge">0/2 PCs</span>
+                    </div>
+                    <span id="accUserEmail" class="mini acc-auth-email">—</span>
+                  </div>
+                </div>
+                <div class="acc-auth-actions is-inline">
+                  <button id="accManagePcsBtn" class="btn" type="button" data-i18n="account.managePcsBtn">PCs y plan</button>
+                  <button id="accGoogleLogoutBtn" class="btn" type="button" data-i18n="account.logoutBtn">Cerrar sesión</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="group-head"><span data-i18n="account.playerGroup">Jugador de AoE2 vinculado</span><i></i></div>
             <div class="account-profile" id="accountProfile">
               <div class="account-hero">
                 <div class="avatar" id="accountAvatar" aria-hidden="true"></div>
@@ -651,24 +697,57 @@
             <span class="wizard-eyebrow" id="wizEyebrow" data-i18n="wizard.eyebrow">PRIMER INICIO · CONFIGURACIÓN</span>
           </div>
           <div class="wizard-steps" aria-hidden="true">
-            <span class="wiz-dot active" data-wiz-dot="1"><b>01</b><span data-i18n="wizard.step1">Idioma</span></span>
-            <span class="wiz-dot" data-wiz-dot="2"><b>02</b><span data-i18n="wizard.step2">Cuenta</span></span>
-            <span class="wiz-dot" data-wiz-dot="3"><b>03</b><span data-i18n="wizard.step3">Listo</span></span>
+            <span class="wiz-dot active" data-wiz-dot="1"><b>01</b><span data-i18n="wizard.stepAuth">Sesión</span></span>
+            <span class="wiz-dot" data-wiz-dot="2"><b>02</b><span data-i18n="wizard.step1">Idioma</span></span>
+            <span class="wiz-dot" data-wiz-dot="3"><b>03</b><span data-i18n="wizard.step2">Jugador</span></span>
+            <span class="wiz-dot" data-wiz-dot="4"><b>04</b><span data-i18n="wizard.step3">Listo</span></span>
           </div>
         </div>
 
         <div class="wizard-head">
-          <h2 id="wizTitle" data-i18n="wizard.title">Bienvenido a Relic</h2>
-          <p id="wizSubtitle" data-i18n="wizard.subtitle">Elige tu idioma y conecta tu cuenta de Age of Empires II en menos de un minuto.</p>
+          <h2 id="wizTitle" data-i18n="wizard.authTitle">Iniciá sesión en Relic</h2>
+          <p id="wizSubtitle" data-i18n="wizard.authDesc">Conectá tu cuenta de Google para sincronizar tu plan, usar Relic hasta en 2 PCs y canjear claves prepagas.</p>
         </div>
 
-        <!-- Step 1: Language -->
+        <!-- Step 1: Google Sign-In -->
         <div class="wiz-pane active" data-wiz-pane="1">
+          <div id="wizAuthSignedOut" class="wiz-auth-card">
+            <div class="wiz-auth-perks">
+              <span class="wiz-perk-pill" data-i18n="wizard.authPerk1">Plan sincronizado</span>
+              <span class="wiz-perk-pill" data-i18n="wizard.authPerk2">Hasta 2 PCs activas</span>
+              <span class="wiz-perk-pill" data-i18n="wizard.authPerk3">Sesión cifrada en Windows</span>
+            </div>
+            <div class="wiz-auth-cta">
+              <button id="wizGoogleLoginBtn" class="btn gold relic-google-btn wiz-google-btn" type="button">
+                <span class="g-mark" aria-hidden="true">G</span>
+                <span data-i18n="wizard.authBtn">Continuar con Google</span>
+              </button>
+              <span id="wizAuthStatus" class="inline-status" role="status"></span>
+            </div>
+          </div>
+
+          <div id="wizAuthSignedIn" class="wiz-account-card wiz-auth-done" hidden>
+            <div class="wiz-account-info">
+              <div class="wiz-avatar" id="wizAuthAvatar">R</div>
+              <div>
+                <div class="wiz-auth-name-row">
+                  <strong id="wizAuthName">—</strong>
+                  <span class="chip wiz-auth-ok-chip" data-i18n="wizard.authSignedIn">Sesión iniciada</span>
+                </div>
+                <span id="wizAuthEmail">—</span>
+              </div>
+            </div>
+            <button id="wizSwitchAccountBtn" class="btn" type="button" data-i18n="wizard.authSwitch">Cambiar cuenta</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Language -->
+        <div class="wiz-pane" data-wiz-pane="2">
           <div id="wizLangGrid" class="wiz-lang-grid" role="radiogroup" aria-label="Idioma"></div>
         </div>
 
-        <!-- Step 2: Account -->
-        <div class="wiz-pane" data-wiz-pane="2">
+        <!-- Step 3: AoE2 Account -->
+        <div class="wiz-pane" data-wiz-pane="3">
           <div class="wiz-account-card">
             <div class="wiz-account-info">
               <div class="wiz-avatar" id="wizAvatar">?</div>
@@ -686,9 +765,13 @@
           <div id="wizResults" class="results" role="listbox"></div>
         </div>
 
-        <!-- Step 3: Ready -->
-        <div class="wiz-pane" data-wiz-pane="3">
+        <!-- Step 4: Ready -->
+        <div class="wiz-pane" data-wiz-pane="4">
           <div class="wiz-summary">
+            <div class="wiz-sum-row">
+              <span data-i18n="wizard.summaryAuth">Sesión de Relic</span>
+              <strong id="wizSumAuth">—</strong>
+            </div>
             <div class="wiz-sum-row">
               <span data-i18n="wizard.summaryLang">Idioma</span>
               <strong id="wizSumLang">—</strong>

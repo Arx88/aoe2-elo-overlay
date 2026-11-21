@@ -11,7 +11,7 @@
     "title": "Welcome to Relic",
     "subtitle": "Choose your language and link your Age of Empires II account in under a minute.",
     "step1": "Language",
-    "step2": "Account",
+    "step2": "Player",
     "step3": "Ready",
     "langTitle": "Choose your language",
     "langDesc": "Units, buildings, civilizations, ages, and interface will match Age of Empires II: DE.",
@@ -29,7 +29,18 @@
     "back": "Back",
     "next": "Continue",
     "skip": "Skip for now",
-    "finish": "Open Command Center"
+    "finish": "Open Command Center",
+    "stepAuth": "Sign in",
+    "authTitle": "Sign in to Relic",
+    "authDesc": "Connect your Google account to sync your plan, use Relic on up to 2 PCs, and redeem prepaid keys.",
+    "authBtn": "Continue with Google",
+    "authSignedIn": "Signed in",
+    "authSwitch": "Switch account",
+    "authPerk1": "Synced plan",
+    "authPerk2": "Up to 2 active PCs",
+    "authPerk3": "Encrypted Windows session",
+    "summaryAuth": "Relic session",
+    "summaryNoAuth": "Not signed in (you can sign in later in Account)"
   },
   "nav": {
     "player": "Account",
@@ -128,7 +139,14 @@
     "pasteNumeric": "Paste a numeric profile ID",
     "searchFail": "Search failed",
     "saveFail": "Could not save profile",
-    "profilePrefix": "Profile"
+    "profilePrefix": "Profile",
+    "sessionGroup": "Relic session",
+    "playerGroup": "Linked AoE2 player",
+    "googleTitle": "Sign in with Google",
+    "googleDesc": "Sync your plan, manage active PCs, and redeem prepaid keys.",
+    "googleBtn": "Continue with Google",
+    "managePcsBtn": "PCs & plan",
+    "logoutBtn": "Sign out"
   },
   "overlay": {
     "wf1Title": "Read your rival",

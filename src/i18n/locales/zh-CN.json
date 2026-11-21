@@ -11,7 +11,7 @@
     "title": "欢迎使用 Relic",
     "subtitle": "选择你的语言并绑定《帝国时代 II：决定版》账号，一分钟内完成设置。",
     "step1": "语言",
-    "step2": "账号",
+    "step2": "玩家",
     "step3": "完成",
     "langTitle": "选择你的语言",
     "langDesc": "单位、建筑、文明、时代与界面文本将与《帝国时代 II：决定版》官方中文一致。",
@@ -29,7 +29,18 @@
     "back": "上一步",
     "next": "下一步",
     "skip": "暂时跳过",
-    "finish": "进入指挥中心"
+    "finish": "进入指挥中心",
+    "stepAuth": "登录",
+    "authTitle": "登录 Relic",
+    "authDesc": "绑定 Google 账号以同步订阅计划、在最多 2 台电脑上使用并兑换预付密钥。",
+    "authBtn": "使用 Google 继续",
+    "authSignedIn": "已登录",
+    "authSwitch": "切换账号",
+    "authPerk1": "同步计划",
+    "authPerk2": "最多 2 台活跃设备",
+    "authPerk3": "Windows 加密会话",
+    "summaryAuth": "Relic 会话",
+    "summaryNoAuth": "未登录（稍后可在“账号”页面登录）"
   },
   "nav": {
     "player": "账号",
@@ -128,7 +139,14 @@
     "pasteNumeric": "请粘贴数字格式的 Profile ID",
     "searchFail": "搜索失败",
     "saveFail": "无法保存账号",
-    "profilePrefix": "玩家"
+    "profilePrefix": "玩家",
+    "sessionGroup": "Relic 会话",
+    "playerGroup": "已绑定的 AoE2 玩家",
+    "googleTitle": "使用 Google 登录",
+    "googleDesc": "同步你的计划、管理活跃设备并兑换预付密钥。",
+    "googleBtn": "使用 Google 继续",
+    "managePcsBtn": "设备与计划",
+    "logoutBtn": "退出登录"
   },
   "overlay": {
     "wf1Title": "读懂对手",
