@@ -204,7 +204,9 @@ async function run() {
   assert.equal(centralData.topMaps.length, 2);
   const centralHtml = TacticalUI.renderCentralDashboard(centralData);
   const recentHtml = TacticalUI.renderRecentMatchesList(centralData.last10Matches);
-  assert.match(centralHtml, /central-radar-svg/);
+  assert.match(centralHtml, /Resultados por duración/);
+  assert.match(centralHtml, /Muestra reciente/);
+  assert.doesNotMatch(centralHtml, /central-radar-svg/);
   assert.match(centralHtml, /central-elo-svg/);
   assert.match(centralHtml, /cx-trend-row/);
   assert.match(centralHtml, /data-chart-points=/);
@@ -212,7 +214,7 @@ async function run() {
   assert.doesNotMatch(centralHtml, /\sstyle="/, 'Central dashboard must obey strict CSP without inline style attributes');
   assert.doesNotMatch(recentHtml, /\sstyle="/, 'Recent matches list must obey strict CSP without inline style attributes');
 
-  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, Central radar & build isolation)');
+  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, Central charts & build isolation)');
 }
 
 run().catch((err) => {

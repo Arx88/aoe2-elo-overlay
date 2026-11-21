@@ -968,93 +968,6 @@
     return `<div class="rm-list rm-mode-${esc(mode)}" role="list">${items}</div>`;
   }
 
-  function renderRadarSvg(axes = []) {
-    const items = Array.isArray(axes) && axes.length === 6 ? axes : [];
-    const measured = items.filter((a) => a.hasData !== false && Number.isFinite(Number(a.score)));
-    if (measured.length < 3) return '';
-    const cx = 160, cy = 136, rMax = 82;
-    const angles = items.map((_, i) => -Math.PI / 2 + (i * 2 * Math.PI) / 6);
-    const pointAt = (angle, ratio) => {
-      const r = rMax * ratio;
-      return [
-        Math.round((cx + r * Math.cos(angle)) * 10) / 10,
-        Math.round((cy + r * Math.sin(angle)) * 10) / 10,
-      ];
-    };
-
-    const rings = [0.25, 0.5, 0.75, 1].map((level) => {
-      const pts = angles.map((a) => pointAt(a, level).join(',')).join(' ');
-      return `<polygon class="radar-ring${level === 1 ? ' is-outer' : ''}" points="${pts}" />`;
-    }).join('');
-
-    const spokes = angles.map((a) => {
-      const [x, y] = pointAt(a, 1);
-      return `<line class="radar-spoke" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" />`;
-    }).join('');
-
-    const dataPts = items.map((axis, i) => {
-      const hasData = axis.hasData !== false && Number.isFinite(Number(axis.score));
-      const ratio = hasData ? Math.max(0.16, Math.min(1, Number(axis.score) / 100)) : 0.14;
-      return { pt: pointAt(angles[i], ratio), hasData };
-    });
-    const polyPoints = dataPts.map((x) => x.pt.join(',')).join(' ');
-
-    const nodes = dataPts.map(({ pt: [x, y], hasData }, i) =>
-      `<circle class="radar-node${hasData ? '' : ' is-missing'}" cx="${x}" cy="${y}" r="${hasData ? 4 : 2.5}" data-axis="${esc(items[i].id)}" />`
-    ).join('');
-
-    const labels = items.map((axis, i) => {
-      const [lx, ly] = pointAt(angles[i], 1.24);
-      const anchor = Math.abs(lx - cx) < 12 ? 'middle' : lx > cx ? 'start' : 'end';
-      const labelTxt = tr(axis.labelKey, axis.fallbackLabel);
-      const hasData = axis.hasData !== false && Number.isFinite(Number(axis.score));
-      return `<g class="radar-label-group${hasData ? '' : ' is-muted'}">
-        <text class="radar-label" x="${lx}" y="${ly - 3}" text-anchor="${anchor}">${esc(labelTxt)}</text>
-        <text class="radar-val" x="${lx}" y="${ly + 10}" text-anchor="${anchor}">${esc(hasData ? (axis.displayValue || '—') : '—')}</text>
-      </g>`;
-    }).join('');
-
-    return `<div class="cx-radar-stage">
-      <svg class="cx-radar-svg central-radar-svg" viewBox="0 0 320 272" role="img" aria-label="${esc(tr('central.radarAria', 'Radar táctico'))}">
-        <defs>
-          <radialGradient id="relicRadarGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#e8cb84" stop-opacity="0.38" />
-            <stop offset="100%" stop-color="#c7ad76" stop-opacity="0.06" />
-          </radialGradient>
-        </defs>
-        ${rings}
-        ${spokes}
-        <polygon class="radar-area" points="${polyPoints}" fill="url(#relicRadarGlow)" />
-        <polygon class="radar-stroke" points="${polyPoints}" />
-        ${nodes}
-        ${labels}
-      </svg>
-    </div>`;
-  }
-
-  function buildSmoothSvgSpline(coords) {
-    if (!coords.length) return '';
-    if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
-    if (coords.length === 2) return `M ${coords[0].x} ${coords[0].y} L ${coords[1].x} ${coords[1].y}`;
-    if (coords.length > 75) {
-      return coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
-    }
-    let d = `M ${coords[0].x} ${coords[0].y}`;
-    for (let i = 0; i < coords.length - 1; i += 1) {
-      const p0 = coords[Math.max(0, i - 1)];
-      const p1 = coords[i];
-      const p2 = coords[i + 1];
-      const p3 = coords[Math.min(coords.length - 1, i + 2)];
-      const tension = 0.2;
-      const cp1x = Math.round((p1.x + (p2.x - p0.x) * tension) * 10) / 10;
-      const cp1y = Math.round((p1.y + (p2.y - p0.y) * tension) * 10) / 10;
-      const cp2x = Math.round((p2.x - (p3.x - p1.x) * tension) * 10) / 10;
-      const cp2y = Math.round((p2.y - (p3.y - p1.y) * tension) * 10) / 10;
-      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
-    }
-    return d;
-  }
-
   function fmtShortDate(ts) {
     if (!Number.isFinite(ts) || ts <= 0) return '';
     try {
@@ -1073,7 +986,7 @@
       </section>`;
     }
 
-    const activeRange = (eloRange === '100' && allPts.length > 30)
+    const activeRange = (eloRange === '100' && allPts.length > 100)
       ? '100'
       : (eloRange === 'all' && allPts.length > 30)
         ? 'all'
@@ -1099,8 +1012,6 @@
       return {
         x: Math.round(x * 10) / 10,
         y: Math.round(y * 10) / 10,
-        xPct: Math.round((x / w) * 1000) / 10,
-        yPct: Math.round((y / h) * 1000) / 10,
         rating: p.rating,
         diff: p.diff,
         won: p.won,
@@ -1112,7 +1023,7 @@
     const peakPt = coords[peakIdx];
     const lastPt = coords[coords.length - 1];
     const firstPt = coords[0];
-    const splineD = buildSmoothSvgSpline(coords);
+    const splineD = coords.map(({ x, y }, i) => `${i === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
     const areaD = `${splineD} L ${lastPt.x} ${padT + innerH} L ${firstPt.x} ${padT + innerH} Z`;
 
     const gridSteps = [0, 0.5, 1].map((ratio) => {
@@ -1125,11 +1036,11 @@
     }).join('');
 
     const net = lastPt.rating - firstPt.rating;
-    const netPill = `<span class="cx-delta ${net >= 0 ? 'win' : 'loss'}">${net >= 0 ? '▲ +' : '▼ '}${net} ELO</span>`;
+    const netPill = `<span class="cx-delta ${net > 0 ? 'win' : net < 0 ? 'loss' : 'neutral'}">${net > 0 ? '+' : ''}${net} ELO en el tramo</span>`;
     const rangePills = allPts.length > 30 ? `<div class="central-range-pills" role="group" aria-label="Rango de partidas">
-      <button type="button" class="central-range-btn${activeRange === '30' ? ' active' : ''}" data-elo-range="30">30 pj</button>
-      ${allPts.length > 45 ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" data-elo-range="100">100 pj</button>` : ''}
-      <button type="button" class="central-range-btn${activeRange === 'all' ? ' active' : ''}" data-elo-range="all">Todo (${allPts.length})</button>
+      <button type="button" class="central-range-btn${activeRange === '30' ? ' active' : ''}" aria-pressed="${activeRange === '30'}" data-elo-range="30">30 puntos</button>
+      ${allPts.length > 100 ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" aria-pressed="${activeRange === '100'}" data-elo-range="100">100 puntos</button>` : ''}
+      <button type="button" class="central-range-btn${activeRange === 'all' ? ' active' : ''}" aria-pressed="${activeRange === 'all'}" data-elo-range="all">${allPts.length} disponibles</button>
     </div>` : `<span class="cx-meta-pill">${pts.length} registros</span>`;
 
     const formPips = (mode.recentForm || []).map((f) =>
@@ -1144,17 +1055,15 @@
     return `<section class="cx-card cx-chart-card">
       <header class="cx-chart-head">
         <div class="cx-chart-title">
-          <span class="cx-eyebrow">EVOLUCIÓN DE ELO · ${esc(ladderLabel)}</span>
+          <h3>Evolución de ELO</h3>
           <div class="cx-chart-nums">
             <strong>${number(lastPt.rating)}</strong>
             ${netPill}
-            <span class="cx-peak-pill">★ Pico ${number(mode.eloStats?.peak || rawMax)}</span>
-            <span class="cx-sub-range">Mín ${number(rawMin)} · Máx ${number(rawMax)}</span>
           </div>
         </div>
         ${rangePills}
       </header>
-      <div class="cx-chart-stage" data-chart-points="${serializedPts}" data-chart-w="${w}" data-chart-h="${h}">
+      <div class="cx-chart-stage" tabindex="0" aria-label="Curva de ELO. Usá las flechas para recorrer los registros." data-chart-points="${serializedPts}" data-chart-w="${w}" data-chart-h="${h}">
         <svg class="cx-chart-svg central-elo-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curva de evolución de ELO">
           <defs>
             <linearGradient id="cxEloFill" x1="0" y1="0" x2="0" y2="1">
@@ -1186,6 +1095,7 @@
           <small class="cx-tt-date">—</small>
         </div>
       </div>
+      <p class="cx-chart-coverage">${esc(ladderLabel)} · ${pts.length} puntos · ${esc(firstPt.date)} a ${esc(lastPt.date)} · Pico del tramo ${number(rawMax)}</p>
       ${formPips ? `<footer class="cx-chart-foot">
         <span class="cx-foot-label">Forma reciente</span>
         <div class="cx-pips">${formPips}</div>
@@ -1236,7 +1146,7 @@
       return `<p class="intel-muted">${esc(tr('central.noDataYet', 'Sin datos suficientes en este modo.'))}</p>`;
     }
     return items.map((item) => {
-      const wr = item.winRate != null ? item.winRate : 50;
+      const wr = item.winRate;
       const wrTone = wr >= 55 ? 'win' : wr < 45 ? 'loss' : 'neutral';
       const title = kind === 'civ'
         ? (locCiv(item.civ) || item.civ)
@@ -1246,10 +1156,10 @@
         <span class="central-entity-crest${kind === 'map' ? ' is-map' : ''}">${crest}</span>
         <div class="cx-entity-main">
           <div class="cx-entity-top">
-            <strong>${esc(title)} <small class="pick-share">${dec(item.share, 1)}%</small></strong>
-            <span class="cx-entity-stat"><small>${number(item.games)} pj (${item.wins}V-${item.losses}D)</small> <b class="${wrTone}">${item.winRate != null ? `${item.winRate}%` : '—'}</b></span>
+            <strong>${esc(title)} <small class="pick-share">${number(item.games)} partidas</small></strong>
+            <span class="cx-entity-stat"><small>${number(item.wins)} V / ${number(item.knownGames ?? (item.wins + item.losses))} con resultado</small> <b class="${wrTone}">${wr != null ? `${wr}%` : '—'}</b></span>
           </div>
-          <div class="central-bar-track has-mid"><i class="bar-${wrTone === 'win' ? 'emerald' : wrTone === 'loss' ? 'rose' : 'gold'}" data-w="${Math.max(8, Math.min(100, wr))}"></i></div>
+          ${wr != null ? `<div class="central-bar-track has-mid" aria-hidden="true"><i class="bar-${wrTone === 'win' ? 'emerald' : wrTone === 'loss' ? 'rose' : 'gold'}" data-w="${Math.max(0, Math.min(100, wr))}"></i></div>` : '<small class="cx-missing-result">Sin resultados confirmados</small>'}
         </div>
       </div>`;
     }).join('');
@@ -1291,7 +1201,7 @@
       ? `${dec(ins.eapm.avgSelf, 1)}`
       : `${number(ladder.games || data.totalProfileGames || 0)}`;
     const kpi4Sub = ins?.eapm?.avgSelf != null
-      ? (ins.eapm.avgRival != null ? `vs ${dec(ins.eapm.avgRival, 1)} rival` : `${ins.eapm.sampleCount} replays`)
+      ? [`${number(ins.eapm.sampleCount)} replays`, ins.eapm.avgRival != null ? `rival ${dec(ins.eapm.avgRival, 1)}` : null].filter(Boolean).join(' · ')
       : `${stats.totalDistinctCivs || 0} civs jugadas`;
 
     const modePills = (data.availableModes || []).map((id) => {
@@ -1329,12 +1239,12 @@
             <small>${ladder.peak ? `Pico ${number(ladder.peak)}` : 'Sin pico'}</small>
           </div>
           <div class="cx-kpi">
-            <span>WINRATE</span>
+            <span>VICTORIAS</span>
             <strong class="${ladder.winRate >= 54 ? 'win' : ladder.winRate != null && ladder.winRate < 46 ? 'loss' : ''}">${ladder.winRate != null ? `${ladder.winRate}%` : '—'}${streakPill}</strong>
             <small>${number(ladder.wins || 0)}V - ${number(ladder.losses || 0)}D</small>
           </div>
           <div class="cx-kpi">
-            <span>RANK MUNDIAL</span>
+            <span>${modeId === 'global' ? 'MEJOR RANKING' : 'RANKING DEL MODO'}</span>
             <strong>${ladder.rank ? `#${number(ladder.rank)}` : '—'}</strong>
             <small>${ladder.ladderPercentile ? `Top ${dec(ladder.ladderPercentile, 1)}%` : (ladder.rankModeLabel || 'Sin clasificar')}</small>
           </div>
@@ -1345,7 +1255,7 @@
           </div>
         </div>
       </div>
-      <div class="cx-mode-bar" role="tablist" aria-label="Modo de estadísticas">${modePills}</div>
+      <div class="cx-mode-bar" role="group" aria-label="Modo de estadísticas">${modePills}</div>
     </section>`;
 
     // 2. GRÁFICO PRINCIPAL (Curva interactiva con hover crosshair o Comparativa Global)
@@ -1357,31 +1267,31 @@
     const civList = civSort === 'wr' ? stats.topCivsByWr : stats.topCivs;
     const mapList = mapSort === 'wr' ? stats.topMapsByWr : stats.topMaps;
     const civToggle = stats.topCivsByWr?.length >= 2 ? `<div class="cx-sort-pills">
-      <button type="button" class="cx-sort-btn${civSort === 'games' ? ' active' : ''}" data-civ-sort="games">Más jugadas</button>
-      <button type="button" class="cx-sort-btn${civSort === 'wr' ? ' active' : ''}" data-civ-sort="wr">Mejor WR</button>
+      <button type="button" class="cx-sort-btn${civSort === 'games' ? ' active' : ''}" aria-pressed="${civSort === 'games'}" data-civ-sort="games">Más jugadas</button>
+      <button type="button" class="cx-sort-btn${civSort === 'wr' ? ' active' : ''}" aria-pressed="${civSort === 'wr'}" data-civ-sort="wr">Mejor %</button>
     </div>` : '';
     const mapToggle = stats.topMapsByWr?.length >= 2 ? `<div class="cx-sort-pills">
-      <button type="button" class="cx-sort-btn${mapSort === 'games' ? ' active' : ''}" data-map-sort="games">Más jugados</button>
-      <button type="button" class="cx-sort-btn${mapSort === 'wr' ? ' active' : ''}" data-map-sort="wr">Mejor WR</button>
+      <button type="button" class="cx-sort-btn${mapSort === 'games' ? ' active' : ''}" aria-pressed="${mapSort === 'games'}" data-map-sort="games">Más jugados</button>
+      <button type="button" class="cx-sort-btn${mapSort === 'wr' ? ' active' : ''}" aria-pressed="${mapSort === 'wr'}" data-map-sort="wr">Mejor %</button>
     </div>` : '';
 
     const masteryGrid = `<div class="cx-grid-2">
-      <section class="cx-card">
+      <section class="cx-card cx-civs-card">
         <header class="cx-card-head">
           <div>
-            <span class="cx-eyebrow">HISTÓRICO · ${number(stats.totalCivGames || 0)} PARTIDAS · ${number(stats.totalDistinctCivs || 0)} CIVS</span>
             <h3>Civilizaciones</h3>
+            <p class="cx-card-context">${stats.sourceScope === 'all-time' ? 'Historial disponible' : 'Muestra reciente'} · ${number(stats.totalCivGames || 0)} partidas</p>
           </div>
           ${civToggle}
         </header>
         <div class="cx-entity-list">${renderMasteryRows(civList, { kind: 'civ' })}</div>
       </section>
 
-      <section class="cx-card">
+      <section class="cx-card cx-maps-card">
         <header class="cx-card-head">
           <div>
-            <span class="cx-eyebrow">HISTÓRICO · ${number(stats.totalMapGames || 0)} PARTIDAS · ${number(stats.totalDistinctMaps || 0)} MAPAS</span>
             <h3>Mapas</h3>
+            <p class="cx-card-context">${stats.sourceScope === 'all-time' ? 'Historial disponible' : 'Muestra reciente'} · ${number(stats.totalMapGames || 0)} partidas</p>
           </div>
           ${mapToggle}
         </header>
@@ -1390,8 +1300,9 @@
     </div>`;
 
     // 4. EVOLUCIÓN + ESTILO (Compacto, limpio, sin cajas deformadas) + RADAR HONESTO
-    const bvnRows = (mode.beforeVsNow || []).map((item) => {
-      const tone = item.improved ? 'win' : 'loss';
+    const bvnRows = (modeId === 'global' ? [] : mode.beforeVsNow || []).map((item) => {
+      const neutral = item.id === 'eapm';
+      const tone = neutral ? 'neutral' : (item.improved ? 'win' : 'loss');
       return `<div class="cx-trend-row">
         <div class="cx-trend-copy">
           <strong>${esc(tr(item.labelKey, item.fallbackLabel))}</strong>
@@ -1401,7 +1312,7 @@
           <span class="cx-before">${esc(item.beforeText)}</span>
           <i aria-hidden="true">→</i>
           <b class="cx-now">${esc(item.nowText)}</b>
-          <span class="cx-delta ${tone}">${item.improved ? '▲' : '▼'} ${esc(item.deltaText)}</span>
+          <span class="cx-delta ${tone}">${neutral ? '' : (item.improved ? '▲' : '▼')} ${esc(item.deltaText)}</span>
         </div>
       </div>`;
     }).join('');
@@ -1423,14 +1334,20 @@
       <span>${op.games} pj · <b class="${op.winRate >= 55 ? 'win' : op.winRate < 45 ? 'loss' : ''}">${op.winRate != null ? `${op.winRate}%` : '—'}</b></span>
     </div>`).join('');
 
-    const radarHtml = renderRadarSvg(mode.radarAxes);
+    const durationRows = (mode.durationAnalysis?.buckets || []).filter((b) => b.games > 0);
+    const durationHtml = durationRows.length ? `<div class="cx-duration-list">${durationRows.map((b) => {
+      const resolved = b.wins + b.losses;
+      const winRate = resolved > 0 ? Math.round(100 * b.wins / resolved) : null;
+      return `<div class="cx-duration-row"><strong>${esc(b.label)}</strong>
+        <span>${number(b.wins)} V · ${number(b.losses)} D</span>
+        ${winRate === null ? '<b>—</b>' : `<div class="central-bar-track has-mid" aria-hidden="true"><i class="bar-gold" data-w="${winRate}"></i></div><b>${winRate}%</b>`}</div>`;
+    }).join('')}</div>` : '';
 
-    const insightsRow = (bvnRows || extraHighlights || openingsCompact || radarHtml) ? `<div class="cx-grid-2">
+    const insightsRow = (bvnRows || extraHighlights || openingsCompact || durationHtml) ? `<div class="cx-grid-2">
       <section class="cx-card">
         <header class="cx-card-head">
           <div>
-            <span class="cx-eyebrow">PROGRESO Y TENDENCIA</span>
-            <h3>Antes vs Ahora · Estilo</h3>
+            <h3>Forma y aperturas</h3>
           </div>
           <span class="cx-meta-pill">${esc(mode.label)}</span>
         </header>
@@ -1443,15 +1360,14 @@
         </div>` : ''}
       </section>
 
-      ${radarHtml ? `<section class="cx-card cx-radar-card">
+      ${durationHtml ? `<section class="cx-card cx-duration-card">
         <header class="cx-card-head">
           <div>
-            <span class="cx-eyebrow">PERFIL TÁCTICO HONESTO</span>
-            <h3>Balance de rendimiento</h3>
+            <h3>Resultados por duración</h3>
+            <p class="cx-card-context">${esc(mode.durationAnalysis.sourceLabel || '')}</p>
           </div>
-          <span class="cx-meta-pill">Solo ejes con muestra</span>
         </header>
-        ${radarHtml}
+        ${durationHtml}
       </section>` : ''}
     </div>` : '';
 
@@ -1515,7 +1431,7 @@
       return `<section class="cx-card cx-lm-card">
         <header class="cx-card-head">
           <div>
-            <span class="cx-eyebrow">ÚLTIMA PARTIDA VS TU PROMEDIO · ${esc(mode.label)}</span>
+            <h3>Última partida</h3>
             <div class="cx-lm-title-row">
               <span class="cx-lm-outcome ${outcomeCls}">${esc(outcomeLbl)}</span>
               ${subBits ? `<span class="cx-lm-meta">${esc(subBits)}</span>` : ''}
@@ -1526,14 +1442,15 @@
             <button type="button" class="cx-sort-btn${lmWindow === 20 ? ' active' : ''}" data-lm-window="20">Últ. 20</button>
           </div>
         </header>
+        <p class="cx-card-context">Comparación con partidas previas · ${esc(lmSummary.modeLabel || mode.label)}</p>
         <div class="cx-lm-grid">${cards}</div>
       </section>`;
     })() : '';
 
     return `<div class="central-dashboard cx-v4${isExternal ? ' is-external-profile' : ''}" data-active-mode="${esc(modeId)}">
       ${heroCard}
-      ${lastMatchBlock}
       ${chartBlock}
+      ${lastMatchBlock}
       ${masteryGrid}
       ${insightsRow}
       ${socialSection}

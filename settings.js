@@ -438,6 +438,7 @@ async function loadPostMatch() {
 
 let lastCentralPayload = null;
 let centralBusy = false;
+let centralRequest = 0;
 let centralActiveModeId = null;
 let centralEloRange = '30';
 let centralCivSort = 'games';
@@ -485,7 +486,6 @@ function bindInteractiveEloChart() {
   const ttElo = stage.querySelector('.cx-tt-elo');
   const ttDiff = stage.querySelector('.cx-tt-diff');
   const ttDate = stage.querySelector('.cx-tt-date');
-  const chartW = Number(stage.dataset.chartW) || 800;
   if (!svg || !tooltip) return;
 
   const hideHover = () => {
@@ -495,20 +495,10 @@ function bindInteractiveEloChart() {
     tooltip.hidden = true;
   };
 
-  stage.addEventListener('mousemove', (event) => {
-    const rect = svg.getBoundingClientRect();
-    if (!rect.width) return;
-    const relX = ((event.clientX - rect.left) / rect.width) * chartW;
-    let nearest = pts[0];
-    let bestDist = Infinity;
-    for (const p of pts) {
-      const d = Math.abs(p.x - relX);
-      if (d < bestDist) {
-        bestDist = d;
-        nearest = p;
-      }
-    }
-    if (!nearest) return;
+  let activePoint = pts.length - 1;
+  function showPoint(index) {
+    activePoint = index;
+    const nearest = pts[index];
     if (hoverLine) {
       hoverLine.setAttribute('x1', String(nearest.x));
       hoverLine.setAttribute('x2', String(nearest.x));
@@ -540,13 +530,39 @@ function bindInteractiveEloChart() {
       ttDate.textContent = [outcome, nearest.date].filter(Boolean).join(' · ');
     }
     tooltip.hidden = false;
-    const leftPct = Math.max(10, Math.min(88, nearest.xPct));
-    const topPct = Math.max(8, Math.min(72, nearest.yPct - 18));
-    tooltip.style.left = `${leftPct}%`;
-    tooltip.style.top = `${topPct}%`;
+    const matrix = svg.getScreenCTM();
+    if (matrix) {
+      const rect = stage.getBoundingClientRect();
+      const point = new DOMPoint(nearest.x, nearest.y).matrixTransform(matrix);
+      const left = Math.max(0, Math.min(rect.width - tooltip.offsetWidth, point.x - rect.left - tooltip.offsetWidth / 2));
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${Math.max(0, point.y - rect.top - tooltip.offsetHeight - 12)}px`;
+    }
+    if (document.activeElement === stage) {
+      stage.setAttribute('aria-label', `${nearest.rating} ELO · ${ttDate?.textContent || nearest.date}. Flechas para recorrer registros.`);
+    }
+  }
+
+  stage.addEventListener('mousemove', (event) => {
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return;
+    const relX = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse()).x;
+    let nearest = 0;
+    for (let i = 1; i < pts.length; i += 1) {
+      if (Math.abs(pts[i].x - relX) < Math.abs(pts[nearest].x - relX)) nearest = i;
+    }
+    showPoint(nearest);
   });
 
-  stage.addEventListener('mouseleave', hideHover);
+  stage.addEventListener('focus', () => showPoint(activePoint));
+  stage.addEventListener('blur', hideHover);
+  stage.addEventListener('mouseleave', () => { if (document.activeElement !== stage) hideHover(); });
+  stage.addEventListener('keydown', (event) => {
+    const index = { ArrowLeft: activePoint - 1, ArrowRight: activePoint + 1, Home: 0, End: pts.length - 1 }[event.key];
+    if (index == null) return;
+    event.preventDefault();
+    showPoint(Math.max(0, Math.min(pts.length - 1, index)));
+  });
 }
 
 function bindCentralInteractions() {
@@ -622,6 +638,11 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   }
   syncCentralViewingBanner(payload);
   if (!centralDashboardEl || typeof TacticalUI !== 'object' || !TacticalUI.renderCentralDashboard) return;
+  const selectorNames = ['data-central-mode', 'data-elo-range', 'data-civ-sort', 'data-map-sort', 'data-lm-window'];
+  const active = document.activeElement;
+  const focusAttribute = preserveMode && centralDashboardEl.contains(active)
+    ? selectorNames.find(name => active.hasAttribute(name)) : null;
+  const focusValue = focusAttribute ? active.getAttribute(focusAttribute) : null;
   centralDashboardEl.innerHTML = TacticalUI.renderCentralDashboard(payload, {
     activeModeId: centralActiveModeId,
     eloRange: centralEloRange,
@@ -636,6 +657,9 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   }
   applyDataWidths(centralDashboardEl);
   bindCentralInteractions();
+  if (focusAttribute) {
+    centralDashboardEl.querySelector(`[${focusAttribute}="${CSS.escape(focusValue)}"]`)?.focus({ preventScroll: true });
+  }
   bindRecentMatchClicks(centralDashboardEl, { jumpToPostmatch: true });
 }
 
@@ -692,6 +716,8 @@ function renderCentralSearchResults() {
 }
 
 async function openCentralProfile(target) {
+  clearTimeout(centralSearchTimer);
+  centralSearchToken += 1;
   closeCentralSearchDropdown();
   if (centralSearchInput) centralSearchInput.value = '';
   if (centralSearchStateEl) centralSearchStateEl.textContent = '';
@@ -738,7 +764,8 @@ async function runCentralSearchNow() {
 }
 
 async function loadCentral(force = false, { animateSwap = false } = {}) {
-  if (!window.settings?.centralGet || centralBusy) return;
+  if (!window.settings?.centralGet || (centralBusy && !animateSwap)) return;
+  const request = ++centralRequest;
   centralBusy = true;
   if (refreshCentralBtn) refreshCentralBtn.disabled = true;
   const reqOpts = centralViewedProfile
@@ -752,6 +779,7 @@ async function loadCentral(force = false, { animateSwap = false } = {}) {
   }
   try {
     const res = await window.settings.centralGet(reqOpts);
+    if (request !== centralRequest) return;
     paintCentral(res, { animateSwap });
     if (res?.ok && centralViewedProfile) {
       setStatus(`Explorando perfil: ${res.alias || `#${res.profileId}`}`);
@@ -759,11 +787,13 @@ async function loadCentral(force = false, { animateSwap = false } = {}) {
       setStatus(`De vuelta en tu perfil: ${res.alias || `#${res.profileId}`}`);
     }
   } catch (err) {
-    paintCentral({ ok: false, error: err?.message });
+    if (request === centralRequest) paintCentral({ ok: false, error: err?.message });
   } finally {
-    centralBusy = false;
-    if (centralDashboardEl) centralDashboardEl.classList.remove('is-loading');
-    if (refreshCentralBtn) refreshCentralBtn.disabled = false;
+    if (request === centralRequest) {
+      centralBusy = false;
+      if (centralDashboardEl) centralDashboardEl.classList.remove('is-loading');
+      if (refreshCentralBtn) refreshCentralBtn.disabled = false;
+    }
   }
 }
 
@@ -1074,7 +1104,9 @@ refreshPostMatchBtn.addEventListener('click', async () => {
 
 window.settings.onPostMatch((payload) => paintPostMatch(payload));
 window.settings.onCentral?.((payload) => {
-  if (centralViewedProfile && payload && Number(payload.profileId) !== Number(centralViewedProfile.profileId)) return;
+  if (!payload || centralBusy) return;
+  const visibleId = centralViewedProfile?.profileId ?? currentProfileId;
+  if (visibleId ? Number(payload.profileId) !== Number(visibleId) : payload.isOwnProfile === false) return;
   paintCentral(payload, { preserveMode: true });
 });
 window.settings.onProduct((product) => { renderProduct(product); loadTactics(); });
@@ -1490,7 +1522,7 @@ document.addEventListener('keydown', (event) => {
 const PAGE_ORDER = ['player', 'central', 'overlay', 'tactics', 'postmatch', 'skins', 'plans', 'updater'];
 const PAGE_META = {
   player: { index: '01 / CUENTA', title: 'Cuenta de jugador', sub: 'Tu cuenta en el juego y tus últimas partidas.' },
-  central: { index: '02 / CENTRAL', title: 'Central de estadísticas', sub: 'Radar táctico, evolución de ELO, civilizaciones, mapas y aperturas.' },
+  central: { index: '02 / CENTRAL', title: 'Central de estadísticas', sub: 'Tu evolución y el historial de cada modo.' },
   overlay: { index: '03 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida · vista previa en vivo.' },
   tactics: { index: '04 / DURANTE', title: 'Elegí cómo responder.', sub: 'Oportunidades por civilización, historial y composición observada.' },
   postmatch: { index: '05 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'Tus últimas 10 partidas, resultado y evolución detallada.' },

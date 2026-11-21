@@ -1,3 +1,12 @@
+## v2.6.1 · Central de estadísticas renovada
+
+- Nueva cabecera de perfil y cuatro ilustraciones propias para Central.
+- Curva de ELO interactiva con navegación por teclado, fechas del tramo y cantidad de registros por modo.
+- Resultados por duración y comparativas de mapas y civilizaciones con el tamaño de la muestra a la vista.
+- La última partida se vincula con su propio replay y se compara con antecedentes del mismo modo.
+
+---
+
 ## v2.6.0 · Central de Estadísticas, Smurf Detector (Ultra), Planes Free/Pro/Ultra y Launcher Responsive
 
 - **Nueva pestaña Central de estadísticas:** histórico completo oficial por modo (`RM 1v1`, `RM Team`, `EW 1v1`, `EW Team` y `Global`) con caché en memoria y respaldo en disco, curva interactiva de ELO con tooltip flotante y selector de tramo (`30 pj / 100 pj / Todo`), panel **Última partida vs tu promedio (`Últ. 10 / Últ. 20`)**, maestría histórica de civilizaciones y mapas (`Más jugadas / Mejor WR`), radar táctico honesto y **buscador de jugadores** con regreso instantáneo a tu perfil.

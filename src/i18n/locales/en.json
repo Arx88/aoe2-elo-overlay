@@ -81,7 +81,7 @@
     "central": {
       "index": "02 / CENTRAL",
       "title": "Intelligence Central",
-      "sub": "Tactical radar, ELO trajectory, civilizations, maps, and openings."
+      "sub": "Your rating and match history by mode."
     }
   },
   "account": {
@@ -607,7 +607,7 @@
     "rangeLabel": "Range",
     "latestGame": "Current",
     "emptyTitle": "Connect your account to view your Stats Central",
-    "emptyDesc": "All your metrics, tactical radar, ELO trajectory, and latest matches will appear here.",
+    "emptyDesc": "Link your account or search for a player to view rating progress and matches.",
     "kpiEloLabel": "RM 1V1 RATING",
     "ladderActive": "Active profile",
     "kpiWinrateLabel": "WINRATE & FORM",

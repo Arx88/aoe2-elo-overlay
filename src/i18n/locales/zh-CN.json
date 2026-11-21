@@ -81,7 +81,7 @@
     "central": {
       "index": "02 / 数据中心",
       "title": "个人战术数据中心",
-      "sub": "六维战术雷达、ELO 走势曲线、常用文明、地图表现与开局分布。"
+      "sub": "按模式查看等级分走势及对局记录。"
     }
   },
   "account": {
@@ -607,7 +607,7 @@
     "rangeLabel": "区间",
     "latestGame": "当前",
     "emptyTitle": "连接你的账号以查看个人数据中心",
-    "emptyDesc": "你的核心指标、六维战术雷达、ELO 曲线及最近对局都将在此展示。",
+    "emptyDesc": "关联你的账号或搜索玩家，即可查看等级分走势和对局。",
     "kpiEloLabel": "RM 1V1 积分",
     "ladderActive": "当前激活档案",
     "kpiWinrateLabel": "胜率与近期状态",

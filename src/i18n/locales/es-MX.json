@@ -81,7 +81,7 @@
     "central": {
       "index": "02 / CENTRAL",
       "title": "Central de estadísticas",
-      "sub": "Radar táctico, evolución de ELO, civilizaciones, mapas y aperturas."
+      "sub": "Tu evolución y el historial de cada modo."
     }
   },
   "account": {
@@ -607,7 +607,7 @@
     "rangeLabel": "Rango",
     "latestGame": "Actual",
     "emptyTitle": "Conecta tu cuenta para ver tu Central de estadísticas",
-    "emptyDesc": "Todas tus métricas, radar táctico, evolución de ELO y últimas partidas aparecerán aquí.",
+    "emptyDesc": "Vincula tu cuenta o busca un jugador para ver su evolución y sus partidas.",
     "kpiEloLabel": "RATING RM 1V1",
     "ladderActive": "Perfil activo",
     "kpiWinrateLabel": "WINRATE Y FORMA",
