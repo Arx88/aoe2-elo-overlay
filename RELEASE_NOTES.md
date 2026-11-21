@@ -1,3 +1,9 @@
+## v2.5.10 · Ajuste fino del logotipo lateral
+
+- **Logo lateral un 10% más compacto (`138 px`):** mayor aire visual en la barra izquierda del Centro de mando.
+
+---
+
 ## v2.5.9 · Prioridad directa de partida en curso y cambio automático de Steam en vivo
 
 - **Consulta de partida en curso sin cola de espera:** `fetchLatestMatch` ahora consulta directamente sin pasar por el planificador de historial en segundo plano y revisa las 3 partidas más recientes para que ninguna partida activa quede bloqueada por descargas de historial o salas previas.
