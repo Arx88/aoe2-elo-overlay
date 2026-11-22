@@ -23,7 +23,7 @@ const BUILDING_TABLE = TABLE.buildings || {};
 const VILLAGERS = new Set([83, 293]);
 const VILLAGER_TRAIN_S = 25;
 /** Tope de cola por TC (6 aldeanos) para permitir colas reales sin que clics fallidos arrastren minutos. */
-const TC_MAX_QUEUE_AHEAD_MS = 150_000;
+const TC_MAX_QUEUE_AHEAD_MS = 50_000;
 
 /** Investigaciones que ocupan la cola del Centro Urbano (duración base en s). */
 const TC_RESEARCH_SECONDS = Object.freeze({
@@ -928,14 +928,12 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
   const darkAgeScore = clampScore(darkScore * 0.75 + timingScore * 0.25);
   const openingTitle = openingShort || (opening && opening !== 'Other' ? opening : 'Apertura estándar');
   let openingTip;
-  if (darkIdle != null && darkIdle > 35) {
-    openingTip = `Recortá ${fmtDurShort(darkIdle)} de TC inactivo antes de Feudal`;
-  } else if (timingDeltaSec != null && timingDeltaSec > 45) {
+  if (timingDeltaSec != null && timingDeltaSec > 45) {
     openingTip = `${target.mode === 'fc' ? 'Castillos' : 'Feudal'} +${timingDeltaSec} s sobre referencia de ${openingTitle}`;
-  } else if (darkIdle != null && darkIdle <= 12) {
-    openingTip = `Ejecución limpia · Alta ${fmtDurShort(darkIdle)}${feudalSec ? ` · Feudal ${fmtClockShort(feudalSec)}` : ''}`;
+  } else if (feudalSec != null) {
+    openingTip = `Feudal ${fmtClockShort(feudalSec)}${state.loomMs != null ? ` · Telar ${fmtClockShort(state.loomMs / 1000)}` : ''} · ${openingTitle}`;
   } else {
-    openingTip = feudalSec ? `Feudal ${fmtClockShort(feudalSec)} · ${fmtDurShort(darkIdle ?? 0)} idle en Alta` : 'Ejecución de apertura estable';
+    openingTip = 'Ejecución de apertura estable';
   }
 
   const openingSummary = {
@@ -948,12 +946,17 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
     tip: openingTip,
   };
 
-  // 1. ALTA EDAD (Dark Age explícita: TC inactivo + clic a Feudal)
-  const darkTip = darkIdle != null && darkIdle <= 12
-    ? `Alta impecable (${fmtDurShort(darkIdle)} inactivo)`
-    : darkIdle != null && darkIdle <= 30
-      ? `${fmtDurShort(darkIdle)} idle · ajustá el inicio de aldeanos`
-      : `Perdiste ${fmtDurShort(darkIdle ?? 0)} en Alta Edad`;
+  // 1. ALTA EDAD (hechos 100% comprobables del replay: clic a Feudal + Telar)
+  const darkLoomMs = state.loomMs != null && (fMs == null || state.loomMs <= fMs) ? state.loomMs : null;
+  const darkMetricParts = [
+    state.feudalClickMs != null ? `Clic ${fmtClockShort(state.feudalClickMs / 1000)}` : null,
+    darkLoomMs != null ? `Telar ${fmtClockShort(darkLoomMs / 1000)}` : null,
+  ].filter(Boolean);
+  const darkTip = timingDeltaSec != null && timingDeltaSec > 45
+    ? `Feudal +${timingDeltaSec} s sobre referencia de ${openingTitle}`
+    : feudalSec != null
+      ? `Llegada a Feudal en ${fmtClockShort(feudalSec)}${darkLoomMs != null ? ` · Telar ${fmtClockShort(darkLoomMs / 1000)}` : ''}`
+      : 'Alta Edad en progreso';
   const stages = [
     {
       id: 'dark',
@@ -962,7 +965,7 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
       status: 'ready',
       grade: gradeFromScore(darkAgeScore),
       score: darkAgeScore,
-      metric: self.tcUtilizationDark != null ? `${String(self.tcUtilizationDark).replace('.', ',')}% TC · ${fmtDurShort(darkIdle ?? 0)}` : '—',
+      metric: darkMetricParts.join(' · ') || (feudalSec ? `Feudal ${fmtClockShort(feudalSec)}` : '—'),
       tip: darkTip,
     },
   ];
@@ -990,17 +993,14 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
       ? clampScore(utilScore * 0.85 + 15)
       : clampScore(utilScore * 0.65 + paceScore * 0.35);
 
+    const hasDba = Boolean(self.techProfile?.hasDoubleBitAxe);
     let feudalTip;
-    if (fIdlePerTc != null && fIdlePerTc >= 120) {
-      feudalTip = fTcs > 1
-        ? `${fmtDurShort(fIdlePerTc)}/TC inactivo en ${fTcs} TC (${Math.round(fDurSec / 60)}m de Feudal)`
-        : `Perdiste ${fmtDurShort(fIdlePerTc)} de TC en Feudal`;
-    } else if (isFastTransition) {
-      feudalTip = `Transición limpia a Castillos (${fmtDurShort(fIdlePerTc ?? 0)} idle)`;
-    } else if (fUtil != null && fUtil >= 93) {
-      feudalTip = `TC firme (${String(fUtil).replace('.', ',')}%) · ${fVils} ald y ${fMil} mil`;
+    if (isFastTransition) {
+      feudalTip = `Transición rápida a Castillos (${fmtDurShort(fDurSec)} en Feudal)`;
+    } else if (!hasDba && fDurSec >= 240) {
+      feudalTip = `${Math.round(fDurSec / 60)}m en Feudal · faltó Hacha de doble filo`;
     } else {
-      feudalTip = `${fVils} ald · ${fMil} mil producidos en Feudal`;
+      feudalTip = `${Math.round(fDurSec / 60)}m en Feudal · ${hasDba ? 'Hacha de doble filo ✓' : openingTitle}`;
     }
 
     stages.push({
@@ -1010,9 +1010,9 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
       status: 'ready',
       grade: gradeFromScore(feudalScore),
       score: feudalScore,
-      metric: fUtil != null
-        ? `${String(fUtil).replace('.', ',')}% TC · ${fmtDurShort(fIdlePerTc ?? 0)}${fTcs > 1 ? '/TC' : ''}`
-        : `${fVils} ald · ${fMil} mil`,
+      metric: isFastTransition
+        ? `${fmtDurShort(fDurSec)} · Fast Castle`
+        : `${Math.round(fDurSec / 60)}m · ${hasDba ? 'Hacha ✓' : 'Sin Hacha'}`,
       tip: feudalTip,
     });
   }
@@ -1044,15 +1044,14 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
     );
     const castleScore = clampScore(boomScore * 0.35 + milPaceScore * 0.30 + wsScore * 0.15 + microScore * 0.20);
 
+    const bldSummary = (self.topWorkshops || []).slice(0, 2).map((w) => `${w.count} ${w.name}`).join(' · ');
     let castleTip;
-    if (cMilPerMin < 1.2 && cDurSec >= 240) {
-      castleTip = `Producción militar baja (${cMil} uds en Castillos)`;
-    } else if (combatMicro === 0 && cMil >= 15) {
+    if (combatMicro === 0 && cMil >= 15) {
       castleTip = 'Sumá Attack-Move o Patrol en peleas';
-    } else if (self.workshopsCount >= 4 && (self.workshopUtilization ?? 0) >= 75) {
-      castleTip = `${self.workshopsCount} talleres activos al ${self.workshopUtilization}%`;
+    } else if (self.workshopsCount >= 3) {
+      castleTip = `${self.townCenters} TC · ${bldSummary || `${self.workshopsCount} edif. militares`}`;
     } else {
-      castleTip = `${cMil} uds militares · ${cVils} aldeanos en Castillos`;
+      castleTip = `${self.townCenters} TC · ${self.macroBuilds?.farms || 0} granjas en Castillos`;
     }
 
     stages.push({
@@ -1062,7 +1061,7 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
       status: 'ready',
       grade: gradeFromScore(castleScore),
       score: castleScore,
-      metric: `${cMil} mil · ${self.workshopsCount} talleres`,
+      metric: `${self.townCenters} TC · ${self.workshopsCount} edif. mil.`,
       tip: castleTip,
     });
   }
@@ -1083,12 +1082,10 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
     const impScore = clampScore(impMilScore * 0.50 + wsScore * 0.30 + eapmScore * 0.20);
 
     let impTip;
-    if (iMilPerMin >= 4.5) {
-      impTip = `Ritmo sostenido · ${String(Math.round(iMilPerMin * 10) / 10).replace('.', ',')} uds/min`;
-    } else if (self.workshopsCount < 5) {
-      impTip = `Solo ${self.workshopsCount} talleres: sumá producción en Imperial`;
+    if (self.workshopsCount < 5) {
+      impTip = `Solo ${self.workshopsCount} edif. militares: sumá producción en Imperial`;
     } else {
-      impTip = `${iMil} uds militares · ${String(iEapm).replace('.', ',')} eAPM en Imperial`;
+      impTip = `${self.workshopsCount} edif. militares · ${String(iEapm).replace('.', ',')} eAPM en Imperial`;
     }
 
     stages.push({
@@ -1098,7 +1095,7 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
       status: 'ready',
       grade: gradeFromScore(impScore),
       score: impScore,
-      metric: `${String(Math.round(iMilPerMin * 10) / 10).replace('.', ',')} uds/m · ${String(iEapm).replace('.', ',')} eAPM`,
+      metric: `${String(iEapm).replace('.', ',')} eAPM · ${self.workshopsCount} edif. mil.`,
       tip: impTip,
     });
   }
@@ -1123,36 +1120,16 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
   const addPos = (item) => positives.push({ tone: 'good', tier: 'green', score: 65, ...item });
   const addNeg = (item) => negatives.push({ tone: 'warn', severity: 65, ...item });
 
-  // ==================== POOL POSITIVO (12 DOMINIOS DISTINTOS) ====================
-  // 1. Macro TC (Reloj Suizo / Continuidad)
-  if (self.tcIdleDarkSeconds != null && self.tcIdleDarkSeconds <= 14 && self.villagersOrdered >= 15) {
+  // ==================== POOL POSITIVO (HECHOS 100% VERIFICABLES DEL REPLAY) ====================
+  // 1. Macro / Expansión de TC comprobada (evita falsos "1 s de TC inactivo" por clics DeQueue fallidos)
+  if (self.townCenters >= 3 && (mb.farms || 0) >= 20) {
     addPos({
-      id: 'medal-dark-clean', domain: 'macro_tc', tier: self.tcIdleDarkSeconds <= 6 ? 'gold' : 'green',
-      score: self.tcIdleDarkSeconds <= 6 ? 88 : 79, icon: 'villager',
-      badgeName: 'Reloj Suizo',
-      title: `Alta Edad muy limpia (${fmtDurShort(self.tcIdleDarkSeconds)} inactivo)`,
-      metric: `${String(self.tcUtilizationDark ?? 0).replace('.', ',')}% TC`,
-      detail: `Solo ${fmtDurShort(self.tcIdleDarkSeconds)} sin producir en Alta Edad.`,
-    });
-  } else if (self.tcUtilization != null && self.villagersOrdered >= 20 &&
-      (self.tcUtilization >= 91 || (self.tcIdleSeconds != null && self.tcIdleSeconds <= 45))) {
-    addPos({
-      id: 'medal-tc-continuity', domain: 'macro_tc', tier: self.tcUtilization >= 95 ? 'gold' : 'green',
-      score: self.tcUtilization >= 95 ? 86 : 75, icon: 'villager',
-      badgeName: 'Pulso de Aldeanos',
-      title: `Continuidad de TC al ${String(self.tcUtilization).replace('.', ',')}%`,
-      metric: `${fmtDurShort(self.tcIdleSeconds ?? 0)} idle`,
-      detail: `Macro firme en Alta + Feudal (${fmtDurShort(self.tcIdleSeconds ?? 0)} inactivo).`,
-    });
-  } else if (!isTeamGame && rival && self.tcIdleEarlySeconds != null && rival.tcIdleEarlySeconds != null &&
-      rival.tcIdleEarlySeconds - self.tcIdleEarlySeconds >= 35) {
-    const saved = Math.round(rival.tcIdleEarlySeconds - self.tcIdleEarlySeconds);
-    addPos({
-      id: 'medal-tc-vs-rival', domain: 'macro_tc', score: 78, icon: 'villager',
-      badgeName: 'Macro Más Limpio',
-      title: `${fmtDurShort(saved)} menos de TC inactivo que el rival`,
-      metric: `${fmtDurShort(self.tcIdleEarlySeconds)} vs ${fmtDurShort(rival.tcIdleEarlySeconds)}`,
-      detail: `Sacaste ventaja real de tiempo de Centro Urbano frente al rival.`,
+      id: 'medal-tc-expansion', domain: 'macro_tc', tier: self.townCenters >= 4 ? 'gold' : 'green',
+      score: self.townCenters >= 4 ? 84 : 76, icon: 'villager',
+      badgeName: 'Expansión Sólida',
+      title: `Expansión económica con ${self.townCenters} TC`,
+      metric: `${mb.farms || 0} granjas`,
+      detail: `Construiste ${self.townCenters} Centros Urbanos y ${mb.farms || 0} granjas para escalar tu economía.`,
     });
   }
 
@@ -1239,47 +1216,26 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
     });
   }
 
-  // 6. Volumen Militar / Talleres
-  if (self.workshopsCount >= 4 && (self.workshopUtilization ?? 0) >= 78) {
+  // 6. Infraestructura Militar comprobada (sin inflar por clics fallidos ni llamarlos "talleres")
+  if (self.workshopsCount >= 5) {
+    const topNames = (self.topWorkshops || []).slice(0, 2).map((w) => `${w.count} ${w.name}`).join(' · ');
     addPos({
       id: 'medal-workshops', domain: 'workshops', score: 76, icon: 'building',
-      badgeName: 'Fábrica Imparable',
-      title: `${self.workshopsCount} edificios militares al ${self.workshopUtilization}%`,
-      metric: `${self.militaryOrdered} uds`,
-      detail: `Producción fluida y constante sin cuellos de botella en tus talleres.`,
-    });
-  }
-  if (rival && self.militaryOrdered >= 20 && rival.militaryOrdered >= 10 &&
-      self.militaryOrdered >= rival.militaryOrdered * 1.2) {
-    const pctMore = Math.round(((self.militaryOrdered - rival.militaryOrdered) / rival.militaryOrdered) * 100);
-    addPos({
-      id: 'medal-army-volume', domain: 'army_power', tier: pctMore >= 45 ? 'gold' : 'green',
-      score: pctMore >= 45 ? 84 : 77, icon: 'sword',
-      badgeName: 'Marea Militar',
-      title: `+${pctMore}% más ejército producido que el rival`,
-      metric: `${self.militaryOrdered} vs ${rival.militaryOrdered}`,
-      detail: `Superaste en volumen militar durante toda la partida.`,
+      badgeName: 'Infraestructura Militar',
+      title: `${self.workshopsCount} edificios militares activos`,
+      metric: topNames || `${self.workshopsCount} edif.`,
+      detail: `Escalaste tu producción militar con múltiples edificios en paralelo.`,
     });
   }
 
-  // 7. Boom Económico / Ventaja de Aldeanos
-  if (rival && self.villagersOrdered >= 40 && self.villagersOrdered >= rival.villagersOrdered + 10) {
-    const diff = self.villagersOrdered - rival.villagersOrdered;
+  // 7. Boom Económico comprobado (TCs y granjas, no clics brutos de aldeanos)
+  if (!isTeamGame && rival && self.townCenters >= 3 && self.townCenters > rival.townCenters) {
     addPos({
-      id: 'medal-vil-lead', domain: 'economy_boom', tier: diff >= 22 ? 'gold' : 'green',
-      score: diff >= 22 ? 84 : 76, icon: 'villager',
+      id: 'medal-tc-lead', domain: 'economy_boom', score: 78, icon: 'castle',
       badgeName: 'Motor Económico',
-      title: `+${diff} aldeanos pedidos por encima del rival`,
-      metric: `${self.villagersOrdered} vs ${rival.villagersOrdered}`,
-      detail: `Construiste una ventaja de economía clara con ${self.townCenters} TC.`,
-    });
-  } else if (self.townCenters >= 3 && self.villagersOrdered >= 75) {
-    addPos({
-      id: 'medal-boom-3tc', domain: 'economy_boom', score: 71, icon: 'castle',
-      badgeName: 'Boom de 3 TC',
-      title: `Expansión sólida (${self.townCenters} TC · ${self.villagersOrdered} aldeanos)`,
+      title: `Mayor expansión económica (${self.townCenters} TC vs ${rival.townCenters} TC)`,
       metric: `${mb.farms || 0} granjas`,
-      detail: `Escalaste bien tu economía hacia Castillos e Imperial.`,
+      detail: `Escalaste más Centros Urbanos que el rival para sostener el juego medio.`,
     });
   }
 
@@ -1477,7 +1433,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
       icon: 'wood',
       title: 'Faltó Sierra de arco en Castillos',
       metric: 'Eco madera',
-      detail: `Te quedaste sin la mejora de madera de Castillos para sostener granjas y talleres.`,
+      detail: `Te quedaste sin la mejora de madera de Castillos para sostener granjas y edificios militares.`,
     });
   } else if (tp.hasDoubleBitAxe && tp.doubleBitAxeDelaySec != null && tp.doubleBitAxeDelaySec >= 210) {
     addNeg({
@@ -1513,29 +1469,16 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
     });
   }
 
-  // 5. Talleres militares saturados
-  const saturatedWs = (self.topWorkshops || []).find((w) => w.status === 'saturated');
-  if (saturatedWs) {
+  // 5. Infraestructura militar insuficiente en partidas largas (comprobado por edificios reales)
+  const saturatedWs = null;
+  if (!isTeamGame && tm.castleSeconds != null && durMin >= 26 && rival &&
+      self.workshopsCount > 0 && rival.workshopsCount >= self.workshopsCount + 3) {
     addNeg({
-      id: 'neg-workshop-sat', domain: 'workshops', severity: saturatedWs.peakQueue >= 7 ? 84 : 76,
+      id: 'neg-workshops-behind', domain: 'workshops', severity: 76,
       icon: 'building',
-      title: `Colas saturadas en ${saturatedWs.name} (pico ${Math.round(saturatedWs.peakQueue)})`,
-      metric: `Faltaron ~${Math.max(1, (saturatedWs.recommendedCount || (saturatedWs.count + 1)) - saturatedWs.count)}`,
-      detail: `Acumulaste recursos en cola en ${saturatedWs.count} edif.: sumar producción te daba más ejército a la vez.`,
-    });
-  }
-
-  // 6. Déficit de volumen militar vs rival (en TG no penaliza si estabas haciendo boom de 3+ TC)
-  const isBoomingPocket = isTeamGame && (self.townCenters >= 3 || (rival && self.villagersOrdered >= rival.villagersOrdered + 15));
-  if (!isBoomingPocket && rival && self.militaryOrdered >= 10 && rival.militaryOrdered >= 20 &&
-      self.militaryOrdered < rival.militaryOrdered * 0.76) {
-    const deficit = rival.militaryOrdered - self.militaryOrdered;
-    addNeg({
-      id: 'neg-army-deficit', domain: 'army_power', severity: 82,
-      icon: 'sword',
-      title: `Producción militar debajo del rival (${self.militaryOrdered} vs ${rival.militaryOrdered})`,
-      metric: `−${deficit} uds`,
-      detail: `Con ${self.workshopsCount} talleres quedaste corto de masa militar frente al rival.`,
+      title: `Menos edificios militares que el rival (${self.workshopsCount} vs ${rival.workshopsCount})`,
+      metric: `${self.workshopsCount} vs ${rival.workshopsCount}`,
+      detail: `Sumar más cuarteles, galerías o establos al escalar te permite reponer ejército al mismo ritmo.`,
     });
   }
 
@@ -1588,12 +1531,12 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
 
   // 11. Estancamiento en 1 TC en Castillos largo (solo 1v1)
   if (!isTeamGame && tm.castleSeconds != null && durMin >= 26 && self.townCenters <= 1 &&
-      rival && rival.townCenters >= 2 && self.villagersOrdered < rival.villagersOrdered - 12) {
+      rival && rival.townCenters >= 2) {
     addNeg({
       id: 'neg-1tc-behind', domain: 'economy_boom', severity: 79,
       icon: 'villager',
       title: `Te quedaste en 1 TC frente a ${rival.townCenters} TC del rival`,
-      metric: `${self.villagersOrdered} vs ${rival.villagersOrdered} ald.`,
+      metric: `1 TC vs ${rival.townCenters} TC`,
       detail: `Si el push en 1 TC no cierra la partida, el rival despega en economía.`,
     });
   }
@@ -1643,10 +1586,10 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
       title: 'Evitar la Campana Urbana',
       detail: `Tocaste la campana ${self.habits.townBell} veces: paraliza toda tu economía. Guarecé manualmente solo el grupo de aldeanos bajo ataque.`,
     };
-  } else if (earlySelfPerTc != null && earlySelfPerTc >= 90 && (earlyRivalPerTc == null || earlySelfPerTc > earlyRivalPerTc)) {
+  } else if (self.biggestTcGap && self.biggestTcGap.durationSec >= 35) {
     focus = {
-      title: 'Reducir huecos de TC en Alta + Feudal',
-      detail: `Registraste ${fmtDurShort(earlySelfPerTc)}${(self.feudalActiveTcs || 1) > 1 ? '/TC' : ''} de TC inactivo antes de Castillos (${String(self.tcUtilization).replace('.', ',')}%${earlyRivalPerTc != null ? ` · rival ${fmtDurShort(earlyRivalPerTc)}` : ''}). Mantené el ciclo de TC constante en Feudal.`,
+      title: `Evitar pausas largas de TC en ${self.biggestTcGap.age}`,
+      detail: `Pausa sin órdenes de TC de ${fmtDurShort(self.biggestTcGap.durationSec)} (${self.biggestTcGap.summary}).`,
     };
   } else if (topNeg?.domain === 'blacksmith_techs' && ar?.criticalMissing) {
     focus = {
@@ -1676,7 +1619,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
   } else if (topNeg?.id === 'neg-stamina-drop') {
     focus = {
       title: 'Mantener el ritmo de producción en late game',
-      detail: `Tu eAPM bajó de ${self.eapmEarly} a ${self.eapmLate} después del min 18. Apoyate en hotkeys de talleres y selección múltiple en partidas largas.`,
+      detail: `Tu eAPM bajó de ${self.eapmEarly} a ${self.eapmLate} después del min 18. Apoyate en hotkeys de edificios militares y selección múltiple en partidas largas.`,
     };
   } else if (topNeg?.id === 'neg-late-castle') {
     focus = {
@@ -1708,10 +1651,10 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
       title: topNeg.title,
       detail: topNeg.detail,
     };
-  } else if (self.tcUtilization != null && self.tcUtilization >= 90) {
+  } else {
     focus = {
-      title: 'Ejecución de producción muy limpia',
-      detail: `Sostuviste ${String(self.tcUtilization).replace('.', ',')}% de continuidad de TC en Alta + Feudal y ${self.militaryOrdered} unidades militares. Revisá los intercambios clave en el replay.`,
+      title: 'Ejecución sólida sin cuellos de botella críticos',
+      detail: `Cerraste con ${self.townCenters} TC, ${self.workshopsCount} edif. militares y ${String(self.eapm ?? 0).replace('.', ',')} eAPM. Revisá los intercambios clave en el replay.`,
     };
   }
 

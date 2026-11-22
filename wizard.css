@@ -460,3 +460,43 @@
   background: rgba(110, 231, 183, 0.14);
   border: 1px solid rgba(110, 231, 183, 0.36);
 }
+
+/* Compact 4-flag language switcher in wizard top bar (visible from Step 1) */
+.wizard-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.wiz-top-lang-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  background: rgba(15, 19, 22, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.wiz-top-flag {
+  padding: 3px 5px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  opacity: 0.62;
+  transition: opacity 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.wiz-top-flag .flag-svg {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+}
+.wiz-top-flag:hover {
+  opacity: 0.95;
+}
+.wiz-top-flag.active {
+  opacity: 1;
+  border-color: rgba(199, 173, 118, 0.62);
+  background: rgba(199, 173, 118, 0.16);
+}

@@ -62,6 +62,7 @@ const {
   normalizeTelemetry,
 } = require('./src/postmatch');
 const { fetchReplayTelemetry } = require('./src/replay');
+const { COMMAND_ADAPTER_VERSION } = require('./src/replay-analysis');
 const { createProductStateCache, effectivePreferences } = require('./src/product');
 const { buildSmartBuildOrder } = require('./src/build-orders');
 const { detectSmurfsForPlayers } = require('./src/smurf');
@@ -4356,8 +4357,7 @@ async function publishPostMatch(match, options = {}) {
   const missingRichTelemetry = Boolean(telemetry?.engineSummary && !telemetry.engineSummary.self?.techProfile?.armyRelevance);
   const refreshLegacyReplay = Boolean(telemetry && (
     missingRichTelemetry ||
-    (options.refreshReplay && telemetry?.source?.id === 'aoe2rec-js' &&
-      ['0.1.25', '0.1.25+command-adapter-v2', '0.1.25+command-adapter-v3', '0.1.25+command-adapter-v4', '0.1.25+command-adapter-v5', '0.1.25+command-adapter-v6'].includes(telemetry.source.version))
+    (telemetry?.source?.id === 'aoe2rec-js' && telemetry.source.version !== COMMAND_ADAPTER_VERSION)
   ));
   const fetchingReplay = replayAllowed && options.autoReplay !== false && (!telemetry || refreshLegacyReplay);
   let analysis = fetchingReplay && !hadCachedTelemetry

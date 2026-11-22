@@ -438,17 +438,13 @@ function buildPersonalEvolution(telemetry, records, current) {
     eapm: compare('eapm', 'higher', 'Ritmo eAPM', 'eAPM'),
   };
 
-  // Titular personal si mejoró claramente frente a su propia historia
+  // Titular personal verificable (basado en eAPM real, sin usar estimaciones falsas de TC)
   let headline = null;
   if (prior.length >= 2) {
-    if (metrics.tcUtilization?.isBest) {
-      headline = { kind: 'record', text: `Récord personal · ${metrics.tcUtilization.current}% de continuidad de TC (mejor que tus últimas ${prior.length} partidas)` };
-    } else if (metrics.tcIdleSeconds?.isBest) {
-      headline = { kind: 'record', text: `Récord personal · solo ${Math.round(metrics.tcIdleSeconds.current)} s de TC inactivo (${Math.round(Math.abs(metrics.tcIdleSeconds.delta))} s menos que tu media)` };
-    } else if (metrics.tcUtilization?.improved && metrics.tcUtilization.delta >= 2) {
-      headline = { kind: 'up', text: `Mejoraste tu TC · +${metrics.tcUtilization.delta} pts sobre tu media personal (${prior.length} partidas)` };
-    } else if (metrics.militaryPerMin?.improved && metrics.militaryPerMin.betterThanPct >= 75) {
-      headline = { kind: 'up', text: `Mejor ritmo militar que en el ${metrics.militaryPerMin.betterThanPct}% de tus últimas ${prior.length} partidas` };
+    if (metrics.eapm?.isBest) {
+      headline = { kind: 'record', text: `Récord personal · ${metrics.eapm.current} eAPM (mejor ritmo de tus últimas ${prior.length + 1} partidas)` };
+    } else if (metrics.eapm?.improved && metrics.eapm.delta >= 3) {
+      headline = { kind: 'up', text: `Mejoraste tu ritmo · +${metrics.eapm.delta} eAPM sobre tu media personal (${prior.length} partidas)` };
     }
   }
 
@@ -655,20 +651,17 @@ function buildPersonalEvolution(telemetry, records, current) {
       }
       return n;
     };
-    const tcStreak = countStreak((e) => (e.self.tcUtilizationEarly ?? e.self.tcUtilization ?? 0) >= 90);
     const woodStreak = countStreak((e) => Boolean(e.self.techProfile?.hasDoubleBitAxe) &&
       e.self.techProfile?.doubleBitAxeDelaySec != null && e.self.techProfile.doubleBitAxeDelaySec <= 90);
     const armedStreak = countStreak((e) => Boolean(e.self.techProfile?.armyRelevance?.wellEquipped));
-    const noBellStreak = countStreak((e) => (e.self.habits?.townBell || 0) === 0 && (e.self.villagersOrdered || 0) >= 25);
-    if (consecutiveImprovement) {
+    const noBellStreak = countStreak((e) => (e.self.habits?.townBell || 0) === 0 && (e.self.eapm || 0) >= 15);
+    if (consecutiveImprovement && consecutiveImprovement.kind === 'eapm') {
       improvementStreak = { count: consecutiveImprovement.steps, label: `${consecutiveImprovement.title} (${consecutiveImprovement.chainLabel})`, kind: 'climb' };
-    } else if (tcStreak >= 2) {
-      improvementStreak = { count: tcStreak, label: `${tcStreak} partidas seguidas con TC ≥ 90%`, kind: 'tc' };
-    } else if (armedStreak >= 3) {
+    } else if (armedStreak >= 2) {
       improvementStreak = { count: armedStreak, label: `${armedStreak} partidas seguidas equipando bien tu ejército`, kind: 'blacksmith' };
-    } else if (woodStreak >= 3) {
+    } else if (woodStreak >= 2) {
       improvementStreak = { count: woodStreak, label: `${woodStreak} partidas seguidas con Hacha puntual`, kind: 'eco' };
-    } else if (noBellStreak >= 4) {
+    } else if (noBellStreak >= 3) {
       improvementStreak = { count: noBellStreak, label: `${noBellStreak} partidas seguidas sin Campana Urbana`, kind: 'defense' };
     }
   }
@@ -1006,49 +999,6 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
 
   // A. Inyectar récords personales y superaciones reales vs tu propia media
   if (evolution?.sampleSize >= 2) {
-    if (em.tcUtilization?.isBest) {
-      posPool.push({
-        id: 'evo-tc-record', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
-        tier: 'gold', score: 100, icon: 'trophy',
-        tag: 'RÉCORD PERSONAL', badgeName: 'Reloj Suizo',
-        title: `Mejor uso de TC de tus últimas ${evolution.sampleSize + 1} partidas`,
-        metric: `${fmtDec(em.tcUtilization.current)}%`,
-        delta: `+${fmtDec(em.tcUtilization.delta)} pp vs media`,
-        detail: `Superaste tu media personal (${fmtDec(em.tcUtilization.median)}%).`,
-      });
-    } else if (em.tcUtilization?.improved && em.tcUtilization.delta >= 1.8) {
-      posPool.push({
-        id: 'evo-tc-up', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
-        tier: 'green', score: 88, icon: 'villager',
-        tag: 'MEJORASTE TU MEDIA', badgeName: 'TC Más Firme',
-        title: `Subiste +${fmtDec(em.tcUtilization.delta)} pp tu continuidad de TC`,
-        metric: `${fmtDec(em.tcUtilization.current)}%`,
-        delta: `Media ${fmtDec(em.tcUtilization.median)}%`,
-        detail: `Mejor que el ${em.tcUtilization.betterThanPct}% de tus últimas ${em.tcUtilization.sampleSize} partidas.`,
-      });
-    }
-
-    if (em.tcIdleSeconds?.isBest) {
-      posPool.push({
-        id: 'evo-idle-record', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
-        tier: 'gold', score: 98, icon: 'clock',
-        tag: 'RÉCORD PERSONAL', badgeName: 'Cero Pausas',
-        title: `Menor tiempo de TC inactivo (${Math.round(em.tcIdleSeconds.current)} s)`,
-        metric: `${Math.round(em.tcIdleSeconds.current)} s`,
-        delta: `−${Math.round(Math.abs(em.tcIdleSeconds.delta))} s vs media`,
-        detail: `Tu marca más limpia en Alta + Feudal hasta ahora.`,
-      });
-    } else if (em.tcIdleSeconds?.improved && Math.abs(em.tcIdleSeconds.delta) >= 12) {
-      posPool.push({
-        id: 'evo-idle-up', domain: 'macro_tc', flavor: 'evolution', requiresHistory: true,
-        tier: 'green', score: 85, icon: 'clock',
-        tag: 'MEJORASTE TU MEDIA', badgeName: 'Menos Huecos',
-        title: `Recortaste ${Math.round(Math.abs(em.tcIdleSeconds.delta))} s de TC inactivo`,
-        metric: `${Math.round(em.tcIdleSeconds.current)} s`,
-        delta: `Media ${Math.round(em.tcIdleSeconds.median)} s`,
-        detail: `Mejor que el ${em.tcIdleSeconds.betterThanPct}% de tus previas.`,
-      });
-    }
 
     if (em.eapm?.isBest) {
       posPool.push({
@@ -1072,51 +1022,9 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
       });
     }
 
-    if (em.militaryPerMin?.isBest) {
-      posPool.push({
-        id: 'evo-mil-record', domain: 'army_power', flavor: 'evolution', requiresHistory: true,
-        tier: 'gold', score: 95, icon: 'sword',
-        tag: 'RÉCORD PERSONAL', badgeName: 'Presión Imparable',
-        title: `Récord de producción militar (${fmtDec(em.militaryPerMin.current)}/min)`,
-        metric: `${fmtDec(em.militaryPerMin.current)}/min`,
-        delta: `+${fmtDec(em.militaryPerMin.delta)}/min`,
-        detail: `Nunca habías sacado ejército a este ritmo en tus previas.`,
-      });
-    } else if (em.militaryPerMin?.improved && em.militaryPerMin.betterThanPct >= 70) {
-      posPool.push({
-        id: 'evo-mil-up', domain: 'army_power', flavor: 'evolution', requiresHistory: true,
-        tier: 'green', score: 83, icon: 'sword',
-        tag: 'MEJORASTE TU MEDIA', badgeName: 'Más Presión',
-        title: `Ritmo militar superior al ${em.militaryPerMin.betterThanPct}% de tus partidas`,
-        metric: `${fmtDec(em.militaryPerMin.current)}/min`,
-        delta: `+${fmtDec(em.militaryPerMin.delta)}/min`,
-        detail: `Produjiste más masa por minuto que tu media (${fmtDec(em.militaryPerMin.median)}/min).`,
-      });
-    }
 
-    if (em.villagersPerMin?.improved && em.villagersPerMin.delta >= 0.25) {
-      posPool.push({
-        id: 'evo-vil-up', domain: 'economy_boom', flavor: 'evolution', requiresHistory: true,
-        tier: em.villagersPerMin.isBest ? 'gold' : 'green',
-        score: em.villagersPerMin.isBest ? 93 : 82, icon: 'villager',
-        tag: em.villagersPerMin.isBest ? 'RÉCORD PERSONAL' : 'MEJORASTE TU MEDIA',
-        badgeName: 'Eco Acelerada',
-        title: `Más ritmo de aldeanos (+${fmtDec(em.villagersPerMin.delta)}/min vs media)`,
-        metric: `${fmtDec(em.villagersPerMin.current)}/min`,
-        delta: `Media ${fmtDec(em.villagersPerMin.median)}/min`,
-        detail: `Escalaste tu economía más rápido que tu propio promedio.`,
-      });
-    }
 
-    // Regresiones claras frente a tu propia media -> pool negativo
-    if (em.tcUtilization && em.tcUtilization.delta != null && em.tcUtilization.delta <= -3.5) {
-      negPool.push({
-        id: 'evo-tc-drop', domain: 'macro_tc', severity: 81, icon: 'clock',
-        title: `Uso de TC debajo de tu media (${fmtDec(em.tcUtilization.current)}% vs ${fmtDec(em.tcUtilization.median)}%)`,
-        metric: `${fmtDec(em.tcUtilization.delta)} pp`,
-        detail: `Bajaste ${fmtDec(Math.abs(em.tcUtilization.delta))} puntos respecto a tus últimas ${em.tcUtilization.sampleSize} partidas.`,
-      });
-    }
+    // Regresiones claras verificables frente a tu propia media -> pool negativo
     if (em.eapm && em.eapm.delta != null && em.eapm.delta <= -7) {
       negPool.push({
         id: 'evo-eapm-drop', domain: 'stamina_pace', severity: 72, icon: 'trend',

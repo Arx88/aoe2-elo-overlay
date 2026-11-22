@@ -965,7 +965,7 @@
     const midClock = clock(list[Math.floor((list.length - 1) / 2)].seconds);
     return `<div class="pm-curve-wrap">
       <div class="pm-curve-head">
-        <span>${esc(tr('postmatch.curveTitle', 'Pedidos acumulados · aldeanos y otras unidades'))}</span>
+        <span>${esc(tr('postmatch.curveTitle', 'Ritmo de actividad por tramo'))}</span>
         <div class="pm-legend"><i class="leg-self"></i>${esc(tr('postmatch.you', 'Vos'))}${rPts.length ? `<i class="leg-rival"></i>${esc(rivalName || tr('postmatch.rival', 'Rival'))}` : ''}</div>
       </div>
       <svg class="pm-curve" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(tr('postmatch.curveTitle', 'Pedidos acumulados'))}">
@@ -1109,6 +1109,22 @@
 
     // 2. Tira compacta de 4 Edades explícitas: Alta Edad · Feudal · Castillos · Imperial
     const STAGE_TONE = { S: 'is-gold', A: 'is-emerald', B: 'is-sky', C: 'is-amber', D: 'is-rose' };
+    const LEGACY_BAD_IDS = new Set([
+      'medal-dark-clean', 'medal-tc-continuity', 'medal-tc-vs-rival', 'medal-vil-lead',
+      'neg-workshop-sat', 'evo-tc-record', 'evo-tc-up', 'evo-idle-record', 'evo-idle-up',
+      'evo-mil-record', 'evo-mil-up', 'evo-vil-up', 'evo-tc-drop',
+    ]);
+    const cleanStageMetric = (s) => {
+      const m = String(s.metric || '');
+      if (s.status !== 'ready') return m || '—';
+      if (/%\s*TC|mil\s*·|talleres/i.test(m)) {
+        if (s.id === 'dark') return self.timings?.feudalSeconds ? `${locAge('feudal', 'Feudal')} ${clock(self.timings.feudalSeconds)}` : '—';
+        if (s.id === 'feudal') return self.techProfile?.hasDoubleBitAxe ? 'Hacha ✓' : (self.townCenters ? `${self.townCenters} TC` : '—');
+        if (s.id === 'castle') return `${number(self.townCenters || 1)} TC · ${number(self.workshopsCount || 0)} edif. mil.`;
+        if (s.id === 'imperial') return `${self.eapm != null ? dec(self.eapm, 1) : '—'} eAPM · ${number(self.workshopsCount || 0)} edif. mil.`;
+      }
+      return m || '—';
+    };
     const stageStrip = (eng.stages || []).length
       ? `<section class="pm-stages-v2" aria-label="Calificación por edad">${eng.stages.map((s) => {
         const ready = s.status === 'ready' && s.grade;
@@ -1129,7 +1145,7 @@
             </div>
             ${stampHtml}
           </div>
-          <div class="pm-stage-meta"><span>${esc(s.metric || '—')}</span>${deltaChip}</div>
+          <div class="pm-stage-meta"><span>${esc(cleanStageMetric(s))}</span>${deltaChip}</div>
         </article>`;
       }).join('')}</section>` : '';
 
@@ -1144,7 +1160,8 @@
     const fallbackEnginePos = (!showPersonal && filteredMedals.length < 3 && Array.isArray(eng.positives))
       ? eng.positives.filter((p) => !filteredMedals.some((m) => m.id === p.id || (m.domain && m.domain === p.domain)))
       : [];
-    const medalsList = [...filteredMedals, ...fallbackEnginePos].slice(0, 3);
+    const isCleanItem = (item) => item && !LEGACY_BAD_IDS.has(item.id) && !/pico \d+|faltaron ~\d+|talleres|aldeanos pedidos|TC inactivo|continuidad de TC/i.test(`${item.title || ''} ${item.metric || ''} ${item.detail || ''}`);
+    const medalsList = [...filteredMedals, ...fallbackEnginePos].filter(isCleanItem).slice(0, 3);
 
     const rawIssues = rawNarrative && Array.isArray(rawNarrative.issues)
       ? rawNarrative.issues
@@ -1155,9 +1172,10 @@
     const fallbackEngineNeg = (!showPersonal && filteredIssues.length < 2 && Array.isArray(eng.negatives))
       ? eng.negatives.filter((n) => !filteredIssues.some((x) => x.id === n.id || (x.domain && x.domain === n.domain)))
       : [];
-    const issuesList = [...filteredIssues, ...fallbackEngineNeg].slice(0, 2);
+    const issuesList = [...filteredIssues, ...fallbackEngineNeg].filter(isCleanItem).slice(0, 2);
 
-    const streakObj = showPersonal ? (rawNarrative?.streak || evo?.improvementStreak || null) : null;
+    const rawStreak = showPersonal ? (rawNarrative?.streak || evo?.improvementStreak || null) : null;
+    const streakObj = rawStreak && !/TC ≥|TC inactivo|continuidad de TC/i.test(rawStreak.label || '') ? rawStreak : null;
     const verdictText = rawNarrative?.verdict || '';
     const verdictBar = (verdictText || streakObj)
       ? `<div class="pm-verdict-bar">
@@ -1243,26 +1261,24 @@
       </article>`;
     };
 
-    const earlyUtil = self.tcUtilizationEarly ?? self.tcUtilization;
-    const earlyIdle = self.tcIdleEarlySeconds ?? self.tcIdleSeconds;
-    const totalIdle = self.tcIdleTotalSeconds ?? self.tcIdleSeconds;
-    const minutes = (eng.durationSeconds || result.durationSeconds) / 60;
-    const villagerOrdersPerMinute = em.villagersPerMin?.current ??
-      (Number.isFinite(minutes) && minutes > 0 && Number.isFinite(self.villagersOrdered)
-        ? self.villagersOrdered / Math.max(1, minutes) : null);
-    const utilBreakdown = [
-      self.tcUtilizationDark != null ? `${locAge('dark', 'Alta')} ${dec(self.tcUtilizationDark, 1)}%` : null,
-      self.tcUtilizationFeudal != null ? `${locAge('feudal', 'Feudal')} ${dec(self.tcUtilizationFeudal, 1)}%` : null,
+    const kpiTm = self.timings || {};
+    const kpiMb = self.macroBuilds || {};
+    const kpiTp = self.techProfile || {};
+    const feudalSub = [
+      kpiTm.castleSeconds != null ? `${locAge('castle', 'Castillos')} ${clock(kpiTm.castleSeconds)}` : null,
+      eng.openingSummary?.name || null,
     ].filter(Boolean).join(' · ') || null;
-    const idleBreakdown = [
-      self.tcIdleDarkSeconds != null ? `${locAge('dark', 'Alta')} ${fmtIdle(self.tcIdleDarkSeconds)}` : null,
-      self.tcIdleFeudalSeconds != null ? `${locAge('feudal', 'Feudal')} ${fmtIdle(self.tcIdleFeudalSeconds)}` : null,
+    const ecoSub = [
+      kpiTp.ecoCount != null ? `${number(kpiTp.ecoCount)} mejoras eco` : null,
+      kpiMb.houses != null ? `${number(kpiMb.houses)} ${tr('postmatch.houses', 'casas')}` : null,
     ].filter(Boolean).join(' · ') || null;
+    const bldSub = (self.topWorkshops || []).slice(0, 2)
+      .map((w) => `${number(w.count)} ${locBuilding(w)}`).join(' · ') || null;
 
     const evoGrid = `<div class="pm-kpi-grid">
-      ${evoCard({ ...(em.tcUtilization || {}), label: tr('postmatch.tcUsage', 'Uso de TC') }, earlyUtil != null ? `${dec(earlyUtil, 1)}%` : '—', ' pts', false, utilBreakdown)}
-      ${evoCard({ ...(em.tcIdleSeconds || {}), label: tr('postmatch.tcIdle', 'TC inactivo est.') }, fmtIdle(earlyIdle), ' s', true, idleBreakdown)}
-      ${evoCard({ ...(em.villagersPerMin || {}), label: tr('postmatch.vilsPerMin', 'Ald. pedidos / min') }, villagerOrdersPerMinute != null ? dec(villagerOrdersPerMinute, 2) : '—', '/m')}
+      ${evoCard({ label: tr('postmatch.kpiFeudal', 'Llegada a Feudal') }, kpiTm.feudalSeconds != null ? clock(kpiTm.feudalSeconds) : '—', '', false, feudalSub)}
+      ${evoCard({ label: tr('postmatch.kpiEco', 'Expansión eco') }, `${number(self.townCenters || 1)} TC · ${number(kpiMb.farms || 0)} gr.`, '', false, ecoSub)}
+      ${evoCard({ label: tr('postmatch.kpiBuildings', 'Edif. militares') }, `${number(self.workshopsCount || 0)} edif.`, '', false, bldSub)}
       ${evoCard({ ...(em.eapm || {}), label: tr('postmatch.eapm', 'Ritmo eAPM') }, self.eapm != null ? dec(self.eapm, 1) : '—', '')}
     </div>`;
 
@@ -1336,12 +1352,14 @@
         </div>`
       : '';
 
+    const selfTechTotal = (selfTp?.ecoCount || 0) + (selfTp?.blacksmithCount || 0) + (selfTp?.combatKeyCount || 0);
+    const rivalTechTotal = rival ? ((rivalTp?.ecoCount || 0) + (rivalTp?.blacksmithCount || 0) + (rivalTp?.combatKeyCount || 0)) : null;
     const duelBlock = `<div class="pm-duel">
       ${duelFaceHead}
-      ${duelRow(tr('postmatch.duelVils', 'Aldeanos pedidos'), self.villagersOrdered, rival?.villagersOrdered, `${number(self.villagersOrdered)} · ${self.townCenters} TC`, rival ? `${number(rival.villagersOrdered)} · ${rival.townCenters} TC` : '')}
-      ${earlyIdle != null ? duelRow(tr('postmatch.duelIdleEarly', 'TC est. · Alta y Feudal'), earlyIdle, rivalEarlyIdle, fmtIdle(earlyIdle), rivalEarlyIdle != null ? fmtIdle(rivalEarlyIdle) : '', true) : ''}
-      ${totalIdle != null ? duelRow(tr('postmatch.duelIdleTotal', 'TC est. · hasta últ. uso'), totalIdle, rivalTotalIdle, fmtIdle(totalIdle), rivalTotalIdle != null ? fmtIdle(rivalTotalIdle) : '', true) : ''}
-      ${duelRow(tr('postmatch.duelArmy', 'Pedidos de unidades'), self.militaryOrdered, rival?.militaryOrdered, number(self.militaryOrdered), rival ? number(rival.militaryOrdered) : '')}
+      ${duelRow(tr('postmatch.duelTcs', 'Centros Urbanos'), self.townCenters || 1, rival?.townCenters, `${number(self.townCenters || 1)} TC`, rival ? `${number(rival.townCenters || 1)} TC` : '')}
+      ${duelRow(tr('postmatch.duelBuildings', 'Edificios militares'), self.workshopsCount || 0, rival?.workshopsCount, `${number(self.workshopsCount || 0)}`, rival ? `${number(rival.workshopsCount || 0)}` : '')}
+      ${duelRow(tr('postmatch.duelTechs', 'Mejoras clave'), selfTechTotal, rivalTechTotal, `${number(selfTechTotal)} techs`, rivalTechTotal != null ? `${number(rivalTechTotal)} techs` : '')}
+      ${duelRow(tr('postmatch.duelEapm', 'Ritmo eAPM'), self.eapm || 0, rival?.eapm, self.eapm != null ? dec(self.eapm, 1) : '—', rival?.eapm != null ? dec(rival.eapm, 1) : '')}
     </div>`;
 
     // 5. Mejoras económicas, Herrería acorde a TU composición y Macro del replay
@@ -1370,22 +1388,18 @@
         </div>`
       : '';
 
-    // 6. Producción y colas militares (saturación + edificios recomendados + Mercado decodificado + composición)
-    const wsRows = (self.topWorkshops || []).slice(0, 3).map((w) => {
-      const sat = w.status === 'saturated';
+    // 6. Infraestructura militar y composición real (sin picos de cola ficticios por clics fallidos)
+    const wsRows = (self.topWorkshops || []).slice(0, 4).map((w) => {
       const wName = locBuilding(w);
-      const tag = sat
-        ? `${tr('postmatch.peakQueue', `Pico ${Math.round(w.peakQueue || 0)}`, { n: Math.round(w.peakQueue || 0) })} · ${tr('postmatch.missingBld', `faltaron ~${Math.max(1, (w.recommendedCount || (w.count + 1)) - w.count)}`, { n: Math.max(1, (w.recommendedCount || (w.count + 1)) - w.count) })}`
-        : `${tr('postmatch.peakQueue', `Pico ${Math.round(w.peakQueue || 1)}`, { n: Math.round(w.peakQueue || 1) })} ${tr('postmatch.inQueue', 'en cola')}`;
-      return `<li class="${sat ? 'is-warn' : ''}"><span><b>${esc(wName)}</b> ×${number(w.count)}</span><small>${esc(tag)} · ${number(w.units)}</small></li>`;
+      return `<li><span><b>${esc(wName)}</b></span><small>×${number(w.count)} ${esc(w.count === 1 ? 'edificio' : 'edificios')}</small></li>`;
     }).join('');
-    const shortComp = (units) => (units || []).slice(0, 2).map((u) => `${esc(locUnit(u))} (${number(u.count)})`).join(' + ') || '—';
+    const shortComp = (units) => (units || []).slice(0, 2).map((u) => `${esc(locUnit(u))}`).join(' + ') || '—';
     const marketLine = self.marketProfile
       ? `<div class="pm-market-note"><span class="pm-mini-ico">${reportIcon('market')}</span><span>${esc(self.marketProfile.note)}</span></div>` : '';
     const queueBox = `<div class="pm-queue-box">
       <div class="pm-queue-head">
-        <span>${esc(tr('postmatch.queuesTitle', 'Colas y edificios militares'))}</span>
-        <b>${self.workshopUtilization != null ? `${self.workshopUtilization}% · ${tr('postmatch.buildingsCount', `${self.workshopsCount} edificios`, { n: self.workshopsCount })}` : tr('postmatch.buildingsCount', `${self.workshopsCount} edificios`, { n: self.workshopsCount })}</b>
+        <span>${esc(tr('postmatch.queuesTitle', 'Edificios militares y composición'))}</span>
+        <b>${esc(tr('postmatch.buildingsCount', `${self.workshopsCount} edificios`, { n: self.workshopsCount }))}</b>
       </div>
       ${wsRows ? `<ul class="pm-queue-list">${wsRows}</ul>` : '<p class="pm-queue-empty">—</p>'}
       ${marketLine}
@@ -1426,7 +1440,7 @@
       <div class="pm-tabs" role="tablist">
         <button type="button" class="pm-tab is-active" role="tab" aria-selected="true" data-pm-tab="evo">${esc(tr('postmatch.tabEvo', 'Evolución y Curva'))}</button>
         <button type="button" class="pm-tab" role="tab" aria-selected="false" data-pm-tab="duel">${esc(tr('postmatch.tabDuel', 'Duelo vs Rival'))}</button>
-        <button type="button" class="pm-tab" role="tab" aria-selected="false" data-pm-tab="tech">${esc(tr('postmatch.tabTech', 'Mejoras, Colas y Combate'))}</button>
+        <button type="button" class="pm-tab" role="tab" aria-selected="false" data-pm-tab="tech">${esc(tr('postmatch.tabTech', 'Mejoras y Producción'))}</button>
       </div>
       <div class="pm-columns">
         <div class="pm-tab-pane is-active" role="tabpanel" data-pm-pane="evo">

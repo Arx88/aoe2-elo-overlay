@@ -305,9 +305,11 @@ function op(playerId, ms, type, payload = {}) {
   assert.match(unifiedHtml, /pm-grade-stamp grade-S/);
   assert.match(unifiedHtml, /pm-icon-tile/);
   assert.match(unifiedHtml, /Tu evolución · vs tus últimas 4 partidas/);
-  assert.match(unifiedHtml, /Uso de TC/);
-  assert.match(unifiedHtml, /TC inactivo est\./);
-  assert.match(unifiedHtml, /TC est\. · hasta últ\. uso/);
+  assert.match(unifiedHtml, /Llegada a Feudal/);
+  assert.match(unifiedHtml, /Expansión eco/);
+  assert.match(unifiedHtml, /Edif\. militares/);
+  assert.match(unifiedHtml, /Centros Urbanos/);
+  assert.doesNotMatch(unifiedHtml, /Aldeanos pedidos|TC inactivo est\.|Uso de TC|Pico \d+ · faltaron/i);
   assert.match(unifiedHtml, /Récord personal/);
   assert.match(unifiedHtml, /Feudal/);
   assert.match(unifiedHtml, /class="pm-spark/);

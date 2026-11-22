@@ -40,11 +40,7 @@
         </div>
 
         <nav class="rail-nav" aria-label="Secciones">
-          <button class="nav-item active" aria-current="page" data-page="player" type="button">
-            <img class="product-icon" src="assets/icons/account.png" alt="" draggable="false">
-            <span data-i18n="nav.player">Cuenta</span>
-          </button>
-          <button class="nav-item" data-page="central" type="button">
+          <button class="nav-item active" aria-current="page" data-page="central" type="button">
             <img class="product-icon" src="assets/icons/trend.png" alt="" draggable="false">
             <span data-i18n="nav.central">Central</span>
           </button>
@@ -58,7 +54,10 @@
             <img class="product-icon" src="assets/icons/palette.png" alt="" draggable="false">
             <span data-i18n="nav.skins">Apariencia</span>
           </button>
-          <button class="nav-item" data-page="plans" type="button"><img class="product-icon" src="assets/icons/crown.png" alt="" draggable="false"><span data-i18n="nav.plans">Plan y acceso</span></button>
+          <button id="navPlans" class="nav-item" data-page="plans" type="button">
+            <img class="product-icon" src="assets/icons/crown.png" alt="" draggable="false">
+            <span data-i18n="nav.plans">Plan y acceso</span>
+          </button>
           <button class="nav-item" data-page="updater" type="button">
             <img class="product-icon" src="assets/icons/update.png" alt="" draggable="false">
             <span data-i18n="nav.updater">Actualizaciones</span>
@@ -67,21 +66,13 @@
 
         <div class="launcher-rail-art" aria-hidden="true"></div>
         <div class="rail-foot">
-          <button id="railUser" class="rail-user" data-goto="player" type="button" title="Sesión de Relic">
+          <button id="railUser" class="rail-profile-card" data-goto="player" data-tier="free" type="button" title="Cuenta y Plan">
             <span id="railUserAvatar" class="rail-user-avatar" aria-hidden="true">G</span>
             <span class="rail-user-copy">
               <strong id="railUserName" class="rail-user-name" data-i18n="account.googleBtn">Continuar con Google</strong>
-              <small id="railUserSub" class="rail-user-sub">Sin sesión iniciada</small>
+              <small id="railUserSub" class="rail-user-sub" data-i18n="account.notSignedIn">Sin sesión iniciada</small>
             </span>
-            <span id="railUserDot" class="rail-user-dot" aria-hidden="true"></span>
-          </button>
-          <button id="railPlan" class="rail-plan" data-goto="plans" data-tier="free" type="button">
-            <span class="rail-plan-emblem" aria-hidden="true"><img id="railPlanIcon" class="product-icon" src="assets/icons/crown.png" alt="" draggable="false"></span>
-            <span class="rail-plan-copy">
-              <small id="railPlanKicker" class="rail-plan-kicker">Plan activo</small>
-              <strong id="railPlanLabel" class="rail-plan-name">Cargando acceso</strong>
-            </span>
-            <span id="railPlanGlyph" class="rail-plan-glyph" aria-hidden="true">✦</span>
+            <span id="railPlanLabel" class="rail-plan-badge">Free</span>
           </button>
           <div class="rail-build">
             <span class="rail-build-meta"><span id="version" class="rail-version"></span><span>By acido</span></span>
@@ -101,8 +92,6 @@
             <div class="prefs-pop-actions">
               <button id="prefsFeedbackBtn" class="prefs-pop-link prefs-pop-feedback" type="button" data-i18n="feedback.openBtn">Enviar feedback</button>
               <button id="prefsSoundBtn" class="prefs-pop-link" type="button">Sonidos de interfaz · Activos</button>
-              <button id="prefsPlanBtn" class="prefs-pop-link" type="button" data-i18n="nav.plans">Plan y acceso</button>
-              <button id="prefsVerifyBtn" class="prefs-pop-link" type="button" data-i18n="plans.refreshBtn">Verificar acceso</button>
               <button id="reopenWizardBtn" class="prefs-pop-link" type="button" data-i18n="account.reopenWizard">Abrir asistente inicial</button>
             </div>
           </div>
@@ -118,9 +107,15 @@
         </header>
 
         <div class="pages">
-          <!-- ============ PLAYER DETECTION ============ -->
-          <section class="page active" data-page="player">
-            <div class="group-head"><span data-i18n="account.sessionGroup">Sesión de Relic</span><i></i></div>
+          <!-- ============ ACCOUNT & PROFILE ============ -->
+          <section class="page" data-page="player">
+            <div class="acct-subtabs" role="tablist">
+              <button type="button" class="acct-subtab active" data-goto="player" aria-selected="true" data-i18n="account.tabProfile">Mi cuenta y perfil</button>
+              <button type="button" class="acct-subtab" data-goto="plans" aria-selected="false" data-i18n="account.tabPlan">Plan y clave</button>
+            </div>
+            <div class="account-split-grid">
+            <div class="account-col">
+            <div class="group-head"><span data-i18n="account.sessionGroup">Cuenta Relic</span><i></i></div>
             <div class="account-session-card" id="accountSessionCard" aria-live="polite">
               <div id="accAuthSignedOut" class="acc-auth-row">
                 <div class="acc-auth-copy">
@@ -139,26 +134,39 @@
                 </div>
               </div>
 
-              <div id="accAuthSignedIn" class="acc-auth-row" hidden>
-                <div class="acc-auth-copy">
-                  <div id="accUserAvatar" class="acc-auth-avatar" aria-hidden="true">R</div>
-                  <div class="acc-auth-user">
-                    <div class="acc-auth-name-row">
-                      <strong id="accUserName">—</strong>
-                      <span class="chip acc-google-chip">Google</span>
-                      <span id="accSeatsBadge" class="relic-seats-badge">0/2 PCs</span>
+              <div id="accAuthSignedIn" class="acc-auth-signed" hidden>
+                <div class="acc-auth-row">
+                  <div class="acc-auth-copy">
+                    <div id="accUserAvatar" class="acc-auth-avatar" aria-hidden="true">R</div>
+                    <div class="acc-auth-user">
+                      <div class="acc-auth-name-row">
+                        <strong id="accUserName">—</strong>
+                        <span class="chip acc-google-chip">Google</span>
+                        <span id="accSeatsBadge" class="relic-seats-badge">0/2 PCs</span>
+                      </div>
+                      <span id="accUserEmail" class="mini acc-auth-email">—</span>
                     </div>
-                    <span id="accUserEmail" class="mini acc-auth-email">—</span>
+                  </div>
+                  <div class="acc-auth-actions is-inline">
+                    <button id="accGoogleLogoutBtn" class="btn" type="button" data-i18n="account.logoutBtn">Cerrar sesión</button>
                   </div>
                 </div>
-                <div class="acc-auth-actions is-inline">
-                  <button id="accManagePcsBtn" class="btn" type="button" data-i18n="account.managePcsBtn">PCs y plan</button>
-                  <button id="accGoogleLogoutBtn" class="btn" type="button" data-i18n="account.logoutBtn">Cerrar sesión</button>
+
+                <div id="relicDeviceLimitAlert" class="relic-limit-alert" hidden>
+                  <strong data-i18n="account.deviceLimitTitle">Alcanzaste el límite de PCs activas.</strong>
+                  <span data-i18n="account.deviceLimitDesc">Desconectá una PC vieja abajo para activar automáticamente este equipo.</span>
+                </div>
+
+                <div class="relic-devices-section">
+                  <div class="relic-sub-head"><span data-i18n="account.activePcsTitle">Mis PCs activas</span></div>
+                  <ul id="relicDevicesList" class="relic-devices-list"></ul>
                 </div>
               </div>
             </div>
 
-            <div class="group-head"><span data-i18n="account.playerGroup">Jugador de AoE2 vinculado</span><i></i></div>
+            </div>
+            <div class="account-col">
+            <div class="group-head"><span data-i18n="account.playerGroup">Perfil de AoE2: DE</span><i></i></div>
             <div class="account-profile" id="accountProfile">
               <div class="account-hero">
                 <div class="avatar" id="accountAvatar" aria-hidden="true"></div>
@@ -171,7 +179,7 @@
                 </div>
               </div>
               <div class="account-footer">
-                <p class="mini account-hint" id="accountHint">El overlay usa tu perfil para reconocerte en la partida y mostrar tu ELO de RM 1v1.</p>
+                <p class="mini account-hint" id="accountHint" hidden></p>
                 <button id="autoBtn" class="btn account-detect" type="button" data-i18n="account.detect">Detectar cuenta</button>
               </div>
             </div>
@@ -199,6 +207,8 @@
               </dl>
               <button id="logBtn" class="btn" type="button" data-i18n="account.openLog">Abrir carpeta del log</button>
             </details>
+            </div>
+            </div>
           </section>
 
           <!-- ============ CENTRAL DE ESTADÍSTICAS ============ -->
@@ -235,7 +245,7 @@
           <!-- ============ OVERLAY ============ -->
           <section class="page" data-page="overlay">
             <div class="workflow"><div><span>01</span><strong data-i18n="overlay.wf1Title">Leé al rival</strong><small data-i18n="overlay.wf1Sub">Mapa · civs · aperturas</small></div><i aria-hidden="true"></i><div><span>02</span><strong data-i18n="overlay.wf2Title">Elegí un plan</strong><small data-i18n="overlay.wf2Sub">Evidencia del mismo contexto</small></div><i aria-hidden="true"></i><div><span>03</span><strong data-i18n="overlay.wf3Title">Entrá a jugar</strong><small data-i18n="overlay.wf3Sub">El overlay se aparta</small></div></div>
-            <p class="section-intro" data-i18n="overlay.intro">Elegí qué información querés ver. Cada dato indica su muestra y cada consejo explica qué observación lo respalda.</p>
+            
             <div class="group-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><i></i><em>1</em></div>
             <div class="block">
               <label class="row tog" for="hideEloAt20">
@@ -254,7 +264,7 @@
                 <output id="hideAtSecondsValue" for="hideAtSeconds">0:20</output>
               </div>
 
-              <div class="clock-row">
+              <div id="matchClockRow" class="clock-row" hidden>
                 <span data-i18n="overlay.matchClock">Reloj de partida</span>
                 <span id="matchClock" class="mono">—</span>
               </div>
@@ -369,7 +379,7 @@
 
           <section class="page" data-page="tactics">
             <div class="section-banner"><img class="product-icon" src="assets/icons/combat.png" alt="" draggable="false"><div><h2 data-i18n="tactics.bannerTitle">Referencias por civilización</h2><p data-i18n="tactics.bannerDesc">Consultá las rutas de ambas civilizaciones y el historial del mapa cuando esté disponible.</p></div></div>
-            <p class="section-intro" data-i18n="tactics.intro">Las rutas de Feudal, Castillos e Imperial se consultan acá. Representan opciones, no el estado actual de tu partida.</p>
+            
             <div class="group-head"><span data-i18n="tactics.guideGroup">Guía de apertura</span><i></i><em>2</em></div>
             <div class="block">
               <label class="row tog" for="civHelp">
@@ -391,13 +401,15 @@
           <!-- ============ POSTMATCH ============ -->
           <section class="page" data-page="postmatch">
             <div class="section-banner"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><div><h2 data-i18n="postmatchPage.bannerTitle">Revisá tu partida</h2><p data-i18n="postmatchPage.bannerDesc">Revisá un tramo de la partida y comparalo con tus partidas anteriores cuando haya datos compatibles.</p></div></div>
-            <div class="group-head"><span data-i18n="postmatchPage.afterGroup">Al terminar la partida</span><i></i></div>
-            <div class="block">
-              <label class="row tog" for="postMatch"><span class="ric"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.summaryTitle">Resumen postmatch</span><span class="rdesc" data-i18n="postmatchPage.summaryDesc">El overlay vuelve con el resultado confirmado y el resumen de la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-              <label class="row tog" for="postMatchComparison"><span class="ric"><img class="product-icon" src="assets/icons/trend.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.compareTitle">Comparar mi evolución</span><span class="rdesc" data-i18n="postmatchPage.compareDesc">Habilita comparativas históricas y referencias por banda de ELO</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-              <label class="row select-row" for="postMatchCompareMode"><span class="ric"><img class="product-icon" src="assets/icons/medal.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.modeTitle">Referencia del Postmatch</span><span id="postMatchCompareHelp" class="rdesc" data-i18n="postmatchPage.modeHelpOff">Activá «Comparar mi evolución» para elegir la referencia</span></span><select id="postMatchCompareMode" class="field" disabled aria-describedby="postMatchCompareHelp"><option value="both" selected data-i18n="postmatchPage.modeBoth">Mi historial + estándar Elo</option><option value="personal" data-i18n="postmatchPage.modePersonal">Solo mi historial</option><option value="community" data-i18n="postmatchPage.modeCommunity">Solo estándar Elo</option></select></label>
-              <label class="row tog" for="postMatchReplay"><span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.replayTitle">Análisis del replay</span><span class="rdesc" data-i18n="postmatchPage.replayDesc">Hitos de apertura cuando hay evidencia, órdenes de avance y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-            </div>
+            <details class="pm-config-details">
+              <summary data-i18n="postmatchPage.configSummary">Configurar Postmatch</summary>
+              <div class="block pm-config-block">
+                <label class="row tog" for="postMatch"><span class="ric"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.summaryTitle">Resumen postmatch</span><span class="rdesc" data-i18n="postmatchPage.summaryDesc">El overlay vuelve con el resultado confirmado y el resumen de la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+                <label class="row tog" for="postMatchComparison"><span class="ric"><img class="product-icon" src="assets/icons/trend.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.compareTitle">Comparar mi evolución</span><span class="rdesc" data-i18n="postmatchPage.compareDesc">Habilita comparativas históricas y referencias por banda de ELO</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+                <label class="row select-row" for="postMatchCompareMode"><span class="ric"><img class="product-icon" src="assets/icons/medal.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.modeTitle">Referencia del Postmatch</span><span id="postMatchCompareHelp" class="rdesc" data-i18n="postmatchPage.modeHelpOff">Activá «Comparar mi evolución» para elegir la referencia</span></span><select id="postMatchCompareMode" class="field" disabled aria-describedby="postMatchCompareHelp"><option value="both" selected data-i18n="postmatchPage.modeBoth">Mi historial + estándar Elo</option><option value="personal" data-i18n="postmatchPage.modePersonal">Solo mi historial</option><option value="community" data-i18n="postmatchPage.modeCommunity">Solo estándar Elo</option></select></label>
+                <label class="row tog" for="postMatchReplay"><span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.replayTitle">Análisis del replay</span><span class="rdesc" data-i18n="postmatchPage.replayDesc">Hitos de apertura cuando hay evidencia, órdenes de avance y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+              </div>
+            </details>
             <div class="group-head">
               <span data-i18n="postmatchPage.last10Group">Tus últimas 10 partidas · seleccioná una para cargar su informe</span>
               <i></i>
@@ -410,55 +422,37 @@
 
           <!-- ============ PLAN Y ACCESO ============ -->
           <section class="page" data-page="plans">
-            <div class="access-summary"><div><span class="eyebrow" data-i18n="plansPage.eyebrow">TU ACCESO ACTUAL</span><h2 id="planName" data-i18n="plansPage.loading">Cargando…</h2><p id="planDescription" data-i18n="plansPage.loadingDesc">Consultando las funciones disponibles de esta versión.</p><span id="planExpiry" class="access-expiry"></span></div><img class="product-icon" src="assets/icons/lock.png" alt="" draggable="false"></div>
-
-            <!-- Cuenta Relic (Google OAuth + Mis PCs activas + Canje de claves) -->
-            <div id="relicAuthCard" class="relic-auth-card" aria-live="polite">
-              <div id="relicAuthSignedOut" class="relic-auth-row">
-                <div class="relic-auth-copy">
-                  <span class="eyebrow">CUENTA RELIC · SINCRONIZACIÓN Y DISPOSITIVOS</span>
-                  <h3>Iniciá sesión con Google</h3>
-                  <p>Vinculá tu suscripción a tu cuenta, administrá en qué PCs está activa (hasta 2 equipos) y canjeá claves prepagas.</p>
-                </div>
-                <div class="relic-auth-actions">
-                  <button id="googleLoginBtn" class="btn gold relic-google-btn" type="button">
-                    <span class="g-mark" aria-hidden="true">G</span>
-                    <span>Continuar con Google</span>
-                  </button>
-                  <span id="relicAuthStatus" class="inline-status" role="status"></span>
-                </div>
+            <div class="acct-subtabs" role="tablist">
+              <button type="button" class="acct-subtab" data-goto="player" aria-selected="false" data-i18n="account.tabProfile">Mi cuenta y perfil</button>
+              <button type="button" class="acct-subtab active" data-goto="plans" aria-selected="true" data-i18n="account.tabPlan">Plan y clave</button>
+            </div>
+            <div class="access-summary">
+              <div>
+                <span class="eyebrow" data-i18n="plansPage.eyebrow">TU ACCESO ACTUAL</span>
+                <h2 id="planName" data-i18n="plansPage.loading">Cargando…</h2>
+                <p id="planDescription" data-i18n="plansPage.loadingDesc">Consultando las funciones disponibles de esta versión.</p>
+                <span id="planExpiry" class="access-expiry"></span>
               </div>
+              <div class="access-summary-actions">
+                <button id="planRefreshBtn" class="btn" type="button" data-i18n="plans.refreshBtn">Verificar acceso</button>
+              </div>
+            </div>
 
-              <div id="relicAuthSignedIn" class="relic-auth-signed" hidden>
-                <div class="relic-auth-head">
-                  <div class="relic-user-pill">
-                    <span id="relicUserAvatar" class="relic-user-avatar">R</span>
-                    <div>
-                      <strong id="relicUserName">—</strong>
-                      <small id="relicUserEmail">—</small>
-                    </div>
-                  </div>
-                  <div class="relic-auth-head-actions">
-                    <span id="relicSeatsBadge" class="relic-seats-badge">0/2 PCs</span>
-                    <button id="googleLogoutBtn" class="btn" type="button">Cerrar sesión</button>
-                  </div>
-                </div>
-
-                <div id="relicDeviceLimitAlert" class="relic-limit-alert" hidden>
-                  <strong>Alcanzaste el límite de PCs activas.</strong>
-                  <span>Desconectá una PC vieja abajo para activar automáticamente este equipo.</span>
-                </div>
-
-                <div class="relic-devices-section">
-                  <div class="relic-sub-head"><span>Mis PCs activas</span><small>Sesión cifrada con Windows DPAPI</small></div>
-                  <ul id="relicDevicesList" class="relic-devices-list"></ul>
-                </div>
-
-                <form id="redeemKeyForm" class="relic-redeem-row">
-                  <input id="redeemKeyInput" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="Canjear clave · RELIC-XXXX-XXXX-XXXX" />
-                  <button id="redeemKeyBtn" class="btn gold" type="submit">Canjear clave</button>
-                  <span id="redeemKeyStatus" class="inline-status" role="status"></span>
-                </form>
+            <div id="planRedeemCard" class="plan-redeem-card" aria-live="polite">
+              <div class="plan-redeem-head">
+                <span class="eyebrow" data-i18n="plansPage.redeemTitle">Canjear clave prepaga</span>
+              </div>
+              <form id="redeemKeyForm" class="relic-redeem-row" hidden>
+                <input id="redeemKeyInput" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="RELIC-XXXX-XXXX-XXXX" />
+                <button id="redeemKeyBtn" class="btn gold" type="submit" data-i18n="plansPage.redeemTitle">Canjear clave prepaga</button>
+                <span id="redeemKeyStatus" class="inline-status" role="status"></span>
+              </form>
+              <div id="planRedeemSignInPrompt" class="plan-redeem-signin">
+                <p class="mini" data-i18n="plansPage.redeemSignInHint">Iniciá sesión con Google para canjear una clave y vincular tu plan a tu cuenta.</p>
+                <button id="planGoogleLoginBtn" class="btn gold relic-google-btn" type="button">
+                  <span class="g-mark" aria-hidden="true">G</span>
+                  <span data-i18n="account.googleBtn">Continuar con Google</span>
+                </button>
               </div>
             </div>
             <div class="plans-grid">
@@ -525,10 +519,8 @@
                 <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Durante y Postmatch.</span>
               </article>
             </div>
-            <details class="license-details"><summary data-i18n="plansPage.trialSummary">Activar clave temporal Ultra</summary><form id="accessKeyForm" class="license-form"><p data-i18n="plansPage.trialDesc">Ingresá la clave temporal que te compartieron. Habilita las funciones Ultra en esta instalación; no es una suscripción.</p><label for="accessKey" data-i18n="plansPage.trialLabel">Clave de acceso</label><input id="accessKey" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" /><div class="license-actions"><span id="accessKeyStatus" class="inline-status" role="status"></span><button id="activateAccessKey" class="btn gold" type="submit" data-i18n="plansPage.trialBtn">Activar Ultra</button></div></form></details>
-            <div class="commerce-actions"><div><strong id="commerceTitle" data-i18n="plansPage.subsTitle">Suscripciones</strong><p id="commerceStatus" data-i18n="plansPage.subsStatus">La contratación todavía no está habilitada.</p></div><div class="button-group"><button id="accountCommerce" class="btn" type="button" disabled data-i18n="plansPage.manageBtn">Gestionar cuenta</button><button id="checkoutCommerce" class="btn gold" type="button" disabled data-i18n="plansPage.getProBtn">Obtener Pro</button></div></div>
-            <details class="license-details"><summary data-i18n="plansPage.existingSummary">Activar una licencia existente</summary><form id="licenseForm" class="license-form"><p data-i18n="plansPage.existingDesc">Ingresá la cuenta y la credencial firmada que recibiste del servicio del producto.</p><label for="licenseAccount" data-i18n="plansPage.existingAcc">Cuenta del producto</label><input id="licenseAccount" class="field" type="text" autocomplete="username" spellcheck="false" /><label for="licenseToken" data-i18n="plansPage.existingTok">Credencial de acceso</label><textarea id="licenseToken" class="field" rows="3" autocomplete="off" spellcheck="false" placeholder="v1.…"></textarea><div class="license-actions"><span id="licenseStatus" class="inline-status" role="status"></span><button id="activateLicense" class="btn" type="submit" data-i18n="plansPage.existingBtn">Verificar acceso</button></div></form></details>
-            <p class="product-footnote" data-i18n="plansPage.footnote">El plan habilita funciones. La disponibilidad de los datos depende de la muestra, el modo de juego y los replays analizados.</p>
+
+            
           </section>
 
           <!-- ============ SKINS ============ -->
@@ -548,7 +540,7 @@
                 <button class="theme" type="button" data-theme="pergamino"><span class="swatch" data-theme="pergamino"></span><span class="tname" data-i18n="skins.themes.pergamino">Pergamino</span></button>
                 <button class="theme" type="button" data-theme="sakura"><span class="swatch" data-theme="sakura"></span><span class="tname" data-i18n="skins.themes.sakura">Sakura</span></button>
               </div>
-              <p class="mini" data-i18n="skins.designNote">Se aplica al instante al overlay. El centro de mando conserva su identidad para que encuentres todo en el mismo lugar.</p>
+              
             </div>
 
             <div class="group-head"><span data-i18n="skins.opacityGroup">Opacidad</span><i></i></div>
@@ -558,7 +550,7 @@
                 <input id="opacity" type="range" min="15" max="100" step="5" value="95" />
                 <output id="opacityValue" for="opacity">95%</output>
               </div>
-              <p class="mini" data-i18n="skins.opacityNote">Qué tanto se transparenta el panel sobre el juego. 95% es un buen punto.</p>
+              
             </div>
 
             <div class="group-head"><span data-i18n="skins.positionGroup">Posición</span><i></i></div>
@@ -696,11 +688,14 @@
             <img class="wizard-brand-logo" src="assets/brand/relic-logo.png" alt="Relic" draggable="false" />
             <span class="wizard-eyebrow" id="wizEyebrow" data-i18n="wizard.eyebrow">PRIMER INICIO · CONFIGURACIÓN</span>
           </div>
-          <div class="wizard-steps" aria-hidden="true">
+          <div class="wizard-top-right">
+            <div id="wizTopLangBar" class="wiz-top-lang-bar" role="radiogroup" aria-label="Idioma"></div>
+            <div class="wizard-steps" aria-hidden="true">
             <span class="wiz-dot active" data-wiz-dot="1"><b>01</b><span data-i18n="wizard.stepAuth">Sesión</span></span>
             <span class="wiz-dot" data-wiz-dot="2"><b>02</b><span data-i18n="wizard.step1">Idioma</span></span>
             <span class="wiz-dot" data-wiz-dot="3"><b>03</b><span data-i18n="wizard.step2">Jugador</span></span>
             <span class="wiz-dot" data-wiz-dot="4"><b>04</b><span data-i18n="wizard.step3">Listo</span></span>
+            </div>
           </div>
         </div>
 
@@ -715,7 +710,7 @@
             <div class="wiz-auth-perks">
               <span class="wiz-perk-pill" data-i18n="wizard.authPerk1">Plan sincronizado</span>
               <span class="wiz-perk-pill" data-i18n="wizard.authPerk2">Hasta 2 PCs activas</span>
-              <span class="wiz-perk-pill" data-i18n="wizard.authPerk3">Sesión cifrada en Windows</span>
+              
             </div>
             <div class="wiz-auth-cta">
               <button id="wizGoogleLoginBtn" class="btn gold relic-google-btn wiz-google-btn" type="button">

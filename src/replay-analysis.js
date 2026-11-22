@@ -19,7 +19,7 @@ const { seeOrder, pickCheckpoint } = require('./opening-review');
 const { observeQueue, collectCastlesWindow, supportedMap } = require('./castles-window');
 const { analyzePostmatchEngine } = require('./engine/postmatch-engine');
 
-const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v7';
+const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v8';
 
 const AGES = ['dark', 'feudal', 'castle', 'imperial'];
 const IDS = {

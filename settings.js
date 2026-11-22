@@ -239,11 +239,15 @@ function renderProduct(product) {
     : product.plan === 'promax' ? t('plans.promax', 'Ultra')
       : product.plan === 'pro' ? t('plans.pro', 'Pro')
         : t('plans.free', 'Free');
-  railPlanLabel.textContent = planLabel;
-  planName.textContent = planLabel;
+  if (railPlanLabel) railPlanLabel.textContent = planLabel;
+  if (planName) planName.textContent = planLabel;
   const railTier = (product.plan === 'promax' || product.plan === 'beta') ? 'ultra'
     : product.plan === 'pro' ? 'pro' : 'free';
   if (railPlanBtn) railPlanBtn.dataset.tier = railTier;
+  const railProfile = el('railUser');
+  if (railProfile) railProfile.dataset.tier = railTier;
+  const navPlansBtn = el('navPlans');
+  if (navPlansBtn) navPlansBtn.hidden = railTier !== 'free';
   if (railPlanIcon) {
     railPlanIcon.src = railTier === 'ultra'
       ? 'assets/icons/crown.png'
@@ -331,12 +335,14 @@ function renderProduct(product) {
   }
 
   const commerce = product.commerce || {};
-  commerceStatus.textContent = commerce.configured
-    ? t('plansPage.subsConfigured', 'La suscripción se gestiona en el sitio del producto.')
-    : t('plansPage.subsStatus', 'La contratación todavía no está habilitada.');
-  commerceTitle.textContent = t('plansPage.subsTitle', 'Suscripciones');
-  accountCommerce.disabled = !(commerce.account && commerce.account.enabled);
-  checkoutCommerce.disabled = !(commerce.checkout && commerce.checkout.enabled);
+  if (commerceStatus) {
+    commerceStatus.textContent = commerce.configured
+      ? t('plansPage.subsConfigured', 'La suscripción se gestiona en el sitio del producto.')
+      : t('plansPage.subsStatus', 'La contratación todavía no está habilitada.');
+  }
+  if (commerceTitle) commerceTitle.textContent = t('plansPage.subsTitle', 'Suscripciones');
+  if (accountCommerce) accountCommerce.disabled = !(commerce.account && commerce.account.enabled);
+  if (checkoutCommerce) checkoutCommerce.disabled = !(commerce.checkout && commerce.checkout.enabled);
 }
 
 function getEmptyPostmatchHtml() {
@@ -977,7 +983,9 @@ function clockText(startedAt) {
 }
 
 function paintClock() {
-  matchClock.textContent = clockText(matchStartedAt);
+  if (matchClock) matchClock.textContent = clockText(matchStartedAt);
+  const clockRow = el('matchClockRow');
+  if (clockRow) clockRow.hidden = !matchStartedAt;
 }
 
 window.settings.onClock((payload) => {
@@ -1210,17 +1218,17 @@ async function loadTactics() {
 }
 
 
-accountCommerce.addEventListener('click', async () => {
+accountCommerce?.addEventListener('click', async () => {
   const response = await window.settings.openCommerce('account');
   if (!response.ok) setStatus(response.error || 'No se pudo abrir la gestión de cuenta', true);
 });
 
-checkoutCommerce.addEventListener('click', async () => {
+checkoutCommerce?.addEventListener('click', async () => {
   const response = await window.settings.openCommerce('checkout');
   if (!response.ok) setStatus(response.error || 'No se pudo abrir la contratación', true);
 });
 
-accessKeyForm.addEventListener('submit', async (event) => {
+accessKeyForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   activateAccessKeyBtn.disabled = true;
   accessKeyStatus.textContent = 'Verificando clave…';
@@ -1242,7 +1250,7 @@ accessKeyForm.addEventListener('submit', async (event) => {
   }
 });
 
-licenseForm.addEventListener('submit', async (event) => {
+licenseForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   activateLicenseBtn.disabled = true;
   licenseStatus.textContent = 'Verificando credencial…';
@@ -1598,6 +1606,13 @@ function goTo(page) {
     if (current) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
+  const railProfile = el('railUser');
+  if (railProfile) {
+    const isAcct = page === 'player' || page === 'plans';
+    railProfile.classList.toggle('active', isAcct);
+    if (isAcct) railProfile.setAttribute('aria-current', 'page');
+    else railProfile.removeAttribute('aria-current');
+  }
   for (const section of pageSections) section.classList.toggle('active', section.dataset.page === page);
   const locTitle = typeof AppI18n === 'object' ? AppI18n.t(`pages.${page}.title`) : null;
   const locSub = typeof AppI18n === 'object' ? AppI18n.t(`pages.${page}.sub`) : null;
@@ -1612,6 +1627,12 @@ function goTo(page) {
 }
 
 for (const button of navButtons) button.addEventListener('click', () => goTo(button.dataset.page));
+document.querySelectorAll('[data-goto]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.goto;
+    if (target) goTo(target);
+  });
+});
 
 /* ============================================================
    Updater: estado real de electron-updater. Nada inventado.
@@ -1852,6 +1873,18 @@ function renderLanguageSelectors() {
       btn.addEventListener('click', () => chooseLanguage(btn.dataset.lang, true));
     });
   }
+
+  const wizTopBar = el('wizTopLangBar');
+  if (wizTopBar) {
+    wizTopBar.innerHTML = LANG_CARDS.map((item) => {
+      const flag = typeof AppI18n === 'object' ? AppI18n.flagSvg(item.code) : '';
+      const sel = item.code === selectedLanguage;
+      return `<button type="button" class="wiz-top-flag${sel ? ' active' : ''}" role="radio" aria-checked="${sel}" data-lang="${item.code}" title="${escapeHtml(item.label)}">${flag}</button>`;
+    }).join('');
+    wizTopBar.querySelectorAll('.wiz-top-flag').forEach((btn) => {
+      btn.addEventListener('click', () => chooseLanguage(btn.dataset.lang, true));
+    });
+  }
 }
 
 function setPrefsPopover(open) {
@@ -1984,7 +2017,7 @@ if (typeof UiSfx === 'object') {
   UiSfx.attachAutoListeners(document);
   paintSoundToggle();
 }
-el('prefsVerifyBtn')?.addEventListener('click', async () => {
+const handleVerifyAccess = async () => {
   setPrefsPopover(false);
   if (!window.settings?.refreshLicense) return;
   setStatus(typeof AppI18n === 'object' ? AppI18n.t('plans.checking') : 'Verificando licencia…');
@@ -1997,7 +2030,9 @@ el('prefsVerifyBtn')?.addEventListener('click', async () => {
   } catch (_) {
     setStatus('No se pudo verificar el acceso ahora.', true);
   }
-});
+};
+el('prefsVerifyBtn')?.addEventListener('click', handleVerifyAccess);
+el('planRefreshBtn')?.addEventListener('click', handleVerifyAccess);
 document.addEventListener('click', (event) => {
   const pop = el('appPrefsPopover');
   const btn = el('appPrefsBtn');
@@ -2181,27 +2216,20 @@ el('wizSearch')?.addEventListener('input', () => {
 paintThemes();
 paintOpacity(0.95);
 paintSearchHelp(false);
-goTo('player');
+goTo('central');
 loadCurrent();
 
 
 /* ============ CUENTA RELIC · GOOGLE OAUTH, DISPOSITIVOS Y CLAVES PREPAGAS ============ */
 (function initRelicAuthUi() {
-  const signedOutEl = el('relicAuthSignedOut');
-  const signedInEl = el('relicAuthSignedIn');
-  const loginBtn = el('googleLoginBtn');
-  const logoutBtn = el('googleLogoutBtn');
-  const authStatusEl = el('relicAuthStatus');
-  const userAvatarEl = el('relicUserAvatar');
-  const userNameEl = el('relicUserName');
-  const userEmailEl = el('relicUserEmail');
-  const seatsBadgeEl = el('relicSeatsBadge');
   const limitAlertEl = el('relicDeviceLimitAlert');
   const devicesListEl = el('relicDevicesList');
   const redeemForm = el('redeemKeyForm');
   const redeemInput = el('redeemKeyInput');
   const redeemBtn = el('redeemKeyBtn');
   const redeemStatusEl = el('redeemKeyStatus');
+  const planRedeemSignInPrompt = el('planRedeemSignInPrompt');
+  const planLoginBtn = el('planGoogleLoginBtn');
 
   // Rail user pill + Cuenta page session card + Wizard step 1
   const railUserBtn = el('railUser');
@@ -2213,7 +2241,6 @@ loadCurrent();
   const accSignedIn = el('accAuthSignedIn');
   const accLoginBtn = el('accGoogleLoginBtn');
   const accLogoutBtn = el('accGoogleLogoutBtn');
-  const accManagePcsBtn = el('accManagePcsBtn');
   const accAuthStatus = el('accAuthStatus');
   const accUserAvatar = el('accUserAvatar');
   const accUserName = el('accUserName');
@@ -2229,7 +2256,7 @@ loadCurrent();
   const wizAuthName = el('wizAuthName');
   const wizAuthEmail = el('wizAuthEmail');
 
-  if (!signedOutEl || !signedInEl || !window.settings?.authStatus) return;
+  if (!accSignedOut || !window.settings?.authStatus) return;
 
   function fmtRelTime(tsSec) {
     if (!tsSec) return '—';
@@ -2241,13 +2268,12 @@ loadCurrent();
   }
 
   function setAllAuthStatus(msg) {
-    if (authStatusEl) authStatusEl.textContent = msg;
     if (accAuthStatus) accAuthStatus.textContent = msg;
     if (wizAuthStatus) wizAuthStatus.textContent = msg;
   }
 
   function setLoginButtonsDisabled(disabled) {
-    if (loginBtn) loginBtn.disabled = disabled;
+    if (planLoginBtn) planLoginBtn.disabled = disabled;
     if (accLoginBtn) accLoginBtn.disabled = disabled;
     if (wizLoginBtn) wizLoginBtn.disabled = disabled;
   }
@@ -2257,16 +2283,16 @@ loadCurrent();
     const isSigned = Boolean(auth && auth.signedIn && auth.user);
 
     if (!isSigned) {
-      signedOutEl.hidden = false;
-      signedInEl.hidden = true;
       if (accSignedOut) accSignedOut.hidden = false;
       if (accSignedIn) accSignedIn.hidden = true;
+      if (redeemForm) redeemForm.hidden = true;
+      if (planRedeemSignInPrompt) planRedeemSignInPrompt.hidden = false;
       if (wizSignedOut) wizSignedOut.hidden = false;
       if (wizSignedIn) wizSignedIn.hidden = true;
       if (railUserBtn) railUserBtn.classList.remove('is-signed');
       if (railUserAvatar) railUserAvatar.textContent = 'G';
       if (railUserName) railUserName.textContent = t('account.googleBtn', 'Continuar con Google');
-      if (railUserSub) railUserSub.textContent = 'Sin sesión iniciada';
+      if (railUserSub) railUserSub.textContent = t('account.notSignedIn', 'Sin sesión iniciada');
       renderWizardStep();
       return;
     }
@@ -2277,30 +2303,25 @@ loadCurrent();
     const initial = String(displayName).trim().charAt(0).toUpperCase() || 'R';
     const activeDevices = (Array.isArray(auth.devices) ? auth.devices : []).filter((d) => d.active);
     const maxDev = Number(u.maxDevices || 2);
-    const seatsLabel = `${activeDevices.length}/${maxDev} PCs activas`;
 
-    // 1. Plan y acceso card
-    signedOutEl.hidden = true;
-    signedInEl.hidden = false;
-    if (userNameEl) userNameEl.textContent = displayName;
-    if (userEmailEl) userEmailEl.textContent = email;
-    if (userAvatarEl) userAvatarEl.textContent = initial;
-    if (seatsBadgeEl) seatsBadgeEl.textContent = seatsLabel;
-    if (limitAlertEl) limitAlertEl.hidden = Boolean(auth.currentMachineAuthorized);
+    // 1. Plan y acceso: show unified redeem key form when signed in
+    if (redeemForm) redeemForm.hidden = false;
+    if (planRedeemSignInPrompt) planRedeemSignInPrompt.hidden = true;
 
-    // 2. Cuenta page session card (junto a la vinculación de AoE2)
+    // 2. Cuenta page: Relic account + active PCs (single source of truth)
     if (accSignedOut) accSignedOut.hidden = true;
     if (accSignedIn) accSignedIn.hidden = false;
     if (accUserAvatar) accUserAvatar.textContent = initial;
     if (accUserName) accUserName.textContent = displayName;
     if (accUserEmail) accUserEmail.textContent = email;
-    if (accSeatsBadge) accSeatsBadge.textContent = `${activeDevices.length}/${maxDev} PCs`;
+    if (accSeatsBadge) accSeatsBadge.textContent = `${activeDevices.length}/${maxDev} PCs activas`;
+    if (limitAlertEl) limitAlertEl.hidden = Boolean(auth.currentMachineAuthorized);
 
-    // 3. Left rail user pill
+    // 3. Unified left rail profile + plan card
     if (railUserBtn) railUserBtn.classList.add('is-signed');
     if (railUserAvatar) railUserAvatar.textContent = initial;
     if (railUserName) railUserName.textContent = displayName;
-    if (railUserSub) railUserSub.textContent = `Google · ${activeDevices.length}/${maxDev} PCs`;
+    if (railUserSub) railUserSub.textContent = lastAccountInfo.alias ? `${lastAccountInfo.alias} · ${activeDevices.length}/${maxDev} PCs` : `Google · ${activeDevices.length}/${maxDev} PCs`;
 
     // 4. First-launch wizard step 1 + summary
     if (wizSignedOut) wizSignedOut.hidden = true;
@@ -2368,7 +2389,6 @@ loadCurrent();
   }
 
   async function triggerGoogleLogout() {
-    if (logoutBtn) logoutBtn.disabled = true;
     if (accLogoutBtn) accLogoutBtn.disabled = true;
     if (wizSwitchBtn) wizSwitchBtn.disabled = true;
     try {
@@ -2377,24 +2397,21 @@ loadCurrent();
       if (res?.product) renderProduct(res.product);
       setStatus('Sesión cerrada.');
     } finally {
-      if (logoutBtn) logoutBtn.disabled = false;
       if (accLogoutBtn) accLogoutBtn.disabled = false;
       if (wizSwitchBtn) wizSwitchBtn.disabled = false;
     }
   }
 
-  loginBtn?.addEventListener('click', triggerGoogleLogin);
+  planLoginBtn?.addEventListener('click', triggerGoogleLogin);
   accLoginBtn?.addEventListener('click', triggerGoogleLogin);
   wizLoginBtn?.addEventListener('click', triggerGoogleLogin);
 
-  logoutBtn?.addEventListener('click', triggerGoogleLogout);
   accLogoutBtn?.addEventListener('click', triggerGoogleLogout);
   wizSwitchBtn?.addEventListener('click', async () => {
     await triggerGoogleLogout();
     await triggerGoogleLogin();
   });
 
-  accManagePcsBtn?.addEventListener('click', () => goTo('plans'));
   railUserBtn?.addEventListener('click', () => goTo('player'));
 
   redeemForm?.addEventListener('submit', async (ev) => {
