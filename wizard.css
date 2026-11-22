@@ -181,12 +181,15 @@
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
-  height: 220px;
-  background: linear-gradient(90deg, var(--ui-page) 16%, transparent 100%),
-    url("assets/art/cuenta.webp") right 42% / cover no-repeat;
-  mask-image: linear-gradient(180deg, #000a 0%, #000 52%, transparent 100%);
-  opacity: 0.68;
+  height: clamp(280px, 54vh, 520px);
+  background: linear-gradient(90deg, var(--ui-page) 12%, #12161bc9 47%, transparent 89%),
+    url("assets/art/wizard-umbral.webp") right 43% / cover no-repeat;
+  mask-image: linear-gradient(180deg, transparent, #000 16%, #000 46%, #0007 74%, transparent);
+  opacity: .86;
   pointer-events: none;
+}
+@media (prefers-contrast: more) {
+  .wizard-overlay::before { display: none; }
 }
 .wizard-card {
   position: relative;

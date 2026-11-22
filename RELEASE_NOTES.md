@@ -1,3 +1,11 @@
+## v2.7.5 · Estandartes de Relic
+
+- Nuevo arte de la barra lateral y fortaleza con estandartes en la cabecera de Prematch.
+- Ilustración propia para el asistente de primer inicio.
+- Arte de cabecera y lateral para el instalador de Windows.
+
+---
+
 ## v2.7.2 · Rediseño Team Game, Recomendador de civilización 3-factores, detección blindada e i18n completo
 
 - **Rediseño integral de Team Game (TG):** ancho adaptativo (720 px), roster en dos columnas (*Tu equipo* vs *Equipo rival*), tarjetas sintetizadas de estructura fija con arte de aperturas de Postmatch, consulta paralela de los 4 rivales y carrusel automático cada 10 segundos (que solo empieza a contar cuando cargan los datos del par activo).

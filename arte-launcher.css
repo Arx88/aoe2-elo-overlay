@@ -8,7 +8,11 @@ body {
   isolation: isolate;
 }
 body:has(.nav-item[data-page="central"].active) { --launcher-art-opacity: 0; }
-body:has(.nav-item[data-page="overlay"].active) { --launcher-heading-art: url("assets/art/prematch.webp"); --launcher-art-position: right 59%; }
+body:has(.nav-item[data-page="overlay"].active) {
+  --launcher-heading-art: url("assets/art/prematch-estandartes.webp");
+  --launcher-heading-position: right 8%;
+  --launcher-art-opacity: .88;
+}
 body:has(.nav-item[data-page="tactics"].active) { --launcher-heading-art: url("assets/art/durante.webp"); --launcher-art-position: right 53%; }
 body:has(.nav-item[data-page="postmatch"].active) { --launcher-heading-art: url("assets/art/postmatch.webp"); --launcher-art-position: right 31%; }
 body:has(.nav-item[data-page="skins"].active) { --launcher-heading-art: url("assets/art/apariencia.webp"); --launcher-art-opacity: .60; --launcher-art-position: right 44%; }
@@ -21,8 +25,8 @@ body::before {
   inset: 0 0 auto var(--launcher-rail);
   height: 176px;
   background: linear-gradient(90deg, var(--ui-page) 16%, transparent 72%),
-    var(--launcher-heading-art) right 46% / min(1160px, 100%) auto no-repeat;
-  mask-image: linear-gradient(180deg, #0005 0, #0009 42px, #000 76px, #000 112px, transparent 100%);
+    var(--launcher-heading-art) var(--launcher-heading-position, right 46%) / min(1160px, 100%) auto no-repeat;
+  mask-image: linear-gradient(180deg, #0004 0, #000b 48px, #000 80px, #000c 115px, transparent 100%);
   opacity: var(--launcher-art-opacity);
   pointer-events: none;
 }
@@ -47,12 +51,17 @@ body::before {
 .rail { border-right-color: transparent; }
 .launcher-rail-art {
   position: absolute;
-  inset: auto 0 68px 0;
-  height: 190px;
+  inset: auto 0 0;
+  height: clamp(302px, 46vh, 480px);
   z-index: 0;
-  background: url("assets/art/lateral.webp") center 89% / cover no-repeat;
-  mask-image: linear-gradient(180deg, transparent, #000 38%, #000 72%, transparent 100%);
-  opacity: .52;
+  background:
+    linear-gradient(0deg, #111619 3%, #11161988 31%, transparent 58%),
+    url("assets/art/lateral-estandarte.webp") center bottom 75px / 100% auto no-repeat;
+  mask-image:
+    linear-gradient(180deg, transparent, #000 36%, #000 80%, transparent),
+    linear-gradient(90deg, transparent, #000 15%, #000 84%, transparent);
+  mask-composite: intersect;
+  opacity: .85;
   pointer-events: none;
 }
 .rule, .group-head > i { background: transparent; }

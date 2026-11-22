@@ -168,10 +168,17 @@ async function run() {
   assert.ok(builderCfg.files.includes('!admin-app/**'), 'admin-app debe quedar fuera del instalador público');
   assert.ok(builderCfg.files.includes('!licensing-api/**'), 'licensing-api debe quedar fuera del instalador público');
   assert.ok(builderCfg.files.includes('wizard.css'), 'wizard.css debe incluirse en el build');
-  assert.equal(builderCfg.nsis.installerSidebar, 'build/installer-sidebar.bmp');
-  assert.equal(builderCfg.nsis.installerHeader, 'build/installer-header.bmp');
-  assert.ok(fs.existsSync(path.join(__dirname, '..', 'build', 'installer-sidebar.bmp')));
-  assert.ok(fs.existsSync(path.join(__dirname, '..', 'build', 'installer-header.bmp')));
+  assert.equal(builderCfg.nsis.uninstallerSidebar, builderCfg.nsis.installerSidebar);
+  for (const [image, width, height] of [
+    [builderCfg.nsis.installerSidebar, 164, 314],
+    [builderCfg.nsis.installerHeader, 150, 57],
+  ]) {
+    const bitmap = fs.readFileSync(path.join(__dirname, '..', image));
+    assert.equal(bitmap.toString('ascii', 0, 2), 'BM');
+    assert.equal(bitmap.readInt32LE(18), width);
+    assert.equal(Math.abs(bitmap.readInt32LE(22)), height);
+    assert.equal(bitmap.readUInt16LE(28), 24);
+  }
 
   // 5) Central de Inteligencia Propia (Radar 6 ejes, curva ELO, barras y 10 últimas partidas sin inline styles)
   const { computeCentralAnalytics } = require('../src/central');
