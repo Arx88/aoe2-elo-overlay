@@ -251,7 +251,19 @@ function renderProduct(product) {
     : product.plan === 'promax' ? t('plans.promax', 'Ultra')
       : product.plan === 'pro' ? t('plans.pro', 'Pro')
         : t('plans.free', 'Free');
-  if (railPlanLabel) railPlanLabel.textContent = planLabel;
+  if (railPlanLabel) {
+    railPlanLabel.textContent = planLabel;
+    railPlanLabel.title = t('plans.openPlansHint', 'Ver y comparar planes');
+    if (!railPlanLabel.dataset.boundPlanJump) {
+      railPlanLabel.dataset.boundPlanJump = '1';
+      railPlanLabel.setAttribute('role', 'link');
+      railPlanLabel.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        goTo('plans');
+      });
+    }
+  }
   if (planName) planName.textContent = planLabel;
   const railTier = (product.plan === 'promax' || product.plan === 'beta') ? 'ultra'
     : product.plan === 'pro' ? 'pro' : 'free';
@@ -259,7 +271,17 @@ function renderProduct(product) {
   const railProfile = el('railUser');
   if (railProfile) railProfile.dataset.tier = railTier;
   const navPlansBtn = el('navPlans');
-  if (navPlansBtn) navPlansBtn.hidden = railTier !== 'free';
+  if (navPlansBtn) {
+    navPlansBtn.hidden = false;
+    navPlansBtn.dataset.tier = railTier;
+  }
+  const navPlansPill = el('navPlansPill');
+  if (navPlansPill) {
+    navPlansPill.dataset.tier = railTier;
+    navPlansPill.textContent = railTier === 'free'
+      ? t('plans.upgradePill', 'Mejorar')
+      : planLabel;
+  }
   if (railPlanIcon) {
     railPlanIcon.src = railTier === 'ultra'
       ? 'assets/icons/crown.png'
@@ -315,6 +337,7 @@ function renderProduct(product) {
   renderFeatureList(freeFeatures, features.filter((feature) => feature.plan === 'free'));
   renderFeatureList(proFeatures, features.filter((feature) => feature.plan === 'pro'));
   renderFeatureList(proMaxFeatures, features.filter((feature) => feature.plan === 'promax'));
+  if (typeof syncPlanPricingUi === 'function') syncPlanPricingUi();
 
   postMatchInput.disabled = !product.featureAccess.postMatch;
   civHelpInput.disabled = !product.featureAccess.civHelp;
@@ -2858,9 +2881,12 @@ loadCurrent();
       if (wizSignedOut) wizSignedOut.hidden = false;
       if (wizSignedIn) wizSignedIn.hidden = true;
       if (railUserBtn) railUserBtn.classList.remove('is-signed');
-      if (railUserAvatar) railUserAvatar.textContent = 'G';
-      if (railUserName) railUserName.textContent = t('account.signInRail', 'Iniciar sesión');
-      if (railUserSub) railUserSub.textContent = t('account.signInRailSub', 'Google · sincronizá tu plan');
+      if (railUserAvatar) {
+        railUserAvatar.classList.add('is-guest');
+        railUserAvatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 19.2c1.2-3 3.7-4.5 6.5-4.5s5.3 1.5 6.5 4.5"/></svg>';
+      }
+      if (railUserName) railUserName.textContent = lastAccountInfo.alias || t('account.signInRail', 'Iniciar sesión');
+      if (railUserSub) railUserSub.textContent = lastAccountInfo.alias ? 'Sin sincronizar' : 'Cuenta';
       renderWizardStep();
       return;
     }
@@ -2885,11 +2911,14 @@ loadCurrent();
     if (accSeatsBadge) accSeatsBadge.textContent = `${activeDevices.length}/${maxDev} PCs activas`;
     if (limitAlertEl) limitAlertEl.hidden = Boolean(auth.currentMachineAuthorized);
 
-    // 3. Unified left rail profile + plan card
+    // 3. Unified left rail profile footer
     if (railUserBtn) railUserBtn.classList.add('is-signed');
-    if (railUserAvatar) railUserAvatar.textContent = initial;
+    if (railUserAvatar) {
+      railUserAvatar.classList.remove('is-guest');
+      railUserAvatar.textContent = initial;
+    }
     if (railUserName) railUserName.textContent = displayName;
-    if (railUserSub) railUserSub.textContent = lastAccountInfo.alias ? `${lastAccountInfo.alias} · ${activeDevices.length}/${maxDev} PCs` : `Google · ${activeDevices.length}/${maxDev} PCs`;
+    if (railUserSub) railUserSub.textContent = `${activeDevices.length}/${maxDev} PCs`;
 
     // 4. First-launch wizard step 1 + summary
     if (wizSignedOut) wizSignedOut.hidden = true;
@@ -3004,3 +3033,200 @@ loadCurrent();
   window.settings.onAuth?.((auth) => paintAuth(auth));
   window.settings.authStatus().then((res) => { if (res?.auth) paintAuth(res.auth); }).catch(() => {});
 })();
+
+/* ==================== PLANS BILLING CYCLE & CHECKOUT PREVIEW ==================== */
+const PLAN_CATALOG = {
+  pro: {
+    name: 'Relic Pro',
+    monthlyPrice: '$1.99',
+    annualMonthlyEq: '$1.58',
+    annualTotal: '$18.99',
+    annualSave: '$4.89',
+    monthlySub: 'USD · Facturación mensual',
+    annualSub: 'USD / mes · Facturado anualmente',
+    perks: [
+      'Prematch completo: aperturas reales, counter-pick y plan de partida',
+      'Central: ventanas seleccionables Últ. 10 y Últ. 20 partidas',
+      'Incluye todo lo de Free (ELO y Cara a cara)',
+    ],
+  },
+  promax: {
+    name: 'Relic Ultra',
+    monthlyPrice: '$2.99',
+    annualMonthlyEq: '$2.42',
+    annualTotal: '$28.99',
+    annualSave: '$6.89',
+    monthlySub: 'USD · Solo +$1 sobre Pro',
+    annualSub: 'USD / mes · Facturado anualmente',
+    perks: [
+      'Todo Pro + Postmatch v6 completo (56 civilizaciones y 8 insights)',
+      'Central ampliado: hasta 200 partidas oficiales por modo y diagnósticos',
+      'Smart Build Order durante la partida + Smurf Detector',
+    ],
+  },
+};
+
+let activeBillingCycle = 'monthly';
+let activeCheckoutPlan = 'promax';
+
+function syncPlanPricingUi() {
+  const isAnnual = activeBillingCycle === 'annual';
+  const plansGrid = el('plansGrid');
+  if (plansGrid) plansGrid.dataset.billingCycle = activeBillingCycle;
+
+  document.querySelectorAll('[data-billing-cycle]').forEach((btn) => {
+    const on = btn.dataset.billingCycle === activeBillingCycle;
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', String(on));
+  });
+
+  const proAmt = el('proPriceAmount');
+  const proStrike = el('proPriceStrike');
+  const proSub = el('proPriceSub');
+  const proSave = el('proAnnualSave');
+  if (proAmt) proAmt.textContent = isAnnual ? PLAN_CATALOG.pro.annualMonthlyEq : PLAN_CATALOG.pro.monthlyPrice;
+  if (proStrike) proStrike.hidden = !isAnnual;
+  if (proSub) proSub.textContent = isAnnual ? PLAN_CATALOG.pro.annualSub : PLAN_CATALOG.pro.monthlySub;
+  if (proSave) proSave.hidden = !isAnnual;
+
+  const uAmt = el('ultraPriceAmount');
+  const uStrike = el('ultraPriceStrike');
+  const uSub = el('ultraPriceSub');
+  const uSave = el('ultraAnnualSave');
+  if (uAmt) uAmt.textContent = isAnnual ? PLAN_CATALOG.promax.annualMonthlyEq : PLAN_CATALOG.promax.monthlyPrice;
+  if (uStrike) uStrike.hidden = !isAnnual;
+  if (uSub) uSub.textContent = isAnnual ? PLAN_CATALOG.promax.annualSub : PLAN_CATALOG.promax.monthlySub;
+  if (uSave) uSave.hidden = !isAnnual;
+
+  const curPlan = currentProduct?.plan === 'beta' ? 'promax' : (currentProduct?.plan || 'free');
+  document.querySelectorAll('[data-plan-checkout]').forEach((btn) => {
+    const target = btn.dataset.planCheckout;
+    const isCurrent = target === curPlan;
+    btn.disabled = isCurrent;
+    if (target === 'pro') {
+      btn.textContent = isCurrent ? 'Tu plan actual' : (isAnnual ? 'Continuar con Pro · $18.99/año' : 'Continuar con Pro · $1.99/mes');
+    } else {
+      btn.textContent = isCurrent ? 'Tu plan actual' : (isAnnual ? 'Elegir Ultra · $28.99/año →' : 'Elegir Ultra · $2.99/mes →');
+    }
+  });
+}
+
+function paintCheckoutModal() {
+  const cfg = PLAN_CATALOG[activeCheckoutPlan] || PLAN_CATALOG.promax;
+  const isAnnual = activeBillingCycle === 'annual';
+  const titleEl = el('checkoutModalTitle');
+  const optM = el('checkoutOptMonthly');
+  const optA = el('checkoutOptAnnual');
+  const lineEl = el('checkoutPlanLine');
+  const subEl = el('checkoutSubtotal');
+  const saveRow = el('checkoutSaveRow');
+  const saveVal = el('checkoutSaveVal');
+  const totalEl = el('checkoutTotal');
+  const perksEl = el('checkoutPerks');
+  const confirmBtn = el('checkoutConfirmBtn');
+  const noteEl = el('checkoutPreviewNote');
+
+  if (titleEl) titleEl.textContent = cfg.name;
+  if (optM) optM.textContent = `${cfg.monthlyPrice}/mes`;
+  if (optA) optA.textContent = `${cfg.annualTotal}/año`;
+  if (lineEl) lineEl.textContent = `Plan ${cfg.name} (${isAnnual ? 'Anual' : 'Mensual'})`;
+  if (subEl) subEl.textContent = isAnnual ? `${cfg.annualTotal} USD` : `${cfg.monthlyPrice} USD`;
+  if (saveRow) {
+    saveRow.hidden = false;
+    saveRow.classList.toggle('is-muted', !isAnnual);
+  }
+  if (saveVal) saveVal.textContent = isAnnual ? `−${cfg.annualSave} USD` : 'Sin descuento';
+  if (totalEl) totalEl.textContent = isAnnual ? `${cfg.annualTotal} USD` : `${cfg.monthlyPrice} USD`;
+
+  document.querySelectorAll('[data-checkout-cycle]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.checkoutCycle === activeBillingCycle);
+  });
+
+  if (perksEl) {
+    perksEl.replaceChildren();
+    cfg.perks.forEach((txt) => {
+      const li = document.createElement('li');
+      li.textContent = txt;
+      perksEl.appendChild(li);
+    });
+  }
+
+  const commerceReady = Boolean(currentProduct?.commerce?.configured);
+  if (confirmBtn) {
+    confirmBtn.textContent = commerceReady
+      ? `Continuar al pago · ${isAnnual ? cfg.annualTotal : cfg.monthlyPrice} USD`
+      : 'Continuar al pago · Próximamente';
+  }
+  if (noteEl) {
+    noteEl.hidden = commerceReady;
+  }
+}
+
+function openCheckoutModal(planKey) {
+  activeCheckoutPlan = planKey === 'pro' ? 'pro' : 'promax';
+  paintCheckoutModal();
+  const modal = el('planCheckoutModal');
+  if (modal) modal.hidden = false;
+}
+
+function closeCheckoutModal() {
+  const modal = el('planCheckoutModal');
+  if (modal) modal.hidden = true;
+  syncPlanPricingUi();
+}
+
+document.querySelectorAll('[data-billing-cycle]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const next = btn.dataset.billingCycle === 'annual' ? 'annual' : 'monthly';
+    if (next === activeBillingCycle) return;
+    activeBillingCycle = next;
+    syncPlanPricingUi();
+    paintCheckoutModal();
+  });
+});
+
+document.querySelectorAll('[data-plan-checkout]').forEach((btn) => {
+  btn.addEventListener('click', () => openCheckoutModal(btn.dataset.planCheckout));
+});
+
+document.querySelectorAll('[data-checkout-cycle]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const next = btn.dataset.checkoutCycle === 'annual' ? 'annual' : 'monthly';
+    if (next === activeBillingCycle) return;
+    activeBillingCycle = next;
+    paintCheckoutModal();
+  });
+});
+
+el('checkoutCloseBtn')?.addEventListener('click', closeCheckoutModal);
+
+const checkoutBackdropEl = el('planCheckoutModal');
+checkoutBackdropEl?.addEventListener('click', (e) => {
+  if (e.target === checkoutBackdropEl) closeCheckoutModal();
+});
+
+el('checkoutConfirmBtn')?.addEventListener('click', async () => {
+  if (currentProduct?.commerce?.configured && typeof window.settings?.openCommerce === 'function') {
+    await window.settings.openCommerce('checkout');
+    closeCheckoutModal();
+  } else {
+    const note = el('checkoutPreviewNote');
+    if (note) {
+      note.textContent = 'Todavía estamos integrando la pasarela de pago. Si tenés una clave prepaga podés activarla abajo al instante.';
+    }
+  }
+});
+
+el('checkoutUseKeyBtn')?.addEventListener('click', () => {
+  closeCheckoutModal();
+  const input = el('redeemKeyInput');
+  const card = el('planRedeemCard');
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (input && !input.closest('[hidden]')) input.focus();
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && checkoutBackdropEl && !checkoutBackdropEl.hidden) closeCheckoutModal();
+});
+
+syncPlanPricingUi();

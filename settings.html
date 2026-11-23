@@ -58,13 +58,15 @@
           </button>
           <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Durante</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
           <button class="nav-item" data-page="postmatch" type="button"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span data-i18n="nav.postmatch">Postmatch</span></button>
+          <span class="rail-nav-sep" aria-hidden="true"></span>
           <button class="nav-item" data-page="skins" type="button">
             <img class="product-icon" src="assets/icons/palette.png" alt="" draggable="false">
             <span data-i18n="nav.skins">Apariencia</span>
           </button>
-          <button id="navPlans" class="nav-item" data-page="plans" type="button">
+          <button id="navPlans" class="nav-item nav-item-plans" data-page="plans" type="button">
             <img class="product-icon" src="assets/icons/crown.png" alt="" draggable="false">
-            <span data-i18n="nav.plans">Plan y acceso</span>
+            <span data-i18n="nav.plans">Planes</span>
+            <span id="navPlansPill" class="nav-plan-pill" data-tier="free">Mejorar</span>
           </button>
           <button class="nav-item" data-page="updater" type="button">
             <img class="product-icon" src="assets/icons/update.png" alt="" draggable="false">
@@ -74,22 +76,32 @@
 
         <div class="launcher-rail-art" aria-hidden="true"></div>
         <div class="rail-foot">
-          <button id="railUser" class="rail-profile-card" data-goto="player" data-tier="free" type="button" title="Cuenta y Plan">
-            <span id="railUserAvatar" class="rail-user-avatar" aria-hidden="true">G</span>
-            <span class="rail-user-copy">
-              <strong id="railUserName" class="rail-user-name" data-i18n="account.signInRail">Iniciar sesión</strong>
-              <small id="railUserSub" class="rail-user-sub" data-i18n="account.signInRailSub">Google · sincronizá tu plan</small>
-            </span>
-            <span id="railPlanLabel" class="rail-plan-badge">Free</span>
-          </button>
-          <div class="rail-build">
-            <span class="rail-build-meta"><span id="version" class="rail-version"></span><span>By acido</span></span>
-            <button id="appPrefsBtn" class="rail-gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Ajustes de la app e idioma" title="Idioma y ajustes de cuenta">
+          <div class="rail-profile-shell">
+            <button id="railUser" class="rail-profile-row" data-goto="player" data-tier="free" type="button" title="Cuenta y perfil">
+              <span id="railUserAvatar" class="rail-user-avatar is-guest" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="8.5" r="3.5"/>
+                  <path d="M5.5 19.2c1.2-3 3.7-4.5 6.5-4.5s5.3 1.5 6.5 4.5"/>
+                </svg>
+              </span>
+              <span class="rail-user-copy">
+                <strong id="railUserName" class="rail-user-name" data-i18n="account.signInRail">Iniciar sesión</strong>
+                <span class="rail-user-meta">
+                  <span id="railPlanLabel" class="rail-user-tier">Free</span>
+                  <span class="rail-user-dot" aria-hidden="true">·</span>
+                  <small id="railUserSub" class="rail-user-sub">Cuenta</small>
+                </span>
+              </span>
+            </button>
+            <button id="appPrefsBtn" class="rail-gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Ajustes de la app e idioma" title="Idioma, sonido y feedback">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="3.2"/>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
             </button>
+          </div>
+          <div class="rail-build">
+            <span class="rail-build-meta"><span id="version" class="rail-version"></span><span aria-hidden="true">·</span><span>By acido</span></span>
           </div>
           <div id="appPrefsPopover" class="prefs-popover" hidden role="dialog" aria-label="Ajustes de la app e idioma">
             <div class="prefs-pop-section">
@@ -255,8 +267,8 @@
           <!-- ============ OVERLAY ============ -->
           <section class="page" data-page="overlay">
             <div class="ux-grid-2">
-              <details class="pm-config-details ux-panel" open>
-                <summary><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><em class="ux-panel-count">1</em></summary>
+              <section class="ux-panel ux-panel-static">
+                <div class="ux-panel-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><em class="ux-panel-count">1</em></div>
                 <div class="block pm-config-block">
                   <label class="row tog" for="hideEloAt20">
                     <span class="ric"><img class="product-icon" src="assets/icons/clock.png" alt="" draggable="false"></span>
@@ -279,10 +291,10 @@
                     <span id="matchClock" class="mono">—</span>
                   </div>
                 </div>
-              </details>
+              </section>
 
-              <details class="pm-config-details ux-panel" open>
-                <summary><span data-i18n="overlay.balanceGroup">Balance y detección</span><em class="ux-panel-count">2</em></summary>
+              <section class="ux-panel ux-panel-static">
+                <div class="ux-panel-head"><span data-i18n="overlay.balanceGroup">Balance y detección</span><em class="ux-panel-count">2</em></div>
                 <div class="block pm-config-block">
                   <label class="row tog" for="tgBalance">
                     <span class="ric"><img class="product-icon" src="assets/icons/players.png" alt=""></span>
@@ -304,7 +316,7 @@
                     <span class="sw" aria-hidden="true"></span>
                   </label>
                 </div>
-              </details>
+              </section>
             </div>
 
             <details class="pm-config-details ux-panel" open>
@@ -477,7 +489,15 @@
                 </button>
               </div>
             </div>
-            <div class="plans-grid">
+            <div class="plans-billing-bar" role="group" aria-label="Ciclo de facturación">
+              <div class="plans-billing-switch">
+                <button type="button" class="plans-cycle-btn is-active" data-billing-cycle="monthly" aria-pressed="true">Mensual</button>
+                <button type="button" class="plans-cycle-btn" data-billing-cycle="annual" aria-pressed="false">Anual <span class="plans-save-pill">−20%</span></button>
+              </div>
+              <span class="plans-billing-note">Precios en USD · Cancelás cuando quieras · Sin cargos ocultos</span>
+            </div>
+
+            <div class="plans-grid" id="plansGrid" data-billing-cycle="monthly">
               <article class="plan-card" data-plan-card="free">
                 <div class="plan-card-top">
                   <span class="eyebrow" data-i18n="plansPage.freeEyebrow">HISTORIAL + ELO</span>
@@ -495,6 +515,9 @@
                   </div>
                 </div>
                 <ul id="freeFeatures" class="plan-feature-list"></ul>
+                <div class="plan-card-foot">
+                  <span class="plan-cta-muted">Incluido por defecto</span>
+                </div>
               </article>
 
               <article class="plan-card pro" data-plan-card="pro">
@@ -505,17 +528,24 @@
                     <span class="plan-current-badge" hidden data-i18n="plansPage.currentBadge">PLAN ACTUAL</span>
                   </div>
                   <div class="plan-price-hero">
-                    <strong class="plan-price-amount" data-i18n="plansPage.proPrice">$1</strong>
-                    <span class="plan-price-sub" data-i18n="plansPage.proSubPrice">USD · Scouting Prematch</span>
+                    <span class="plan-price-strike" id="proPriceStrike" hidden>$1.99</span>
+                    <strong class="plan-price-amount" id="proPriceAmount" data-i18n="plansPage.proPrice">$1.99</strong>
+                    <span class="plan-price-period">/ mes</span>
+                    <span class="plan-price-sub" id="proPriceSub" data-i18n="plansPage.proSubPrice">USD · Facturación mensual</span>
                   </div>
+                  <span class="plan-annual-save" id="proAnnualSave" hidden>$18.99 / año · Ahorrás $4.89</span>
                   <p class="plan-lead" data-i18n="plansPage.proDesc">Todo lo de Free + análisis Prematch completo del rival antes de jugar.</p>
                   <div class="plan-stage-pills">
                     <span class="stage-pill is-on">Free</span>
                     <span class="stage-pill is-on is-gold">Prematch</span>
+                    <span class="stage-pill is-on">Central 10 / 20</span>
                   </div>
                 </div>
                 <ul id="proFeatures" class="plan-feature-list"></ul>
-                <span class="includes-free" data-i18n="plansPage.proIncludes">Incluye Free + Prematch completo.</span>
+                <div class="plan-card-foot">
+                  <span class="includes-free" data-i18n="plansPage.proIncludes">Incluye Free + Prematch completo.</span>
+                  <button type="button" class="btn plan-cta-btn" data-plan-checkout="pro">Continuar con Pro</button>
+                </div>
               </article>
 
               <article class="plan-card pro ultra-featured" data-plan-card="promax">
@@ -527,18 +557,25 @@
                     <span class="plan-current-badge" hidden data-i18n="plansPage.currentBadge">PLAN ACTUAL</span>
                   </div>
                   <div class="plan-price-hero is-ultra">
-                    <strong class="plan-price-amount" data-i18n="plansPage.promaxPrice">$1.99</strong>
-                    <span class="plan-price-sub" data-i18n="plansPage.ultraSubPrice">USD · Arsenal táctico total</span>
+                    <span class="plan-price-strike" id="ultraPriceStrike" hidden>$2.99</span>
+                    <strong class="plan-price-amount" id="ultraPriceAmount" data-i18n="plansPage.promaxPrice">$2.99</strong>
+                    <span class="plan-price-period">/ mes</span>
+                    <span class="plan-price-sub" id="ultraPriceSub" data-i18n="plansPage.ultraSubPrice">USD · Solo +$1 sobre Pro</span>
                   </div>
-                  <p class="plan-lead" data-i18n="plansPage.promaxDesc">Prematch completo, guía Durante la partida y motor de análisis Postmatch.</p>
+                  <span class="plan-annual-save is-gold" id="ultraAnnualSave" hidden>$28.99 / año · Ahorrás $6.89</span>
+                  <p class="plan-lead" data-i18n="plansPage.promaxDesc">Prematch completo, guía Durante la partida, Postmatch v6 y Central de 200 partidas.</p>
                   <div class="plan-stage-pills">
                     <span class="stage-pill is-on is-gold">Prematch</span>
                     <span class="stage-pill is-on is-gold" data-i18n="nav.tactics">Durante</span>
-                    <span class="stage-pill is-on is-gold">Postmatch</span>
+                    <span class="stage-pill is-on is-gold">Postmatch v6</span>
+                    <span class="stage-pill is-on is-gold">200 pj</span>
                   </div>
                 </div>
                 <ul id="proMaxFeatures" class="plan-feature-list"></ul>
-                <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Durante y Postmatch.</span>
+                <div class="plan-card-foot">
+                  <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Durante, Postmatch y Central ampliado.</span>
+                  <button type="button" class="btn gold plan-cta-btn is-ultra" data-plan-checkout="promax">Elegir Ultra →</button>
+                </div>
               </article>
             </div>
 
@@ -815,6 +852,53 @@
             <button id="wizSkipBtn" class="link-btn" type="button" hidden data-i18n="wizard.skip">Omitir por ahora</button>
             <button id="wizNextBtn" class="btn gold" type="button" data-i18n="wizard.next">Continuar</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checkout Preview Modal (a nivel viewport para centrarse perfectamente) -->
+    <div id="planCheckoutModal" class="checkout-modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="checkoutModalTitle">
+      <div class="checkout-modal">
+        <header class="checkout-modal-head">
+          <div>
+            <span class="eyebrow" id="checkoutEyebrow">RESUMEN DE SUSCRIPCIÓN</span>
+            <h3 id="checkoutModalTitle">Relic Ultra</h3>
+          </div>
+          <button type="button" id="checkoutCloseBtn" class="checkout-close" aria-label="Cerrar">×</button>
+        </header>
+
+        <div class="checkout-cycle-row" role="group" aria-label="Frecuencia de cobro">
+          <button type="button" class="checkout-cycle-opt is-active" data-checkout-cycle="monthly">
+            <span>Mensual</span>
+            <strong id="checkoutOptMonthly">$2.99/mes</strong>
+          </button>
+          <button type="button" class="checkout-cycle-opt" data-checkout-cycle="annual">
+            <span>Anual <em>−20%</em></span>
+            <strong id="checkoutOptAnnual">$28.99/año</strong>
+          </button>
+        </div>
+
+        <div class="checkout-summary-box">
+          <div class="checkout-line">
+            <span id="checkoutPlanLine">Plan Relic Ultra (Mensual)</span>
+            <strong id="checkoutSubtotal">$2.99 USD</strong>
+          </div>
+          <div class="checkout-line is-save" id="checkoutSaveRow" hidden>
+            <span>Descuento anual (−20%)</span>
+            <strong id="checkoutSaveVal">−$6.89 USD</strong>
+          </div>
+          <div class="checkout-line is-total">
+            <span>Total hoy</span>
+            <strong id="checkoutTotal">$2.99 USD</strong>
+          </div>
+        </div>
+
+        <ul class="checkout-perks" id="checkoutPerks"></ul>
+
+        <div class="checkout-actions">
+          <button type="button" id="checkoutConfirmBtn" class="btn gold checkout-confirm-btn">Continuar al pago · Próximamente</button>
+          <p class="checkout-preview-note" id="checkoutPreviewNote">Pasarela de pago en integración. Apenas quede conectada podrás activar tu plan al instante desde acá.</p>
+          <button type="button" id="checkoutUseKeyBtn" class="checkout-key-link">¿Ya tenés una clave prepaga? Canjeala acá →</button>
         </div>
       </div>
     </div>
