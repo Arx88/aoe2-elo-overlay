@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('settings', {
   postmatchSelect: (matchId) => ipcRenderer.invoke('postmatch:select', matchId),
   postmatchDismissOverlay: () => ipcRenderer.invoke('postmatch:dismiss-overlay'),
   centralGet: (force) => ipcRenderer.invoke('central:get', force),
+  centralHydrateMode: (opts) => ipcRenderer.invoke('central:hydrate-mode', opts),
   onCentral: (callback) => ipcRenderer.on('central:update', (_event, payload) => callback(payload)),
   onProfileDetected: (callback) => ipcRenderer.on('settings:profile-detected', (_event, payload) => callback(payload)),
   tacticsGet: () => ipcRenderer.invoke('settings:tactics-get'),

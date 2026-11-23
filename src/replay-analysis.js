@@ -569,6 +569,21 @@ async function analyzeReplayBuffer(buffer, { match, profileId } = {}) {
     .map((p) => p.civ)
     .filter(Boolean);
   const rawMatchElo = matchPlayer ? (matchPlayer.matchRating ?? matchPlayer.rating) : null;
+  // Detectar rol Pocket vs Flank en 3v3/4v4 (regla oficial de Team Positions por colores 1-8)
+  let teamRole = null;
+  if (playerCount >= 6) {
+    const ownTeamPlayers = (Array.isArray(match.players) ? match.players : []).filter((p) =>
+      p && ((ownTeam != null && p.team != null) ? Number(p.team) === ownTeam : false)
+    );
+    const colors = ownTeamPlayers.map((p) => Number(p.color)).filter((c) => Number.isFinite(c) && c >= 1 && c <= 8);
+    const myColor = Number(matchPlayer?.color ?? self?.color_id);
+    if (ownTeamPlayers.length >= 3 && new Set(colors).size >= 3 && Number.isFinite(myColor) && myColor >= 1 && myColor <= 8) {
+      const minC = Math.min(...colors);
+      const maxC = Math.max(...colors);
+      teamRole = (myColor === minC || myColor === maxC) ? 'flank' : 'pocket';
+    }
+  }
+  const mapSize = Number(settings.map_size) || (playerCount >= 8 ? 220 : playerCount >= 6 ? 200 : 120);
   const engineSummary = analyzePostmatchEngine(chapter.operations, {
     selfSlot: Number(self.player_number),
     rivalSlot: rivalReplayPlayer ? Number(rivalReplayPlayer.player_number) : null,
@@ -583,6 +598,9 @@ async function analyzeReplayBuffer(buffer, { match, profileId } = {}) {
     durationMs,
     isTeamGame: playerCount > 2,
     startingAge,
+    teamRole,
+    mapSize,
+    won: typeof matchPlayer?.won === 'boolean' ? matchPlayer.won : null,
   });
   if (engineSummary && rivalMatchPlayer?.profileId) {
     engineSummary.rivalProfileId = Number(rivalMatchPlayer.profileId);

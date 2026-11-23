@@ -26,13 +26,14 @@ const { civSlug } = require('./civs');
 const { resolveMode, mapKey } = require('./rival');
 const { fetchOpeningRows } = require('./insights');
 const { parseScoutRows } = require('./scout');
-const { buildUnifiedModeMatches, buildModeCivDiagnostics } = require('./civ-diagnostic');
+const { buildUnifiedModeMatches, buildModeCivDiagnostics, computeInsightsCoverage } = require('./civ-diagnostic');
 const { computeModeDiscoveries } = require('./central-discoveries');
 const {
   buildModeMapDiagnostics,
   computePersonalAcademy,
   computeEloAttributionAndSession,
 } = require('./central-intel');
+const { COMPANION_DEPTH, SAMPLE_POLICY } = require('./sample-policy');
 
 const centralInflight = new Map();
 
@@ -53,10 +54,17 @@ const OPENING_CATEGORY = {
   Drush: 'agro',
   'Tower rush': 'agro',
   'Hoang rush': 'agro',
+  'Scouts into Archers': 'agro',
+  'Drush Archers': 'agro',
+  'M@A Archers': 'agro',
+  'M@A Scouts': 'agro',
+  'Drush M@A': 'agro',
   'Fast castle': 'boom',
   'Fast Castle': 'boom',
   '2TC Feudal Boom': 'boom',
   'FC Boom': 'boom',
+  'Drush fast castle': 'hybrid',
+  'Drush FC': 'hybrid',
 };
 
 function clamp(v, min, max) {
@@ -90,6 +98,51 @@ function isRmTeamMatch(m) {
   if (lid === 'rm_team' || lid === '4') return true;
   const lname = String(m.leaderboardName || '').toLowerCase();
   return lname.includes('team') && !lname.includes('empire wars');
+}
+
+function isEw1v1Match(m) {
+  if (!m) return false;
+  const lid = String(m.leaderboardId || '').toLowerCase();
+  if (lid === 'ew_1v1' || lid === '13') return true;
+  const lname = String(m.leaderboardName || '').toLowerCase();
+  return lname.includes('empire wars') && lname.includes('1v1');
+}
+
+function isEwTeamMatch(m) {
+  if (!m) return false;
+  const lid = String(m.leaderboardId || '').toLowerCase();
+  if (lid === 'ew_team' || lid === '14') return true;
+  const lname = String(m.leaderboardName || '').toLowerCase();
+  return lname.includes('empire wars') && lname.includes('team');
+}
+
+/**
+ * Fusiona monotónicamente listas de partidas de AoE2 Companion por `matchId`,
+ * priorizando los registros más frescos (para capturar `won`/`ratingDiff` ya asentados)
+ * y conservando el historial previo en disco hasta `maxCount` partidas.
+ */
+function mergeRawMatches(freshList = [], cachedList = [], maxCount = COMPANION_DEPTH.OWN_MAX_PER_MODE) {
+  const byId = new Map();
+  for (const m of (Array.isArray(cachedList) ? cachedList : [])) {
+    if (!m || !m.matchId) continue;
+    byId.set(String(m.matchId), m);
+  }
+  for (const m of (Array.isArray(freshList) ? freshList : [])) {
+    if (!m || !m.matchId) continue;
+    byId.set(String(m.matchId), m);
+  }
+  return [...byId.values()]
+    .sort((a, b) => (Number(b.startedAt || 0) - Number(a.startedAt || 0)) || (Number(b.matchId || 0) - Number(a.matchId || 0)))
+    .slice(0, maxCount);
+}
+
+function ladderTotalGamesOf(raw, ladderKey) {
+  const lbs = Array.isArray(raw?.profileData?.leaderboards) ? raw.profileData.leaderboards : [];
+  const lb = lbs.find((l) => String(l?.leaderboardId || '').toLowerCase() === ladderKey);
+  if (!lb) return null;
+  const w = Number(lb.wins || 0);
+  const l = Number(lb.losses || 0);
+  return Number.isFinite(w + l) ? (w + l) : null;
 }
 
 function readDiskCache(diskCachePath, pid) {
@@ -206,18 +259,42 @@ function mergeRecentMatches(remoteMatches = [], storedRecords = [], profileId, l
   return summaries.slice(0, Math.max(1, Number(limit) || 15));
 }
 
-function buildDurationBuckets(items) {
-  const buckets = [
-    { id: 'early', label: '< 20m', sub: 'Feudal', min: 0, max: 20 * 60, games: 0, wins: 0, losses: 0 },
-    { id: 'castle', label: '20–30m', sub: 'Castillos', min: 20 * 60, max: 30 * 60, games: 0, wins: 0, losses: 0 },
-    { id: 'imp', label: '30–40m', sub: 'Imperial', min: 30 * 60, max: 40 * 60, games: 0, wins: 0, losses: 0 },
-    { id: 'late', label: '40m+', sub: 'Post-Imp', min: 40 * 60, max: Infinity, games: 0, wins: 0, losses: 0 },
-  ];
+function resolveGameDurationSec(item) {
+  if (!item) return null;
+  if (Number.isFinite(Number(item.durationGameSec)) && Number(item.durationGameSec) > 0) return Number(item.durationGameSec);
+  // AoE2Insights `duration` ya viene en reloj de juego (1.7x) cuando tiene estrategia o eAPM
+  if (Number.isFinite(Number(item.duration)) && Number(item.duration) > 0) {
+    return (item.strategy || Number.isFinite(Number(item.meanEapm)))
+      ? Number(item.duration)
+      : Math.max(0, (Number(item.duration) - 40) * 1.7);
+  }
+  // AoE2 Companion `durationSeconds` viene en tiempo real (1.0x) → convertir a 1.7x reloj de juego
+  if (Number.isFinite(Number(item.durationSeconds)) && Number(item.durationSeconds) > 0) {
+    return Math.max(0, (Number(item.durationSeconds) - 40) * 1.7);
+  }
+  return null;
+}
+
+function buildDurationBuckets(items, { isTeam = false } = {}) {
+  // P0-2: Escala unificada en reloj de juego (1.7x), alineada 100% con killerWindow (1v1 vs TG)
+  const buckets = isTeam
+    ? [
+        { id: 'early', label: '< 28m', sub: 'Feudal', min: 0, max: 28 * 60, games: 0, wins: 0, losses: 0 },
+        { id: 'castle', label: '28–42m', sub: 'Castillos', min: 28 * 60, max: 42 * 60, games: 0, wins: 0, losses: 0 },
+        { id: 'imp', label: '42–58m', sub: 'Imperial', min: 42 * 60, max: 58 * 60, games: 0, wins: 0, losses: 0 },
+        { id: 'late', label: '58m+', sub: 'Post-Imp', min: 58 * 60, max: Infinity, games: 0, wins: 0, losses: 0 },
+      ]
+    : [
+        { id: 'early', label: '< 22m', sub: 'Feudal', min: 0, max: 22 * 60, games: 0, wins: 0, losses: 0 },
+        { id: 'castle', label: '22–35m', sub: 'Castillos', min: 22 * 60, max: 35 * 60, games: 0, wins: 0, losses: 0 },
+        { id: 'imp', label: '35–50m', sub: 'Imperial', min: 35 * 60, max: 50 * 60, games: 0, wins: 0, losses: 0 },
+        { id: 'late', label: '50m+', sub: 'Post-Imp', min: 50 * 60, max: Infinity, games: 0, wins: 0, losses: 0 },
+      ];
 
   let counted = 0;
   for (const item of Array.isArray(items) ? items : []) {
-    const dur = Number(item?.durationSeconds ?? item?.duration);
-    if (!Number.isFinite(dur) || dur < 180 || dur > 6 * 3600) continue;
+    const dur = resolveGameDurationSec(item);
+    if (!Number.isFinite(dur) || dur < 300 || dur > 6 * 3600) continue;
     if (typeof item.won !== 'boolean') continue;
     const b = buckets.find((x) => dur >= x.min && dur < x.max);
     if (!b) continue;
@@ -229,6 +306,7 @@ function buildDurationBuckets(items) {
 
   return {
     total: counted,
+    clockLabel: 'reloj de juego',
     buckets: buckets.map((b) => ({
       id: b.id,
       label: b.label,
@@ -253,9 +331,12 @@ function normalizeInsightsRows(input) {
   if (Array.isArray(input.rows)) return input.rows;
   return parseScoutRows(input);
 }
-function analyzeInsightsRows(rawPayload) {
-  const parsed = normalizeInsightsRows(rawPayload);
-  if (!parsed.length) return null;
+function analyzeInsightsRows(rawPayload, { isTeam = false } = {}) {
+  const parsedRaw = normalizeInsightsRows(rawPayload);
+  if (!parsedRaw.length) return null;
+  // P0-3: Ordenar por fecha DESC para que mitades reciente vs anterior sean cronológicas (sobre todo en Global)
+  const tsOf = (r) => (typeof r?.startedAt === 'number' ? r.startedAt : (r?.startedAt ? Date.parse(r.startedAt) || 0 : 0));
+  const parsed = [...parsedRaw].sort((a, b) => tsOf(b) - tsOf(a));
 
   const eapmSelf = [];
   const eapmRival = [];
@@ -266,13 +347,14 @@ function analyzeInsightsRows(rawPayload) {
   const opennessMap = new Map();
   let agroCount = 0;
   let boomCount = 0;
+  let hybridCount = 0;
   let classifiedCount = 0;
   let vsHigher = { games: 0, wins: 0, losses: 0 };
   let vsLower = { games: 0, wins: 0, losses: 0 };
 
   for (const row of parsed) {
     const selfEapm = Number(row.meanEapm ?? row.eapm);
-    const rivalEapm = Number(row.oppMeanEapm ?? row.oppEapm);
+    const rivalEapm = Number(row.oppAvgEapm ?? row.oppMeanEapm ?? row.oppEapm);
 
     if (Number.isFinite(selfEapm) && selfEapm > 5 && selfEapm < 250) {
       eapmSelf.push({ val: selfEapm, won: row.won, ts: row.startedAt, dur: row.duration });
@@ -286,7 +368,7 @@ function analyzeInsightsRows(rawPayload) {
     }
 
     const myElo = Number(row.elo);
-    const oppElo = Number(row.oppElo);
+    const oppElo = Number(row.oppAvgElo ?? row.oppElo);
     if (Number.isFinite(myElo) && Number.isFinite(oppElo) && myElo > 0 && oppElo > 0 && typeof row.won === 'boolean') {
       const target = oppElo > myElo ? vsHigher : vsLower;
       target.games += 1;
@@ -296,10 +378,13 @@ function analyzeInsightsRows(rawPayload) {
 
     const strat = row.strategy && row.strategy !== 'Unknown' ? row.strategy : null;
     if (strat) {
-      classifiedCount += 1;
-      const cat = OPENING_CATEGORY[strat] || (strat.toLowerCase().includes('fast') ? 'boom' : 'agro');
-      if (cat === 'agro') agroCount += 1;
-      else if (cat === 'boom') boomCount += 1;
+      const cat = OPENING_CATEGORY[strat] || null;
+      if (cat) {
+        classifiedCount += 1;
+        if (cat === 'agro') agroCount += 1;
+        else if (cat === 'boom') boomCount += 1;
+        else if (cat === 'hybrid') hybridCount += 1;
+      }
 
       const cur = myOpenings.get(strat) || { name: strat, games: 0, wins: 0, losses: 0, eapms: [] };
       cur.games += 1;
@@ -309,13 +394,21 @@ function analyzeInsightsRows(rawPayload) {
       myOpenings.set(strat, cur);
     }
 
-    const oppStrat = row.oppStrategy && row.oppStrategy !== 'Unknown' ? row.oppStrategy : null;
-    if (oppStrat && typeof row.won === 'boolean') {
-      const cur = vsOpenings.get(oppStrat) || { name: oppStrat, games: 0, wins: 0, losses: 0 };
-      cur.games += 1;
-      if (row.won === true) cur.wins += 1;
-      else cur.losses += 1;
-      vsOpenings.set(oppStrat, cur);
+    // P0-1: Contar aperturas de TODOS los rivales en TG sin duplicar dentro de una partida
+    const oppStrats = (Array.isArray(row.opponents) && row.opponents.length)
+      ? row.opponents.map((o) => o?.oppStrategy).filter((s) => s && s !== 'Unknown')
+      : (row.oppStrategy && row.oppStrategy !== 'Unknown' ? [row.oppStrategy] : []);
+    const seenOppStrat = new Set();
+    if (typeof row.won === 'boolean') {
+      for (const oppStrat of oppStrats) {
+        if (seenOppStrat.has(oppStrat)) continue;
+        seenOppStrat.add(oppStrat);
+        const cur = vsOpenings.get(oppStrat) || { name: oppStrat, games: 0, wins: 0, losses: 0 };
+        cur.games += 1;
+        if (row.won === true) cur.wins += 1;
+        else cur.losses += 1;
+        vsOpenings.set(oppStrat, cur);
+      }
     }
 
     const openKind = row.openness && row.openness !== 'Unknown' ? row.openness : null;
@@ -331,13 +424,14 @@ function analyzeInsightsRows(rawPayload) {
   const recentHalfCount = Math.max(1, Math.floor(eapmSelf.length / 2));
   const recentEapms = eapmSelf.slice(0, recentHalfCount).map((x) => x.val);
   const olderEapms = eapmSelf.slice(recentHalfCount).map((x) => x.val);
-  const durationAnalysis = buildDurationBuckets(parsed);
+  const durationAnalysis = buildDurationBuckets(parsed, { isTeam });
 
   return {
     totalRows: parsed.length,
     classifiedCount,
     agroShare: pct(agroCount, classifiedCount),
     boomShare: pct(boomCount, classifiedCount),
+    hybridShare: pct(hybridCount, classifiedCount),
     eapm: {
       sampleCount: eapmSelf.length,
       avgSelf: avg(eapmSelf.map((x) => x.val), 1),
@@ -371,7 +465,7 @@ function analyzeInsightsRows(rawPayload) {
         avgEapm: avg(op.eapms, 1),
       })),
     vsOpenings: [...vsOpenings.values()]
-      .filter((op) => op.games >= 2)
+      .filter((op) => op.games >= SAMPLE_POLICY.insights.minVsOpening)
       .sort((a, b) => b.games - a.games)
       .slice(0, 5)
       .map((op) => ({
@@ -431,7 +525,8 @@ function buildPureEloSeries(profileData, modeMatches = [], targetLadder = 'rm_1v
     index: idx + 1,
     matchId: r.matchId,
     mapName: r.mapName,
-    rating: r.myRating,
+    // P2-5: Companion `myRating` es pre-partida; sumar `myRatingDiff` para alinear con rating post-partida
+    rating: Number.isFinite(Number(r.myRatingDiff)) ? (Number(r.myRating) + Number(r.myRatingDiff)) : Number(r.myRating),
     diff: r.myRatingDiff,
     won: r.won,
     startedAt: r.startedAt,
@@ -574,9 +669,10 @@ function parseAllTimeStatsBlock(statsBlocks = [], fallbackMatches = []) {
     })
     .sort((a, b) => b.games - a.games || (b.winRate || 0) - (a.winRate || 0));
 
+  // Muestra representativa real para mejores/peores civs y mapas (nunca 2–4 partidas sueltas)
   const minCivGames = totalCivGames >= 200
-    ? clamp(Math.round(totalCivGames * 0.02), 8, 15)
-    : totalCivGames >= 80 ? 5 : totalCivGames >= 25 ? 3 : 2;
+    ? clamp(Math.round(totalCivGames * 0.03), 10, 18)
+    : totalCivGames >= 80 ? 8 : totalCivGames >= 30 ? 6 : 5;
   const eligibleCivs = allCivs.filter((c) => c.games >= minCivGames && c.winRate != null);
   const bestCiv = eligibleCivs.length
     ? [...eligibleCivs].sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0]
@@ -586,8 +682,8 @@ function parseAllTimeStatsBlock(statsBlocks = [], fallbackMatches = []) {
     : null;
 
   const minMapGames = totalMapGames >= 200
-    ? clamp(Math.round(totalMapGames * 0.02), 8, 15)
-    : totalMapGames >= 80 ? 5 : totalMapGames >= 25 ? 3 : 2;
+    ? clamp(Math.round(totalMapGames * 0.03), 10, 20)
+    : totalMapGames >= 80 ? 8 : totalMapGames >= 30 ? 6 : 5;
   const eligibleMaps = allMaps.filter((m) => m.games >= minMapGames && m.winRate != null);
   const bestMap = eligibleMaps.length
     ? [...eligibleMaps].sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0]
@@ -822,11 +918,15 @@ function computeBeforeVsNow({
     });
   }
 
-  // 4. Telemetría local de replays (solo perfil propio si hay >= 2 replays medidos)
+  // 4. Telemetría local de replays (solo perfil propio, filtrando dodges < 180s y respetando modo)
   if (isOwnProfile) {
     const engineOf = (r) => r?.telemetry?.engineSummary || r?.telemetry?.engine || null;
     const validRecs = (Array.isArray(storedRecords) ? storedRecords : [])
-      .filter((r) => r && engineOf(r)?.self && Number(r.profileId) === pid);
+      .filter((r) => {
+        if (!r || !engineOf(r)?.self || Number(r.profileId) !== pid) return false;
+        const dur = Number(engineOf(r)?.durationSeconds ?? r.telemetry?.durationSeconds ?? r.durationSeconds ?? 0);
+        return Number.isFinite(dur) && dur >= 180;
+      });
     if (validRecs.length >= 2) {
       const mid = Math.max(1, Math.floor(validRecs.length / 2));
       const recentRecs = validRecs.slice(0, mid);
@@ -1071,17 +1171,22 @@ function computeLastMatchVsAvg({
   const tcOf = (m) => {
     if (!m?.matchId) return null;
     const rec = recordsById.get(String(m.matchId));
-    const self = rec?.telemetry?.engineSummary?.self ?? rec?.telemetry?.engine?.self;
+    const eng = rec?.telemetry?.engineSummary ?? rec?.telemetry?.engine;
+    const dur = Number(eng?.durationSeconds ?? rec?.telemetry?.durationSeconds ?? m.durationSeconds ?? 0);
+    if (!Number.isFinite(dur) || dur < SAMPLE_POLICY.lastMatch.minDurationSeconds) return null;
+    const self = eng?.self;
     const value = self?.tcUtilizationEarly ?? self?.tcUtilization;
     return Number.isFinite(value) ? value : null;
   };
-  // Filtrar partidas válidas (>= 3 min y < 6 h) para evitar que dodges de 10s distorsionen el promedio
+  // Escala unificada 1.7x (reloj de juego, igual que Resultados por duración y Minuto Letal), filtrando dodges < 3 min reales
   const validMinutes = (m) => (
-    Number.isFinite(m?.durationSeconds) && m.durationSeconds >= 180 && m.durationSeconds < 6 * 3600
-      ? m.durationSeconds / 60
+    Number.isFinite(m?.durationSeconds) && m.durationSeconds >= SAMPLE_POLICY.lastMatch.minDurationSeconds && m.durationSeconds < 6 * 3600
+      ? (Math.max(0, m.durationSeconds - 40) * 1.7) / 60
       : null
   );
 
+  const matchCount = Array.isArray(modeMatches) ? modeMatches.length : 0;
+  const availableGames = Math.max(series.length, matchCount);
   const summary = {
     matchId: latestId,
     won: latestMatch?.won ?? (typeof latestSeries?.won === 'boolean' ? latestSeries.won : null),
@@ -1092,14 +1197,17 @@ function computeLastMatchVsAvg({
     durationSeconds: latestMatch?.durationSeconds ?? null,
     startedAt: latestMatch?.startedAt ?? latestSeries?.startedAt ?? null,
     modeLabel: latestMatch?.modeLabel || modeLabel || null,
+    availableGames,
   };
 
-  const buildWindow = (winN) => {
+  const buildWindow = (winKey) => {
+    const isAll = winKey === 'all';
+    const winN = isAll ? Math.max(series.length, matchCount, 200) : Number(winKey);
     const metrics = [];
 
-    // 1. ELO actual vs promedio de las últimas N partidas del modo (siempre reacciona a 10 vs 20)
-    if (series.length >= 3) {
-      const slice = series.slice(-winN);
+    // 1. ELO actual vs promedio de las últimas N partidas del modo (reacciona a 10 / 20 / 50 / Total)
+    if (series.length >= SAMPLE_POLICY.lastMatch.minSeries) {
+      const slice = isAll ? series : series.slice(-winN);
       const currentElo = series[series.length - 1].rating;
       const meanElo = avg(slice.map((p) => p.rating), 0);
       if (Number.isFinite(currentElo) && Number.isFinite(meanElo)) {
@@ -1112,14 +1220,14 @@ function computeLastMatchVsAvg({
           deltaText: `${delta > 0 ? '+' : ''}${delta} ELO`,
           improved: delta > 0,
           neutral: delta === 0,
-          sampleText: `Media de tus últ. ${slice.length} clasificatorias`,
+          sampleText: isAll ? `Media del historial ampliado (${slice.length} pj)` : `Media de tus últ. ${slice.length} clasificatorias`,
         });
       }
 
-      // 2. Winrate en ventana N (Últ. 10 vs Últ. 20)
+      // 2. Winrate en ventana N (10 / 20 / 50 / Total)
       const known = series.filter((p) => typeof p.won === 'boolean');
-      if (known.length >= 3) {
-        const wSlice = known.slice(-winN);
+      if (known.length >= SAMPLE_POLICY.lastMatch.minSeries) {
+        const wSlice = isAll ? known : known.slice(-winN);
         const wins = wSlice.filter((p) => p.won).length;
         const losses = wSlice.length - wins;
         const wr = pct(wins, wSlice.length);
@@ -1128,43 +1236,46 @@ function computeLastMatchVsAvg({
           : (wSlice[0]?.diff || 0);
         metrics.push({
           id: 'windowWr',
-          label: `Winrate últ. ${wSlice.length}`,
+          label: isAll ? `Winrate (${wSlice.length} pj)` : `Winrate últ. ${wSlice.length}`,
           latestText: `${wr}%`,
           avgText: `${wins}V - ${losses}D`,
           deltaText: `${net > 0 ? '+' : ''}${Math.round(net)} ELO`,
           improved: net > 0 || (net === 0 && wr >= 50),
           neutral: net === 0 && wr === 50,
-          sampleText: `Balance en tus últ. ${wSlice.length} partidas`,
+          sampleText: isAll ? `Balance en ${wSlice.length} partidas del modo` : `Balance en tus últ. ${wSlice.length} partidas`,
         });
       }
     }
 
-    // 3. Duración (filtrando dodges < 3 min)
+    // 3. Duración en reloj de juego (1.7×, filtrando dodges < 3 min)
     if (latestMatch) {
       const lastMin = validMinutes(latestMatch);
-      const durSample = prior.map(validMinutes).filter(Number.isFinite).slice(0, winN);
-      if (Number.isFinite(lastMin) && durSample.length >= 2) {
+      const durAll = prior.map(validMinutes).filter(Number.isFinite);
+      const durSample = isAll ? durAll : durAll.slice(0, winN);
+      if (Number.isFinite(lastMin) && durSample.length >= SAMPLE_POLICY.lastMatch.minDurationSample) {
         const mean = avg(durSample, 1);
         const delta = Math.round((lastMin - mean) * 10) / 10;
         metrics.push({
           id: 'duration',
-          label: 'Duración',
+          label: 'Duración (reloj juego)',
           latestText: `${Math.round(lastMin * 10) / 10} min`,
           avgText: `${mean} min`,
           deltaText: `${delta > 0 ? '+' : ''}${delta} min`,
           improved: delta > 0,
           neutral: true,
-          sampleText: `${durSample.length} partidas previas del modo`,
+          sampleText: `${durSample.length} partidas previas · reloj 1,7×`,
         });
       }
 
-      // 4. Ritmo eAPM (usa todo el pool de replays AoE2Insights del modo hasta winN)
+      // 4. Ritmo eAPM (usa el pool de replays AoE2Insights del modo hasta winN)
       const lastEapm = eapmOf(latestMatch);
       if (Number.isFinite(lastEapm)) {
         const priorFromMatches = prior.map(eapmOf).filter(Number.isFinite);
-        const pool = priorFromMatches.length >= winN
-          ? priorFromMatches.slice(0, winN)
-          : uniqueInsightEapms.map((r) => r.eapm).slice(0, winN);
+        const pool = isAll
+          ? (priorFromMatches.length >= 10 ? priorFromMatches : uniqueInsightEapms.map((r) => r.eapm))
+          : (priorFromMatches.length >= winN
+            ? priorFromMatches.slice(0, winN)
+            : uniqueInsightEapms.map((r) => r.eapm).slice(0, winN));
         if (pool.length >= 2) {
           const mean = avg(pool, 1);
           const delta = Math.round((lastEapm - mean) * 10) / 10;
@@ -1176,17 +1287,16 @@ function computeLastMatchVsAvg({
             deltaText: `${delta > 0 ? '+' : ''}${delta}`,
             improved: delta > 0,
             neutral: true,
-            sampleText: pool.length < winN
-              ? `${pool.length} replays disponibles del modo`
-              : `${pool.length} replays previos del modo`,
+            sampleText: `${pool.length} replays analizados del modo`,
           });
         }
       }
 
-      // 5. Uso estimado de TC (solo perfil propio con replays locales analizados)
+      // 5. Uso estimado de TC (solo perfil propio con replays locales válidos >= 3 min)
       if (isOwnProfile) {
         const lastTc = tcOf(latestMatch);
-        const tcSample = prior.map(tcOf).filter(Number.isFinite).slice(0, winN);
+        const tcAll = prior.map(tcOf).filter(Number.isFinite);
+        const tcSample = isAll ? tcAll : tcAll.slice(0, winN);
         if (Number.isFinite(lastTc) && tcSample.length >= 2) {
           const mean = avg(tcSample, 1);
           const delta = Math.round((lastTc - mean) * 10) / 10;
@@ -1198,21 +1308,24 @@ function computeLastMatchVsAvg({
             deltaText: `${delta > 0 ? '+' : ''}${delta} pp`,
             improved: delta > 0,
             neutral: delta === 0,
-            sampleText: tcSample.length < winN
-              ? `${tcSample.length} replays locales disponibles`
-              : `${tcSample.length} replays locales previos`,
+            sampleText: `${tcSample.length} replays locales válidos`,
           });
         }
       }
     }
 
-    return { windowSize: winN, metrics };
+    return { windowSize: isAll ? availableGames : winN, key: String(winKey), metrics };
   };
 
   const w10 = buildWindow(10);
   const w20 = buildWindow(20);
+  const w50 = availableGames >= 35 ? buildWindow(50) : null;
+  const wAll = availableGames > 20 ? buildWindow('all') : null;
   if (!w10.metrics.length && !w20.metrics.length) return null;
-  return { summary, windows: { 10: w10, 20: w20 } };
+  const windows = { 10: w10, 20: w20 };
+  if (w50 && w50.metrics.length) windows[50] = w50;
+  if (wAll && wAll.metrics.length) windows.all = wAll;
+  return { summary, windows };
 }
 
 /** Construye el dashboard por modo con la cobertura de cada fuente. */
@@ -1225,6 +1338,8 @@ function computeCentralAnalytics({
   matches1v1 = [],
   matchesTeam = [],
   matchesAll = [],
+  ewMatches = null,
+  ewInsights = null,
   storedRecords = [],
   insights1v1 = null,
   insightsTeam = null,
@@ -1233,25 +1348,41 @@ function computeCentralAnalytics({
   matches = [],
 } = {}) {
   const pid = Number(profileId);
-  const rawAll = matchesAll.length ? matchesAll : matches;
-  const raw1v1 = matches1v1.length ? matches1v1 : rawAll.filter((m) => isRm1v1Match(m));
-  const rawTeam = matchesTeam.length ? matchesTeam : rawAll.filter((m) => isRmTeamMatch(m));
+  const rawAllBase = matchesAll.length ? matchesAll : matches;
+  const raw1v1 = matches1v1.length ? matches1v1 : rawAllBase.filter((m) => isRm1v1Match(m));
+  const rawTeam = matchesTeam.length ? matchesTeam : rawAllBase.filter((m) => isRmTeamMatch(m));
+  const rawEw1v1 = Array.isArray(ewMatches?.ew_1v1) ? ewMatches.ew_1v1 : rawAllBase.filter((m) => isEw1v1Match(m));
+  const rawEwTeam = Array.isArray(ewMatches?.ew_team) ? ewMatches.ew_team : rawAllBase.filter((m) => isEwTeamMatch(m));
+  const rawAllMerged = [...rawAllBase, ...raw1v1, ...rawTeam, ...rawEw1v1, ...rawEwTeam];
 
-  const allSummaries = mergeRecentMatches(rawAll, isOwnProfile ? storedRecords : [], pid, 60);
+  const modeCap = isOwnProfile ? COMPANION_DEPTH.OWN_MAX_PER_MODE : COMPANION_DEPTH.EXTERNAL_MAX_PER_MODE;
+  const allSummaries = mergeRecentMatches(rawAllMerged, isOwnProfile ? storedRecords : [], pid, COMPANION_DEPTH.OWN_ALL_SUMMARIES_MAX);
   const rm1v1Summaries = mergeRecentMatches(
     raw1v1,
     isOwnProfile ? storedRecords.filter((r) => isRm1v1Match(r?.match)) : [],
     pid,
-    50,
+    modeCap,
   );
   const rmTeamSummaries = mergeRecentMatches(
     rawTeam,
     isOwnProfile ? storedRecords.filter((r) => isRmTeamMatch(r?.match)) : [],
     pid,
-    50,
+    modeCap,
+  );
+  const ew1v1Summaries = mergeRecentMatches(
+    rawEw1v1,
+    isOwnProfile ? storedRecords.filter((r) => isEw1v1Match(r?.match)) : [],
+    pid,
+    modeCap,
+  );
+  const ewTeamSummaries = mergeRecentMatches(
+    rawEwTeam,
+    isOwnProfile ? storedRecords.filter((r) => isEwTeamMatch(r?.match)) : [],
+    pid,
+    modeCap,
   );
 
-  // Ladders oficiales desde Companion + World's Edge
+  // Ladders oficiales desde Companion + World's Edge (priorizar la fuente con más partidas jugadas)
   const companionLadders = Array.isArray(profileData?.leaderboards) ? profileData.leaderboards : [];
   const findCompLadder = (id) => companionLadders.find((l) => l && l.leaderboardId === id) || null;
   const companionStats = Array.isArray(profileData?.stats) ? profileData.stats : [];
@@ -1260,18 +1391,24 @@ function computeCentralAnalytics({
   const buildLadderObj = (id, weData = null) => {
     const comp = findCompLadder(id);
     if (!comp && !weData) return null;
-    const wins = Number(weData?.wins ?? comp?.wins ?? 0);
-    const losses = Number(weData?.losses ?? comp?.losses ?? 0);
+    const weGames = weData ? (Number(weData.wins || 0) + Number(weData.losses || 0)) : -1;
+    const compGames = comp ? (Number(comp.wins || 0) + Number(comp.losses || 0)) : -1;
+    const preferComp = comp && compGames > weGames;
+    const primary = preferComp ? comp : (weData || comp);
+    const secondary = preferComp ? weData : comp;
+    const wins = Number(primary?.wins ?? secondary?.wins ?? 0);
+    const losses = Number(primary?.losses ?? secondary?.losses ?? 0);
     const games = wins + losses;
-    const rating = weData?.rating ?? comp?.rating ?? null;
+    const rating = primary?.rating ?? secondary?.rating ?? null;
     if (!rating && games <= 0) return null;
-    const rank = weData?.rank ?? comp?.rank ?? null;
-    const rankTotal = weData?.rankTotal ?? comp?.total ?? null;
+    const rank = primary?.rank ?? secondary?.rank ?? null;
+    const rankTotal = primary?.rankTotal ?? primary?.total ?? secondary?.rankTotal ?? secondary?.total ?? null;
+    const peak = Math.max(Number(weData?.peak || 0), Number(comp?.maxRating || 0), Number(rating || 0)) || rating;
     return {
       id,
       label: MODE_LABELS[id] || id,
       rating,
-      peak: weData?.peak ?? comp?.maxRating ?? rating,
+      peak,
       rank,
       rankTotal,
       ladderPercentile: weData?.ladderPercentile ?? (rank && rankTotal ? Math.round((rank / rankTotal) * 1000) / 10 : null),
@@ -1279,7 +1416,7 @@ function computeCentralAnalytics({
       losses,
       games,
       winRate: pct(wins, games),
-      streak: weData?.streak ?? comp?.streak ?? null,
+      streak: primary?.streak ?? secondary?.streak ?? null,
     };
   };
 
@@ -1292,9 +1429,14 @@ function computeCentralAnalytics({
 
   const allLadders = MODE_ORDER.map((id) => ladderMap[id]).filter(Boolean);
 
-  // Telemetría local medida (solo para perfil propio)
+  // Telemetría local medida (solo perfil propio; excluye dodges < 180s)
   const validRecords = isOwnProfile
-    ? (Array.isArray(storedRecords) ? storedRecords : []).filter((r) => r && r.telemetry && Number(r.profileId) === pid)
+    ? (Array.isArray(storedRecords) ? storedRecords : []).filter((r) => {
+        if (!r || !r.telemetry || Number(r.profileId) !== pid) return false;
+        const eng = r.telemetry.engineSummary || r.telemetry.engine || null;
+        const dur = Number(eng?.durationSeconds ?? r.telemetry.durationSeconds ?? r.durationSeconds ?? 0);
+        return !Number.isFinite(dur) || dur === 0 || dur >= SAMPLE_POLICY.lastMatch.minDurationSeconds;
+      })
     : [];
   const tcUtilList = [];
   const tcIdleEarlyList = [];
@@ -1341,44 +1483,94 @@ function computeCentralAnalytics({
     avgImperialSeconds: avg(imperialSecList, 0),
   };
 
-  // Análisis AoE2Insights por modo (soporta tanto payload columnar crudo como filas ya parseadas de ReplayCache/Scout)
+  // Análisis AoE2Insights por modo (soporta RM + EW hidratado bajo demanda)
   const parsedRows1v1 = normalizeInsightsRows(insights1v1);
   const parsedRowsTeam = normalizeInsightsRows(insightsTeam);
+  const parsedRowsEw1v1 = normalizeInsightsRows(ewInsights?.ew_1v1);
+  const parsedRowsEwTeam = normalizeInsightsRows(ewInsights?.ew_team);
   const insightsByMode = {
-    rm_1v1: analyzeInsightsRows(parsedRows1v1),
-    rm_team: analyzeInsightsRows(parsedRowsTeam),
-    ew_1v1: null,
-    ew_team: null,
-    global: analyzeInsightsRows([...parsedRows1v1, ...parsedRowsTeam]),
+    rm_1v1: analyzeInsightsRows(parsedRows1v1, { isTeam: false }),
+    rm_team: analyzeInsightsRows(parsedRowsTeam, { isTeam: true }),
+    ew_1v1: analyzeInsightsRows(parsedRowsEw1v1, { isTeam: false }),
+    ew_team: analyzeInsightsRows(parsedRowsEwTeam, { isTeam: true }),
+    global: analyzeInsightsRows(
+      [...parsedRows1v1, ...parsedRowsTeam, ...parsedRowsEw1v1, ...parsedRowsEwTeam],
+      { isTeam: parsedRowsTeam.length > parsedRows1v1.length },
+    ),
   };
 
-  // Construimos cada modo clasificado con datos 100% puros y completos (all-time)
+  // Construimos cada modo clasificado con datos oficiales sin sesgo (Companion-First + Left-Join)
   const modes = {};
+  const modeEloSeriesMap = {};
   for (const modeId of MODE_ORDER) {
     const ladder = ladderMap[modeId];
     const statsBlock = findCompStats(modeId);
-    const fallbackMatches = modeId === 'rm_1v1' ? rm1v1Summaries : modeId === 'rm_team' ? rmTeamSummaries : [];
+    const isTeamMode = modeId === 'rm_team' || modeId === 'ew_team';
+    const fallbackMatches = modeId === 'rm_1v1'
+      ? rm1v1Summaries
+      : modeId === 'rm_team'
+        ? rmTeamSummaries
+        : modeId === 'ew_1v1'
+          ? ew1v1Summaries
+          : ewTeamSummaries;
     const stats = parseAllTimeStatsBlock(statsBlock ? [statsBlock] : [], fallbackMatches);
     if (!ladder && stats.totalCivGames === 0) continue;
 
-    const eloSeries = buildPureEloSeries(profileData, fallbackMatches, modeId, ladder?.rating ?? null, 250);
+    const fullRatingSeries = buildPureEloSeries(profileData, fallbackMatches, modeId, ladder?.rating ?? null, COMPANION_DEPTH.ELO_SERIES_FULL_MAX);
+    const eloSeries = fullRatingSeries.slice(-COMPANION_DEPTH.ELO_CHART_ULTRA_MAX);
+    modeEloSeriesMap[modeId] = { label: MODE_LABELS[modeId], series: fullRatingSeries, streak: ladder?.streak || 0 };
     const form = summarizeFormFromSeries(eloSeries);
     const ins = insightsByMode[modeId];
-    const durationAnalysis = (ins?.durationAnalysis?.total >= 4)
-      ? { ...ins.durationAnalysis, sourceLabel: `AoE2Insights · ${ins.durationAnalysis.total} partidas` }
-      : (() => {
-          const fromMatches = buildDurationBuckets(fallbackMatches);
-          return fromMatches.total >= 3
-            ? { ...fromMatches, sourceLabel: `Últimas ${fromMatches.total} partidas del modo` }
-            : null;
-        })();
+
+    const modeInsRows = modeId === 'rm_1v1'
+      ? parsedRows1v1
+      : modeId === 'rm_team'
+        ? parsedRowsTeam
+        : modeId === 'ew_1v1'
+          ? parsedRowsEw1v1
+          : parsedRowsEwTeam;
+    const modeStoredRecords = modeId === 'rm_1v1'
+      ? validRecords.filter((r) => isRm1v1Match(r?.match))
+      : modeId === 'rm_team'
+        ? validRecords.filter((r) => isRmTeamMatch(r?.match))
+        : modeId === 'ew_1v1'
+          ? validRecords.filter((r) => isEw1v1Match(r?.match))
+          : validRecords.filter((r) => isEwTeamMatch(r?.match));
+
+    // Pool A (Oficial sin sesgo): Companion-First + Left-Join estricto por matchId
+    const unifiedModeMatches = buildUnifiedModeMatches({
+      insightsRows: modeInsRows,
+      companionMatches: fallbackMatches,
+      storedRecords: modeStoredRecords,
+      profileId: pid,
+      strictLeftJoin: true,
+    });
+    // Pool B (Solo telemetría exclusiva de AoE2Insights: aperturas, antídotos, eAPM, parches)
+    const insightsOnlyMatches = modeInsRows.length
+      ? buildUnifiedModeMatches({
+          insightsRows: modeInsRows,
+          companionMatches: [],
+          storedRecords: modeStoredRecords,
+          profileId: pid,
+          strictLeftJoin: false,
+        })
+      : [];
+    const insightsCoverage = computeInsightsCoverage(unifiedModeMatches, modeInsRows);
+
+    // Resultados por Duración sobre pool oficial sin sesgo en reloj de juego (1.7x)
+    const unifiedDuration = buildDurationBuckets(unifiedModeMatches, { isTeam: isTeamMode });
+    const durationAnalysis = unifiedDuration.total >= 4
+      ? { ...unifiedDuration, sourceLabel: `${unifiedDuration.total} partidas oficiales · reloj de juego` }
+      : (ins?.durationAnalysis?.total >= 4
+          ? { ...ins.durationAnalysis, sourceLabel: `AoE2Insights · ${ins.durationAnalysis.total} replays · reloj de juego` }
+          : null);
 
     const eloValues = eloSeries.map((p) => p.rating);
     const beforeVsNow = computeBeforeVsNow({
       modeLabel: MODE_LABELS[modeId],
       eloSeries,
       insightsAnalysis: ins,
-      storedRecords: validRecords,
+      storedRecords: modeStoredRecords,
       profileId: pid,
       isOwnProfile,
     });
@@ -1391,60 +1583,62 @@ function computeCentralAnalytics({
       isOwnProfile,
     });
 
-    const modeInsRows = modeId === 'rm_1v1' ? parsedRows1v1 : modeId === 'rm_team' ? parsedRowsTeam : [];
-    const modeStoredRecords = modeId === 'rm_1v1'
-      ? validRecords.filter((r) => isRm1v1Match(r?.match))
-      : modeId === 'rm_team'
-        ? validRecords.filter((r) => isRmTeamMatch(r?.match))
-        : [];
-    const unifiedModeMatches = buildUnifiedModeMatches({
-      insightsRows: modeInsRows,
-      companionMatches: fallbackMatches,
-      storedRecords: modeStoredRecords,
-      profileId: pid,
-    });
-    const mapEapm = computeMapEapmStats(unifiedModeMatches);
+    // eAPM por mapa usa primero el pool oficial enriquecido y cae a Insights-only para cobertura histórica de eAPM
+    const mapEapm = computeMapEapmStats(insightsOnlyMatches.length ? insightsOnlyMatches : unifiedModeMatches);
     const enrichedStats = attachMapEapmToStats(stats, mapEapm);
     const civDiagnostics = buildModeCivDiagnostics({
       modeId,
+      isTeam: isTeamMode,
       matches: unifiedModeMatches,
       allTimeCivs: enrichedStats.allCivs || enrichedStats.topCivs || [],
     });
     const mapDiagnostics = buildModeMapDiagnostics({
       modeId,
+      isTeam: isTeamMode,
       matches: unifiedModeMatches,
       allTimeMaps: enrichedStats.allMaps || enrichedStats.topMaps || [],
     });
-    const academy = computePersonalAcademy({
-      storedRecords: modeStoredRecords.length ? modeStoredRecords : validRecords,
-      profileId: pid,
-      isOwnProfile,
-    });
+    // Cero fugas entre modos en Academia: cada modo solo evalúa sus propios replays locales
+    const academy = modeStoredRecords.length >= 3
+      ? computePersonalAcademy({
+          storedRecords: modeStoredRecords,
+          profileId: pid,
+          isOwnProfile,
+          modeId,
+          isFallbackScope: false,
+        })
+      : null;
     const competitiveIntel = computeEloAttributionAndSession({
       matches: unifiedModeMatches,
-      allTimeCivs: enrichedStats.allCivs || enrichedStats.topCivs || [],
-      allTimeMaps: enrichedStats.allMaps || enrichedStats.topMaps || [],
+      insightsMatches: insightsOnlyMatches,
+      eloSeries: fullRatingSeries,
+      isTeam: isTeamMode,
+      sessionModeLabel: MODE_LABELS[modeId],
     });
 
     const lastMatchVsAvg = computeLastMatchVsAvg({
       modeMatches: fallbackMatches,
       eloSeries,
       insightsRows: modeInsRows,
-      storedRecords: validRecords,
+      storedRecords: modeStoredRecords,
       isOwnProfile,
       modeLabel: MODE_LABELS[modeId],
     });
     const discoveries = computeModeDiscoveries({
       modeId,
-      isTeam: modeId === 'rm_team' || modeId === 'ew_team',
+      isTeam: isTeamMode,
       profileId: pid,
       isOwnProfile,
       ladder,
       stats: enrichedStats,
       insights: ins,
-      eloSeries,
+      eloSeries: fullRatingSeries,
+      fullRatingSeries,
+      comfortModeLabel: MODE_LABELS[modeId],
+      modeEloSeriesMap,
       modeMatches: fallbackMatches,
       unifiedMatches: unifiedModeMatches,
+      insightsMatches: insightsOnlyMatches,
       storedRecords: validRecords,
     });
 
@@ -1458,7 +1652,10 @@ function computeCentralAnalytics({
       academy,
       competitiveIntel,
       discoveries,
+      insightsCoverage,
       unifiedMatchCount: unifiedModeMatches.length,
+      recentMatches: fallbackMatches.slice(0, 8),
+      ewNeedsHydration: (modeId === 'ew_1v1' || modeId === 'ew_team') && fallbackMatches.length === 0 && (ladder?.games || 0) > 0,
       eloSeries,
       eloStats: {
         min: eloValues.length ? Math.min(...eloValues) : null,
@@ -1510,21 +1707,49 @@ function computeCentralAnalytics({
     dropRate: globalDropRate,
     streak: null,
   };
+  const globalAllInsRows = [...parsedRows1v1, ...parsedRowsTeam, ...parsedRowsEw1v1, ...parsedRowsEwTeam];
   const globalStatsRaw = parseAllTimeStatsBlock(companionStats, allSummaries);
   const globalUnifiedMatches = buildUnifiedModeMatches({
-    insightsRows: [...parsedRows1v1, ...parsedRowsTeam],
+    insightsRows: globalAllInsRows,
     companionMatches: allSummaries,
     storedRecords: validRecords,
     profileId: pid,
+    strictLeftJoin: true,
   });
-  const globalStats = attachMapEapmToStats(globalStatsRaw, computeMapEapmStats(globalUnifiedMatches));
+  const globalInsightsOnlyMatches = globalAllInsRows.length
+    ? buildUnifiedModeMatches({
+        insightsRows: globalAllInsRows,
+        companionMatches: [],
+        storedRecords: validRecords,
+        profileId: pid,
+        strictLeftJoin: false,
+      })
+    : [];
+  const globalInsightsCoverage = computeInsightsCoverage(globalUnifiedMatches, globalAllInsRows);
+
+  const primaryLadderId = allLadders.length
+    ? [...allLadders].sort((a, b) => (b.games || 0) - (a.games || 0))[0].id
+    : 'rm_1v1';
+  const primaryLadderLabel = MODE_LABELS[primaryLadderId] || 'Global';
+  const primaryFullSeries = modeEloSeriesMap[primaryLadderId]?.series || [];
+  const globalTeamCount = globalUnifiedMatches.filter((m) => m.isTeam).length;
+  const globalMostlyTeam = globalUnifiedMatches.length
+    ? globalTeamCount >= (globalUnifiedMatches.length / 2)
+    : (primaryLadderId === 'rm_team' || primaryLadderId === 'ew_team');
+
+  const globalStats = attachMapEapmToStats(
+    globalStatsRaw,
+    computeMapEapmStats(globalInsightsOnlyMatches.length ? globalInsightsOnlyMatches : globalUnifiedMatches),
+  );
   const globalCivDiagnostics = buildModeCivDiagnostics({
     modeId: 'global',
+    isTeam: globalMostlyTeam,
     matches: globalUnifiedMatches,
     allTimeCivs: globalStats.allCivs || globalStats.topCivs || [],
   });
   const globalMapDiagnostics = buildModeMapDiagnostics({
     modeId: 'global',
+    isTeam: globalMostlyTeam,
     matches: globalUnifiedMatches,
     allTimeMaps: globalStats.allMaps || globalStats.topMaps || [],
   });
@@ -1532,37 +1757,60 @@ function computeCentralAnalytics({
     storedRecords: validRecords,
     profileId: pid,
     isOwnProfile,
+    modeId: 'global',
+    isFallbackScope: false,
   });
   const globalCompetitiveIntel = computeEloAttributionAndSession({
     matches: globalUnifiedMatches,
-    allTimeCivs: globalStats.allCivs || globalStats.topCivs || [],
-    allTimeMaps: globalStats.allMaps || globalStats.topMaps || [],
+    insightsMatches: globalInsightsOnlyMatches,
+    eloSeries: primaryFullSeries,
+    isTeam: globalMostlyTeam,
+    sessionModeLabel: primaryLadderLabel,
   });
-  const globalEloSeries = Object.values(modes)
-    .flatMap((m) => (Array.isArray(m?.eloSeries) ? m.eloSeries : []))
+  const globalEloSeries = Object.values(modeEloSeriesMap)
+    .flatMap((m) => (Array.isArray(m?.series) ? m.series : []))
     .sort((a, b) => Number(a.startedAt || 0) - Number(b.startedAt || 0));
   const globalDiscoveries = computeModeDiscoveries({
     modeId: 'global',
-    isTeam: false,
+    isTeam: globalMostlyTeam,
     profileId: pid,
     isOwnProfile,
     ladder: globalLadder,
     stats: globalStats,
     insights: insightsByMode.global,
     eloSeries: globalEloSeries,
+    fullRatingSeries: primaryFullSeries,
+    comfortModeLabel: primaryLadderLabel,
+    modeEloSeriesMap,
     modeMatches: allSummaries,
     unifiedMatches: globalUnifiedMatches,
+    insightsMatches: globalInsightsOnlyMatches,
     storedRecords: validRecords,
   });
   const globalIns = insightsByMode.global;
-  const globalDuration = globalIns?.durationAnalysis?.total >= 4
-    ? { ...globalIns.durationAnalysis, sourceLabel: `AoE2Insights · ${globalIns.durationAnalysis.total} partidas` }
-    : (() => {
-        const fromMatches = buildDurationBuckets(allSummaries);
-        return fromMatches.total >= 3
-          ? { ...fromMatches, sourceLabel: `Últimas ${fromMatches.total} partidas` }
-          : null;
-      })();
+  const globalUnifiedDur = buildDurationBuckets(globalUnifiedMatches, { isTeam: globalMostlyTeam });
+  const globalDuration = globalUnifiedDur.total >= 4
+    ? { ...globalUnifiedDur, sourceLabel: `${globalUnifiedDur.total} partidas oficiales · reloj de juego` }
+    : (globalIns?.durationAnalysis?.total >= 4
+        ? { ...globalIns.durationAnalysis, sourceLabel: `AoE2Insights · ${globalIns.durationAnalysis.total} replays · reloj de juego` }
+        : null);
+
+  // En Global, alinear la serie ELO de lastMatchVsAvg con el modo REAL de la última partida
+  const latestGlobalMatch = allSummaries[0] || null;
+  const latestGlobalModeKey = latestGlobalMatch
+    ? (resolveMode(latestGlobalMatch.leaderboardId)?.key || (latestGlobalMatch.isTeam ? 'rm_team' : latestGlobalMatch.is1v1 ? 'rm_1v1' : null))
+    : null;
+  const latestGlobalSeries = (latestGlobalModeKey && modes[latestGlobalModeKey]?.eloSeries) || [];
+  const latestGlobalModeLabel = (latestGlobalModeKey && MODE_LABELS[latestGlobalModeKey]) || latestGlobalMatch?.modeLabel || 'Global';
+  const latestGlobalModeMatches = latestGlobalModeKey === 'rm_1v1'
+    ? rm1v1Summaries
+    : latestGlobalModeKey === 'rm_team'
+      ? rmTeamSummaries
+      : latestGlobalModeKey === 'ew_1v1'
+        ? ew1v1Summaries
+        : latestGlobalModeKey === 'ew_team'
+          ? ewTeamSummaries
+          : allSummaries;
 
   modes.global = {
     id: 'global',
@@ -1574,7 +1822,9 @@ function computeCentralAnalytics({
     academy: globalAcademy,
     competitiveIntel: globalCompetitiveIntel,
     discoveries: globalDiscoveries,
+    insightsCoverage: globalInsightsCoverage,
     unifiedMatchCount: globalUnifiedMatches.length,
+    recentMatches: allSummaries.slice(0, 8),
     eloSeries: [],
     eloStats: { min: null, max: null, start: null, latest: globalLadder.rating, peak: globalLadder.peak, netDelta: null, totalPoints: 0 },
     recentForm: allSummaries.slice(0, 15).filter((m) => typeof m.won === 'boolean').reverse().map((m) => ({
@@ -1587,20 +1837,20 @@ function computeCentralAnalytics({
     insights: globalIns,
     durationAnalysis: globalDuration,
     beforeVsNow: computeBeforeVsNow({
-      modeLabel: modes.rm_1v1?.eloSeries?.length >= 6 ? 'RM 1v1' : 'RM Team',
-      eloSeries: modes.rm_1v1?.eloSeries?.length >= 6 ? modes.rm_1v1.eloSeries : (modes.rm_team?.eloSeries || []),
+      modeLabel: primaryLadderLabel,
+      eloSeries: modes[primaryLadderId]?.eloSeries || [],
       insightsAnalysis: globalIns,
       storedRecords: validRecords,
       profileId: pid,
       isOwnProfile,
     }),
     lastMatchVsAvg: computeLastMatchVsAvg({
-      modeMatches: allSummaries,
-      eloSeries: modes.rm_1v1?.eloSeries?.length >= 6 ? modes.rm_1v1.eloSeries : (modes.rm_team?.eloSeries || []),
-      insightsRows: [...parsedRows1v1, ...parsedRowsTeam],
+      modeMatches: latestGlobalModeMatches,
+      eloSeries: latestGlobalSeries,
+      insightsRows: latestGlobalModeKey === 'rm_1v1' ? parsedRows1v1 : (latestGlobalModeKey === 'rm_team' ? parsedRowsTeam : globalAllInsRows),
       storedRecords: validRecords,
       isOwnProfile,
-      modeLabel: 'Global',
+      modeLabel: latestGlobalModeLabel,
     }),
     radarAxes: buildHonestRadar({
       ladder: globalLadder,
@@ -1732,8 +1982,10 @@ function hasModeGames(profileData, ladder, matches, ladderKey) {
   return Boolean(lb && ((lb.games || 0) > 0 || (lb.wins || 0) + (lb.losses || 0) > 0));
 }
 
-async function fetchCentralCoreRaw(pid, { alias, cache, force, signal }) {
-  const inflightKey = `${pid}:${force ? 'force' : 'norm'}`;
+async function fetchCentralCoreRaw(pid, { alias, cache, force, signal, isOwnProfile = true, prevRaw = null }) {
+  const maxPerMode = isOwnProfile ? COMPANION_DEPTH.OWN_MAX_PER_MODE : COMPANION_DEPTH.EXTERNAL_MAX_PER_MODE;
+  const pageSize = COMPANION_DEPTH.PAGE_SIZE;
+  const inflightKey = `${pid}:${force ? 'force' : 'norm'}:${maxPerMode}`;
   let rawPromise = centralInflight.get(inflightKey);
   if (!rawPromise) {
     rawPromise = (async () => {
@@ -1741,24 +1993,39 @@ async function fetchCentralCoreRaw(pid, { alias, cache, force, signal }) {
       const mineTeam = !force && cache?.get(`mine:${pid}:4`);
       const m1Ts = mine1v1 && (mine1v1.ts ?? mine1v1.at ?? 0);
       const m4Ts = mineTeam && (mineTeam.ts ?? mineTeam.at ?? 0);
-      const freshMine1v1 = mine1v1 && Array.isArray(mine1v1.matches) && (Date.now() - m1Ts < 3 * 60 * 1000) ? mine1v1.matches.slice(0, 40) : null;
-      const freshMineTeam = mineTeam && Array.isArray(mineTeam.matches) && (Date.now() - m4Ts < 3 * 60 * 1000) ? mineTeam.matches.slice(0, 40) : null;
+      const freshMine1v1 = mine1v1 && Array.isArray(mine1v1.matches) && (Date.now() - m1Ts < 3 * 60 * 1000)
+        ? mine1v1.matches.slice(0, maxPerMode)
+        : null;
+      const freshMineTeam = mineTeam && Array.isArray(mineTeam.matches) && (Date.now() - m4Ts < 3 * 60 * 1000)
+        ? mineTeam.matches.slice(0, maxPerMode)
+        : null;
 
       const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesTeamRes, matchesAllRes] = await Promise.allSettled([
         fetchPersonalStats([pid], 3, 7000, { signal }),
         fetchPersonalStats([pid], 4, 7000, { signal }),
         fetchExtendedProfile(pid, { bypassCache: Boolean(force), timeoutMs: 10000, signal }),
-        freshMine1v1 ? Promise.resolve(freshMine1v1) : fetchMatches(pid, 40, 1, 'rm_1v1', { priority: 'own', bypassCache: Boolean(force), signal }),
-        freshMineTeam ? Promise.resolve(freshMineTeam) : fetchMatches(pid, 40, 1, 'rm_team', { priority: 'own', bypassCache: Boolean(force), signal }),
+        freshMine1v1 ? Promise.resolve(freshMine1v1) : fetchMatches(pid, pageSize, 1, 'rm_1v1', { priority: 'own', bypassCache: Boolean(force), signal }),
+        freshMineTeam ? Promise.resolve(freshMineTeam) : fetchMatches(pid, pageSize, 1, 'rm_team', { priority: 'own', bypassCache: Boolean(force), signal }),
         fetchMatches(pid, 30, 1, null, { priority: 'own', bypassCache: Boolean(force), signal }),
       ]);
 
       const ladder1v1 = stats1v1Res.status === 'fulfilled' ? (stats1v1Res.value.get(pid) || null) : null;
       const ladderTeam = statsTeamRes.status === 'fulfilled' ? (statsTeamRes.value.get(pid) || null) : null;
       const profileData = profileDataRes.status === 'fulfilled' ? profileDataRes.value : null;
-      const matches1v1 = matches1v1Res.status === 'fulfilled' ? matches1v1Res.value : [];
-      const matchesTeam = matchesTeamRes.status === 'fulfilled' ? matchesTeamRes.value : [];
+      const page1Rm1v1 = matches1v1Res.status === 'fulfilled' ? matches1v1Res.value : [];
+      const page1RmTeam = matchesTeamRes.status === 'fulfilled' ? matchesTeamRes.value : [];
       const matchesAll = matchesAllRes.status === 'fulfilled' ? matchesAllRes.value : [];
+
+      // Delta Sync monotónico: fusiona página 1 fresca con historial asentado previo en disco hasta 200 pj/modo
+      const matches1v1 = mergeRawMatches(page1Rm1v1, prevRaw?.matches1v1, maxPerMode);
+      const matchesTeam = mergeRawMatches(page1RmTeam, prevRaw?.matchesTeam, maxPerMode);
+
+      const needPage2Rm1v1 = isOwnProfile
+        && matches1v1.length < maxPerMode
+        && page1Rm1v1.length >= pageSize;
+      const needPage2RmTeam = isOwnProfile
+        && matchesTeam.length < maxPerMode
+        && page1RmTeam.length >= pageSize;
 
       return {
         profileId: pid,
@@ -1769,8 +2036,11 @@ async function fetchCentralCoreRaw(pid, { alias, cache, force, signal }) {
         matches1v1,
         matchesTeam,
         matchesAll,
+        ewMatches: prevRaw?.ewMatches || {},
+        ewInsights: prevRaw?.ewInsights || {},
         insights1v1: !force ? readCachedRows(cache, pid, 3) : null,
         insightsTeam: !force ? readCachedRows(cache, pid, 4) : null,
+        _needsPage2: { rm_1v1: needPage2Rm1v1, rm_team: needPage2RmTeam },
       };
     })().finally(() => {
       if (centralInflight.get(inflightKey) === rawPromise) centralInflight.delete(inflightKey);
@@ -1778,6 +2048,112 @@ async function fetchCentralCoreRaw(pid, { alias, cache, force, signal }) {
     centralInflight.set(inflightKey, rawPromise);
   }
   return rawPromise;
+}
+
+/**
+ * Fase 2 (silenciosa en segundo plano): descarga página 2 (`per_page=100`, `page=2`)
+ * para alcanzar hasta 200 partidas oficiales contiguas por modo sin bloquear la pintura inicial.
+ */
+async function backfillCentralPage2(pid, raw, { signal, maxPerMode = COMPANION_DEPTH.OWN_MAX_PER_MODE } = {}) {
+  const needs = raw?._needsPage2;
+  if (!needs || (!needs.rm_1v1 && !needs.rm_team)) return { raw, updated: false };
+  const pageSize = COMPANION_DEPTH.PAGE_SIZE;
+  const [p2Rm1v1Res, p2RmTeamRes] = await Promise.allSettled([
+    needs.rm_1v1 ? fetchMatches(pid, pageSize, 2, 'rm_1v1', { priority: 'own', signal }) : Promise.resolve([]),
+    needs.rm_team ? fetchMatches(pid, pageSize, 2, 'rm_team', { priority: 'own', signal }) : Promise.resolve([]),
+  ]);
+  if (signal?.aborted) return { raw, updated: false };
+  const p2Rm1v1 = p2Rm1v1Res.status === 'fulfilled' ? p2Rm1v1Res.value : [];
+  const p2RmTeam = p2RmTeamRes.status === 'fulfilled' ? p2RmTeamRes.value : [];
+  const next1v1 = p2Rm1v1.length ? mergeRawMatches(raw.matches1v1, p2Rm1v1, maxPerMode) : raw.matches1v1;
+  const nextTeam = p2RmTeam.length ? mergeRawMatches(raw.matchesTeam, p2RmTeam, maxPerMode) : raw.matchesTeam;
+  const updated = next1v1.length > (raw.matches1v1?.length || 0) || nextTeam.length > (raw.matchesTeam?.length || 0);
+  const cleanRaw = {
+    ...raw,
+    matches1v1: next1v1,
+    matchesTeam: nextTeam,
+    _needsPage2: { rm_1v1: false, rm_team: false },
+  };
+  return { raw: cleanRaw, updated };
+}
+
+/**
+ * Hidratación perezosa de Empire Wars (`ew_1v1` / `ew_team`) al tocar la pestaña:
+ * 0 costo inicial para jugadores que no juegan EW; persiste en `central-cache.json`.
+ */
+async function hydrateCentralEwMode({
+  profileId,
+  modeId,
+  alias = null,
+  cache = null,
+  performanceStore = null,
+  diskCachePath = null,
+  isOwnProfile = true,
+  ownProfileId = null,
+  signal = null,
+  log = () => {},
+} = {}) {
+  const pid = Number(profileId);
+  if (!Number.isFinite(pid) || pid <= 0 || (modeId !== 'ew_1v1' && modeId !== 'ew_team')) {
+    return null;
+  }
+  const cacheKey = `central:v6:${pid}`;
+  let baseRaw = cache?.get(cacheKey)?.raw || null;
+  if (!baseRaw && isOwnProfile && diskCachePath) {
+    baseRaw = readDiskCache(diskCachePath, pid)?.raw || null;
+  }
+  if (!baseRaw) return null;
+
+  const existingMatches = Array.isArray(baseRaw.ewMatches?.[modeId]) ? baseRaw.ewMatches[modeId] : [];
+  const existingTs = Number(baseRaw.ewMatches?.[`${modeId}Ts`] || 0);
+  const stillFresh = existingMatches.length > 0 && (Date.now() - existingTs < 10 * 60 * 1000);
+  const storedRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+  const storeRev = storeRevOf(performanceStore, storedRecords);
+
+  if (stillFresh) {
+    return computeCentralMemoized(cacheKey, Date.now(), baseRaw, {
+      alias, storedRecords, storeRev, isOwnProfile, ownProfileId,
+    });
+  }
+
+  const maxPerMode = isOwnProfile ? COMPANION_DEPTH.OWN_MAX_PER_MODE : COMPANION_DEPTH.EXTERNAL_MAX_PER_MODE;
+  const pageSize = COMPANION_DEPTH.PAGE_SIZE;
+  const ewNum = modeId === 'ew_1v1' ? 13 : 14;
+  try {
+    const [p1Res, insRes] = await Promise.allSettled([
+      fetchMatches(pid, pageSize, 1, modeId, { priority: 'own', signal }),
+      fetchOpeningRows(pid, { mode: resolveMode(ewNum), limit: 500, cache, signal }),
+    ]);
+    if (signal?.aborted) return null;
+    const p1 = p1Res.status === 'fulfilled' ? p1Res.value : [];
+    let merged = mergeRawMatches(p1, existingMatches, maxPerMode);
+    if (isOwnProfile && merged.length < maxPerMode && p1.length >= pageSize && !signal?.aborted) {
+      const p2 = await fetchMatches(pid, pageSize, 2, modeId, { priority: 'own', signal }).catch(() => []);
+      if (p2.length) merged = mergeRawMatches(merged, p2, maxPerMode);
+    }
+    const nextInsights = insRes.status === 'fulfilled' ? insRes.value : (baseRaw.ewInsights?.[modeId] || null);
+    const ts = Date.now();
+    const updatedRaw = {
+      ...baseRaw,
+      ewMatches: {
+        ...(baseRaw.ewMatches || {}),
+        [modeId]: merged,
+        [`${modeId}Ts`]: ts,
+      },
+      ewInsights: {
+        ...(baseRaw.ewInsights || {}),
+        [modeId]: nextInsights,
+      },
+    };
+    if (cache) cache.set(cacheKey, { ts, raw: updatedRaw });
+    if (isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, updatedRaw);
+    return computeCentralMemoized(cacheKey, ts, updatedRaw, {
+      alias, storedRecords, storeRev, isOwnProfile, ownProfileId,
+    });
+  } catch (err) {
+    log(`central ew hydrate (${modeId}): ${err.message}`);
+    return null;
+  }
 }
 
 async function hydrateCentralInsights(pid, raw, { cache, force, signal }) {
@@ -1831,11 +2207,13 @@ async function fetchCentralDashboard({
 
   const storedRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
   const storeRev = storeRevOf(performanceStore, storedRecords);
-  const cacheKey = `central:v4:${pid}`;
+  const cacheKey = `central:v6:${pid}`;
+  const memTtlMs = isOwnProfile ? 5 * 60 * 1000 : 10 * 60 * 1000;
+  const INSIGHTS_REVALIDATE_MS = 4 * 60 * 60 * 1000;
 
   if (!force && cache && cache.get(cacheKey)) {
     const cached = cache.get(cacheKey);
-    if (Date.now() - cached.ts < 5 * 60 * 1000) {
+    if (Date.now() - cached.ts < memTtlMs) {
       return computeCentralMemoized(cacheKey, cached.ts, cached.raw, {
         alias,
         storedRecords,
@@ -1846,96 +2224,156 @@ async function fetchCentralDashboard({
     }
   }
 
-  // Phase 0 (Instant Disk SWR <50 ms): devolver el último caché en disco del perfil propio
-  // inmediatamente y revalidar en segundo plano sin bloquear el primer pintado.
-  if (!force && isOwnProfile && diskCachePath && typeof onUpdate === 'function') {
-    const disk = readDiskCache(diskCachePath, pid);
-    if (disk && disk.raw && (disk.raw.profileData || (disk.raw.matchesAll || []).length)) {
-      const diskTs = Number(disk.ts) || 1;
-      const staleView = computeCentralMemoized(cacheKey, diskTs, disk.raw, {
-        alias,
-        storedRecords,
-        storeRev,
-        isOwnProfile,
-        ownProfileId,
-        extra: { stale: true },
-      });
-      if (!centralBgRefresh.has(pid)) {
-        centralBgRefresh.add(pid);
-        (async () => {
-          try {
-            const coreRaw = await fetchCentralCoreRaw(pid, { alias, cache, force: false, signal });
-            if (signal?.aborted) return;
-            if (coreRaw.profileData || coreRaw.matchesAll.length || coreRaw.matches1v1.length) {
-              const ts = Date.now();
-              const merged = {
-                ...coreRaw,
-                insights1v1: coreRaw.insights1v1 || disk.raw.insights1v1 || null,
-                insightsTeam: coreRaw.insightsTeam || disk.raw.insightsTeam || null,
-              };
-              if (cache) cache.set(cacheKey, { ts, raw: merged });
-              writeDiskCache(diskCachePath, pid, merged);
-              const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
-              const freshRev = storeRevOf(performanceStore, freshRecords);
-              const needInsights =
-                (!coreRaw.insights1v1 && hasModeGames(merged.profileData, merged.ladder1v1, merged.matches1v1, 'rm_1v1')) ||
-                (!coreRaw.insightsTeam && hasModeGames(merged.profileData, merged.ladderTeam, merged.matchesTeam, 'rm_team'));
-              onUpdate(computeCentralMemoized(cacheKey, ts, merged, {
-                alias,
-                storedRecords: freshRecords,
-                storeRev: freshRev,
-                isOwnProfile,
-                ownProfileId,
-                extra: needInsights ? { insightsPending: true } : null,
-              }));
-              if (needInsights) {
-                const { raw: enriched, updated } = await hydrateCentralInsights(pid, merged, { cache, force: false, signal });
-                if (signal?.aborted) return;
-                const ts2 = Date.now();
-                if (cache) cache.set(cacheKey, { ts: ts2, raw: enriched });
-                if (updated) writeDiskCache(diskCachePath, pid, enriched);
-                const r2 = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
-                onUpdate(computeCentralMemoized(cacheKey, ts2, enriched, {
+  const latestMatchIdOf = (r) => {
+    const all = [...(r?.matchesAll || []), ...(r?.matches1v1 || []), ...(r?.matchesTeam || [])];
+    let bestId = null;
+    let bestTs = -1;
+    for (const m of all) {
+      const t = Number(m?.startedAt || 0);
+      if (m?.matchId && t >= bestTs) {
+        bestTs = t;
+        bestId = String(m.matchId);
+      }
+    }
+    return bestId;
+  };
+
+  // Phase 0 (Instant Disk SWR <50 ms):
+  // - Si el caché en disco tiene < 4 min Y ya alcanzó profundidad (o el modo tiene <100 pj), sirve fresco (0 API calls).
+  // - Si tiene >= 4 min o aún está en la profundidad vieja (<=40 pj), pinta al instante y revalida con Delta Sync 200 pj.
+  const diskSnapshot = (isOwnProfile && diskCachePath) ? readDiskCache(diskCachePath, pid) : null;
+  if (!force && diskSnapshot && diskSnapshot.raw && typeof onUpdate === 'function'
+      && (diskSnapshot.raw.profileData || (diskSnapshot.raw.matchesAll || []).length)) {
+    const disk = diskSnapshot;
+    const diskTs = Number(disk.ts) || 1;
+    const diskAgeMs = Date.now() - diskTs;
+    const prev1v1Games = ladderTotalGamesOf(disk.raw, 'rm_1v1') || 0;
+    const prevTeamGames = ladderTotalGamesOf(disk.raw, 'rm_team') || 0;
+    const needsDepthUpgrade = (prev1v1Games > 40 && (disk.raw.matches1v1?.length || 0) <= 40)
+      || (prevTeamGames > 40 && (disk.raw.matchesTeam?.length || 0) <= 40);
+    const diskFresh = diskAgeMs < 4 * 60 * 1000 && !needsDepthUpgrade;
+    if (diskFresh && cache) {
+      cache.set(cacheKey, { ts: diskTs, raw: disk.raw });
+    }
+    const view = computeCentralMemoized(cacheKey, diskTs, disk.raw, {
+      alias,
+      storedRecords,
+      storeRev,
+      isOwnProfile,
+      ownProfileId,
+      extra: diskFresh ? null : { stale: true },
+    });
+    if (!diskFresh && !centralBgRefresh.has(pid)) {
+      centralBgRefresh.add(pid);
+      (async () => {
+        try {
+          const coreRaw = await fetchCentralCoreRaw(pid, {
+            alias, cache, force: false, signal, isOwnProfile, prevRaw: disk.raw,
+          });
+          if (signal?.aborted) return;
+          if (coreRaw.profileData || coreRaw.matchesAll.length || coreRaw.matches1v1.length) {
+            const ts = Date.now();
+            const prevLatestId = latestMatchIdOf(disk.raw);
+            const nextLatestId = latestMatchIdOf(coreRaw);
+            const ladderChanged = ladderTotalGamesOf(disk.raw, 'rm_1v1') !== ladderTotalGamesOf(coreRaw, 'rm_1v1')
+              || ladderTotalGamesOf(disk.raw, 'rm_team') !== ladderTotalGamesOf(coreRaw, 'rm_team');
+            const hasNewMatch = Boolean((nextLatestId && nextLatestId !== prevLatestId) || ladderChanged);
+            const diskInsightsTs = Number(disk.raw.insightsTs || diskTs);
+            const insightsStillFresh = !hasNewMatch && (ts - diskInsightsTs < INSIGHTS_REVALIDATE_MS);
+
+            const reused1v1 = coreRaw.insights1v1 || disk.raw.insights1v1 || null;
+            const reusedTeam = coreRaw.insightsTeam || disk.raw.insightsTeam || null;
+            let merged = {
+              ...coreRaw,
+              insights1v1: reused1v1,
+              insightsTeam: reusedTeam,
+              insightsTs: insightsStillFresh ? diskInsightsTs : (coreRaw.insights1v1 || coreRaw.insightsTeam ? ts : diskInsightsTs),
+            };
+            const needInsights = !insightsStillFresh && (
+              (!coreRaw.insights1v1 && hasModeGames(merged.profileData, merged.ladder1v1, merged.matches1v1, 'rm_1v1')) ||
+              (!coreRaw.insightsTeam && hasModeGames(merged.profileData, merged.ladderTeam, merged.matchesTeam, 'rm_team'))
+            );
+            if (cache) cache.set(cacheKey, { ts, raw: merged });
+            writeDiskCache(diskCachePath, pid, merged);
+            const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+            const freshRev = storeRevOf(performanceStore, freshRecords);
+            onUpdate(computeCentralMemoized(cacheKey, ts, merged, {
+              alias,
+              storedRecords: freshRecords,
+              storeRev: freshRev,
+              isOwnProfile,
+              ownProfileId,
+              extra: needInsights ? { insightsPending: true } : null,
+            }));
+
+            // Fase 2A: Backfill silencioso de página 2 (hasta 200 pj/modo) si faltan partidas
+            if (merged._needsPage2?.rm_1v1 || merged._needsPage2?.rm_team) {
+              const bf = await backfillCentralPage2(pid, merged, { signal });
+              if (!signal?.aborted && bf.updated) {
+                merged = bf.raw;
+                const tsBf = Date.now();
+                if (cache) cache.set(cacheKey, { ts: tsBf, raw: merged });
+                writeDiskCache(diskCachePath, pid, merged);
+                const rBf = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+                onUpdate(computeCentralMemoized(cacheKey, tsBf, merged, {
                   alias,
-                  storedRecords: r2,
-                  storeRev: storeRevOf(performanceStore, r2),
+                  storedRecords: rBf,
+                  storeRev: storeRevOf(performanceStore, rBf),
                   isOwnProfile,
                   ownProfileId,
+                  extra: needInsights ? { insightsPending: true } : null,
                 }));
               }
             }
-          } catch (err) {
-            log(`central swr: ${err.message}`);
-          } finally {
-            centralBgRefresh.delete(pid);
+
+            // Fase 2B: Revalidación perezosa de AoE2Insights solo si hubo partidas nuevas o venció TTL 4h
+            if (needInsights && !signal?.aborted) {
+              const { raw: enriched, updated } = await hydrateCentralInsights(pid, merged, { cache, force: hasNewMatch, signal });
+              if (signal?.aborted) return;
+              const ts2 = Date.now();
+              const stamped = { ...enriched, insightsTs: ts2 };
+              if (cache) cache.set(cacheKey, { ts: ts2, raw: stamped });
+              if (updated) writeDiskCache(diskCachePath, pid, stamped);
+              const r2 = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+              onUpdate(computeCentralMemoized(cacheKey, ts2, stamped, {
+                alias,
+                storedRecords: r2,
+                storeRev: storeRevOf(performanceStore, r2),
+                isOwnProfile,
+                ownProfileId,
+              }));
+            }
           }
-        })();
-      }
-      return staleView;
+        } catch (err) {
+          log(`central swr: ${err.message}`);
+        } finally {
+          centralBgRefresh.delete(pid);
+        }
+      })();
     }
+    return view;
   }
 
-  // Phase 1 (~400 ms): Core Companion + World's Edge (sin bloquear en AoE2Insights)
-  let raw = await fetchCentralCoreRaw(pid, { alias, cache, force, signal });
+  // Phase 1 (~400 ms): Core Companion (100 pj/modo + Delta Sync) + World's Edge
+  let raw = await fetchCentralCoreRaw(pid, {
+    alias, cache, force, signal, isOwnProfile, prevRaw: diskSnapshot?.raw || null,
+  });
 
-  // Si la red falló por completo y existe caché en disco del perfil propio, lo usamos
-  if (!raw.profileData && !raw.matchesAll.length && isOwnProfile && diskCachePath) {
-    const disk = readDiskCache(diskCachePath, pid);
-    if (disk && disk.raw) {
-      log(`central: usando caché en disco para #${pid}`);
-      return computeCentralMemoized(cacheKey, Number(disk.ts) || 1, disk.raw, {
-        alias,
-        storedRecords,
-        storeRev,
-        isOwnProfile,
-        ownProfileId,
-      });
-    }
+  if (!raw.profileData && !raw.matchesAll.length && isOwnProfile && diskSnapshot?.raw) {
+    log(`central: usando caché en disco para #${pid}`);
+    return computeCentralMemoized(cacheKey, Number(diskSnapshot.ts) || 1, diskSnapshot.raw, {
+      alias,
+      storedRecords,
+      storeRev,
+      isOwnProfile,
+      ownProfileId,
+    });
   }
 
   const need1v1Insights = (!raw.insights1v1 || force) && hasModeGames(raw.profileData, raw.ladder1v1, raw.matches1v1, 'rm_1v1');
   const needTeamInsights = (!raw.insightsTeam || force) && hasModeGames(raw.profileData, raw.ladderTeam, raw.matchesTeam, 'rm_team');
   const shouldLazyInsights = typeof onUpdate === 'function' && (need1v1Insights || needTeamInsights);
+  const shouldLazyPage2 = typeof onUpdate === 'function' && isOwnProfile && (raw._needsPage2?.rm_1v1 || raw._needsPage2?.rm_team);
 
   if (!shouldLazyInsights && (need1v1Insights || needTeamInsights)) {
     const hydrated = await hydrateCentralInsights(pid, raw, { cache, force, signal });
@@ -1948,23 +2386,49 @@ async function fetchCentralDashboard({
     if (isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, raw);
   }
 
-  if (shouldLazyInsights) {
-    hydrateCentralInsights(pid, raw, { cache, force, signal })
-      .then(({ raw: enriched, updated }) => {
-        if (signal?.aborted) return;
-        const ts2 = Date.now();
-        if (cache) cache.set(cacheKey, { ts: ts2, raw: enriched });
-        if (updated && isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, enriched);
-        const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
-        onUpdate(computeCentralMemoized(cacheKey, ts2, enriched, {
-          alias,
-          storedRecords: freshRecords,
-          storeRev: storeRevOf(performanceStore, freshRecords),
-          isOwnProfile,
-          ownProfileId,
-        }));
-      })
-      .catch((err) => log(`central insights bg: ${err.message}`));
+  if (shouldLazyPage2 || shouldLazyInsights) {
+    (async () => {
+      try {
+        let cur = raw;
+        if (shouldLazyPage2) {
+          const bf = await backfillCentralPage2(pid, cur, { signal });
+          if (signal?.aborted) return;
+          if (bf.updated) {
+            cur = bf.raw;
+            const tsBf = Date.now();
+            if (cache) cache.set(cacheKey, { ts: tsBf, raw: cur });
+            if (isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, cur);
+            const rBf = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+            onUpdate(computeCentralMemoized(cacheKey, tsBf, cur, {
+              alias,
+              storedRecords: rBf,
+              storeRev: storeRevOf(performanceStore, rBf),
+              isOwnProfile,
+              ownProfileId,
+              extra: shouldLazyInsights ? { insightsPending: true } : null,
+            }));
+          }
+        }
+        if (shouldLazyInsights && !signal?.aborted) {
+          const { raw: enriched, updated } = await hydrateCentralInsights(pid, cur, { cache, force, signal });
+          if (signal?.aborted) return;
+          const ts2 = Date.now();
+          const stamped = { ...enriched, insightsTs: ts2 };
+          if (cache) cache.set(cacheKey, { ts: ts2, raw: stamped });
+          if (updated && isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, stamped);
+          const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+          onUpdate(computeCentralMemoized(cacheKey, ts2, stamped, {
+            alias,
+            storedRecords: freshRecords,
+            storeRev: storeRevOf(performanceStore, freshRecords),
+            isOwnProfile,
+            ownProfileId,
+          }));
+        }
+      } catch (err) {
+        log(`central bg hydrate: ${err.message}`);
+      }
+    })();
   }
 
   return computeCentralMemoized(cacheKey, ts, raw, {
@@ -1980,6 +2444,9 @@ async function fetchCentralDashboard({
 module.exports = {
   isRm1v1Match,
   isRmTeamMatch,
+  isEw1v1Match,
+  isEwTeamMatch,
+  mergeRawMatches,
   summarizeOwnMatch,
   mergeRecentMatches,
   buildDurationBuckets,
@@ -1991,4 +2458,5 @@ module.exports = {
   buildHonestRadar,
   computeCentralAnalytics,
   fetchCentralDashboard,
+  hydrateCentralEwMode,
 };

@@ -432,6 +432,56 @@ function readBuildId(payload) {
   return (data[12] | (data[13] << 8) | (data[14] << 16) | (data[15] << 24)) >>> 0;
 }
 
+function readBuildCoords(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (Number.isFinite(Number(payload.x)) && Number.isFinite(Number(payload.y))) {
+    const x = Number(payload.x);
+    const y = Number(payload.y);
+    if (x > 0 && y > 0 && x < 512 && y < 512) return { x, y };
+  }
+  const data = payload.data;
+  if (Array.isArray(data) && data.length >= 12) {
+    const buf = Buffer.from(data.slice(4, 12));
+    const x = buf.readFloatLE(0);
+    const y = buf.readFloatLE(4);
+    if (Number.isFinite(x) && Number.isFinite(y) && x > 0 && y > 0 && x < 512 && y < 512) {
+      return { x, y };
+    }
+  }
+  return null;
+}
+
+function parseChatMeta(chatOp) {
+  if (!chatOp) return null;
+  const raw = typeof chatOp === 'string' ? chatOp : (chatOp.message ?? chatOp.text ?? '');
+  if (!raw) return null;
+  let text = String(raw);
+  let playerNum = Number(chatOp.player ?? chatOp.player_number);
+  let tauntNum = Number(chatOp.tauntNumber);
+  try {
+    if (text.trim().startsWith('{')) {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') {
+        text = String(parsed.message || '');
+        if (!Number.isFinite(playerNum) && Number.isFinite(Number(parsed.player))) playerNum = Number(parsed.player);
+        if (!Number.isFinite(tauntNum) && Number.isFinite(Number(parsed.tauntNumber))) tauntNum = Number(parsed.tauntNumber);
+      }
+    }
+  } catch { /* raw text */ }
+  const clean = text.trim();
+  if (!Number.isFinite(tauntNum)) {
+    const m = clean.match(/^(\d{1,3})\b/);
+    if (m) tauntNum = Number(m[1]);
+  }
+  const isGg = /\bgg(\s*wp)?\b/i.test(clean);
+  return {
+    playerNum: Number.isFinite(playerNum) ? playerNum : null,
+    tauntNum: Number.isFinite(tauntNum) && tauntNum > 0 && tauntNum <= 250 ? tauntNum : null,
+    isGg,
+    text: clean,
+  };
+}
+
 function unitInfo(id) {
   return UNIT_TABLE[id] || { name: `Unidad ${id}`, key: `unidad-${id}`, trainSeconds: 25 };
 }
@@ -596,6 +646,11 @@ function createSlotState(slot, civ, ages = null, startingAge = 'dark', allyCivs 
     loomMs: null,
     firstTcOrderMs: null,
     lastTcOrderMs: null,
+    flaresCount: 0,
+    earlyBuildCoords: [],      // { x, y } en los primeros 6 min (centroide base)
+    castleBuildCoords: [],     // { bid, ms, x, y } Castillos / Krepost / Torres
+    classMassMs: {},           // combatClass -> primer ms en que alcanza >= 6 unidades
+    classEvents: [],           // { ms, cls, amount } para Radar Tech-Switch
   };
 }
 
@@ -2056,12 +2111,394 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
 }
 
 /**
+ * Calcula los 8 nuevos insights competitivos y curiosos de Postmatch (0 llamadas API):
+ *  1. Aldeanos Fantasma (costo real del TC inactivo)
+ *  2. El Minuto del Quiebre (Turning Point de la curva)
+ *  3. Brecha de Herrería antes del primer choque
+ *  4. Radar de Adaptación & Tech-Switch
+ *  5. Evaluación de Rol Pocket vs Flank (Team Games)
+ *  6. Recursos Atrapados (colas saturadas + impuesto de Mercado)
+ *  7. Crónica Caliente del Replay (taunts, "11", pings, GG/Rage-Quit)
+ *  8. Detector de Castle Drop (ofensivo vs defensivo + pico de adrenalina)
+ */
+function buildPostmatchInsights({
+  selfState, rivalState, self, rival, timeline = [], durationMs = 0,
+  isTeamGame = false, teamRole = null, mapSize = 120, chatStats = null, won = null,
+} = {}) {
+  const durMin = Math.max(1, durationMs / 60_000);
+  const civSlug = normalizeCivSlug(selfState?.civ);
+
+  // 1. Aldeanos Fantasma (costo real del TC inactivo antes de Castillos)
+  let ghostVillagers = null;
+  const earlyIdle = Number(self?.tcIdleEarlySeconds);
+  if (Number.isFinite(earlyIdle) && earlyIdle >= 18) {
+    const trainSec = 25 / persianTcRate(civSlug, 'dark');
+    const count = Math.round((earlyIdle / trainSec) * 10) / 10;
+    const targetMin = self?.timings?.castleSeconds
+      ? Math.min(28, self.timings.castleSeconds / 60)
+      : Math.min(22, durMin);
+    const activeGatherMin = Math.max(4, targetMin - 8);
+    // Estimación conservadora: cada aldeano fantasma hubiera juntado ~22 res/min en media
+    const lostResources = Math.round((count * activeGatherMin * 22) / 50) * 50;
+    const eqKnights = Math.max(1, Math.round(lostResources / 135));
+    ghostVillagers = {
+      count,
+      idleSeconds: Math.round(earlyIdle),
+      lostResources,
+      eqKnights,
+      label: `${String(count).replace('.', ',')} aldeanos fantasma`,
+      detail: `~${lostResources.toLocaleString('es-AR')} recursos estimados sin recolectar antes de Castillos (≈ ${eqKnights} Jinetes).`,
+    };
+  }
+
+  // 2. El Minuto del Quiebre (Turning Point de la curva de 12 buckets)
+  let turningPoint = null;
+  if (Array.isArray(timeline) && timeline.length >= 4) {
+    let bestJump = null;
+    let prevVilDiff = 0;
+    let prevMilDiff = 0;
+    let minVilDiff = 0;
+    let maxVilDiff = 0;
+    for (let i = 0; i < timeline.length; i += 1) {
+      const b = timeline[i];
+      const hasRival = !isTeamGame && Number.isFinite(b.rivalVillagers);
+      if (hasRival) {
+        const vDiff = (b.selfVillagers || 0) - (b.rivalVillagers || 0);
+        const mDiff = (b.selfMilitary || 0) - (b.rivalMilitary || 0);
+        if (vDiff < minVilDiff) minVilDiff = vDiff;
+        if (vDiff > maxVilDiff) maxVilDiff = vDiff;
+        if (i >= 2) {
+          const dv = vDiff - prevVilDiff;
+          const dm = mDiff - prevMilDiff;
+          const score = Math.abs(dv) * 1.4 + Math.abs(dm);
+          if (!bestJump || score > bestJump.score) {
+            bestJump = {
+              idx: i,
+              fromSec: timeline[i - 1].seconds,
+              toSec: b.seconds,
+              dv,
+              dm,
+              vDiff,
+              mDiff,
+              score,
+            };
+          }
+        }
+        prevVilDiff = vDiff;
+        prevMilDiff = mDiff;
+      }
+    }
+    if (bestJump && bestJump.score >= 8) {
+      const fromMin = Math.round(bestJump.fromSec / 60);
+      const toMin = Math.round(bestJump.toSec / 60);
+      const isComeback = won === true && minVilDiff <= -8 && bestJump.vDiff >= -2;
+      if (isComeback) {
+        turningPoint = {
+          kind: 'comeback',
+          tone: 'win',
+          minuteRange: `${fromMin}:00–${toMin}:00`,
+          title: `Comeback en el min ${fromMin}–${toMin}`,
+          detail: `Remontaste una desventaja de ${Math.abs(minVilDiff)} aldeanos para dar vuelta la partida.`,
+        };
+      } else if (Math.abs(bestJump.dv) >= Math.abs(bestJump.dm) && Math.abs(bestJump.dv) >= 6) {
+        const good = bestJump.dv > 0;
+        turningPoint = {
+          kind: good ? 'self-boom' : 'rival-boom',
+          tone: good ? 'win' : 'loss',
+          minuteRange: `${fromMin}:00–${toMin}:00`,
+          title: good ? `Despegue económico (${fromMin}–${toMin}m)` : `Quiebre económico rival (${fromMin}–${toMin}m)`,
+          detail: good
+            ? `Entre el min ${fromMin} y ${toMin} sacaste +${bestJump.dv} aldeanos de ventaja en producción.`
+            : `Entre el min ${fromMin} y ${toMin} el rival te sacó ${Math.abs(bestJump.dv)} aldeanos extra.`,
+        };
+      } else if (Math.abs(bestJump.dm) >= 8) {
+        const good = bestJump.dm > 0;
+        turningPoint = {
+          kind: good ? 'self-push' : 'rival-push',
+          tone: good ? 'win' : 'loss',
+          minuteRange: `${fromMin}:00–${toMin}:00`,
+          title: good ? `Pico militar decisivo (${fromMin}–${toMin}m)` : `Presión militar rival (${fromMin}–${toMin}m)`,
+          detail: good
+            ? `Encargaste +${bestJump.dm} militares más que el rival entre el min ${fromMin} y ${toMin}.`
+            : `El rival volcó +${Math.abs(bestJump.dm)} militares más en el tramo ${fromMin}–${toMin}m.`,
+        };
+      }
+    } else if (isTeamGame) {
+      // En TG: identificar tu tramo personal de mayor producción militar
+      let peakBucket = null;
+      for (let i = 1; i < timeline.length; i += 1) {
+        const deltaMil = (timeline[i].selfMilitary || 0) - (timeline[i - 1].selfMilitary || 0);
+        if (!peakBucket || deltaMil > peakBucket.deltaMil) {
+          peakBucket = { fromMin: Math.round(timeline[i - 1].seconds / 60), toMin: Math.round(timeline[i].seconds / 60), deltaMil };
+        }
+      }
+      if (peakBucket && peakBucket.deltaMil >= 10) {
+        turningPoint = {
+          kind: 'self-push',
+          tone: 'neutral',
+          minuteRange: `${peakBucket.fromMin}:00–${peakBucket.toMin}:00`,
+          title: `Tu pico de producción (${peakBucket.fromMin}–${peakBucket.toMin}m)`,
+          detail: `En ese tramo encargaste +${peakBucket.deltaMil} unidades militares (tu ventana más explosiva en TG).`,
+        };
+      }
+    }
+  }
+
+  // 3. Brecha de Herrería antes del primer choque
+  let blacksmithGap = null;
+  const ar = self?.techProfile?.armyRelevance;
+  if (ar && ar.primaryClass && ar.primaryUnits >= 6 && selfState?.classMassMs?.[ar.primaryClass] != null) {
+    const massMs = selfState.classMassMs[ar.primaryClass];
+    const mandatoryByClass = {
+      ranged: { ids: [199, 200, 201], label: 'Emplumado' },
+      cavalry: { ids: [81, 82, 80, 67], label: 'Armadura de caballería' },
+      cavArmorOnly: { ids: [81, 82, 80], label: 'Armadura de caballería' },
+      infantry: { ids: [74, 76, 77, 67], label: 'Armadura de infantería' },
+    };
+    const spec = mandatoryByClass[ar.primaryClass];
+    if (spec) {
+      let firstTechMs = null;
+      for (const tid of spec.ids) {
+        const tms = selfState.blacksmithTechs.get(tid);
+        if (tms != null && (firstTechMs == null || tms < firstTechMs)) firstTechMs = tms;
+      }
+      if (firstTechMs == null) {
+        blacksmithGap = {
+          status: 'missing',
+          tone: 'loss',
+          primaryLabel: ar.primaryLabel,
+          techName: spec.label,
+          delaySec: null,
+          title: `Sin ${spec.label} con ${ar.primaryUnits} ${ar.primaryLabel}`,
+          detail: `Llegaste a masa militar al min ${Math.round(massMs / 60_000)} sin investigar ${spec.label}.`,
+        };
+      } else {
+        const delaySec = Math.round((firstTechMs - massMs) / 1000);
+        if (delaySec <= 45) {
+          blacksmithGap = {
+            status: 'optimal',
+            tone: 'win',
+            primaryLabel: ar.primaryLabel,
+            techName: spec.label,
+            delaySec,
+            title: `${spec.label} listo a tiempo`,
+            detail: `Investigaste ${spec.label} antes de comprometer tus primeros choques con ${ar.primaryLabel}.`,
+          };
+        } else if (delaySec >= 120) {
+          blacksmithGap = {
+            status: 'late',
+            tone: 'loss',
+            primaryLabel: ar.primaryLabel,
+            techName: spec.label,
+            delaySec,
+            title: `${spec.label} tardó +${fmtDurShort(delaySec)}`,
+            detail: `Ya tenías 6+ ${ar.primaryLabel} al min ${Math.round(massMs / 60_000)} y clickeaste ${spec.label} recién al min ${Math.round(firstTechMs / 60_000)}.`,
+          };
+        }
+      }
+    }
+  }
+
+  // 4. Radar de Adaptación & Tech-Switch (1v1 o cuando hay rival con ejército real)
+  let techSwitch = null;
+  if (!isTeamGame && rivalState && rival?.armyClasses) {
+    const rivalTop = [
+      { id: 'cavalry', label: 'Caballería', count: (rival.armyClasses.cavalry || 0) + (rival.armyClasses.cavArmorOnly || 0), counters: ['spearLine', 'infantry'] },
+      { id: 'ranged', label: 'Arqueros', count: rival.armyClasses.ranged || 0, counters: ['cavalry', 'cavArmorOnly', 'ranged'] },
+      { id: 'infantry', label: 'Infantería', count: rival.armyClasses.infantry || 0, counters: ['ranged', 'gunpowder'] },
+    ].sort((a, b) => b.count - a.count)[0];
+
+    if (rivalTop && rivalTop.count >= 12 && rivalState.classMassMs?.[rivalTop.id] != null) {
+      const rivalMassMs = rivalState.classMassMs[rivalTop.id];
+      const isCavThreat = rivalTop.id === 'cavalry';
+      const selfCounterCount = isCavThreat
+        ? (self.armyClasses?.spearLine || 0)
+        : rivalTop.counters.reduce((s, c) => s + (self.armyClasses?.[c] || 0), 0);
+      const selfCounterEvents = (selfState.classEvents || []).filter((e) =>
+        e.ms >= rivalMassMs - 120_000 && (isCavThreat ? e.isSpear : rivalTop.counters.includes(e.cls))
+      );
+      if (selfCounterCount >= 8 && selfCounterEvents.length) {
+        const delaySec = Math.max(0, Math.round((selfCounterEvents[0].ms - rivalMassMs) / 1000));
+        techSwitch = {
+          status: 'adapted',
+          tone: 'win',
+          rivalLabel: rivalTop.label,
+          delaySec,
+          title: delaySec <= 240 ? `Adaptación rápida vs ${rivalTop.label}` : `Transición a counter vs ${rivalTop.label}`,
+          detail: `El rival masificó ${rivalTop.label} (${rivalTop.count}) y respondiste con ${selfCounterCount} unidades de respuesta${delaySec > 30 ? ` en ${fmtDurShort(delaySec)}` : ''}.`,
+        };
+      } else if (won === false && self.militaryOrdered >= 20 && isCavThreat && (self.armyClasses?.spearLine || 0) < 4) {
+        techSwitch = {
+          status: 'stubborn',
+          tone: 'loss',
+          rivalLabel: rivalTop.label,
+          delaySec: null,
+          title: `Sin transición a Piqueros vs ${rivalTop.label}`,
+          detail: `El rival entrenó ${rivalTop.count} unidades de Caballería y cerraste con solo ${self.armyClasses?.spearLine || 0} de línea de lanza.`,
+        };
+      }
+    }
+  }
+
+  // 5. Evaluación de Rol Pocket vs Flank (Team Games 3v3/4v4)
+  let tgRoleEval = null;
+  if (isTeamGame && (teamRole === 'pocket' || teamRole === 'flank')) {
+    const roleLabel = teamRole === 'pocket' ? 'Pocket' : 'Flank';
+    const firstMil = self?.timings?.firstMilitarySeconds;
+    const castleSec = self?.timings?.castleSeconds;
+    if (teamRole === 'flank') {
+      const earlyPres = firstMil != null && firstMil <= 780;
+      const walled = (self?.habits?.walls || 0) >= 4;
+      tgRoleEval = {
+        role: 'flank',
+        roleLabel,
+        tone: earlyPres || walled ? 'win' : 'warn',
+        title: earlyPres ? 'Flank con presión temprana' : (walled ? 'Flank defensivo amurallado' : 'Flank sin presión temprana'),
+        detail: earlyPres
+          ? `Sacaste tu 1.ª unidad militar al ${fmtClockShort(firstMil)} para sostener la línea de Flank.`
+          : `Como Flank, sacar presión Feudal antes del 12:30 o cerrar muros temprano protege el boom de tu Pocket.`,
+      };
+    } else {
+      const strongBoom = (self?.townCenters || 0) >= 3 || (castleSec != null && castleSec <= 1120);
+      const cavSupport = ((self?.armyClasses?.cavalry || 0) + (self?.armyClasses?.cavArmorOnly || 0)) >= 10;
+      tgRoleEval = {
+        role: 'pocket',
+        roleLabel,
+        tone: strongBoom || cavSupport ? 'win' : 'warn',
+        title: cavSupport ? 'Pocket de apoyo con Caballería' : (strongBoom ? 'Pocket en modo Boom limpio' : 'Pocket lento en escalar'),
+        detail: cavSupport
+          ? `Cumpliste el rol de Pocket: ${((self.armyClasses.cavalry || 0) + (self.armyClasses.cavArmorOnly || 0))} unidades móviles para asistir a tus Flanks.`
+          : (strongBoom
+            ? `Escalaste a ${self.townCenters} TC${castleSec ? ` (Castillos ${fmtClockShort(castleSec)})` : ''} desde posición de Pocket.`
+            : `Como Pocket, buscá llegar a Castillos antes del 18:30 con apoyo móvil o 3 TC limpios.`),
+      };
+    }
+  }
+
+  // 6. Recursos Atrapados (Saturación de colas + Impuesto de Mercado fuera de Sarracenos)
+  let trappedResources = null;
+  const satWs = (self?.topWorkshops || []).filter((w) => Number(w.peakQueue) >= 5);
+  const marketOps = Number(self?.marketProfile?.totalOps ?? self?.habits?.market ?? 0);
+  const isSaracen = civSlug === 'saracens';
+  const estMarketTax = (!isSaracen && marketOps >= 4)
+    ? Math.round(((self?.marketProfile?.totalVolume || marketOps * 100) * 0.25) / 50) * 50
+    : 0;
+  if (satWs.length || estMarketTax >= 150 || (self?.militaryOrdered >= 15 && durMin >= 15)) {
+    const clean = !satWs.length && estMarketTax < 150;
+    trappedResources = {
+      clean,
+      tone: clean ? 'win' : 'loss',
+      saturatedCount: satWs.length,
+      peakQueue: satWs.length ? Math.max(...satWs.map((w) => Math.round(w.peakQueue))) : 0,
+      marketOps,
+      estMarketTax,
+      title: clean
+        ? 'Gasto limpio sin recursos atrapados'
+        : (satWs.length ? `Colas saturadas (hasta ×${Math.max(...satWs.map((w) => Math.round(w.peakQueue)))} en fila)` : `Impuesto de Mercado (~${estMarketTax} res)`),
+      detail: clean
+        ? 'Tus edificios militares trabajaron sin colas excesivas ni comisiones altas de Mercado.'
+        : [
+            satWs.length ? `${satWs[0].name} llegó a ${Math.round(satWs[0].peakQueue)} en cola (sumá un edificio extra para convertir recursos en mapa).` : null,
+            estMarketTax >= 150 ? `${marketOps} operaciones de Mercado (~${estMarketTax} res en comisión).` : null,
+          ].filter(Boolean).join(' '),
+    };
+  }
+
+  // 7. Crónica Caliente del Replay (Taunts, "11", Pings, GG/Rage-Quit, Muros, Tributos, Borrados)
+  const badges = [];
+  if (chatStats?.laugh11 > 0) badges.push({ label: `Taunt "11" ×${chatStats.laugh11}`, tone: 'gold' });
+  if (chatStats?.taunts > 0 && chatStats.taunts > (chatStats.laugh11 || 0)) badges.push({ label: `${chatStats.taunts} taunts`, tone: 'neutral' });
+  if (chatStats?.ggCount > 0) badges.push({ label: 'GG limpio', tone: 'win' });
+  else if (chatStats?.hadResign && durationMs >= 300_000) badges.push({ label: 'Salida sin GG', tone: 'loss' });
+  const flares = selfState?.flaresCount || 0;
+  if (isTeamGame && flares >= 10) badges.push({ label: `Modo Comandante (${flares} bengalas)`, tone: 'gold' });
+  else if (flares >= 3) badges.push({ label: `${flares} bengalas`, tone: 'neutral' });
+  if ((self?.habits?.tributes || 0) >= 2) badges.push({ label: `El Banquero (${self.habits.tributes} tributos)`, tone: 'gold' });
+  if ((self?.habits?.walls || 0) >= 18) badges.push({ label: `La Gran Muralla (${self.habits.walls} muros)`, tone: 'neutral' });
+  if ((self?.habits?.selfDeleted || 0) >= 12) badges.push({ label: `Cirugía (${self.habits.selfDeleted} borrados)`, tone: 'neutral' });
+  const replayChronicle = badges.length ? {
+    taunts: chatStats?.taunts || 0,
+    laugh11: chatStats?.laugh11 || 0,
+    ggCount: chatStats?.ggCount || 0,
+    flares,
+    badges: badges.slice(0, 5),
+  } : null;
+
+  // 8. Detector de Castle Drop (Ofensivo vs Defensivo por coordenadas X/Y + Pico de Adrenalina)
+  let castleDrop = null;
+  const centroidOf = (pts) => {
+    if (!pts || pts.length < 2) return null;
+    const sx = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+    const sy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+    return { x: sx, y: sy };
+  };
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const myBase = centroidOf(selfState?.earlyBuildCoords);
+  const rivalBase = centroidOf(rivalState?.earlyBuildCoords);
+  const mapDiag = Math.max(100, Number(mapSize) || 120);
+  if (myBase && selfState?.castleBuildCoords?.length) {
+    const castles = selfState.castleBuildCoords.filter((b) => b.bid === 82 || b.bid === 1251);
+    let bestDrop = null;
+    for (const c of castles) {
+      const dSelf = dist(c, myBase);
+      const dRival = rivalBase ? dist(c, rivalBase) : null;
+      const isOffensive = dRival != null ? (dRival < dSelf * 0.9 || dSelf >= mapDiag * 0.36) : (dSelf >= mapDiag * 0.38);
+      if (isOffensive && (!bestDrop || c.ms < bestDrop.ms)) {
+        bestDrop = { ...c, dSelf: Math.round(dSelf), minute: Math.round(c.ms / 60_000) };
+      }
+    }
+    if (bestDrop) {
+      const aligned = self?.peakEapmMinute != null && Math.abs(self.peakEapmMinute - bestDrop.minute) <= 3;
+      castleDrop = {
+        kind: 'self-offensive',
+        tone: 'win',
+        minute: bestDrop.minute,
+        peakEapmMinute: self?.peakEapmMinute || null,
+        alignedWithPeak: aligned,
+        title: `Castle Drop ofensivo (min ${bestDrop.minute})`,
+        detail: aligned
+          ? `Plantaste un Castillo adelantado al min ${bestDrop.minute}, justo con tu pico de adrenalina (${self.peakEapm} eAPM).`
+          : `Plantaste un Castillo adelantado fuera de tu base al min ${bestDrop.minute}.`,
+      };
+    }
+  }
+  if (!castleDrop && rivalBase && myBase && rivalState?.castleBuildCoords?.length) {
+    const rCastles = rivalState.castleBuildCoords.filter((b) => b.bid === 82 || b.bid === 1251);
+    const enemyDrop = rCastles.find((c) => dist(c, myBase) < dist(c, rivalBase) * 0.9);
+    if (enemyDrop) {
+      const m = Math.round(enemyDrop.ms / 60_000);
+      castleDrop = {
+        kind: 'rival-offensive',
+        tone: won === true ? 'win' : 'loss',
+        minute: m,
+        title: won === true ? `Sobreviviste a un Castle Drop (min ${m})` : `Recibiste un Castle Drop al min ${m}`,
+        detail: won === true
+          ? `El rival te plantó un Castillo en la cara al min ${m} y lograste darlo vuelta.`
+          : `El rival colocó un Castillo ofensivo cerca de tu base al min ${m}.`,
+      };
+    }
+  }
+
+  return {
+    ghostVillagers,
+    turningPoint,
+    blacksmithGap,
+    techSwitch,
+    tgRoleEval,
+    trappedResources,
+    replayChronicle,
+    castleDrop,
+  };
+}
+
+/**
  * Ejecuta el análisis completo sobre `chapter.operations` del .aoe2record.
  */
 function analyzePostmatchEngine(operations, {
   selfSlot, rivalSlot = null, selfCiv = null, rivalCiv = null, allyCivs = [],
   selfAges = null, rivalAges = null, opening = null, openingShort = null,
   playerElo = null, durationMs = 0, isTeamGame = false, startingAge = 'dark',
+  teamRole = null, mapSize = 120, won = null,
 } = {}) {
   const list = Array.isArray(operations) ? operations : [];
   if (!list.length || !Number.isFinite(Number(selfSlot))) return null;
@@ -2072,11 +2509,24 @@ function analyzePostmatchEngine(operations, {
   if (rivalId && rivalId !== selfId) tracked.set(rivalId, createSlotState(rivalId, rivalCiv, rivalAges, startingAge, []));
 
   let maxMs = Number(durationMs) || 0;
+  const chatStats = { taunts: 0, laugh11: 0, ggCount: 0, hadResign: false };
 
   for (const op of list) {
+    if (op && op.Chat) {
+      const cm = parseChatMeta(op.Chat);
+      if (cm) {
+        if (cm.tauntNum != null) {
+          chatStats.taunts += 1;
+          if (cm.tauntNum === 11) chatStats.laugh11 += 1;
+        }
+        if (cm.isGg) chatStats.ggCount += 1;
+      }
+      continue;
+    }
     const info = actionInfo(op);
     if (!info) continue;
     if (info.ms > maxMs) maxMs = info.ms;
+    if (info.type === 'Resign') chatStats.hadResign = true;
     const state = tracked.get(info.playerId);
     if (!state) continue;
 
@@ -2187,8 +2637,18 @@ function analyzePostmatchEngine(operations, {
     else if (info.type === 'Stop') state.stopMicroCount += 1;
     else if (info.type === 'Wall') state.wallsPlaced += 1;
     else if (info.type === 'Repair') state.repairsCount += 1;
+    else if (info.type === 'Flare') state.flaresCount += 1;
     else if (info.type === 'Build') {
       const bid = readBuildId(info.payload);
+      const coords = readBuildCoords(info.payload);
+      if (coords) {
+        if (info.ms <= 6 * 60_000 && state.earlyBuildCoords.length < 16) {
+          state.earlyBuildCoords.push(coords);
+        }
+        if (bid === 82 || bid === 1251 || bid === 79) {
+          state.castleBuildCoords.push({ bid, ms: info.ms, x: coords.x, y: coords.y });
+        }
+      }
       if (bid > 0) {
         const curAge = state.imperialReachedMs != null && info.ms >= state.imperialReachedMs ? 'impCount'
           : state.castleReachedMs != null && info.ms >= state.castleReachedMs ? 'castleCount'
@@ -2303,7 +2763,12 @@ function analyzePostmatchEngine(operations, {
         if (state.firstMilitaryMs == null) state.firstMilitaryMs = info.ms;
         const combatClass = classifyCombatClass(unitId, bType, unit);
         state.armyClasses[combatClass] = (state.armyClasses[combatClass] || 0) + amount;
-        if (SPEAR_LINE_UNIT_IDS.has(unitId)) state.armyClasses.spearLine += amount;
+        const isSpear = SPEAR_LINE_UNIT_IDS.has(unitId);
+        if (isSpear) state.armyClasses.spearLine += amount;
+        if (combatClass && combatClass !== 'none' && state.classMassMs[combatClass] == null && state.armyClasses[combatClass] >= 6) {
+          state.classMassMs[combatClass] = info.ms;
+        }
+        state.classEvents.push({ ms: info.ms, cls: combatClass, isSpear, amount });
         const bucket = state.unitCounts.get(unit.key) || { key: unit.key, unitId, name: unit.name, count: 0 };
         bucket.count += amount;
         state.unitCounts.set(unit.key, bucket);
@@ -2384,9 +2849,26 @@ function analyzePostmatchEngine(operations, {
       }
     : rawHf;
 
+  const postmatchInsights = isShortAbandon
+    ? null
+    : buildPostmatchInsights({
+        selfState,
+        rivalState,
+        self,
+        rival,
+        timeline,
+        durationMs: maxMs,
+        isTeamGame: Boolean(isTeamGame),
+        teamRole,
+        mapSize,
+        chatStats,
+        won,
+      });
+
   return {
     version: VERSION,
     isTeamGame: Boolean(isTeamGame),
+    teamRole: teamRole || null,
     durationSeconds: Math.round((maxMs / 1000) * 10) / 10,
     self,
     rival,
@@ -2398,6 +2880,7 @@ function analyzePostmatchEngine(operations, {
     negatives,
     focus,
     civMastery,
+    postmatchInsights,
   };
 }
 

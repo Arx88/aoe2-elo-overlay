@@ -1050,6 +1050,116 @@
       ? `<img class="pm-emblem" src="assets/icons/postmatch/${file}.webp" width="24" height="24" alt="" draggable="false"/>`
       : reportIcon(name);
   }
+  const AGE_BRAND_ART = {
+    dark: 'assets/brand/opening-v1.png',
+    opening: 'assets/brand/opening-v1.png',
+    feudal: 'assets/brand/feudal-v1.png',
+    castle: 'assets/brand/castle-v1.png',
+    imperial: 'assets/brand/imperial-v1.png',
+  };
+  function ageBrandEmblem(ageId, size = 34) {
+    const src = AGE_BRAND_ART[ageId];
+    return src
+      ? `<img class="pm-age-brand" src="${src}" width="${size}" height="${size}" alt="" draggable="false"/>`
+      : reportIcon(ageId);
+  }
+  function buildFallbackPostmatchInsights(eng, ctx, result) {
+    const existing = eng?.postmatchInsights || null;
+    if (existing && (existing.ghostVillagers || existing.turningPoint || existing.trappedResources || existing.replayChronicle || existing.tgRoleEval || existing.blacksmithGap || existing.techSwitch || existing.castleDrop)) {
+      return existing;
+    }
+    const self = eng?.self || {};
+    const timeline = Array.isArray(eng?.timeline) ? eng.timeline : [];
+    const durMin = Math.max(1, Number(eng?.durationSeconds || result?.durationSeconds || 600) / 60);
+    const out = { ...(existing || {}) };
+    if (!out.ghostVillagers && Number.isFinite(Number(self.tcIdleEarlySeconds)) && Number(self.tcIdleEarlySeconds) >= 18) {
+      const idle = Math.round(Number(self.tcIdleEarlySeconds));
+      const count = Math.round((idle / 25) * 10) / 10;
+      const targetMin = self.timings?.castleSeconds ? Math.min(28, self.timings.castleSeconds / 60) : Math.min(22, durMin);
+      const lostResources = Math.round((count * Math.max(4, targetMin - 8) * 22) / 50) * 50;
+      const eqKnights = Math.max(1, Math.round(lostResources / 135));
+      out.ghostVillagers = {
+        count,
+        idleSeconds: idle,
+        lostResources,
+        eqKnights,
+        label: `${String(count).replace('.', ',')} aldeanos fantasma`,
+        detail: `~${number(lostResources)} recursos estimados sin recolectar antes de Castillos (≈ ${eqKnights} Jinetes).`,
+      };
+    }
+    if (!out.turningPoint && timeline.length >= 4) {
+      const isTg = Boolean(eng?.isTeamGame || ctx?.mode?.size === 'team');
+      if (!isTg) {
+        let best = null;
+        let prevV = 0;
+        let prevM = 0;
+        for (let i = 0; i < timeline.length; i += 1) {
+          const b = timeline[i];
+          if (!Number.isFinite(b.rivalVillagers)) continue;
+          const vd = (b.selfVillagers || 0) - (b.rivalVillagers || 0);
+          const md = (b.selfMilitary || 0) - (b.rivalMilitary || 0);
+          if (i >= 2) {
+            const dv = vd - prevV;
+            const dm = md - prevM;
+            const sc = Math.abs(dv) * 1.4 + Math.abs(dm);
+            if (!best || sc > best.sc) best = { sc, dv, dm, f: Math.round(timeline[i - 1].seconds / 60), t: Math.round(b.seconds / 60) };
+          }
+          prevV = vd;
+          prevM = md;
+        }
+        if (best && best.sc >= 8) {
+          const isEco = Math.abs(best.dv) >= Math.abs(best.dm);
+          const good = isEco ? best.dv > 0 : best.dm > 0;
+          out.turningPoint = {
+            tone: good ? 'win' : 'loss',
+            title: isEco
+              ? (good ? `Despegue económico (${best.f}–${best.t}m)` : `Quiebre económico rival (${best.f}–${best.t}m)`)
+              : (good ? `Pico militar decisivo (${best.f}–${best.t}m)` : `Presión militar rival (${best.f}–${best.t}m)`),
+            detail: isEco
+              ? (good ? `Entre el min ${best.f} y ${best.t} sacaste +${best.dv} aldeanos de ventaja.` : `Entre el min ${best.f} y ${best.t} el rival te sacó ${Math.abs(best.dv)} aldeanos extra.`)
+              : (good ? `Encargaste +${best.dm} militares más que el rival en ese tramo.` : `El rival volcó +${Math.abs(best.dm)} militares más en ese tramo.`),
+          };
+        }
+      } else {
+        let peak = null;
+        for (let i = 1; i < timeline.length; i += 1) {
+          const dm = (timeline[i].selfMilitary || 0) - (timeline[i - 1].selfMilitary || 0);
+          if (!peak || dm > peak.dm) peak = { dm, f: Math.round(timeline[i - 1].seconds / 60), t: Math.round(timeline[i].seconds / 60) };
+        }
+        if (peak && peak.dm >= 10) {
+          out.turningPoint = {
+            tone: 'neutral',
+            title: `Tu pico de producción (${peak.f}–${peak.t}m)`,
+            detail: `Encargaste +${peak.dm} unidades militares en tu ventana más explosiva de la partida.`,
+          };
+        }
+      }
+    }
+    if (!out.trappedResources && self.topWorkshops) {
+      const sat = (self.topWorkshops || []).filter((w) => Number(w.peakQueue) >= 5);
+      const mOps = Number(self.marketProfile?.totalOps ?? self.habits?.market ?? 0);
+      const isSar = /saracen|sarracen/i.test(String(ctx?.civ || ''));
+      const estTax = (!isSar && mOps >= 4) ? Math.round(((self.marketProfile?.totalVolume || mOps * 100) * 0.25) / 50) * 50 : 0;
+      if (sat.length || estTax >= 150) {
+        out.trappedResources = {
+          clean: false,
+          tone: 'loss',
+          title: sat.length ? `Colas saturadas (×${Math.round(sat[0].peakQueue)} en fila)` : `Impuesto de Mercado (~${estTax} res)`,
+          detail: sat.length
+            ? `${locBuilding(sat[0])} llegó a ${Math.round(sat[0].peakQueue)} en cola; sumar otro edificio convierte esos recursos en ejército.`
+            : `${mOps} operaciones de Mercado con ~${estTax} recursos en comisión.`,
+        };
+      }
+    }
+    if (!out.replayChronicle && self.habits) {
+      const badges = [];
+      if ((self.habits.tributes || 0) >= 2) badges.push({ label: `El Banquero (${self.habits.tributes} tributos)`, tone: 'gold' });
+      if ((self.habits.walls || 0) >= 18) badges.push({ label: `La Gran Muralla (${self.habits.walls} muros)`, tone: 'neutral' });
+      if ((self.habits.selfDeleted || 0) >= 12) badges.push({ label: `Cirugía (${self.habits.selfDeleted} borrados)`, tone: 'neutral' });
+      if (badges.length) out.replayChronicle = { badges };
+    }
+    return out;
+  }
   function renderEnginePostMatch(report, access) {
     const c = report.context || {}, result = report.result || {}, eng = report.engine || {};
     const self = eng.self || {}, rival = eng.rival || null;
@@ -1071,17 +1181,43 @@
     const modePill = compareOn
       ? `<span class="pm-mode-tag">${esc(modePref === 'personal' ? tr('postmatch.modePersonal', 'Solo tu historial') : modePref === 'community' ? tr('postmatch.modeCommunity', 'Estándar por ELO') : tr('postmatch.modeBoth', 'Personal + Estándar ELO'))}</span>`
       : '';
+    const pmIns = buildFallbackPostmatchInsights(eng, c, result);
+    const tgRolePill = pmIns?.tgRoleEval
+      ? `<span class="pm-role-pill is-${pmIns.tgRoleEval.role}">${esc(pmIns.tgRoleEval.roleLabel.toUpperCase())}</span>`
+      : (eng.teamRole ? `<span class="pm-role-pill is-${esc(eng.teamRole)}">${esc(eng.teamRole === 'pocket' ? 'POCKET' : 'FLANK')}</span>` : '');
     const outcomeText = result.status === 'won'
       ? tr('postmatch.win', result.label || 'Victoria')
       : result.status === 'lost'
         ? tr('postmatch.loss', result.label || 'Derrota')
         : tr('postmatch.match', result.label || 'Partida');
-    const header = `<header class="pm-head">
-      <div class="pm-head-main">
-        <div class="pm-title-row"><h2>${esc(outcomeText)}</h2>${dur ? `<span class="pm-dur">${esc(dur)}</span>` : ''}${modePill}</div>
-        <p class="pm-sub">${esc(locMap(c.mapName) || c.mapName)}${mode ? ` · ${esc(mode)}` : ''} · ${vsCivs}</p>
+    const heroMapArt = c.mapName ? `<span class="pm-hero-map-frame">${mapBadge(c.mapName, 'lg')}</span>` : '';
+    const heroAgeBits = [
+      self.timings?.feudalSeconds ? `Feudal ${clock(self.timings.feudalSeconds)}` : null,
+      self.timings?.castleSeconds ? `Castillos ${clock(self.timings.castleSeconds)}` : null,
+      self.timings?.imperialSeconds ? `Imperial ${clock(self.timings.imperialSeconds)}` : null,
+    ].filter(Boolean).map((txt) => `<span class="pm-hero-chip">${esc(txt)}</span>`).join('');
+    const heroClash = `<div class="pm-hero-clash" aria-label="Enfrentamiento de civilizaciones">
+      <div class="pm-hero-side is-self">
+        <span class="pm-hero-crest-frame is-self">${civBadge(c.civ)}</span>
+        <div class="pm-hero-side-copy"><b>${esc(tr('postmatch.you', 'Vos'))}</b><small>${esc(locCiv(c.civ) || c.civ || '—')}</small></div>
       </div>
-      ${ratingChip}
+      <span class="pm-hero-vs-badge" aria-hidden="true">VS</span>
+      <div class="pm-hero-side is-rival">
+        <span class="pm-hero-crest-frame is-rival">${eng.rivalCiv ? civBadge(eng.rivalCiv) : reportIcon('shield')}</span>
+        <div class="pm-hero-side-copy"><b>${esc(isTeamGameHead ? `${rivalLabel} (TG)` : rivalLabel)}</b><small>${esc(locCiv(eng.rivalCiv) || eng.rivalCiv || (isTeamGameHead ? 'Equipo rival' : 'Rival'))}</small></div>
+      </div>
+    </div>`;
+    const header = `<header class="pm-head pm-hero-v6 is-${result.status === 'won' ? 'won' : result.status === 'lost' ? 'lost' : 'neutral'}">
+      <div class="pm-hero-left">
+        ${heroMapArt}
+        <div class="pm-head-main">
+          <div class="pm-title-row"><h2>${esc(outcomeText)}</h2>${dur ? `<span class="pm-dur">${esc(dur)}</span>` : ''}${tgRolePill}${modePill}</div>
+          <p class="pm-sub">${esc(locMap(c.mapName) || c.mapName)}${mode ? ` · ${esc(mode)}` : ''} · ${vsCivs}</p>
+          ${heroAgeBits ? `<div class="pm-hero-chips">${heroAgeBits}</div>` : ''}
+        </div>
+      </div>
+      ${heroClash}
+      <div class="pm-hero-right">${ratingChip}</div>
     </header>`;
 
     const heroLine = evo?.headline?.text || null;
@@ -1165,7 +1301,7 @@
         const stageJumpSel = s.id === 'imperial' ? '.pm-habits' : '.pm-race-box, .pm-duel';
         return `<article class="pm-stage-card is-jumpable${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}" data-pm-jump-tab="${stageJumpTab}" data-scroll-target="${stageJumpSel}"${s.tip ? ` title="${esc(s.tip)}"` : ''}>
           <div class="pm-stage-top">
-            <span class="pm-icon-tile ${tileTone} sm">${reportIcon(s.id)}</span>
+            <span class="pm-icon-tile ${tileTone} sm pm-age-tile">${ageBrandEmblem(s.id, 34)}</span>
             <div class="pm-stage-head">
               <span class="pm-stage-lbl">${esc(locAge(s.id, s.label))}</span>
               ${s.subtitle ? `<b class="pm-stage-sub">${esc(s.subtitle)}</b>` : ''}
@@ -1476,15 +1612,27 @@
       ${fourthHabit}
     </div>`;
 
-    // Nivel 2: Detalle técnico organizado en 3 pestañas limpias (visible en Relic Launcher; oculto en overlay por CSS)
+    // Nivel 2: Detalle técnico organizado en 3 Chapter Tabs esculpidas (hermanas de Central v5)
     const duelRightHtml = `${ageRaceBox}${coachPanel}`;
     const techLeftHtml = techBox || queueBox;
     const techRightHtml = techBox ? `${queueBox}${coachPanel}` : coachPanel;
+    const evoTabSub = evo?.sampleSize > 0 ? `vs últ. ${number(evo.sampleSize)} partidas` : `${self.eapm != null ? `${dec(self.eapm, 1)} eAPM` : 'Ritmo y curva'}`;
+    const duelTabSub = isTeamGame ? `Vos vs ${rivalLabel} (TG)` : `Vos vs ${rivalLabel}`;
+    const techTabSub = `${number(selfTechTotal)} mejoras · ${number(self.workshopsCount || 0)} edif.`;
     const deepDive = `<section class="pm-deep-dive" aria-label="Análisis técnico detallado">
       <div class="pm-tabs" role="tablist">
-        <button type="button" class="pm-tab is-active" role="tab" aria-selected="true" data-pm-tab="evo">${esc(tr('postmatch.tabEvo', 'Evolución y Curva'))}</button>
-        <button type="button" class="pm-tab" role="tab" aria-selected="false" data-pm-tab="duel">${esc(tr('postmatch.tabDuel', 'Duelo vs Rival'))}</button>
-        <button type="button" class="pm-tab" role="tab" aria-selected="false" data-pm-tab="tech">${esc(tr('postmatch.tabTech', 'Mejoras y Producción'))}</button>
+        <button type="button" class="pm-tab is-tab-evo is-active" role="tab" aria-selected="true" data-pm-tab="evo">
+          <span class="pm-tab-ico" aria-hidden="true">${reportIcon('trend')}</span>
+          <span class="pm-tab-copy"><strong>${esc(tr('postmatch.tabEvo', 'Evolución y Curva'))}</strong><small>${esc(evoTabSub)}</small></span>
+        </button>
+        <button type="button" class="pm-tab is-tab-duel" role="tab" aria-selected="false" data-pm-tab="duel">
+          <span class="pm-tab-ico" aria-hidden="true">${reportIcon('combat')}</span>
+          <span class="pm-tab-copy"><strong>${esc(tr('postmatch.tabDuel', 'Duelo vs Rival'))}</strong><small>${esc(duelTabSub)}</small></span>
+        </button>
+        <button type="button" class="pm-tab is-tab-tech" role="tab" aria-selected="false" data-pm-tab="tech">
+          <span class="pm-tab-ico" aria-hidden="true">${reportIcon('blacksmith')}</span>
+          <span class="pm-tab-copy"><strong>${esc(tr('postmatch.tabTech', 'Mejoras y Producción'))}</strong><small>${esc(techTabSub)}</small></span>
+        </button>
       </div>
       <div class="pm-columns">
         <div class="pm-tab-pane is-active" role="tabpanel" data-pm-pane="evo">
@@ -1518,6 +1666,9 @@
       ? eng.civMastery
       : null;
     const civMasteryBlock = civM ? (() => {
+      const levCount = (civM.leveraged || []).length;
+      const missCount = (civM.missed || []).length;
+      const utilPct = (levCount + missCount) > 0 ? Math.round((levCount / (levCount + missCount)) * 100) : 50;
       const ratingTone = civM.rating === 'high' ? 'is-win' : civM.rating === 'low' ? 'is-loss' : 'is-mid';
       const ratingLabel = civM.rating === 'high' ? 'Ventaja aprovechada'
         : civM.rating === 'low' ? 'Por explotar'
@@ -1543,17 +1694,107 @@
       return `<section class="pm-civ-mastery" aria-label="Aprovechamiento de bonos de civilización">
         <div class="pm-cm-head">
           <div class="pm-cm-title">
-            ${crest ? `<span class="pm-cm-crest">${crest}</span>` : ''}
+            ${crest ? `<span class="pm-cm-ring">${svgWrRing(utilPct, crest, 70)}</span>` : ''}
             <div>
-              <span class="pm-cm-kicker">Bonos de civilización · ${esc(civTitle)}</span>
+              <span class="pm-cm-kicker">Bonos de civilización · ${esc(civTitle)} · ${utilPct}% explotados</span>
               ${civM.summary ? `<p class="pm-cm-summary">${esc(civM.summary)}</p>` : ''}
             </div>
           </div>
           <span class="pm-cm-pill ${ratingTone}">${esc(ratingLabel)}</span>
         </div>
-        <div class="pm-cm-list">${levRows}${missRows}</div>
+        <div class="pm-cm-list${levRows && missRows ? ' is-split' : ''}">${levRows}${missRows}</div>
       </section>`;
     })() : '';
+
+    // 8 Nuevos Insights Competitivos y Curiosos de Postmatch
+    const pmInsightCards = [];
+    if (pmIns?.ghostVillagers) {
+      const gv = pmIns.ghostVillagers;
+      pmInsightCards.push(`<article class="pm-ins-card is-loss">
+        <span class="pm-icon-tile is-rose sm">${reportIcon('villager')}</span>
+        <div class="pm-ins-copy">
+          <span class="pm-ins-k">ALDEANOS FANTASMA</span>
+          <strong>${esc(gv.label)}</strong>
+          <small>${esc(gv.detail)}</small>
+        </div>
+      </article>`);
+    }
+    if (pmIns?.turningPoint) {
+      const tp = pmIns.turningPoint;
+      const tCls = tp.tone === 'win' ? 'is-win' : tp.tone === 'loss' ? 'is-loss' : 'is-gold';
+      pmInsightCards.push(`<article class="pm-ins-card ${tCls}">
+        <span class="pm-icon-tile ${tp.tone === 'win' ? 'is-emerald' : tp.tone === 'loss' ? 'is-rose' : 'is-gold'} sm">${reportIcon('trend')}</span>
+        <div class="pm-ins-copy">
+          <span class="pm-ins-k">MINUTO DEL QUIEBRE</span>
+          <strong>${esc(tp.title)}</strong>
+          <small>${esc(tp.detail)}</small>
+        </div>
+      </article>`);
+    }
+    if (pmIns?.tgRoleEval) {
+      const r = pmIns.tgRoleEval;
+      pmInsightCards.push(`<article class="pm-ins-card ${r.tone === 'win' ? 'is-win' : 'is-gold'}">
+        <span class="pm-icon-tile ${r.tone === 'win' ? 'is-emerald' : 'is-gold'} sm">${reportIcon('shield')}</span>
+        <div class="pm-ins-copy">
+          <span class="pm-ins-k">ROL EN EQUIPO · ${esc(r.roleLabel.toUpperCase())}</span>
+          <strong>${esc(r.title)}</strong>
+          <small>${esc(r.detail)}</small>
+        </div>
+      </article>`);
+    }
+    if (pmIns?.blacksmithGap) {
+      const bg = pmIns.blacksmithGap;
+      pmInsightCards.push(`<article class="pm-ins-card ${bg.tone === 'win' ? 'is-win' : 'is-loss'}">
+        <span class="pm-icon-tile ${bg.tone === 'win' ? 'is-emerald' : 'is-rose'} sm">${reportIcon('blacksmith')}</span>
+        <div class="pm-ins-copy">
+          <span class="pm-ins-k">TIMING DE HERRERÍA</span>
+          <strong>${esc(bg.title)}</strong>
+          <small>${esc(bg.detail)}</small>
+        </div>
+      </article>`);
+    }
+    if (pmIns?.techSwitch) {
+      const ts = pmIns.techSwitch;
+      pmInsightCards.push(`<article class="pm-ins-card ${ts.tone === 'win' ? 'is-win' : 'is-loss'}">
+        <span class="pm-icon-tile ${ts.tone === 'win' ? 'is-emerald' : 'is-rose'} sm">${reportIcon('sword')}</span>
+        <div class="pm-ins-copy">
+          <span class="pm-ins-k">ADAPTACIÓN &amp; TECH-SWITCH</span>
+          <strong>${esc(ts.title)}</strong>
+          <small>${esc(ts.detail)}</small>
+        </div>
+      </article>`);
+    }
+    if (pmIns?.trappedResources) {
+      const trRes = pmIns.trappedResources;
+      pmInsightCards.push(`<article class="pm-ins-card ${trRes.tone === 'win' ? 'is-win' : 'is-loss'}">
+        <span class="pm-icon-tile ${trRes.tone === 'win' ? 'is-emerald' : 'is-amber'} sm">${reportIcon('market')}</span>
+        <div class="pm-ins-copy">
+          <span class="pm-ins-k">EFICIENCIA DE GASTO</span>
+          <strong>${esc(trRes.title)}</strong>
+          <small>${esc(trRes.detail)}</small>
+        </div>
+      </article>`);
+    }
+    if (pmIns?.castleDrop) {
+      const cd = pmIns.castleDrop;
+      pmInsightCards.push(`<article class="pm-ins-card ${cd.tone === 'win' ? 'is-gold' : 'is-loss'}">
+        <span class="pm-icon-tile ${cd.tone === 'win' ? 'is-gold' : 'is-rose'} sm">${reportIcon('castle')}</span>
+        <div class="pm-ins-copy">
+          <span class="pm-ins-k">CASTLE DROP</span>
+          <strong>${esc(cd.title)}</strong>
+          <small>${esc(cd.detail)}</small>
+        </div>
+      </article>`);
+    }
+    const chronicleStrip = pmIns?.replayChronicle?.badges?.length
+      ? `<div class="pm-chronicle-strip" aria-label="Crónica del replay"><span class="pm-chronicle-k">CRÓNICA DEL REPLAY</span>${pmIns.replayChronicle.badges.map((b) => `<span class="pm-chronicle-pill is-${esc(b.tone || 'neutral')}">${esc(b.label)}</span>`).join('')}</div>`
+      : '';
+    const pmInsightsBlock = (pmInsightCards.length || chronicleStrip)
+      ? `<section class="pm-insights-v6" aria-label="Lectura táctica y curiosidades del replay">
+          ${pmInsightCards.length ? `<div class="pm-ins-grid">${pmInsightCards.slice(0, 6).join('')}</div>` : ''}
+          ${chronicleStrip}
+        </section>`
+      : '';
 
     return `<div class="pm-v2 detail is-${result.status === 'won' ? 'won' : result.status === 'lost' ? 'lost' : 'neutral'}">
       ${header}
@@ -1562,6 +1803,7 @@
       ${openingBar}
       ${stageStrip}
       ${narrativeGrid}
+      ${pmInsightsBlock}
       ${civMasteryBlock}
       ${focusShort}
       ${deepDive}
@@ -1654,7 +1896,7 @@
     }
   }
 
-  function renderRecentMatchesList(matches = [], { selectedMatchId = null, mode = 'list', limit = 10 } = {}) {
+  function renderRecentMatchesList(matches = [], { selectedMatchId = null, mode = 'list', limit = 10, jumpToPostmatch = false } = {}) {
     const list = (Array.isArray(matches) ? matches : []).slice(0, limit);
     if (!list.length) {
       return `<div class="central-empty-matches"><p>${esc(tr('central.noMatchesYet', 'Todavía no hay partidas recientes registradas para esta cuenta.'))}</p></div>`;
@@ -1662,43 +1904,56 @@
     const items = list.map((m) => {
       const isSelected = selectedMatchId != null && String(m.matchId) === String(selectedMatchId);
       const outcomeCls = m.won === true ? 'is-win' : m.won === false ? 'is-loss' : 'is-pending';
-      const outcomeLetter = m.won === true
-        ? tr('central.winShort', 'V')
-        : m.won === false
-          ? tr('central.lossShort', 'D')
-          : '·';
+      const outcomeWord = m.won === true ? 'VICTORIA' : m.won === false ? 'DERROTA' : 'PARTIDA';
       const mapLabel = locMap(m.mapName) || m.mapName || '—';
       const myCivName = locCiv(m.myCiv) || m.myCiv || '?';
       const rivalCivName = locCiv(m.rivalCiv) || m.rivalCiv || '?';
-      const diffTxt = m.myRatingDiff != null
-        ? `<span class="rm-diff ${m.myRatingDiff >= 0 ? 'win' : 'loss'}">${m.myRatingDiff >= 0 ? '+' : ''}${m.myRatingDiff}</span>`
-        : '';
-      const ratingTxt = m.myRating != null ? `<span class="rm-elo">${number(m.myRating)}</span>` : '';
+      const diffVal = m.myRatingDiff != null && Number.isFinite(Number(m.myRatingDiff)) ? Number(m.myRatingDiff) : null;
+      const diffTxt = diffVal != null
+        ? `<strong class="rm-diff-hero ${diffVal >= 0 ? 'win' : 'loss'}">${diffVal >= 0 ? '+' : ''}${diffVal}</strong>`
+        : `<strong class="rm-diff-hero neutral">${m.won === true ? 'V' : m.won === false ? 'D' : '·'}</strong>`;
+      const ratingTxt = m.myRating != null ? `<span class="rm-elo">${number(m.myRating)} ELO</span>` : '';
       const durTxt = m.durationSeconds != null ? clock(m.durationSeconds) : '';
       const timeTxt = fmtRelativeTime(m.finishedAt || m.startedAt);
       const extraTag = m.extraRivals > 0 ? ` +${m.extraRivals}` : '';
-      const replayBadge = m.hasTelemetry
-        ? `<span class="rm-telemetry is-ready" title="${esc(tr('central.replayReady', 'Replay analizado'))}">★ Replay</span>`
-        : `<span class="rm-telemetry">${esc(tr('central.viewReport', 'Ver informe'))}</span>`;
-
-      return `<button type="button" class="rm-card ${outcomeCls}${isSelected ? ' is-selected' : ''}" data-match-id="${esc(m.matchId)}" aria-pressed="${isSelected}">
-        <span class="rm-outcome">${esc(outcomeLetter)}</span>
-        <span class="rm-matchup">
-          <span class="rm-civ-pair">${civBadge(m.myCiv)}<span class="rm-vs">vs</span>${civBadge(m.rivalCiv)}</span>
-          <span class="rm-names">
-            <strong>${esc(myCivName)} <small>vs</small> ${esc(m.rivalName || 'Rival')}${esc(extraTag)}</strong>
-            <small>${esc(mapLabel)} · ${esc(m.modeLabel || 'Partida')}${rivalCivName && rivalCivName !== '?' ? ` · ${esc(rivalCivName)}` : ''}</small>
+      const rivalEloTxt = m.rivalRating != null ? ` (${number(m.rivalRating)})` : '';
+      const replayBadge = isSelected
+        ? `<span class="rm-telemetry is-active-view">VIENDO</span>`
+        : (m.hasTelemetry
+          ? `<span class="rm-telemetry is-ready" title="${esc(tr('central.replayReady', 'Replay analizado'))}">★ Replay</span>`
+          : `<span class="rm-telemetry">${esc(tr('central.viewReport', 'Informe'))}</span>`);
+      const mapSrc = typeof mapArtPath === 'function' ? mapArtPath(m.mapName) : null;
+      const mapWash = mapSrc ? `<img class="rm-map-wash" src="${esc(mapSrc)}" alt="" aria-hidden="true" draggable="false"/>` : '';
+      return `<button type="button" class="rm-card rm-epic ${outcomeCls}${isSelected ? ' is-selected' : ''}" data-match-id="${esc(m.matchId)}" aria-pressed="${isSelected}">
+        ${mapWash}
+        <span class="rm-arena">
+          <span class="rm-map-frame">
+            ${mapBadge(m.mapName, 'md')}
+            <em class="rm-outcome-pill">${esc(outcomeWord)}</em>
+          </span>
+          <span class="rm-clash" aria-hidden="true">
+            <span class="rm-crest is-self">${civBadge(m.myCiv)}</span>
+            <span class="rm-vs-medallion">VS</span>
+            <span class="rm-crest is-rival">${civBadge(m.rivalCiv)}</span>
           </span>
         </span>
-        <span class="rm-meta">
-          <span class="rm-rating-row">${ratingTxt}${diffTxt}</span>
-          <small>${[durTxt, timeTxt].filter(Boolean).join(' · ')}</small>
+        <span class="rm-identity">
+          <span class="rm-id-top">
+            <strong class="rm-map-title">${esc(mapLabel)}</strong>
+            <span class="rm-mode-pill">${esc(m.modeLabel || 'Partida')}</span>
+          </span>
+          <span class="rm-id-mid">${esc(myCivName)} <em>vs</em> ${esc(rivalCivName)}</span>
+          <span class="rm-id-sub">vs <b>${esc(m.rivalName || 'Rival')}${esc(extraTag)}</b>${esc(rivalEloTxt)}${durTxt || timeTxt ? ` · ${esc([durTxt, timeTxt].filter(Boolean).join(' · '))}` : ''}</span>
         </span>
-        ${replayBadge}
+        <span class="rm-telemetry-col">
+          ${diffTxt}
+          ${ratingTxt}
+          ${replayBadge}
+        </span>
       </button>`;
     }).join('');
 
-    return `<div class="rm-list rm-mode-${esc(mode)}" role="list">${items}</div>`;
+    return `<div class="rm-list rm-epic-list rm-mode-${esc(mode)}" role="list">${items}</div>`;
   }
 
   function fmtShortDate(ts) {
@@ -1710,7 +1965,7 @@
     }
   }
 
-  function renderInteractiveEloChart(mode, eloRange = '30') {
+  function renderInteractiveEloChart(mode, eloRange = '20', { planTier = 'ultra' } = {}) {
     const allPts = Array.isArray(mode.eloSeries) ? mode.eloSeries.filter((p) => Number.isFinite(p.rating)) : [];
     const ladderLabel = mode.label || 'RM 1v1';
     if (allPts.length < 2) {
@@ -1719,16 +1974,29 @@
       </section>`;
     }
 
-    const activeRange = (eloRange === '100' && allPts.length > 100)
-      ? '100'
-      : (eloRange === 'all' && allPts.length > 30)
-        ? 'all'
-        : '30';
+    const isUltraTier = planTier === 'ultra';
+    const isProOrUltra = planTier === 'pro' || isUltraTier;
+    const reqRange = String(eloRange || '');
+    let activeRange = '20';
+    if (planTier === 'free') {
+      activeRange = '10';
+    } else if (planTier === 'pro') {
+      activeRange = reqRange === '10' ? '10' : '20';
+    } else {
+      if (reqRange === '10') activeRange = '10';
+      else if (reqRange === '20') activeRange = '20';
+      else if ((reqRange === '100' || reqRange === '30') && allPts.length > 50) activeRange = '100';
+      else if (reqRange === 'all' && allPts.length > 20) activeRange = 'all';
+      else activeRange = allPts.length > 50 ? '100' : (allPts.length > 20 ? 'all' : '20');
+    }
+
     const pts = activeRange === 'all'
       ? allPts
       : activeRange === '100'
         ? allPts.slice(-100)
-        : allPts.slice(-30);
+        : activeRange === '10'
+          ? allPts.slice(-10)
+          : allPts.slice(-20);
 
     const w = 800, h = 210, padL = 12, padR = 48, padT = 22, padB = 26;
     const innerW = w - padL - padR, innerH = h - padT - padB;
@@ -1768,12 +2036,27 @@
       </g>`;
     }).join('');
 
-    const net = lastPt.rating - firstPt.rating;
+    // P1-3: Incluir diff de la primera partida del tramo parcial para medir exactamente las N partidas
+    const net = (lastPt.rating - firstPt.rating) + (pts.length < allPts.length ? (Number(firstPt.diff) || 0) : 0);
     const netPill = `<span class="cx-delta ${net > 0 ? 'win' : net < 0 ? 'loss' : 'neutral'}">${net > 0 ? '+' : ''}${net} ELO en el tramo</span>`;
-    const rangePills = allPts.length > 30 ? `<div class="central-range-pills" role="group" aria-label="Rango de partidas">
-      <button type="button" class="central-range-btn${activeRange === '30' ? ' active' : ''}" aria-pressed="${activeRange === '30'}" data-elo-range="30">30 partidas</button>
-      ${allPts.length > 100 ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" aria-pressed="${activeRange === '100'}" data-elo-range="100">100 partidas</button>` : ''}
-      <button type="button" class="central-range-btn${activeRange === 'all' ? ' active' : ''}" aria-pressed="${activeRange === 'all'}" data-elo-range="all">${allPts.length} partidas</button>
+    const btn20 = isProOrUltra
+      ? `<button type="button" class="central-range-btn${activeRange === '20' ? ' active' : ''}" aria-pressed="${activeRange === '20'}" data-elo-range="20">Últ. 20</button>`
+      : `<button type="button" class="central-range-btn is-tier-locked" data-goto-plan="1" title="Disponible con Pro">Últ. 20 · PRO</button>`;
+    const btn100 = allPts.length > 50
+      ? (isUltraTier
+        ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" aria-pressed="${activeRange === '100'}" data-elo-range="100">Últ. 100</button>`
+        : `<button type="button" class="central-range-btn is-tier-locked" data-goto-plan="1" title="Disponible con Ultra">Últ. 100 · ULTRA</button>`)
+      : '';
+    const btnAll = allPts.length > 20
+      ? (isUltraTier
+        ? `<button type="button" class="central-range-btn${activeRange === 'all' ? ' active' : ''}" aria-pressed="${activeRange === 'all'}" data-elo-range="all">Total (${allPts.length})</button>`
+        : `<button type="button" class="central-range-btn is-tier-locked" data-goto-plan="1" title="Disponible con Ultra">Total (${allPts.length}) · ULTRA</button>`)
+      : '';
+    const rangePills = allPts.length > 10 ? `<div class="central-range-pills" role="group" aria-label="Rango de partidas">
+      <button type="button" class="central-range-btn${activeRange === '10' ? ' active' : ''}" aria-pressed="${activeRange === '10'}" data-elo-range="10">Últ. 10</button>
+      ${btn20}
+      ${btn100}
+      ${btnAll}
     </div>` : `<span class="cx-meta-pill">${pts.length} partidas</span>`;
 
     const formPips = (mode.recentForm || []).map((f) =>
@@ -2263,19 +2546,21 @@
       return [Math.round((cx + radius * Math.cos(ang)) * 10) / 10, Math.round((cy + radius * Math.sin(ang)) * 10) / 10];
     };
     const polyStr = (r) => list.map((_, i) => ptAt(i, r).join(',')).join(' ');
-    const rings = [maxR * 0.34, maxR * 0.67, maxR].map((r) => `<polygon class="cx-radar-web" points="${polyStr(r)}" />`).join('');
+    const rings = [maxR * 0.25, maxR * 0.5, maxR * 0.75, maxR].map((r) => `<polygon class="cx-radar-web" points="${polyStr(r)}" />`).join('');
     const spokes = list.map((_, i) => {
       const [x, y] = ptAt(i, maxR);
       return `<line class="cx-radar-spoke" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" />`;
     }).join('');
-    const dataPts = list.map((ax, i) => ptAt(i, maxR * (Math.max(14, Math.min(100, ax.hasData ? ax.score : 32)) / 100)));
+    // Escala 1:1 exacta (0% = centro, 100% = toca el borde exterior maxR)
+    const dataPts = list.map((ax, i) => ptAt(i, maxR * (Math.max(6, Math.min(100, ax.hasData ? ax.score : 25)) / 100)));
     const dataPoly = `<polygon class="cx-radar-poly" points="${dataPts.map((p) => p.join(',')).join(' ')}" />`;
-    const dots = dataPts.map(([x, y], i) => `<circle class="cx-radar-dot${list[i].hasData ? ' is-live' : ' is-dim'}" cx="${x}" cy="${y}" r="${list[i].hasData ? 3.8 : 2.6}" />`).join('');
+    const dots = dataPts.map(([x, y], i) => `<circle class="cx-radar-dot${list[i].hasData ? ' is-live' : ' is-dim'}" cx="${x}" cy="${y}" r="${list[i].hasData ? 3.8 : 2.6}">${list[i].tooltip ? `<title>${esc(list[i].tooltip)}</title>` : ''}</circle>`).join('');
     const labels = list.map((ax, i) => {
       const [lx, ly] = ptAt(i, maxR + 21);
       const anchor = Math.abs(lx - cx) < 12 ? 'middle' : (lx > cx ? 'start' : 'end');
       const dy = ly < cy - 30 ? -4 : ly > cy + 40 ? 10 : 3;
       return `<g class="cx-radar-lbl-g">
+        ${ax.tooltip ? `<title>${esc(ax.tooltip)}</title>` : ''}
         <text class="cx-radar-lbl" x="${lx}" y="${ly + dy}" text-anchor="${anchor}">${esc(ax.label)}</text>
         <text class="cx-radar-val" x="${lx}" y="${ly + dy + 12}" text-anchor="${anchor}">${esc(ax.valueText || '—')}</text>
       </g>`;
@@ -2436,16 +2721,17 @@
             <strong>${esc(title)}</strong>
           </div>
         </div>
-        <small class="cx-spot-foot">Pick frecuente que resta ELO (${number(st.games)} partidas)</small>
+        <small class="cx-spot-foot">${st.kind === 'combo' ? `Combinación con baja efectividad (${number(st.games)} partidas)` : `Pick frecuente que resta ELO (${number(st.games)} partidas)`}</small>
       </button>`);
     } else if (giantSlayer?.biggestUpset) {
       const up = giantSlayer.biggestUpset;
       const mapLabel = up.mapName ? (locMap(up.mapName) || up.mapName) : '';
       const vsLabel = up.rivalName ? `vs ${up.rivalName}` : (giantSlayer.isTeam ? 'vs equipo superior' : 'vs rival superior');
+      const upPill = up.ratingDiff > 0 ? `+${up.ratingDiff} ELO` : 'Batacazo';
       cards.push(`<div class="cx-spot-card is-upset-spot is-gold">
         <div class="cx-spot-head">
           <span class="cx-eyebrow is-gold">MATAGIGANTES</span>
-          <span class="cx-spot-pill is-win">+${up.ratingDiff || 15} ELO</span>
+          <span class="cx-spot-pill is-win">${esc(upPill)}</span>
         </div>
         <div class="cx-spot-mid">
           <span class="cx-spot-medal-frame">${up.myCiv ? civBadge(up.myCiv) : icon('sword')}</span>
@@ -2519,7 +2805,7 @@
     if (giantSlayer?.biggestUpset) {
       const up = giantSlayer.biggestUpset;
       trophyItems.push({
-        ico: icon('sword'),
+        ico: up.myCiv ? civBadge(up.myCiv) : (up.mapName ? mapBadge(up.mapName, 'sm') : icon('sword')),
         tone: 'gold',
         kicker: 'MAYOR BATACAZO',
         val: `+${up.gap} ELO`,
@@ -2532,7 +2818,7 @@
         tone: 'win',
         kicker: trophies.bestWinStreak.active ? 'RACHA RÉCORD · ACTIVA' : 'RACHA RÉCORD',
         val: `${trophies.bestWinStreak.count}V`,
-        sub: 'Victorias consecutivas en el modo',
+        sub: trophies.bestWinStreak.modeLabel ? `Victorias seguidas en ${trophies.bestWinStreak.modeLabel}` : 'Victorias consecutivas en el modo',
       });
     }
     if (trophies?.bestSession) {
@@ -2541,24 +2827,24 @@
         tone: 'win',
         kicker: 'MEJOR SESIÓN',
         val: `+${trophies.bestSession.netElo} ELO`,
-        sub: `${trophies.bestSession.wins}V-${trophies.bestSession.losses}D (${number(trophies.bestSession.fromElo)} → ${number(trophies.bestSession.toElo)})`,
+        sub: `${trophies.bestSession.wins}V-${trophies.bestSession.losses}D (${number(trophies.bestSession.fromElo)} → ${number(trophies.bestSession.toElo)})${trophies.bestSession.modeLabel ? ` · ${trophies.bestSession.modeLabel}` : ''}`,
       });
     }
     if (trophies?.fastestWin) {
       trophyItems.push({
-        ico: icon('clock'),
+        ico: trophies.fastestWin.mapName ? mapBadge(trophies.fastestWin.mapName, 'sm') : icon('clock'),
         tone: 'gold',
         kicker: 'GG MÁS RÁPIDO',
-        val: `${trophies.fastestWin.minutes} min`,
+        val: `${trophies.fastestWin.minutes}m juego`,
         sub: `${locCiv(trophies.fastestWin.civ) || trophies.fastestWin.civ} · ${locMap(trophies.fastestWin.mapName) || trophies.fastestWin.mapName}`,
       });
     }
     if (trophies?.longestWin) {
       trophyItems.push({
-        ico: icon('castle'),
+        ico: trophies.longestWin.mapName ? mapBadge(trophies.longestWin.mapName, 'sm') : icon('castle'),
         tone: 'neutral',
         kicker: 'BATALLA MÁS ÉPICA',
-        val: `${trophies.longestWin.minutes} min`,
+        val: `${trophies.longestWin.minutes}m juego`,
         sub: `${locCiv(trophies.longestWin.civ) || trophies.longestWin.civ} · ${locMap(trophies.longestWin.mapName) || trophies.longestWin.mapName}`,
       });
     }
@@ -2661,9 +2947,240 @@
     </div>`;
   }
 
+  function renderCuriousDiscoveriesRow(disc = {}, isUltra = true) {
+    const cards = [];
+
+    // A. Radiografía de Team Games (Pocket vs Flank · 2v2/3v3/4v4 · Carry vs Ancla)
+    const tg = disc.tgRadiography;
+    if (tg) {
+      const roleBoxes = [
+        tg.pocket ? `<div class="cx-tg-role is-pocket"><span>POCKET</span><b class="${tg.pocket.games >= 4 ? (tg.pocket.winRate >= 54 ? 'win' : tg.pocket.winRate < 46 ? 'loss' : '') : ''}">${tg.pocket.games >= 4 ? `${tg.pocket.winRate}%` : `${tg.pocket.games} pj`}</b><small>${tg.pocket.games >= 4 ? `${tg.pocket.wins}V-${tg.pocket.losses}D (${tg.pocket.games} pj)` : 'Muestra chica (<4 pj)'}</small></div>` : '',
+        tg.flank ? `<div class="cx-tg-role is-flank"><span>FLANK</span><b class="${tg.flank.games >= 4 ? (tg.flank.winRate >= 54 ? 'win' : tg.flank.winRate < 46 ? 'loss' : '') : ''}">${tg.flank.games >= 4 ? `${tg.flank.winRate}%` : `${tg.flank.games} pj`}</b><small>${tg.flank.games >= 4 ? `${tg.flank.wins}V-${tg.flank.losses}D (${tg.flank.games} pj)` : 'Muestra chica (<4 pj)'}</small></div>` : '',
+      ].filter(Boolean).join('');
+      const sizePills = (tg.sizes || []).map((s) =>
+        `<span class="cx-mini-pill"><b>${esc(s.label)}</b> ${s.winRate}% <small>(${s.games})</small></span>`
+      ).join('');
+      const carryRow = (tg.carry || tg.anchor) ? `<div class="cx-tg-carry-row">
+        ${tg.carry ? `<span class="cx-mini-pill is-gold">Capitán (Carry): <b>${tg.carry.winRate}%</b> (${tg.carry.games})</span>` : ''}
+        ${tg.anchor ? `<span class="cx-mini-pill">Ancla del equipo: <b>${tg.anchor.winRate}%</b> (${tg.anchor.games})</span>` : ''}
+      </div>` : '';
+      cards.push(`<section class="cx-card cx-curious-card cx-tg-radio-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">RADIOGRAFÍA DE TEAM GAMES · ${number(tg.sample)} PARTIDAS</span>
+            <h3>Pocket vs Flank, tamaño y liderazgo</h3>
+          </div>
+        </header>
+        ${wrapUltraGate(`${roleBoxes ? `<div class="cx-tg-roles">${roleBoxes}</div>` : ''}
+        ${sizePills ? `<div class="cx-mini-pills">${sizePills}</div>` : ''}
+        ${carryRow}
+        ${tg.roleTip ? `<p class="cx-circ-punchline">${esc(tg.roleTip)}</p>` : `<small class="cx-note-muted">${esc(tg.positionNote)}</small>`}`, { locked: !isUltra, ctaLabel: 'Desbloqueá tu radiografía Pocket vs Flank', compact: true })}
+      </section>`);
+    }
+
+    // B. Tu Color de la Suerte & Maldición de Color
+    const lc = disc.luckyColor;
+    if (lc && lc.colors?.length) {
+      const chips = lc.colors.map((c) => {
+        const isBest = lc.lucky && lc.lucky.id === c.id;
+        const isWorst = lc.cursed && lc.cursed.id === c.id;
+        return `<div class="cx-color-chip${isBest ? ' is-lucky' : isWorst ? ' is-cursed' : ''}">
+          <span class="cx-color-dot is-${esc(c.cls)}" aria-hidden="true"></span>
+          <div class="cx-color-copy">
+            <strong>${esc(c.name)}</strong>
+            <small>${number(c.games)} pj</small>
+          </div>
+          <b class="${c.winRate >= 55 ? 'win' : c.winRate < 46 ? 'loss' : ''}">${c.winRate}%</b>
+        </div>`;
+      }).join('');
+      const headline = lc.lucky
+        ? `Tu color talismán: ${lc.lucky.name} (${lc.lucky.winRate}% WR)`
+        : `Color favorito: ${lc.favorite.name} (${lc.favorite.games} pj)`;
+      cards.push(`<section class="cx-card cx-curious-card cx-color-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">CURIOSIDAD AOE2 · ${esc((lc.sampleLabel || `${number(lc.sample)} PARTIDAS`).toUpperCase())}</span>
+            <h3>${esc(headline)}</h3>
+          </div>
+          ${lc.cursed ? `<span class="cx-meta-pill is-loss">Mufa: ${esc(lc.cursed.name)} (${lc.cursed.winRate}%)</span>` : ''}
+        </header>
+        <div class="cx-color-grid">${chips}</div>
+      </section>`);
+    }
+
+    // C. El Espejo (Mirrors), Cazador de Meta, Perfil de GG & Resaca/Revanchas
+    const mm = disc.mirrorAndMeta;
+    const rp = disc.resignProfile;
+    const mr = disc.marathonAndRematch;
+    if (mm || rp || mr) {
+      const tiles = [];
+      if (mm?.mirror) {
+        tiles.push(`<div class="cx-fun-tile is-gold">
+          <span>EL ESPEJO (MIRRORS)</span>
+          <b>${mm.mirror.winRate}% WR</b>
+          <small>${mm.mirror.wins}V-${mm.mirror.losses}D con misma civ</small>
+        </div>`);
+      }
+      if (mm?.vsMeta) {
+        tiles.push(`<div class="cx-fun-tile ${mm.vsMeta.winRate >= 54 ? 'is-win' : mm.vsMeta.winRate < 46 ? 'is-loss' : ''}">
+          <span>${esc((mm.metaTag || 'VS META').toUpperCase())}</span>
+          <b>${mm.vsMeta.winRate}% WR</b>
+          <small>${mm.vsMeta.games} pj vs Top 8 meta${mm.vsOffMeta ? ` · ${mm.vsOffMeta.winRate}% off-meta` : ''}</small>
+        </div>`);
+      }
+      if (rp?.resignTag) {
+        tiles.push(`<div class="cx-fun-tile">
+          <span>PERFIL EN DERROTAS</span>
+          <b>${esc(rp.resignTag)}</b>
+          <small>${esc(rp.resignSub || '')}</small>
+        </div>`);
+      }
+      if (rp?.hunterTag) {
+        const sub = [
+          rp.vsRush ? `vs Rush ${rp.vsRush.winRate}%` : null,
+          rp.vsBoom ? `vs Boom ${rp.vsBoom.winRate}%` : null,
+        ].filter(Boolean).join(' · ');
+        tiles.push(`<div class="cx-fun-tile ${/Asesino|Muro/.test(rp.hunterTag) ? 'is-win' : 'is-loss'}">
+          <span>ESTILO RIVAL</span>
+          <b>${esc(rp.hunterTag)}</b>
+          <small>${esc(sub)}</small>
+        </div>`);
+      }
+      if (mr?.afterMarathon) {
+        tiles.push(`<div class="cx-fun-tile ${mr.afterMarathon.winRate < 46 ? 'is-loss' : 'is-win'}">
+          <span>RESACA POST-MARATÓN</span>
+          <b>${mr.afterMarathon.winRate}% WR</b>
+          <small>Tras guerra 45m+ (${mr.afterMarathon.games} pj)${mr.afterQuick ? ` vs ${mr.afterQuick.winRate}% tras rápida` : ''}</small>
+        </div>`);
+      }
+      if (mr?.rematch) {
+        tiles.push(`<div class="cx-fun-tile ${mr.rematch.winRate >= 55 ? 'is-win' : mr.rematch.winRate < 45 ? 'is-loss' : ''}">
+          <span>KARMA DE REVANCHAS</span>
+          <b>${mr.rematch.winRate}% WR</b>
+          <small>${mr.rematch.wins}V-${mr.rematch.losses}D en revanchas &lt;24h${mr.rematch.revengeWinRate != null ? ` · revancha tras perder: ${mr.rematch.revengeWinRate}%` : ''}</small>
+        </div>`);
+      }
+      if (tiles.length) {
+        cards.push(`<section class="cx-card cx-curious-card cx-fun-card">
+          <header class="cx-card-head">
+            <div>
+              <span class="cx-eyebrow">PERFIL OCULTO Y CURIOSIDADES COMPETITIVAS</span>
+              <h3>Mirrors, meta, psicología y revanchas</h3>
+            </div>
+          </header>
+          <div class="cx-fun-grid">${tiles.slice(0, 6).join('')}</div>
+        </section>`);
+      }
+    }
+
+    // D. Zona de Confort de ELO (P20–P80) & Termómetro por Parche
+    const ecp = disc.eloComfortAndPatch;
+    if (ecp && (ecp.comfort || ecp.patches?.length)) {
+      const cf = ecp.comfort;
+      const comfortHtml = cf ? `<div class="cx-comfort-kpis">
+        <div class="cx-ckpi"><span>Zona estable (P20–P80)</span><b class="gold">${number(cf.p20)}–${number(cf.p80)}</b><small>${number(cf.sample)} partidas</small></div>
+        <div class="cx-ckpi"><span>Próxima barrera</span><b>${number(cf.nextBarrier)}</b><small>a +${number(cf.distToBarrier)} ELO</small></div>
+        <div class="cx-ckpi"><span>Mayor remontada</span><b class="win">+${number(cf.maxComeback)}</b><small>desde piso</small></div>
+        <div class="cx-ckpi"><span>Mayor caída libre</span><b class="loss">−${number(cf.maxDrawdown)}</b><small>drawdown máx.</small></div>
+      </div>` : '';
+      const patchHtml = ecp.patches?.length ? `<div class="cx-patch-strip">
+        <span class="central-mini-k">TERMÓMETRO POR PARCHE · REPLAYS ANALIZADOS</span>
+        <div class="cx-patch-pills">${ecp.patches.map((p) => `<span class="cx-patch-pill">
+          <b>#${esc(p.patch)}</b>
+          <em class="${p.winRate >= 55 ? 'win' : p.winRate < 46 ? 'loss' : ''}">${p.winRate}%</em>
+          <small>${p.games} pj${p.topCiv ? ` · ${esc(locCiv(p.topCiv) || p.topCiv)}` : ''}</small>
+        </span>`).join('')}</div>
+      </div>` : '';
+      const comfortEyebrow = cf?.modeLabel
+        ? `ESTABILIDAD DE LADDER (${cf.modeLabel.toUpperCase()}) Y PARCHES`
+        : 'ESTABILIDAD DE LADDER Y PARCHES';
+      cards.push(`<section class="cx-card cx-curious-card cx-comfort-card">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">${esc(comfortEyebrow)}</span>
+            <h3>Zona de Confort de ELO y Termómetro por Parche</h3>
+          </div>
+        </header>
+        ${comfortHtml}
+        ${patchHtml}
+      </section>`);
+    }
+
+    if (!cards.length) return '';
+    return `<div class="cx-grid-2 cx-curious-grid${cards.length === 1 ? ' is-single-col' : ''}" id="cxSectionCuriousDiscoveries">
+      ${cards.join('')}
+    </div>`;
+  }
+
+  function renderReplayClocksAndMasteryRow(disc = {}, isUltra = true) {
+    const cards = [];
+    const clocks = disc.winLossClocks;
+    if (clocks && clocks.metrics?.length) {
+      const rows = clocks.metrics.map((m) => {
+        const hasPaired = m.winSec != null && m.lossSec != null;
+        const pairHtml = hasPaired
+          ? `<span class="cx-clock-pair"><em class="win">V: ${esc(clock(m.winSec))}</em><em class="loss">D: ${esc(clock(m.lossSec))}</em></span>`
+          : `<span class="cx-clock-pair"><em>Media: ${esc(m.allSec != null ? clock(m.allSec) : '—')}</em></span>`;
+        const dTxt = hasPaired && m.deltaSec != null && Math.abs(m.deltaSec) >= 5
+          ? `<span class="cx-delta ${m.deltaSec < 0 ? 'win' : 'loss'}">${m.deltaSec < 0 ? '−' : '+'}${fmtIdle(Math.abs(m.deltaSec))}</span>`
+          : `<span class="cx-delta neutral">${hasPaired ? (m.allSec != null ? clock(m.allSec) : '—') : `${m.winCount || 0}V/${m.lossCount || 0}D`}</span>`;
+        return `<div class="cx-clock-row">
+          <strong>${esc(m.label)}</strong>
+          ${pairHtml}
+          ${dTxt}
+        </div>`;
+      }).join('');
+      cards.push(`<section class="cx-card cx-clocks-card" id="cxSectionWinLossClocks">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">RELOJES DE VICTORIA VS DERROTA · ${number(clocks.sample)} REPLAYS</span>
+            <h3>Tus tiempos de avance al ganar vs al perder</h3>
+          </div>
+          ${clocks.isPreliminary ? '<span class="cx-meta-pill">Preliminar</span>' : ''}
+        </header>
+        ${wrapUltraGate(`<div class="cx-clocks-list">${rows}</div>`, { locked: !isUltra, ctaLabel: 'Desbloqueá tus relojes de Victoria vs Derrota', compact: true })}
+      </section>`);
+    }
+
+    const cmh = disc.civMasteryHistory;
+    if (cmh) {
+      const ringHtml = cmh.utilizationPct != null
+        ? svgWrRing(cmh.utilizationPct, icon('crown'), 68)
+        : `<span class="cx-spot-medal-frame" title="Requiere al menos 3 replays con bonos evaluados">${icon('crown')}</span>`;
+      const missedList = (cmh.topMissed || []).map((x) =>
+        `<li><b>${esc(x.title)}</b><small>${x.civ ? `${esc(locCiv(x.civ) || x.civ)} · ` : ''}${x.count}× sin explotar</small></li>`
+      ).join('');
+      const siegeTxt = cmh.siegePct != null ? `${cmh.siegePct}%` : '—';
+      const monkTxt = cmh.monkPct != null ? `${cmh.monkPct}%` : '—';
+      const castleTxt = cmh.castlePct != null ? `${cmh.castlePct}%` : '—';
+      cards.push(`<section class="cx-card cx-mastery-hist-card" id="cxSectionCivMasteryHist">
+        <header class="cx-card-head">
+          <div>
+            <span class="cx-eyebrow">MAESTRÍA HISTÓRICA (56 CIVS) Y PUNTOS CIEGOS${cmh.castleReachedGames ? ` · ${cmh.castleReachedGames} EN CASTILLOS` : ''}</span>
+            <h3>Aprovechamiento de bonos y variedad de arsenal</h3>
+          </div>
+        </header>
+        ${wrapUltraGate(`<div class="cx-cmh-top">
+          ${ringHtml}
+          <div class="cx-cmh-kpis">
+            <div class="cx-ckpi"><span>Asedio</span><b class="${cmh.siegePct != null ? (cmh.siegePct >= 35 ? 'win' : cmh.siegePct < 15 ? 'loss' : '') : ''}">${siegeTxt}</b></div>
+            <div class="cx-ckpi"><span>Monjes</span><b class="${cmh.monkPct != null && cmh.monkPct >= 25 ? 'win' : ''}">${monkTxt}</b></div>
+            <div class="cx-ckpi"><span>Castillos</span><b class="gold">${castleTxt}</b></div>
+            ${cmh.goldUnitPct != null ? `<div class="cx-ckpi"><span>Oro / Basura</span><b>${cmh.goldUnitPct}% / ${cmh.trashUnitPct}%</b></div>` : ''}
+          </div>
+        </div>
+        ${missedList ? `<div class="cx-cmh-missed"><span class="central-mini-k">BONOS POR EXPLOTAR MÁS RECURRENTES</span><ul>${missedList}</ul></div>` : ''}`, { locked: !isUltra, ctaLabel: 'Desbloqueá tu Maestría Histórica de 56 Civs', compact: true })}
+      </section>`);
+    }
+
+    if (!cards.length) return '';
+    return `<div class="cx-grid-2${cards.length === 1 ? ' is-single-col' : ''}" id="cxSectionClocksMastery">
+      ${cards.join('')}
+    </div>`;
+  }
+
   function renderPersonalAcademySection(academy, { isUltra = true, isExternal = false } = {}) {
     if (isExternal || !academy || !academy.ok) return '';
-    const stageIcons = { dark: 'villager', feudal: 'barracks', castle: 'castle', imperial: 'crown' };
     const stageStrip = (academy.stageEvolution || []).map((st) => {
       const hasGrade = Boolean(st.recentGrade);
       const d = st.deltaScore;
@@ -2674,7 +3191,7 @@
       const barTone = st.recentGrade === 'S' ? 'gold' : st.recentGrade === 'A' ? 'emerald' : st.recentGrade === 'B' ? 'gold' : 'rose';
       return `<div class="cx-acad-stage-cell${hasGrade ? ` grade-${esc(st.recentGrade)}` : ' is-empty'}">
         <div class="cx-acad-st-top">
-          <span class="cx-acad-st-lbl">${icon(stageIcons[st.id] || 'age')}${esc(st.label)}</span>
+          <span class="cx-acad-st-lbl">${ageBrandEmblem(st.id, 28)}${esc(st.label)}</span>
           <strong class="pm-grade-stamp${hasGrade ? ` grade-${esc(st.recentGrade)}` : ''}">${hasGrade ? esc(st.recentGrade) : '—'}</strong>
         </div>
         <div class="cx-acad-st-bottom">
@@ -2688,8 +3205,10 @@
 
     const habitRows = (academy.habits || []).map((h) => {
       const toneCls = h.tone === 'win' ? 'win' : h.tone === 'loss' ? 'loss' : 'neutral';
+      // P1-4: Respetar deltaArrow explícito para métricas lower-is-better (ej. TC idle: ▼ −12 s en verde)
+      const arrow = h.deltaArrow || (h.improved ? '▲' : '▼');
       const deltaPill = h.deltaText
-        ? `<span class="cx-delta ${h.improved ? 'win' : 'loss'}">${h.improved ? '▲ ' : '▼ '}${esc(h.deltaText)}</span>`
+        ? `<span class="cx-delta ${h.improved ? 'win' : 'loss'}">${arrow} ${esc(h.deltaText)}</span>`
         : '';
       return `<div class="cx-acad-habit-row is-${toneCls}">
         <div class="cx-acad-h-copy">
@@ -2727,9 +3246,9 @@
         <div>
           <span class="cx-eyebrow">LABORATORIO DE MEJORA PERSONAL</span>
           <h3>Progreso por edad y hábitos mecánicos</h3>
-          <p class="cx-card-context">${number(academy.totalReplays)} replays locales · ventana reciente (${number(academy.recentWindow)}) frente a previa (${number(academy.olderWindow)})</p>
+          <p class="cx-card-context">${esc(academy.scopeLabel || `${number(academy.totalReplays)} replays locales`)} · ventana reciente (${number(academy.recentWindow)}) frente a previa (${number(academy.olderWindow)})</p>
         </div>
-        <span class="cx-meta-pill">Telemetría local</span>
+        <span class="cx-meta-pill${academy.isFallbackScope ? ' is-warn' : ''}">${academy.isFallbackScope ? 'Historial general' : 'Telemetría local'}</span>
       </header>
       ${wrapUltraGate(inner, { locked: !isUltra, ctaLabel: 'Desbloqueá tu Laboratorio de Mejora Personal' })}
     </section>`;
@@ -2834,7 +3353,7 @@
     }).join('');
 
     const sessionHtml = session ? `<div class="cx-session-col">
-      <span class="central-mini-k">CURVA DE SESIÓN (${number(session.totalSessions)} SESIONES)</span>
+      <span class="central-mini-k">CURVA DE SESIÓN (${number(session.totalSessions)} SESIONES${session.modeLabel ? ` · ${esc(session.modeLabel.toUpperCase())}` : ''})</span>
       <div class="cx-session-rows">
         ${(session.buckets || []).map((b) => {
           const bTone = b.winRate >= 55 ? 'win' : b.winRate < 45 ? 'loss' : 'neutral';
@@ -2905,9 +3424,19 @@
     const mapSort = options.mapSort === 'eapm' && hasMapEapm
       ? 'eapm'
       : (options.mapSort === 'wr' && stats.topMapsByWr?.length >= 2 ? 'wr' : 'games');
-    const lmWindow = Number(options.lmWindow) === 20 ? 20 : 10;
     const isExternal = data.isOwnProfile === false;
     const isUltra = options.isUltra !== undefined ? Boolean(options.isUltra) : (data.isUltra === true);
+    const rawPlan = String(options.plan || data.plan || '').toLowerCase();
+    const planTier = isUltra || rawPlan === 'promax' || rawPlan === 'ultra' || rawPlan === 'beta'
+      ? 'ultra'
+      : (rawPlan === 'pro' ? 'pro' : (rawPlan === 'free' ? 'free' : 'pro'));
+    const isProOrUltra = planTier === 'pro' || planTier === 'ultra';
+    const reqLmWin = String(options.lmWindow ?? '20');
+    const lmWindow = planTier === 'free'
+      ? '10'
+      : planTier === 'pro'
+        ? (reqLmWin === '10' ? '10' : '20')
+        : (['10', '20', '50', 'all'].includes(reqLmWin) ? reqLmWin : '20');
     const civFilter = String(options.civFilter || '').trim().toLowerCase();
     const diagTab = options.diagTab || 'maps';
 
@@ -2986,7 +3515,7 @@
     // 2. GRÁFICO PRINCIPAL
     const chartInner = modeId === 'global'
       ? renderGlobalLadderComparison(mode.ladderComparison || data.allLadders)
-      : renderInteractiveEloChart(mode, eloRange);
+      : renderInteractiveEloChart(mode, eloRange, { planTier });
     const chartBlock = `<div id="cxSectionChart">${chartInner}</div>`;
 
     // 3. CIVILIZACIONES + DIAGNÓSTICO MASTER-DETAIL ("¿Cómo me va con esta civ?")
@@ -3080,8 +3609,9 @@
     const disc = mode.discoveries || {};
     const academySection = renderPersonalAcademySection(mode.academy, { isUltra, isExternal });
     const combatTempoSection = renderCombatAndTempoStrip(disc.combatDna, disc.speedVsBrain, disc.killerWindow, isUltra);
+    const clocksMasterySection = renderReplayClocksAndMasteryRow(disc, isUltra);
     const intelSection = renderCompetitiveIntelSection(mode.competitiveIntel, { isUltra, modeLabel: mode.label });
-    const hasIntelTab = Boolean(academySection || combatTempoSection || intelSection);
+    const hasIntelTab = Boolean(academySection || combatTempoSection || clocksMasterySection || intelSection);
     const requestedView = options.centralView || 'overview';
     const activeView = (requestedView === 'intel' && hasIntelTab)
       ? 'intel'
@@ -3089,7 +3619,7 @@
 
     const civTotalCount = Array.isArray(stats.allCivs) && stats.allCivs.length ? stats.allCivs.length : (stats.topCivs?.length || 0);
     const mapTotalCount = Array.isArray(stats.allMaps) && stats.allMaps.length ? stats.allMaps.length : (stats.topMaps?.length || 0);
-    const academyReplays = mode.academy?.sampleSize || disc.combatDna?.sample || 0;
+    const academyReplays = mode.academy?.totalReplays || mode.academy?.sampleSize || disc.combatDna?.sample || 0;
     const overviewBadge = ladder.rating != null
       ? `${number(ladder.rating)} ELO`
       : (ladder.winRate != null ? `${ladder.winRate}% WR` : mode.label);
@@ -3130,8 +3660,9 @@
     const dnaBanner = renderPlayerDnaBanner(disc.dna, mode.label);
     const tridentStrip = renderTacticalTridentStrip(disc.trident, disc.giantSlayer, ladder);
     const goldenTrophiesRow = renderGoldenHourAndTrophies(disc.goldenHour, disc.trophies, disc.giantSlayer, isUltra);
+    const curiousDiscoveriesRow = renderCuriousDiscoveriesRow(disc, isUltra);
 
-    // 4. EVOLUCIÓN + ESTILO (Compacto, limpio, sin cajas deformadas) + RADAR HONESTO
+    // 4. EVOLUCIÓN + ESTILO (Compacto, limpio, sin cajas deformadas)
     const bvnRows = (modeId === 'global' ? [] : mode.beforeVsNow || []).map((item) => {
       const neutral = item.id === 'eapm';
       const tone = neutral ? 'neutral' : (item.improved ? 'win' : 'loss');
@@ -3149,28 +3680,40 @@
       </div>`;
     }).join('');
 
-    const eloMatchup = ins?.eloMatchup;
+    // P0-6 & P2-6: Unificar vs Mayor/Menor ELO sobre giantSlayer (Companion con promedio de equipo) y localizar openness
+    const locOpenness = (k) => {
+      const s = String(k || '').trim().toLowerCase();
+      if (s === 'open') return 'abiertos';
+      if (s === 'semi-open' || s === 'semi_open') return 'semiabiertos';
+      if (s === 'closed') return 'cerrados';
+      if (s === 'hybrid' || s === 'mixed') return 'híbridos';
+      if (s === 'water') return 'con agua';
+      return k;
+    };
+    const gsMatchup = disc.giantSlayer || null;
     const extraHighlights = [
-      eloMatchup?.vsHigher?.games >= 2 ? `<div class="cx-stat-chip"><span>vs Mayor ELO</span><b class="${eloMatchup.vsHigher.winRate >= 50 ? 'win' : 'loss'}">${eloMatchup.vsHigher.winRate}%</b><small>${eloMatchup.vsHigher.wins}V-${eloMatchup.vsHigher.losses}D</small></div>` : '',
-      eloMatchup?.vsLower?.games >= 2 ? `<div class="cx-stat-chip"><span>vs Menor ELO</span><b class="${eloMatchup.vsLower.winRate >= 55 ? 'win' : ''}">${eloMatchup.vsLower.winRate}%</b><small>${eloMatchup.vsLower.wins}V-${eloMatchup.vsLower.losses}D</small></div>` : '',
+      gsMatchup?.vsHigher?.games >= 4 ? `<div class="cx-stat-chip"><span>vs Mayor ELO</span><b class="${gsMatchup.vsHigher.winRate >= 50 ? 'win' : 'loss'}">${gsMatchup.vsHigher.winRate}%</b><small>${gsMatchup.vsHigher.wins}V-${gsMatchup.vsHigher.losses}D</small></div>` : '',
+      gsMatchup?.vsLower?.games >= 4 ? `<div class="cx-stat-chip"><span>vs Menor ELO</span><b class="${gsMatchup.vsLower.winRate >= 55 ? 'win' : ''}">${gsMatchup.vsLower.winRate}%</b><small>${gsMatchup.vsLower.wins}V-${gsMatchup.vsLower.losses}D</small></div>` : '',
       ins?.eapm?.outpacedGames >= 3 ? `<div class="cx-stat-chip"><span>Al superar en eAPM</span><b class="${ins.eapm.outpacedWinRate >= 55 ? 'win' : ''}">${ins.eapm.outpacedWinRate}%</b><small>${ins.eapm.outpacedGames} replays</small></div>` : '',
-      ...(ins?.byOpenness || []).slice(0, 2).map((o) => `<div class="cx-stat-chip"><span>Mapas ${esc(o.kind)}</span><b class="${o.winRate >= 54 ? 'win' : o.winRate < 46 ? 'loss' : ''}">${o.winRate}%</b><small>${o.wins}V-${o.losses}D</small></div>`),
+      ...(ins?.byOpenness || []).slice(0, 2).map((o) => `<div class="cx-stat-chip"><span>Mapas ${esc(locOpenness(o.kind))}</span><b class="${o.winRate >= 54 ? 'win' : o.winRate < 46 ? 'loss' : ''}">${o.winRate}%</b><small>${o.wins}V-${o.losses}D</small></div>`),
     ].filter(Boolean).join('');
 
     const agro = ins?.agroShare ?? null;
     const boom = ins?.boomShare ?? null;
-    const hyb = (agro != null && boom != null) ? Math.max(0, 100 - agro - boom) : 0;
-    const openingsCompact = (ins?.openings || []).slice(0, 4).map((op) => `<div class="cx-op-row">
+    const hyb = ins?.hybridShare != null ? ins.hybridShare : ((agro != null && boom != null) ? Math.max(0, 100 - agro - boom) : 0);
+    const openingsCompact = (ins?.openings || []).slice(0, 4).map((op) => `<div class="cx-op-row cx-op-illustrated${openingArtClass(op.name)}">
       <strong>${esc(op.name)}</strong>
       <div class="central-bar-track sm"><i class="bar-gold" data-w="${Math.max(8, Math.min(100, op.share))}"></i></div>
       <span>${op.games} pj · <b class="${op.winRate >= 55 ? 'win' : op.winRate < 45 ? 'loss' : ''}">${op.winRate != null ? `${op.winRate}%` : '—'}</b></span>
     </div>`).join('');
 
+    const durBrandMap = { early: 'feudal', castle: 'castle', imp: 'imperial', late: 'imperial' };
     const durationRows = (mode.durationAnalysis?.buckets || []).filter((b) => b.games > 0);
     const durationHtml = durationRows.length ? `<div class="cx-duration-list">${durationRows.map((b) => {
       const resolved = b.wins + b.losses;
       const winRate = resolved > 0 ? Math.round(100 * b.wins / resolved) : null;
-      return `<div class="cx-duration-row"><strong>${esc(b.label)}</strong>
+      return `<div class="cx-duration-row">
+        <span class="cx-dur-label">${ageBrandEmblem(durBrandMap[b.id] || 'feudal', 22)}<strong>${esc(b.label)}</strong></span>
         <span>${number(b.wins)} V · ${number(b.losses)} D</span>
         ${winRate === null ? '<b>—</b>' : `<div class="central-bar-track has-mid" aria-hidden="true"><i class="bar-gold" data-w="${winRate}"></i></div><b>${winRate}%</b>`}</div>`;
     }).join('')}</div>` : '';
@@ -3183,11 +3726,17 @@
         ${openingsCompact ? `<div class="cx-op-list">${openingsCompact}</div>` : ''}
       </div>` : ''}`;
 
+    const cov = mode.insightsCoverage || null;
+    const covSub = cov && cov.totalInsightsReplays > 0
+      ? `${number(cov.totalInsightsReplays)} replays en AoE2Insights${cov.coveragePct != null && cov.officialTotal > 0 ? ` · cobertura ${cov.coveragePct}% de últ. ${cov.officialTotal} pj` : ''}${cov.isPartial ? ' · muestra parcial de replays' : ''}`
+      : '';
+
     const insightsRow = (bvnRows || extraHighlights || openingsCompact || durationHtml) ? `<div class="cx-grid-2" id="cxSectionInsights">
       <section class="cx-card">
         <header class="cx-card-head">
           <div>
             <h3>Forma y aperturas</h3>
+            ${covSub ? `<p class="cx-card-context">${esc(covSub)}</p>` : ''}
           </div>
           <span class="cx-meta-pill">${esc(mode.label)}</span>
         </header>
@@ -3243,9 +3792,10 @@
       ${opps.length ? `<div class="cx-social-group"><span class="central-mini-k">RIVALES FRECUENTES</span>${renderSocialGrid(opps)}</div>` : ''}
     </section>` : '';
 
-    // 2b. ÚLTIMA PARTIDA VS PROMEDIO (Últ. 10 / Últ. 20 seleccionable)
+    // 2b. ÚLTIMA PARTIDA VS PROMEDIO (Free: 10 | Pro: 10/20 | Ultra: 10/20/50/Total)
     const lm = mode.lastMatchVsAvg || null;
-    const lmBucket = lm && lm.windows ? (lm.windows[lmWindow] || lm.windows[10]) : null;
+    const lmKey = (lm && lm.windows && lm.windows[lmWindow]) ? lmWindow : (lm?.windows?.[20] && isProOrUltra ? '20' : '10');
+    const lmBucket = lm && lm.windows ? (lm.windows[lmKey] || lm.windows[10]) : null;
     const lmSummary = lm?.summary || null;
     const lastMatchBlock = (lm && lmBucket && lmBucket.metrics.length) ? (() => {
       const outcomeCls = lmSummary.won === true ? 'win' : lmSummary.won === false ? 'loss' : 'neutral';
@@ -3278,7 +3828,41 @@
         ? `<span class="cx-lm-crests">${lmSummary.myCiv ? civBadge(lmSummary.myCiv) : ''}${lmSummary.rivalCiv ? `<em>vs</em>${civBadge(lmSummary.rivalCiv)}` : ''}</span>`
         : '';
 
-      return `<section class="cx-card cx-lm-card" id="cxSectionLastMatch">
+      // Cero fugas de Battle Feed: cada modo usa exclusivamente su propio `mode.recentMatches`
+      const modeMatchesExact = Array.isArray(mode.recentMatches)
+        ? mode.recentMatches
+        : (modeId === 'global' && Array.isArray(data.recentMatches) ? data.recentMatches : []);
+      const modeRecentList = !isExternal && modeMatchesExact.length
+        ? (() => {
+            const feed = modeMatchesExact.slice(0, 4);
+            return feed.length
+              ? `<div class="cx-battle-feed">
+                  <div class="cx-bf-head"><span class="central-mini-k">ÚLTIMAS PARTIDAS · TOCÁ UNA PARA ABRIR SU POSTMATCH</span></div>
+                  ${renderRecentMatchesList(feed, { limit: 4, mode: 'feed', jumpToPostmatch: true })}
+                </div>`
+              : '';
+          })()
+        : '';
+
+      const lmBtn20 = isProOrUltra
+        ? `<button type="button" class="cx-sort-btn${String(lmKey) === '20' ? ' active' : ''}" data-lm-window="20">Últ. 20</button>`
+        : `<button type="button" class="cx-sort-btn is-tier-locked" data-goto-plan="1" title="Disponible con Pro">Últ. 20 · PRO</button>`;
+      const lmBtn50 = lm.windows[50]
+        ? (isUltra
+          ? `<button type="button" class="cx-sort-btn${String(lmKey) === '50' ? ' active' : ''}" data-lm-window="50">Últ. 50</button>`
+          : `<button type="button" class="cx-sort-btn is-tier-locked" data-goto-plan="1" title="Disponible con Ultra">Últ. 50 · ULTRA</button>`)
+        : '';
+      const totalN = lm.windows.all?.windowSize || lmSummary.availableGames || 0;
+      const lmBtnAll = lm.windows.all && totalN > 20
+        ? (isUltra
+          ? `<button type="button" class="cx-sort-btn${String(lmKey) === 'all' ? ' active' : ''}" data-lm-window="all">Total (${totalN})</button>`
+          : `<button type="button" class="cx-sort-btn is-tier-locked" data-goto-plan="1" title="Disponible con Ultra">Total (${totalN}) · ULTRA</button>`)
+        : '';
+      const lmContextTxt = String(lmKey) === 'all'
+        ? `Comparación contra tu historial ampliado (${lmBucket.windowSize} partidas) · ${lmSummary.modeLabel || mode.label}`
+        : `Comparación contra tus últimas ${lmBucket.windowSize} partidas · ${lmSummary.modeLabel || mode.label}`;
+
+      return `<section class="cx-card cx-lm-card is-${outcomeCls}" id="cxSectionLastMatch">
         <header class="cx-card-head">
           <div class="cx-lm-head-left">
             ${lmMapArt}
@@ -3292,12 +3876,15 @@
             </div>
           </div>
           <div class="cx-sort-pills" role="group" aria-label="Ventana de promedio">
-            <button type="button" class="cx-sort-btn${lmWindow === 10 ? ' active' : ''}" data-lm-window="10">Últ. 10</button>
-            <button type="button" class="cx-sort-btn${lmWindow === 20 ? ' active' : ''}" data-lm-window="20">Últ. 20</button>
+            <button type="button" class="cx-sort-btn${String(lmKey) === '10' ? ' active' : ''}" data-lm-window="10">Últ. 10</button>
+            ${lmBtn20}
+            ${lmBtn50}
+            ${lmBtnAll}
           </div>
         </header>
-        <p class="cx-card-context">Comparación contra tus últimas ${lmWindow} partidas · ${esc(lmSummary.modeLabel || mode.label)}</p>
+        <p class="cx-card-context">${esc(lmContextTxt)}</p>
         ${wrapUltraGate(`<div class="cx-lm-grid">${cards}</div>`, { locked: !isUltra && isExternal, ctaLabel: 'Desbloqueá telemetría reciente del jugador', compact: true })}
+        ${modeRecentList}
       </section>`;
     })() : '';
 
@@ -3310,6 +3897,7 @@
         ${chartBlock}
         ${lastMatchBlock}
         ${goldenTrophiesRow}
+        ${curiousDiscoveriesRow}
         ${insightsRow}
         ${socialSection}
       </div>
@@ -3320,6 +3908,7 @@
       ${hasIntelTab ? `<div class="cx-view-pane${activeView === 'intel' ? ' is-active' : ''}" role="tabpanel" data-central-pane="intel">
         ${academySection}
         ${combatTempoSection}
+        ${clocksMasterySection}
         ${intelSection}
       </div>` : ''}
     </div>`;

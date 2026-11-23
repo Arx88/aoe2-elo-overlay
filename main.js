@@ -47,7 +47,7 @@ const {
   historyCutoff,
   hideLobbyCivs,
 } = require('./src/aoe');
-const { fetchCentralDashboard, mergeRecentMatches } = require('./src/central');
+const { fetchCentralDashboard, hydrateCentralEwMode, mergeRecentMatches } = require('./src/central');
 const { detectProfile, getActiveSteamId, getActiveSteamIdAsync, resolveSteamId } = require('./src/detect');
 let lastActiveSteamId = null;
 let lastSteamCheckAt = 0;
@@ -2304,8 +2304,8 @@ function openSettings() {
     // con minimizar / maximizar / cerrar, a juego con el overlay.
     frame: false,
     hasShadow: true,
-    // Puede tener que aparecer por encima del juego: es la única ventana clickeable.
-    alwaysOnTop: true,
+    // Ventana normal de escritorio: no bloquea navegadores (ej. login Google) ni otras ventanas detrás.
+    alwaysOnTop: false,
     webPreferences: {
       preload: path.join(__dirname, 'settings-preload.js'),
       contextIsolation: true,
@@ -2323,7 +2323,6 @@ function openSettings() {
   }
 
   settingsWin.setMenuBarVisibility(false);
-  settingsWin.setAlwaysOnTop(true, 'screen-saver');
 
   // La barra propia necesita saber si la ventana está maximizada para cambiar
   // el ícono (maximizar ↔ restaurar).
@@ -3890,6 +3889,30 @@ function registerIpc() {
       hydrateRecentReplaysForCentral(profileId, data.recentMatches).catch(() => {});
     }
     return data ? { ...data, isUltra, plan: product.plan } : data;
+  });
+
+  ipcMain.handle('central:hydrate-mode', async (_event, rawOpts) => {
+    await ensureProfileReady();
+    const opts = rawOpts && typeof rawOpts === 'object' ? rawOpts : {};
+    const modeId = String(opts.modeId || '');
+    if (modeId !== 'ew_1v1' && modeId !== 'ew_team') return null;
+    const targetPid = Number(opts.profileId) > 0 ? Number(opts.profileId) : Number(profileId);
+    const isOwn = Number.isFinite(targetPid) && targetPid === Number(profileId);
+    const updated = await hydrateCentralEwMode({
+      profileId: targetPid,
+      modeId,
+      alias: opts.alias || (isOwn ? playerAlias : null),
+      cache: statsCache,
+      performanceStore: isOwn ? performanceStore : null,
+      diskCachePath: isOwn ? CENTRAL_CACHE_PATH : null,
+      isOwnProfile: isOwn,
+      ownProfileId: profileId ? Number(profileId) : null,
+      log,
+    });
+    if (!updated) return null;
+    const product = productState();
+    const isUltra = product.plan === 'promax' || product.plan === 'beta';
+    return { ...updated, isUltra, plan: product.plan };
   });
 
   ipcMain.handle('settings:tactics-get', () => {

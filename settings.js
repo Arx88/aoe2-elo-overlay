@@ -539,10 +539,10 @@ let lastCentralPayload = null;
 let centralBusy = false;
 let centralRequest = 0;
 let centralActiveModeId = null;
-let centralEloRange = '30';
+let centralEloRange = '100';
 let centralCivSort = 'games';
 let centralMapSort = 'games';
-let centralLmWindow = 10;
+let centralLmWindow = '20';
 let centralSelectedCivSlug = null;
 let centralCivFilter = '';
 let centralDiagTab = 'maps';
@@ -721,6 +721,20 @@ function bindCentralInteractions() {
       if (!nextMode || nextMode === centralActiveModeId) return;
       centralActiveModeId = nextMode;
       if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+      // Hidratación perezosa de Empire Wars (ew_1v1 / ew_team) solo cuando el usuario toca la pestaña
+      const modeObj = lastCentralPayload?.modes?.[nextMode];
+      if ((nextMode === 'ew_1v1' || nextMode === 'ew_team') && modeObj?.ewNeedsHydration && typeof window.settings?.centralHydrateMode === 'function') {
+        const reqPid = lastCentralPayload.profileId;
+        window.settings.centralHydrateMode({
+          modeId: nextMode,
+          profileId: reqPid,
+          alias: lastCentralPayload.alias,
+        }).then((hydrated) => {
+          if (hydrated && hydrated.ok && Number(lastCentralPayload?.profileId) === Number(reqPid)) {
+            paintCentral(hydrated, { preserveMode: true });
+          }
+        }).catch(() => {});
+      }
     });
   });
 
@@ -753,8 +767,9 @@ function bindCentralInteractions() {
 
   centralDashboardEl.querySelectorAll('[data-lm-window]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const nextWin = Number(btn.dataset.lmWindow) === 20 ? 20 : 10;
-      if (nextWin === centralLmWindow) return;
+      const rawWin = String(btn.dataset.lmWindow || '');
+      const nextWin = ['10', '20', '50', 'all'].includes(rawWin) ? rawWin : '20';
+      if (nextWin === String(centralLmWindow)) return;
       centralLmWindow = nextWin;
       if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
     });
@@ -912,6 +927,7 @@ function bindCentralInteractions() {
     });
   });
 
+  bindRecentMatchClicks(centralDashboardEl, { jumpToPostmatch: true });
   bindInteractiveEloChart();
 }
 
@@ -921,9 +937,14 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   if (payload && payload.isOwnProfile !== false && Array.isArray(payload.recentMatches) && payload.recentMatches.length) {
     lastRecentMatches = payload.recentMatches;
   }
+  const currentPlan = currentProduct?.plan || payload?.plan || (payload?.isUltra ? 'promax' : 'pro');
+  const currentIsUltra = currentProduct
+    ? (currentProduct.plan === 'promax' || currentProduct.plan === 'beta')
+    : (payload?.isUltra === true || currentPlan === 'promax' || currentPlan === 'beta');
   if (!preserveMode || Number(prevPid) !== Number(payload?.profileId)) {
     centralActiveModeId = payload?.defaultModeId || 'rm_1v1';
-    centralEloRange = '30';
+    centralEloRange = currentIsUltra ? '100' : (currentPlan === 'free' ? '10' : '20');
+    centralLmWindow = currentPlan === 'free' ? '10' : '20';
     centralCivSort = 'games';
     centralMapSort = 'games';
     centralSelectedCivSlug = null;
@@ -940,9 +961,6 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   const focusAttribute = preserveMode && centralDashboardEl.contains(active)
     ? selectorNames.find((name) => active.hasAttribute(name)) : null;
   const focusValue = focusAttribute ? active.getAttribute(focusAttribute) : null;
-  const currentIsUltra = currentProduct
-    ? (currentProduct.plan === 'promax' || currentProduct.plan === 'beta')
-    : (payload?.isUltra === true);
   centralDashboardEl.innerHTML = TacticalUI.renderCentralDashboard(payload, {
     activeModeId: centralActiveModeId,
     centralView: centralActiveView,
@@ -956,6 +974,7 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
     selectedMapKey: centralSelectedMapKey,
     mapDiagTab: centralMapDiagTab,
     isUltra: currentIsUltra,
+    plan: currentPlan,
   });
   if (animateSwap || Number(prevPid) !== Number(payload?.profileId)) {
     centralDashboardEl.classList.remove('cx-swap');

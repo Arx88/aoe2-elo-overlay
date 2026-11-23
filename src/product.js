@@ -12,12 +12,14 @@ const FEATURE_ICONS = { elo: 'users', rivalCivs: 'history', rivalFavorites: 'map
   civHelp: 'shield', tgBalance: 'users', scoutF2: 'compass', postMatch: 'chart',
   rivalOpenings: 'bow', smartTips: 'target', rivalH2H: 'sword', civRecommender: 'castle',
   civCounterPick: 'crown', smurfDetector: 'target',
-  postMatchComparison: 'trend', postMatchReplay: 'clock', smartBuildOrder: 'villager' };
+  postMatchComparison: 'trend', postMatchReplay: 'clock', smartBuildOrder: 'villager',
+  centralWindow20: 'history', centralExpandedHistory: 'chart' };
 const FEATURE_PLANS = { elo: 'free', rivalH2H: 'free', rosterDetails: 'pro',
   rivalCivs: 'pro', rivalFavorites: 'pro', civHelp: 'pro', tgBalance: 'pro',
   rivalOpenings: 'pro', smartTips: 'pro', civRecommender: 'pro', civCounterPick: 'pro',
+  centralWindow20: 'pro',
   smurfDetector: 'promax', smartBuildOrder: 'promax', postMatch: 'promax',
-  postMatchComparison: 'promax', postMatchReplay: 'promax' };
+  postMatchComparison: 'promax', postMatchReplay: 'promax', centralExpandedHistory: 'promax' };
 const PLAN_RANK = { free: 0, pro: 1, promax: 2, beta: 2 };
 
 const FEATURES = Object.freeze([
@@ -72,6 +74,12 @@ const FEATURES = Object.freeze([
   { key: 'smurfDetector', title: 'Smurf Detector', plan: 'promax', preference: true,
     description: 'Sugiere posibles cuentas secundarias junto al ELO cruzando cuentas vinculadas, winrate extremo, pico histórico y eAPM.',
     dataNote: 'Solo señala cuentas con evidencia estadística o cuentas vinculadas de mayor ELO RM 1v1.' },
+  { key: 'centralWindow20', title: 'Central: Ventana de 20 partidas', plan: 'pro', alwaysOn: true,
+    description: 'Alterná entre tus últimas 10 y 20 partidas en la forma reciente y curva de ELO de Central.',
+    dataNote: 'Basado en partidas oficiales sin sesgo de AoE2 Companion.' },
+  { key: 'centralExpandedHistory', title: 'Central: Historial ampliado (hasta 200 pj)', plan: 'promax', alwaysOn: true,
+    description: 'Desbloqueá muestras ampliadas (Últ. 50 / 100 / Total hasta 200 partidas por modo y 500 pts de ELO) más todos los diagnósticos profundos.',
+    dataNote: 'Sincronización incremental en caché local con 200 partidas oficiales por modo.' },
 ].filter((feature) => feature.key !== 'scoutF2').map((feature) => Object.freeze({ ...feature,
   plan: FEATURE_PLANS[feature.key], icon: FEATURE_ICONS[feature.key] || 'compass' })));
 

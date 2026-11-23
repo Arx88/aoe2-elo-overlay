@@ -22,8 +22,9 @@
 
 const { civSlug } = require('./civs');
 const { mapKey } = require('./rival');
+const { CLOSED_BOOM_MAP_KEYS, SAMPLE_POLICY } = require('./sample-policy');
 
-const MIN_DIAGNOSIS_GAMES = 5;
+const MIN_DIAGNOSIS_GAMES = SAMPLE_POLICY.civDiagnostic.minGames;
 const EARLY_RESIGN_GAME_SEC = 5 * 60; // < 5:00 in-game (≈ 3 min real) = dodge / early resign
 const DEFAULT_PRIOR_K = 12;
 
@@ -38,19 +39,38 @@ const OPENNESS_LABELS_ES = {
   water: 'Mapas de agua',
 };
 
+// Escala unificada 1.7x (idéntica a central.js, killerWindow y central-intel.js)
 const PHASE_BUCKETS_1V1 = [
-  { id: 'early', label: '5–25m', sub: 'Feudal / Inicio Castillos', min: EARLY_RESIGN_GAME_SEC, max: 25 * 60 },
-  { id: 'mid', label: '25–40m', sub: 'Castillos / Early Imp', min: 25 * 60, max: 40 * 60 },
-  { id: 'imp', label: '40–55m', sub: 'Imperial', min: 40 * 60, max: 55 * 60 },
-  { id: 'late', label: '55m+', sub: 'Post-Imp / Trash', min: 55 * 60, max: Infinity },
+  { id: 'early', label: '5–22m', sub: 'Feudal / Inicio Castillos', min: EARLY_RESIGN_GAME_SEC, max: 22 * 60 },
+  { id: 'mid', label: '22–35m', sub: 'Castillos / Early Imp', min: 22 * 60, max: 35 * 60 },
+  { id: 'imp', label: '35–50m', sub: 'Imperial', min: 35 * 60, max: 50 * 60 },
+  { id: 'late', label: '50m+', sub: 'Post-Imp / Trash', min: 50 * 60, max: Infinity },
 ];
 
 const PHASE_BUCKETS_TEAM = [
-  { id: 'early', label: '5–30m', sub: 'Feudal / Castillos', min: EARLY_RESIGN_GAME_SEC, max: 30 * 60 },
-  { id: 'mid', label: '30–45m', sub: 'Castillos / Imperial', min: 30 * 60, max: 45 * 60 },
-  { id: 'imp', label: '45–60m', sub: 'Imperial', min: 45 * 60, max: 60 * 60 },
-  { id: 'late', label: '60m+', sub: 'Juego tardío', min: 60 * 60, max: Infinity },
+  { id: 'early', label: '5–28m', sub: 'Feudal / Castillos', min: EARLY_RESIGN_GAME_SEC, max: 28 * 60 },
+  { id: 'mid', label: '28–42m', sub: 'Castillos / Imperial', min: 28 * 60, max: 42 * 60 },
+  { id: 'imp', label: '42–58m', sub: 'Imperial', min: 42 * 60, max: 58 * 60 },
+  { id: 'late', label: '58m+', sub: 'Juego tardío', min: 58 * 60, max: Infinity },
 ];
+
+function inferOpennessFromMapName(mapName) {
+  const k = mapKey(mapName);
+  if (!k) return null;
+  if (CLOSED_BOOM_MAP_KEYS.has(k) || k.includes('arena') || k.includes('blackforest') || k.includes('hideout') || k.includes('fortress') || k.includes('michi') || k.includes('tunnel')) {
+    return 'closed';
+  }
+  if (k.includes('island') || k.includes('archipelago') || k.includes('migration') || k.includes('waternomad')) {
+    return 'water';
+  }
+  if (k.includes('nomad') || k.includes('clearing') || k.includes('fourlakes') || k.includes('baltic') || k.includes('mediterranean') || k.includes('coastal') || k.includes('cross') || k.includes('golden') || k.includes('mega')) {
+    return 'hybrid';
+  }
+  if (k.includes('arabia') || k.includes('runestones') || k.includes('serengeti') || k.includes('valley') || k.includes('steppe') || k.includes('landmadness') || k.includes('atacama') || k.includes('kilimanjaro') || k.includes('haboob') || k.includes('acropolis') || k.includes('socotra')) {
+    return 'open';
+  }
+  return null;
+}
 
 /* ---------- Utilidades matemáticas puras ---------- */
 
@@ -251,9 +271,12 @@ function buildUnifiedModeMatches({
   companionMatches = [],
   storedRecords = [],
   profileId = null,
+  strictLeftJoin = true,
 } = {}) {
   const byId = new Map();
   const pid = Number(profileId);
+  const compArr = Array.isArray(companionMatches) ? companionMatches.filter((m) => m && m.matchId && m.myCiv) : [];
+  const insArr = Array.isArray(insightsRows) ? insightsRows.filter((row) => row && row.civ) : [];
 
   // 1. Replays locales (telemetría más rica)
   const localById = new Map();
@@ -280,14 +303,28 @@ function buildUnifiedModeMatches({
     });
   }
 
-  // 2. AoE2Insights rows (suelen cubrir hasta 250–500 partidas del modo)
-  for (const row of (Array.isArray(insightsRows) ? insightsRows : [])) {
-    if (!row || !row.civ) continue;
-    const id = row.matchId != null ? String(row.matchId) : `ins-${byId.size}`;
+  // Helper: normaliza fila de AoE2Insights
+  const buildInsightEntry = (row, fallbackIdx) => {
+    const id = row.matchId != null ? String(row.matchId) : `ins-${fallbackIdx}`;
     const startedMs = typeof row.startedAt === 'number'
       ? row.startedAt
       : (row.startedAt ? Date.parse(row.startedAt) : null);
     const replay = localById.get(id) || null;
+    const rawOppElo = Number.isFinite(Number(row.oppAvgElo)) && Number(row.oppAvgElo) > 0
+      ? Number(row.oppAvgElo)
+      : (Number.isFinite(Number(row.oppElo)) && Number(row.oppElo) > 0 ? Number(row.oppElo) : null);
+    const rawOppEapm = Number.isFinite(Number(row.oppAvgEapm)) && Number(row.oppAvgEapm) > 5 && Number(row.oppAvgEapm) < 250
+      ? Number(row.oppAvgEapm)
+      : (Number.isFinite(Number(row.oppMeanEapm)) && Number(row.oppMeanEapm) > 5 && Number(row.oppMeanEapm) < 250 ? Number(row.oppMeanEapm) : null);
+    const opponentsList = Array.isArray(row.opponents) && row.opponents.length
+      ? row.opponents.map((o) => ({
+          civ: o?.oppCiv || o?.civ || null,
+          civSlug: (o?.oppCiv || o?.civ) ? (civSlug(o.oppCiv || o.civ) || String(o.oppCiv || o.civ).toLowerCase()) : null,
+          oppOpening: o?.oppStrategy && o.oppStrategy !== 'Unknown' ? o.oppStrategy : null,
+          elo: Number.isFinite(Number(o?.oppElo)) && Number(o.oppElo) > 0 ? Number(o.oppElo) : null,
+          eapm: Number.isFinite(Number(o?.oppMeanEapm)) && Number(o.oppMeanEapm) > 5 && Number(o.oppMeanEapm) < 250 ? Number(o.oppMeanEapm) : null,
+        }))
+      : (row.oppCiv ? [{ civ: row.oppCiv, civSlug: civSlug(row.oppCiv) || String(row.oppCiv).toLowerCase(), oppOpening: row.oppStrategy && row.oppStrategy !== 'Unknown' ? row.oppStrategy : null, elo: rawOppElo, eapm: rawOppEapm }] : []);
     const entry = {
       matchId: id,
       source: 'insights',
@@ -297,40 +334,150 @@ function buildUnifiedModeMatches({
       civSlug: civSlug(row.civ) || String(row.civ).toLowerCase(),
       oppCiv: row.oppCiv || null,
       oppCivSlug: row.oppCiv ? (civSlug(row.oppCiv) || String(row.oppCiv).toLowerCase()) : null,
+      opponents: opponentsList,
+      isTeam: opponentsList.length > 1,
       mapName: row.map || null,
       mapKey: row.map ? mapKey(row.map) : null,
-      openness: normalizeOpenness(row.openness),
+      openness: normalizeOpenness(row.openness) || inferOpennessFromMapName(row.map),
       myOpening: row.strategy && row.strategy !== 'Unknown' ? row.strategy : null,
       oppOpening: row.oppStrategy && row.oppStrategy !== 'Unknown' ? row.oppStrategy : null,
       myElo: Number.isFinite(Number(row.elo)) && Number(row.elo) > 0 ? Number(row.elo) : null,
-      oppElo: Number.isFinite(Number(row.oppElo)) && Number(row.oppElo) > 0 ? Number(row.oppElo) : null,
+      oppElo: rawOppElo,
+      myRatingDiff: null,
       myEapm: Number.isFinite(Number(row.meanEapm)) && Number(row.meanEapm) > 5 && Number(row.meanEapm) < 250
         ? Number(row.meanEapm)
         : (replay?.eapm || null),
-      oppEapm: Number.isFinite(Number(row.oppMeanEapm)) && Number(row.oppMeanEapm) > 5 && Number(row.oppMeanEapm) < 250
-        ? Number(row.oppMeanEapm)
-        : null,
+      oppEapm: rawOppEapm,
       duration: Number.isFinite(Number(row.duration)) ? Number(row.duration) : null,
       strategy: row.strategy || null,
       meanEapm: Number.isFinite(Number(row.meanEapm)) ? Number(row.meanEapm) : null,
+      patch: Number.isFinite(Number(row.patch)) && Number(row.patch) > 0 ? Number(row.patch) : null,
       replay,
     };
     entry.durationGameSec = normalizeDurationGameSec(entry);
-    byId.set(id, entry);
+    return entry;
+  };
+
+  // Helper: extrae oponentes y ELO promedio de equipo desde match de Companion
+  const extractCompanionTeamInfo = (m) => {
+    const players = Array.isArray(m?.rawMatch?.players) ? m.rawMatch.players : (Array.isArray(m?.players) ? m.players : []);
+    if (!players.length) return null;
+    const me = (Number.isFinite(pid) && pid > 0 ? players.find((p) => Number(p.profileId) === pid) : null) || null;
+    const isTeam = Boolean(m.isTeam || players.length >= 4);
+    if (!me || me.team == null) return { isTeam, opponents: [], myTeamAvg: null, oppTeamAvg: null };
+    const own = players.filter((p) => Number(p.team) === Number(me.team));
+    const opp = players.filter((p) => Number(p.team) !== Number(me.team));
+    const ownElos = own.map((p) => Number(p.matchRating ?? p.rating)).filter((v) => Number.isFinite(v) && v > 100);
+    const oppElos = opp.map((p) => Number(p.matchRating ?? p.rating)).filter((v) => Number.isFinite(v) && v > 100);
+    return {
+      isTeam,
+      myTeamAvg: ownElos.length ? Math.round(ownElos.reduce((a, b) => a + b, 0) / ownElos.length) : null,
+      oppTeamAvg: oppElos.length ? Math.round(oppElos.reduce((a, b) => a + b, 0) / oppElos.length) : null,
+      opponents: opp.map((p) => ({
+        civ: p.civ || null,
+        civSlug: p.civ ? (civSlug(p.civ) || String(p.civ).toLowerCase()) : null,
+        oppOpening: null,
+        elo: Number.isFinite(Number(p.matchRating ?? p.rating)) && Number(p.matchRating ?? p.rating) > 100 ? Number(p.matchRating ?? p.rating) : null,
+        eapm: null,
+      })).filter((o) => o.civ || o.elo),
+    };
+  };
+
+  // Modo Companion-First + Left-Join estricto por matchId:
+  // Si hay partidas oficiales de AoE2 Companion, ellas definen el 100% del pool (sin sesgo de selección).
+  // AoE2Insights SOLO enriquece las partidas cuyo matchId coincide (aperturas, eAPM, parche, openness).
+  if (strictLeftJoin && compArr.length > 0) {
+    const insById = new Map();
+    insArr.forEach((row, idx) => {
+      if (row.matchId != null) insById.set(String(row.matchId), buildInsightEntry(row, idx));
+    });
+
+    for (const m of compArr) {
+      const id = String(m.matchId);
+      const ins = insById.get(id) || null;
+      const replay = localById.get(id) || null;
+      const teamInfo = extractCompanionTeamInfo(m);
+      const compDiff = Number.isFinite(Number(m.myRatingDiff)) && Number(m.myRatingDiff) !== 0 ? Number(m.myRatingDiff) : null;
+
+      // Combinar lista de oponentes de Companion con aperturas/eAPM de Insights si coincide matchId
+      let opponents = teamInfo?.opponents?.length
+        ? teamInfo.opponents
+        : (m.rivalCiv ? [{ civ: m.rivalCiv, civSlug: civSlug(m.rivalCiv) || String(m.rivalCiv).toLowerCase(), oppOpening: null, elo: Number(m.rivalRating) || null, eapm: null }] : []);
+      if (ins && Array.isArray(ins.opponents) && ins.opponents.length) {
+        opponents = opponents.map((o) => {
+          const matchedInsOpp = ins.opponents.find((io) => io.civSlug && o.civSlug && io.civSlug === o.civSlug);
+          if (!matchedInsOpp) return o;
+          return {
+            ...o,
+            oppOpening: o.oppOpening || matchedInsOpp.oppOpening || null,
+            eapm: o.eapm || matchedInsOpp.eapm || null,
+          };
+        });
+      }
+
+      const entry = {
+        matchId: id,
+        source: ins ? 'companion+insights' : 'companion',
+        hasInsights: Boolean(ins),
+        startedAt: Number.isFinite(m.startedAt) ? m.startedAt : (ins?.startedAt || 0),
+        won: typeof m.won === 'boolean' ? m.won : (ins?.won ?? null),
+        civ: String(m.myCiv),
+        civSlug: civSlug(m.myCiv) || String(m.myCiv).toLowerCase(),
+        oppCiv: m.rivalCiv || ins?.oppCiv || null,
+        oppCivSlug: (m.rivalCiv || ins?.oppCiv) ? (civSlug(m.rivalCiv || ins?.oppCiv) || String(m.rivalCiv || ins?.oppCiv).toLowerCase()) : null,
+        opponents,
+        isTeam: Boolean(teamInfo?.isTeam || m.isTeam),
+        mapName: m.mapName || ins?.mapName || null,
+        mapKey: (m.mapName || ins?.mapName) ? mapKey(m.mapName || ins?.mapName) : null,
+        openness: ins?.openness || inferOpennessFromMapName(m.mapName),
+        myOpening: ins?.myOpening || null,
+        oppOpening: ins?.oppOpening || null,
+        myElo: (teamInfo?.isTeam && teamInfo.myTeamAvg) ? teamInfo.myTeamAvg : (Number.isFinite(m.myRating) && m.myRating > 0 ? Number(m.myRating) : (ins?.myElo || null)),
+        oppElo: (teamInfo?.isTeam && teamInfo.oppTeamAvg) ? teamInfo.oppTeamAvg : (Number.isFinite(m.rivalRating) && m.rivalRating > 0 ? Number(m.rivalRating) : (ins?.oppElo || null)),
+        myRatingDiff: compDiff,
+        myEapm: ins?.myEapm || replay?.eapm || null,
+        oppEapm: ins?.oppEapm || null,
+        durationSeconds: Number.isFinite(m.durationSeconds) ? m.durationSeconds : null,
+        duration: ins?.duration || null,
+        strategy: ins?.strategy || null,
+        meanEapm: ins?.meanEapm || null,
+        patch: ins?.patch || null,
+        replay,
+      };
+      entry.durationGameSec = normalizeDurationGameSec(entry);
+      byId.set(id, entry);
+    }
+
+    return [...byId.values()].sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   }
 
-  // 3. AoE2 Companion matches (enriquece partidas muy recientes aún no en Insights)
-  for (const m of (Array.isArray(companionMatches) ? companionMatches : [])) {
-    if (!m || !m.matchId || !m.myCiv) continue;
+  // Fallback legacy / Insights-only pool (cuando no hay Companion matches o strictLeftJoin=false para telemetría de replays)
+  insArr.forEach((row, idx) => {
+    const entry = buildInsightEntry(row, idx);
+    byId.set(entry.matchId, entry);
+  });
+  for (const m of compArr) {
     const id = String(m.matchId);
     const existing = byId.get(id);
     const replay = localById.get(id) || null;
+    const teamInfo = extractCompanionTeamInfo(m);
+    const compDiff = Number.isFinite(Number(m.myRatingDiff)) && Number(m.myRatingDiff) !== 0 ? Number(m.myRatingDiff) : null;
     if (existing) {
       if (existing.won == null && typeof m.won === 'boolean') existing.won = m.won;
       if (!existing.mapName && m.mapName) { existing.mapName = m.mapName; existing.mapKey = mapKey(m.mapName); }
       if (!existing.oppCiv && m.rivalCiv) { existing.oppCiv = m.rivalCiv; existing.oppCivSlug = civSlug(m.rivalCiv); }
-      if (!existing.myElo && Number.isFinite(m.myRating)) existing.myElo = Number(m.myRating);
-      if (!existing.oppElo && Number.isFinite(m.rivalRating)) existing.oppElo = Number(m.rivalRating);
+      if (compDiff != null) existing.myRatingDiff = compDiff;
+      if (teamInfo?.isTeam) {
+        existing.isTeam = true;
+        if (teamInfo.myTeamAvg) existing.myElo = teamInfo.myTeamAvg;
+        if (teamInfo.oppTeamAvg) existing.oppElo = teamInfo.oppTeamAvg;
+        if ((!existing.opponents || existing.opponents.length <= 1) && teamInfo.opponents.length > 1) {
+          existing.opponents = teamInfo.opponents;
+        }
+      } else {
+        if (!existing.myElo && Number.isFinite(m.myRating)) existing.myElo = Number(m.myRating);
+        if (!existing.oppElo && Number.isFinite(m.rivalRating)) existing.oppElo = Number(m.rivalRating);
+      }
       if (!existing.startedAt && Number.isFinite(m.startedAt)) existing.startedAt = m.startedAt;
       if (!existing.replay && replay) {
         existing.replay = replay;
@@ -348,16 +495,20 @@ function buildUnifiedModeMatches({
       civSlug: civSlug(m.myCiv) || String(m.myCiv).toLowerCase(),
       oppCiv: m.rivalCiv || null,
       oppCivSlug: m.rivalCiv ? (civSlug(m.rivalCiv) || String(m.rivalCiv).toLowerCase()) : null,
+      opponents: teamInfo?.opponents?.length ? teamInfo.opponents : (m.rivalCiv ? [{ civ: m.rivalCiv, civSlug: civSlug(m.rivalCiv) || String(m.rivalCiv).toLowerCase(), oppOpening: null, elo: Number(m.rivalRating) || null, eapm: null }] : []),
+      isTeam: Boolean(teamInfo?.isTeam || m.isTeam),
       mapName: m.mapName || null,
       mapKey: m.mapName ? mapKey(m.mapName) : null,
-      openness: null,
+      openness: inferOpennessFromMapName(m.mapName),
       myOpening: null,
       oppOpening: null,
-      myElo: Number.isFinite(m.myRating) && m.myRating > 0 ? Number(m.myRating) : null,
-      oppElo: Number.isFinite(m.rivalRating) && m.rivalRating > 0 ? Number(m.rivalRating) : null,
+      myElo: (teamInfo?.isTeam && teamInfo.myTeamAvg) ? teamInfo.myTeamAvg : (Number.isFinite(m.myRating) && m.myRating > 0 ? Number(m.myRating) : null),
+      oppElo: (teamInfo?.isTeam && teamInfo.oppTeamAvg) ? teamInfo.oppTeamAvg : (Number.isFinite(m.rivalRating) && m.rivalRating > 0 ? Number(m.rivalRating) : null),
+      myRatingDiff: compDiff,
       myEapm: replay?.eapm || null,
       oppEapm: null,
       durationSeconds: Number.isFinite(m.durationSeconds) ? m.durationSeconds : null,
+      patch: null,
       replay,
     };
     entry.durationGameSec = normalizeDurationGameSec(entry);
@@ -365,6 +516,18 @@ function buildUnifiedModeMatches({
   }
 
   return [...byId.values()].sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+}
+
+function computeInsightsCoverage(officialMatches = [], insightsRows = []) {
+  const officialTotal = Array.isArray(officialMatches) ? officialMatches.length : 0;
+  const matchedInOfficial = Array.isArray(officialMatches)
+    ? officialMatches.filter((m) => m && m.hasInsights).length
+    : 0;
+  const totalInsightsReplays = Array.isArray(insightsRows) ? insightsRows.length : 0;
+  const coveragePct = officialTotal > 0 ? Math.round((matchedInOfficial / officialTotal) * 100) : null;
+  const isPartial = (coveragePct != null && coveragePct < SAMPLE_POLICY.insights.lowCoveragePct)
+    || totalInsightsReplays < SAMPLE_POLICY.insights.lowReplayCount;
+  return { matchedInOfficial, officialTotal, coveragePct, totalInsightsReplays, isPartial };
 }
 
 /**
@@ -586,6 +749,7 @@ function buildModePreindex(matches, phaseBuckets) {
 function analyzeCivPerformance({
   targetCiv,
   modeId = 'rm_1v1',
+  isTeam: isTeamOpt = null,
   matches = [],
   allTimeCivStat = null,
   allTimeModeCivs = [],
@@ -597,7 +761,7 @@ function analyzeCivPerformance({
     return { ok: false, error: 'Civilización inválida.' };
   }
 
-  const isTeam = String(modeId).includes('team');
+  const isTeam = isTeamOpt != null ? Boolean(isTeamOpt) : String(modeId).includes('team');
   const phaseBuckets = isTeam ? PHASE_BUCKETS_TEAM : PHASE_BUCKETS_1V1;
 
   // Filtrar partidas con resultado confirmado (usando pre-índice O(1) cuando viene de buildModeCivDiagnostics)
@@ -1158,13 +1322,17 @@ function analyzeCivPerformance({
       const winLift = hWinC - hWinRef;
       const pWinHaz = fisherExactTwoSided(winC, riskC.length - winC, winO, riskOLen - winO);
 
-      const useLoss = Math.abs(lossLift) >= Math.abs(winLift);
+      const wrInBucket = pct(winC, inC.length);
+      const wrBaseBucket = inOLen >= 4 ? pct(winO, inOLen) : Math.round(rawBaselineWr * 100);
+      const isWeakPhase = lossLift > 0 && wrInBucket < wrBaseBucket;
+      const isStrongPhase = winLift > 0 && wrInBucket > wrBaseBucket;
+      if (!isWeakPhase && !isStrongPhase) continue;
+
+      const useLoss = isWeakPhase && (!isStrongPhase || lossLift >= winLift);
       const sign = useLoss ? -1 : 1;
       const lift = useLoss ? -lossLift : winLift;
       const pVal = useLoss ? pLossHaz : pWinHaz;
       const impact = (riskC.length / nC) * lift;
-      const wrInBucket = pct(winC, inC.length);
-      const wrBaseBucket = inOLen >= 4 ? pct(winO, inOLen) : Math.round(rawBaselineWr * 100);
 
       const phaseTitle = sign < 0
         ? (b.id === 'early' ? `Vulnerable en ${b.label} (${b.sub})`
@@ -1518,6 +1686,7 @@ function buildBreakdowns(civMatches, otherMatches, phaseBuckets, otherEapmsOverr
  */
 function buildModeCivDiagnostics({
   modeId = 'rm_1v1',
+  isTeam: isTeamOpt = null,
   matches = [],
   allTimeCivs = [],
 } = {}) {
@@ -1533,7 +1702,7 @@ function buildModeCivDiagnostics({
     if (!bySlug.has(slug)) bySlug.set(slug, { civ: m.civ, stat: null });
   }
 
-  const isTeam = String(modeId).includes('team');
+  const isTeam = isTeamOpt != null ? Boolean(isTeamOpt) : String(modeId).includes('team');
   const phaseBuckets = isTeam ? PHASE_BUCKETS_TEAM : PHASE_BUCKETS_1V1;
   const precomputed = buildModePreindex(matches, phaseBuckets);
 
@@ -1542,6 +1711,7 @@ function buildModeCivDiagnostics({
     out[slug] = analyzeCivPerformance({
       targetCiv: info.civ,
       modeId,
+      isTeam,
       matches,
       allTimeCivStat: info.stat,
       allTimeModeCivs: allTimeCivs,
@@ -1561,6 +1731,8 @@ module.exports = {
   estimatePriorStrength,
   eloExpectancy,
   applyBenjaminiHochberg,
+  inferOpennessFromMapName,
+  computeInsightsCoverage,
   buildUnifiedModeMatches,
   analyzeCivPerformance,
   buildModeCivDiagnostics,

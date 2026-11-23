@@ -157,9 +157,19 @@ function parseScoutRows(payload) {
   const out = [];
   for (let i = 0; i < ids.length; i += 1) {
     const key = String(ids[i] ?? `row-${i}`);
-    const opponent = { oppCiv: validCiv(oppCivs[i]), oppStrategy: validStrategy(oppStrategies[i]) };
+    const rowOppElo = posNum(oppElos[i]);
+    const rowOppEapm = posNum(oppEapms[i]);
+    const opponent = {
+      oppCiv: validCiv(oppCivs[i]),
+      oppStrategy: validStrategy(oppStrategies[i]),
+      oppElo: rowOppElo,
+      oppMeanEapm: rowOppEapm,
+    };
     if (seen.has(key)) {
       const existing = seen.get(key);
+      if (rowOppElo != null) existing._oppElos.push(rowOppElo);
+      if (rowOppEapm != null && rowOppEapm > 5 && rowOppEapm < 250) existing._oppEapms.push(rowOppEapm);
+      if (!existing.oppStrategy && opponent.oppStrategy) existing.oppStrategy = opponent.oppStrategy;
       if ((opponent.oppCiv || opponent.oppStrategy) && !existing.opponents.some((item) =>
         item.oppCiv === opponent.oppCiv && item.oppStrategy === opponent.oppStrategy)) {
         existing.opponents.push(opponent);
@@ -177,19 +187,37 @@ function parseScoutRows(payload) {
       oppCiv: validCiv(oppCivs[i]),
       strategy: validStrategy(strategies[i]),
       oppStrategy: validStrategy(oppStrategies[i]),
-      opponents: opponent.oppCiv || opponent.oppStrategy ? [opponent] : [],
+      opponents: (opponent.oppCiv || opponent.oppStrategy || rowOppElo != null || rowOppEapm != null) ? [opponent] : [],
       duration: Number.isFinite(duration) && duration > 0 ? duration : null,
       startedAt: started[i] || null,
       ladder: ladders[i] || null,
       elo: posNum(elos[i]),
-      oppElo: posNum(oppElos[i]),
+      oppElo: rowOppElo,
+      oppAvgElo: rowOppElo,
       eloGroup: eloGroups[i] || null,
       meanEapm: posNum(eapms[i]),
-      oppMeanEapm: posNum(oppEapms[i]),
+      oppMeanEapm: rowOppEapm,
+      oppAvgEapm: rowOppEapm,
       patch: posNum(patches[i]),
+      _oppElos: rowOppElo != null ? [rowOppElo] : [],
+      _oppEapms: (rowOppEapm != null && rowOppEapm > 5 && rowOppEapm < 250) ? [rowOppEapm] : [],
     };
     seen.set(key, match);
     out.push(match);
+  }
+  for (const m of out) {
+    if (m._oppElos.length > 0) {
+      const avgElo = Math.round(m._oppElos.reduce((s, v) => s + v, 0) / m._oppElos.length);
+      m.oppAvgElo = avgElo;
+      if (m.opponents.length > 1) m.oppElo = avgElo;
+    }
+    if (m._oppEapms.length > 0) {
+      const avgEapm = Math.round((m._oppEapms.reduce((s, v) => s + v, 0) / m._oppEapms.length) * 10) / 10;
+      m.oppAvgEapm = avgEapm;
+      if (m.opponents.length > 1) m.oppMeanEapm = avgEapm;
+    }
+    delete m._oppElos;
+    delete m._oppEapms;
   }
   return out;
 }

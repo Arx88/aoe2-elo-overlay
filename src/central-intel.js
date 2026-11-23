@@ -14,6 +14,7 @@
 const { civSlug } = require('./civs');
 const { mapKey } = require('./rival');
 const { openingLabel, openingShort } = require('./replay-analysis');
+const { SAMPLE_POLICY, CLOSED_BOOM_MAP_KEYS } = require('./sample-policy');
 
 const SESSION_GAP_MS = 90 * 60_000;
 const PRIOR_STRENGTH = 5;
@@ -113,13 +114,54 @@ function classifyTerrainLabel(mapName, openness) {
   return 'Abierto';
 }
 
-function phaseLabelForSec(sec) {
+function phaseLabelForSec(sec, isTeam = false) {
   if (!Number.isFinite(sec) || sec <= 0) return null;
   const mins = sec / 60;
+  if (isTeam) {
+    if (mins < 28) return 'Feudal / Temprano (<28m)';
+    if (mins < 42) return 'Edad de los Castillos (28–42m)';
+    if (mins < 58) return 'Edad Imperial (42–58m)';
+    return 'Post-Imperial (58m+)';
+  }
   if (mins < 22) return 'Feudal / Temprano (<22m)';
   if (mins < 35) return 'Edad de los Castillos (22–35m)';
-  if (mins < 48) return 'Edad Imperial (35–48m)';
-  return 'Post-Imperial (48m+)';
+  if (mins < 50) return 'Edad Imperial (35–50m)';
+  return 'Post-Imperial (50m+)';
+}
+
+function phaseOrderForMode(isTeam = false) {
+  return isTeam
+    ? [
+        'Feudal / Temprano (<28m)',
+        'Edad de los Castillos (28–42m)',
+        'Edad Imperial (42–58m)',
+        'Post-Imperial (58m+)',
+      ]
+    : [
+        'Feudal / Temprano (<22m)',
+        'Edad de los Castillos (22–35m)',
+        'Edad Imperial (35–50m)',
+        'Post-Imperial (50m+)',
+      ];
+}
+
+// Prueba binomial exacta de dos colas aproximada contra p0 (para filtrar 2V-1D / 3V-1D ruido)
+function logFact(n) {
+  let s = 0;
+  for (let i = 2; i <= n; i += 1) s += Math.log(i);
+  return s;
+}
+function binomPVal(wins, n, p0 = 0.5) {
+  if (!n || n <= 0) return 1;
+  const p = Math.min(0.95, Math.max(0.05, Number(p0) || 0.5));
+  const prob = (k) => Math.exp(logFact(n) - logFact(k) - logFact(n - k) + k * Math.log(p) + (n - k) * Math.log(1 - p));
+  const obs = prob(wins);
+  let total = 0;
+  for (let k = 0; k <= n; k += 1) {
+    const pk = prob(k);
+    if (pk <= obs + 1e-12) total += pk;
+  }
+  return Math.min(1, total);
 }
 
 const INSIGHTS_OPENING_ALIASES = Object.freeze({
@@ -158,9 +200,10 @@ function cleanOpeningName(raw) {
  * 1. DIAGNÓSTICO POR MAPA Y TERRENO (Master-Detail)
  * ============================================================================ */
 
-function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } = {}) {
+function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, modeId = null, isTeam: isTeamOpt = null } = {}) {
   const wantedKey = mapKey(targetMap);
   if (!wantedKey) return { ok: false };
+  const isTeam = isTeamOpt != null ? Boolean(isTeamOpt) : (modeId === 'rm_team' || modeId === 'ew_team');
 
   const valid = (Array.isArray(matches) ? matches : []).filter((m) => m && typeof m.won === 'boolean');
   const mapMatches = valid.filter((m) => mapKey(m.mapKey || m.mapName) === wantedKey);
@@ -174,13 +217,19 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
   const games = mapMatches.length;
   const rawWinRate = games > 0 ? pct(wins, games) : (allTimeEntry?.winRate ?? null);
 
+  // Ajuste anti-sesgo de selección (como civ-diagnostic): compara contra el residual de otros mapas del mismo pool
   const expList = mapMatches.map((m) => expectedWinProb(m.myElo, m.oppElo));
   const expectedMean = expList.length ? expList.reduce((a, b) => a + b, 0) / expList.length : 0.5;
+  const otherResidual = otherMatches.length >= 8
+    ? (otherMatches.filter((m) => m.won).length / otherMatches.length) -
+      (otherMatches.reduce((s, m) => s + expectedWinProb(m.myElo, m.oppElo), 0) / otherMatches.length)
+    : 0;
+  const adjustedBaseline = Math.min(0.85, Math.max(0.15, expectedMean + otherResidual));
   const shrunkRate = games > 0
-    ? (wins + PRIOR_STRENGTH * expectedMean) / (games + PRIOR_STRENGTH)
-    : expectedMean;
+    ? (wins + PRIOR_STRENGTH * adjustedBaseline) / (games + PRIOR_STRENGTH)
+    : adjustedBaseline;
   const shrunkWinRate = Math.round(shrunkRate * 100);
-  const deltaPp = games > 0 ? Math.round((shrunkRate - expectedMean) * 100) : 0;
+  const deltaPp = games > 0 ? Math.round((shrunkRate - adjustedBaseline) * 100) : 0;
 
   // Desglose por civilización propia en este mapa
   const civAcc = new Map();
@@ -204,40 +253,49 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
     }))
     .sort((a, b) => b.games - a.games || (b.winRate || 0) - (a.winRate || 0));
 
-  const eligibleBestCivs = civRows.filter((c) => c.games >= 2 && c.winRate != null);
+  const eligibleBestCivs = civRows.filter((c) => c.games >= 3 && c.winRate != null);
   const bestCivHere = eligibleBestCivs.length
     ? [...eligibleBestCivs].sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0]
-    : (civRows[0] || null);
+    : (civRows.filter((c) => c.games >= 2).sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0] || civRows[0] || null);
   const worstCivHere = eligibleBestCivs.length >= 2
     ? [...eligibleBestCivs].sort((a, b) => a.winRate - b.winRate || b.games - a.games)[0]
     : null;
 
-  // Desglose por apertura rival en este mapa
+  // Desglose por apertura rival en este mapa (recorre todos los rivales en TG sin duplicar por partida)
   const oppOpAcc = new Map();
   for (const m of mapMatches) {
-    const opName = cleanOpeningName(m.oppOpening);
-    if (!opName) continue;
-    const cur = oppOpAcc.get(opName) || { label: opName, games: 0, wins: 0, losses: 0 };
-    cur.games += 1;
-    if (m.won) cur.wins += 1;
-    else cur.losses += 1;
-    oppOpAcc.set(opName, cur);
+    const ops = [];
+    if (Array.isArray(m.opponents) && m.opponents.length) {
+      for (const o of m.opponents) {
+        const cleaned = cleanOpeningName(o?.oppOpening || o?.oppStrategy);
+        if (cleaned) ops.push(cleaned);
+      }
+    }
+    if (!ops.length) {
+      const cleaned = cleanOpeningName(m.oppOpening);
+      if (cleaned) ops.push(cleaned);
+    }
+    const seenOps = new Set();
+    for (const opName of ops) {
+      if (seenOps.has(opName)) continue;
+      seenOps.add(opName);
+      const cur = oppOpAcc.get(opName) || { label: opName, games: 0, wins: 0, losses: 0 };
+      cur.games += 1;
+      if (m.won) cur.wins += 1;
+      else cur.losses += 1;
+      oppOpAcc.set(opName, cur);
+    }
   }
   const oppOpeningRows = [...oppOpAcc.values()]
     .map((o) => ({ ...o, winRate: pct(o.wins, o.games) }))
     .sort((a, b) => b.games - a.games || (a.winRate || 0) - (b.winRate || 0));
 
-  // Desglose por fase de duración en este mapa
-  const phaseOrder = [
-    'Feudal / Temprano (<22m)',
-    'Edad de los Castillos (22–35m)',
-    'Edad Imperial (35–48m)',
-    'Post-Imperial (48m+)',
-  ];
+  // Desglose por fase de duración en este mapa (unificado a 1.7x según 1v1 vs TG)
+  const phaseOrder = phaseOrderForMode(isTeam);
   const phaseAcc = new Map();
   for (const m of mapMatches) {
     const durSec = Number(m.durationGameSec ?? m.replay?.durationSeconds);
-    const pLbl = phaseLabelForSec(durSec);
+    const pLbl = phaseLabelForSec(durSec, isTeam);
     if (!pLbl) continue;
     const cur = phaseAcc.get(pLbl) || { label: pLbl, games: 0, wins: 0, losses: 0 };
     cur.games += 1;
@@ -261,11 +319,12 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
   const outpacedMatches = mapMatches.filter((m) => Number.isFinite(m.myEapm) && Number.isFinite(m.oppEapm) && m.myEapm > m.oppEapm);
   const outpacedWins = outpacedMatches.filter((m) => m.won).length;
 
+  const neededGames = valid.length >= 40 ? 8 : 6;
   const sampleInfo = {
     games,
     wins,
     losses,
-    needed: 4,
+    needed: neededGames,
     rawWinRate,
     shrunkWinRate,
     deltaPp,
@@ -277,7 +336,7 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
     } : null,
   };
 
-  if (games < 4) {
+  if (games < neededGames) {
     return {
       ok: true,
       mapName,
@@ -285,11 +344,11 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
       terrainLabel,
       status: 'insufficient',
       verdict: 'sample',
-      verdictLabel: 'Muestra inicial',
-      confidenceLabel: `${games}/4 partidas con detalle`,
-      summaryLine: `Necesitás al menos 4 partidas analizadas en ${mapName} para detectar patrones tácticos confiables.`,
+      verdictLabel: 'Muestra chica',
+      confidenceLabel: `${games}/${neededGames} partidas con detalle`,
+      summaryLine: `Solo tenés ${games} partida${games === 1 ? '' : 's'} con detalle en ${mapName}; se necesitan al menos ${neededGames} para diagnosticar habilidad real sin ruido.`,
       sample: sampleInfo,
-      bestCivHere: bestCivHere ? { civ: bestCivHere.label, slug: bestCivHere.slug, winRate: bestCivHere.winRate, games: bestCivHere.games } : null,
+      bestCivHere: (bestCivHere && bestCivHere.games >= 4) ? { civ: bestCivHere.label, slug: bestCivHere.slug, winRate: bestCivHere.winRate, games: bestCivHere.games } : null,
       findings: [],
       breakdowns: {
         civs: civRows.slice(0, 6),
@@ -301,26 +360,37 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
           baselineMedianEapm,
           deltaEapm,
           outpacedGames: outpacedMatches.length,
-          outpacedWinRate: outpacedMatches.length >= 2 ? pct(outpacedWins, outpacedMatches.length) : null,
+          outpacedWinRate: outpacedMatches.length >= 3 ? pct(outpacedWins, outpacedMatches.length) : null,
         },
       },
     };
   }
 
+  // Contraste contra all-time para no coronar mapas de 48-49% histórico como "Mapa fuerte"
+  const hasLargeAllTime = allTimeEntry && Number(allTimeEntry.games) >= 15 && Number.isFinite(Number(allTimeEntry.winRate));
+  const allTimeWr = hasLargeAllTime ? Number(allTimeEntry.winRate) : null;
+
   let verdict = 'balanced';
   let verdictLabel = 'Equilibrado';
-  if (deltaPp >= 7 || (rawWinRate >= 58 && games >= 5)) {
+  const strongThreshold = games >= 8 ? 7 : 9;
+  if ((deltaPp >= strongThreshold || (rawWinRate >= 62 && games >= 8 && deltaPp >= 5)) && (allTimeWr == null || allTimeWr >= 52)) {
     verdict = 'strength';
     verdictLabel = 'Mapa fuerte';
-  } else if (deltaPp <= -7 || (rawWinRate <= 42 && games >= 5)) {
+  } else if ((deltaPp <= -strongThreshold || (rawWinRate <= 38 && games >= 8 && deltaPp <= -5)) && (allTimeWr == null || allTimeWr <= 48)) {
     verdict = 'weakness';
     verdictLabel = 'Punto débil';
   }
 
+  // Guarda estadística estricta: nunca emitir hallazgos fuertes sobre 2, 3 o 4 partidas
+  const isSigStrong = (row) => row && row.games >= 5 && row.winRate >= 68 &&
+    (binomPVal(row.wins, row.games, adjustedBaseline) <= 0.16 || (row.winRate - Math.round(adjustedBaseline * 100)) >= 18);
+  const isSigWeak = (row) => row && row.games >= 5 && row.winRate <= 36 &&
+    (binomPVal(row.wins, row.games, adjustedBaseline) <= 0.16 || (Math.round(adjustedBaseline * 100) - row.winRate) >= 18);
+
   const findings = [];
 
   // Hallazgo 1: Selección de civilización en este mapa (mejor vs peor civ)
-  if (worstCivHere && worstCivHere.games >= 3 && worstCivHere.winRate <= 38) {
+  if (worstCivHere && isSigWeak(worstCivHere)) {
     const contrast = bestCivHere && bestCivHere.slug !== worstCivHere.slug && bestCivHere.winRate >= 55
       ? `Con ${bestCivHere.label} rendís al ${bestCivHere.winRate}% (${bestCivHere.wins}V-${bestCivHere.losses}D) en este mismo mapa.`
       : `Tu rendimiento con ${worstCivHere.label} en ${mapName} está muy por debajo de tu media.`;
@@ -335,7 +405,7 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
         ? `Priorizá ${bestCivHere.label} en ${mapName} y evitá ${worstCivHere.label}.`
         : `Probá una civilización más afín al terreno ${terrainLabel.toLowerCase()} de ${mapName}.`,
     });
-  } else if (bestCivHere && bestCivHere.games >= 3 && bestCivHere.winRate >= 65) {
+  } else if (bestCivHere && isSigStrong(bestCivHere)) {
     findings.push({
       id: 'map-civ-comfort',
       tone: 'win',
@@ -348,8 +418,10 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
   }
 
   // Hallazgo 2: Apertura rival que más castiga o que mejor controlás en este mapa
-  const toughOpening = oppOpeningRows.find((o) => o.games >= 3 && o.winRate <= 38);
-  const dominatedOpening = oppOpeningRows.find((o) => o.games >= 3 && o.winRate >= 65);
+  const isClosedBoomMap = terrainLabel === 'Cerrado' || CLOSED_BOOM_MAP_KEYS.has(wantedKey);
+  const isTrivialClosedFc = (o) => isClosedBoomMap && /fast\s*castle|fc\b/i.test(String(o?.label || ''));
+  const toughOpening = oppOpeningRows.find((o) => !isTrivialClosedFc(o) && isSigWeak(o));
+  const dominatedOpening = oppOpeningRows.find((o) => !isTrivialClosedFc(o) && isSigStrong(o));
   if (toughOpening) {
     findings.push({
       id: 'map-opp-opening-loss',
@@ -371,8 +443,8 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
   }
 
   // Hallazgo 3: Fase de partida crítica en este mapa
-  const weakPhase = phaseRows.find((p) => p.games >= 3 && p.winRate <= 38);
-  const strongPhase = phaseRows.find((p) => p.games >= 3 && p.winRate >= 65);
+  const weakPhase = phaseRows.find((p) => isSigWeak(p));
+  const strongPhase = phaseRows.find((p) => isSigStrong(p));
   if (weakPhase) {
     findings.push({
       id: 'map-phase-loss',
@@ -380,7 +452,7 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
       title: `Caída en ${weakPhase.label}`,
       metric: `${weakPhase.winRate}% WR (${weakPhase.wins}V-${weakPhase.losses}D)`,
       detail: `En ${mapName}, tus derrotas se concentran cuando la partida entra en ${weakPhase.label}.`,
-      takeaway: weakPhase.label.includes('48m+') || weakPhase.label.includes('Imperial')
+      takeaway: weakPhase.label.includes('50m+') || weakPhase.label.includes('58m+') || weakPhase.label.includes('Imperial')
         ? `Buscá cerrar o tomar ventaja territorial antes del juego tardío en ${mapName}.`
         : `Reforzá tu transición defensiva temprana en ${mapName}.`,
     });
@@ -395,18 +467,21 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
     });
   }
 
-  // Hallazgo 4: Ritmo mecánico eAPM en este mapa vs tu media
-  if (findings.length < 3 && deltaEapm != null && Math.abs(deltaEapm) >= 4 && mapEapms.length >= 3) {
-    findings.push({
-      id: 'map-pace-delta',
-      tone: deltaEapm > 0 ? 'win' : 'loss',
-      title: deltaEapm > 0 ? `Ritmo mecánico superior en ${mapName}` : `Menor velocidad mecánica en ${mapName}`,
-      metric: `${deltaEapm > 0 ? '+' : ''}${deltaEapm} eAPM vs otros mapas`,
-      detail: `Promediás ${medianEapm} eAPM en ${mapName} frente a ${baselineMedianEapm} eAPM en el resto del pool.`,
-      takeaway: deltaEapm < 0
-        ? `En mapas de tipo ${terrainLabel.toLowerCase()}, no descuides tus atajos de edificios militares y Centros urbanos.`
-        : `Te sentís cómodo con el ritmo táctico que exige ${mapName}.`,
-    });
+  // Hallazgo 4: Ritmo mecánico eAPM (en mapas cerrados como Arena menor eAPM vs Arabia es normal — nunca retar en rojo)
+  const minPaceSample = SAMPLE_POLICY.mapDiagnostic.minFinding;
+  if (findings.length < 3 && deltaEapm != null && Math.abs(deltaEapm) >= 4 && mapEapms.length >= minPaceSample) {
+    if (!(isClosedBoomMap && deltaEapm < 0)) {
+      findings.push({
+        id: 'map-pace-delta',
+        tone: deltaEapm > 0 ? 'win' : 'loss',
+        title: deltaEapm > 0 ? `Ritmo mecánico superior en ${mapName}` : `Menor velocidad mecánica en ${mapName}`,
+        metric: `${deltaEapm > 0 ? '+' : ''}${deltaEapm} eAPM vs otros mapas`,
+        detail: `Promediás ${medianEapm} eAPM en ${mapName} frente a ${baselineMedianEapm} eAPM en el resto del pool.`,
+        takeaway: deltaEapm < 0
+          ? `En mapas de tipo ${terrainLabel.toLowerCase()}, no descuides tus atajos de edificios militares y Centros urbanos.`
+          : `Te sentís cómodo con el ritmo táctico que exige ${mapName}.`,
+      });
+    }
   }
 
   const confidenceLabel = games >= 15 ? 'Confianza alta' : games >= 8 ? 'Confianza media' : 'Muestra moderada';
@@ -443,7 +518,7 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null } 
   };
 }
 
-function buildModeMapDiagnostics({ modeId, matches = [], allTimeMaps = [] } = {}) {
+function buildModeMapDiagnostics({ modeId, isTeam = null, matches = [], allTimeMaps = [] } = {}) {
   const byKey = new Map();
   for (const entry of Array.isArray(allTimeMaps) ? allTimeMaps : []) {
     if (!entry || !entry.mapName) continue;
@@ -465,6 +540,7 @@ function buildModeMapDiagnostics({ modeId, matches = [], allTimeMaps = [] } = {}
       matches,
       allTimeEntry: info.allTimeEntry,
       modeId,
+      isTeam,
     });
     if (diag && diag.ok) out[k] = diag;
   }
@@ -481,9 +557,10 @@ function extractEngineSummary(record) {
   return t.engineSummary || t.engine || null;
 }
 
-function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnProfile = true } = {}) {
+function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnProfile = true, modeId = 'global', isFallbackScope = false } = {}) {
   if (!isOwnProfile) return null;
   const pid = Number(profileId);
+  const isEmpireWars = modeId === 'ew_1v1' || modeId === 'ew_team';
 
   // Filtrar replays propios válidos y excluir abandonos tempranos (< 180 s)
   const valid = (Array.isArray(storedRecords) ? storedRecords : [])
@@ -503,8 +580,8 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
   const recent = valid.slice(0, splitIdx);
   const older = valid.slice(splitIdx, splitIdx * 2);
 
-  // 1. Evolución de Calificación por Edad (Alta Edad Media, Edad Feudal, Edad de los Castillos, Edad Imperial)
-  const stageIds = ['dark', 'feudal', 'castle', 'imperial'];
+  // 1. Evolución de Calificación por Edad (sin Alta Edad Media en Empire Wars)
+  const stageIds = isEmpireWars ? ['feudal', 'castle', 'imperial'] : ['dark', 'feudal', 'castle', 'imperial'];
   const stageEvolution = stageIds.map((stageId) => {
     const getScores = (list) => list
       .map((rec) => {
@@ -518,8 +595,11 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     const oldScores = getScores(older);
     const allScores = getScores(valid);
     const recentScore = recScores.length ? Math.round(avg(recScores, 0)) : (allScores.length ? Math.round(avg(allScores, 0)) : null);
-    const olderScore = oldScores.length ? Math.round(avg(oldScores, 0)) : null;
-    const deltaScore = (recentScore != null && olderScore != null) ? (recentScore - olderScore) : null;
+    const olderScore = oldScores.length >= 2 ? Math.round(avg(oldScores, 0)) : null;
+    // Exigir al menos 2 muestras en cada ventana antes de emitir delta u olderGrade (evita 1 vs 1 en Imperial)
+    const deltaScore = (recScores.length >= 2 && oldScores.length >= 2 && recentScore != null && olderScore != null)
+      ? (recentScore - olderScore)
+      : null;
 
     return {
       id: stageId,
@@ -528,7 +608,7 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
       recentScore,
       recentGrade: gradeFromScore(recentScore),
       olderScore,
-      olderGrade: gradeFromScore(olderScore),
+      olderGrade: oldScores.length >= 2 ? gradeFromScore(olderScore) : null,
       deltaScore,
     };
   });
@@ -593,10 +673,12 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
   const habits = [
     {
       id: 'tc_idle',
-      label: 'Centro urbano inactivo (Alta + Feudal)',
+      label: isEmpireWars ? 'Centro urbano inactivo (Feudal)' : 'Centro urbano inactivo (Alta + Feudal)',
       valueText: `${curIdleAvg} s`,
-      subText: oldIdleAvg != null ? `Antes ${oldIdleAvg} s por partida` : `Promedio en ${valid.length} replays`,
-      deltaText: idleDelta != null && idleDelta !== 0 ? `${Math.abs(idleDelta)} s` : null,
+      subText: oldIdleAvg != null ? `Últ. ${recIdles.length} vs ${oldIdleAvg} s previas` : `Promedio en ${valid.length} replays`,
+      deltaText: idleDelta != null && idleDelta !== 0 ? `${idleDelta < 0 ? '−' : '+'}${Math.abs(idleDelta)} s` : null,
+      deltaArrow: idleDelta != null && idleDelta !== 0 ? (idleDelta < 0 ? '▼' : '▲') : null,
+      lowerIsBetter: true,
       improved: idleDelta != null ? idleDelta < 0 : curIdleAvg <= 45,
       tone: curIdleAvg <= 45 ? 'win' : curIdleAvg >= 95 ? 'loss' : 'neutral',
     },
@@ -683,6 +765,9 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
   return {
     ok: true,
     totalReplays: valid.length,
+    sampleSize: valid.length,
+    isFallbackScope: Boolean(isFallbackScope),
+    scopeLabel: isFallbackScope ? `Historial general · ${valid.length} replays (sin replays locales en este modo)` : `${valid.length} replays locales del modo`,
     recentWindow: recent.length,
     olderWindow: older.length,
     stageEvolution,
@@ -696,19 +781,31 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
  * ============================================================================ */
 
 function matchNetEloImpact(m) {
+  if (Number.isFinite(Number(m?.myRatingDiff)) && Number(m.myRatingDiff) !== 0 && Math.abs(Number(m.myRatingDiff)) <= 35) {
+    return Number(m.myRatingDiff);
+  }
   const won = m.won ? 1 : 0;
   const exp = expectedWinProb(m.myElo, m.oppElo);
   return 32 * (won - exp);
 }
 
-function computeEloAttributionAndSession({ matches = [] } = {}) {
+function computeEloAttributionAndSession({
+  matches = [],
+  insightsMatches = null,
+  eloSeries = [],
+  isTeam = false,
+  sessionModeLabel = null,
+} = {}) {
   const valid = (Array.isArray(matches) ? matches : [])
     .filter((m) => m && typeof m.won === 'boolean')
     .sort((a, b) => (Number(a.startedAt) || 0) - (Number(b.startedAt) || 0));
 
-  if (valid.length < 5) return null;
+  const openingsPool = (Array.isArray(insightsMatches) && insightsMatches.length ? insightsMatches : valid)
+    .filter((m) => m && typeof m.won === 'boolean');
 
-  // Conteo de partidas por civ para separar Mains (>= 5 pj) vs Experimentos (<= 3 pj)
+  if (valid.length < 5 && (!Array.isArray(eloSeries) || eloSeries.length < 8)) return null;
+
+  // Conteo de partidas por civ para separar Mains (>= 5 pj) vs Ocasionales (<= 4 pj, sin brecha en 4)
   const civCounts = new Map();
   for (const m of valid) {
     if (!m.civ) continue;
@@ -718,12 +815,14 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
 
   const factors = [];
   const addFactor = (id, title, subset, detailFn) => {
-    if (subset.length < 3) return;
+    if (subset.length < SAMPLE_POLICY.eloAttribution.minFactorGames) return;
     const wins = subset.filter((m) => m.won).length;
     const losses = subset.length - wins;
     const wr = pct(wins, subset.length);
     const netElo = Math.round(subset.reduce((acc, m) => acc + matchNetEloImpact(m), 0));
     if (Math.abs(netElo) < 12) return;
+    // Evitar marcar un balance exactamente 50% WR (ej. 3V-3D) como fuga/motor solo por ruido
+    if (wins === losses && Math.abs(netElo) < 25) return;
     factors.push({
       id,
       title,
@@ -736,7 +835,7 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
     });
   };
 
-  // Factor A: Civilizaciones principales (Mains >= 5 pj) vs Experimentos (<= 3 pj)
+  // Factor A: Civilizaciones principales (Mains >= 5 pj) vs Ocasionales (<= 4 pj)
   const mainMatches = valid.filter((m) => {
     const slug = m.civSlug || civSlug(m.civ) || String(m.civ || '').toLowerCase();
     return (civCounts.get(slug) || 0) >= 5;
@@ -744,7 +843,7 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
   const expMatches = valid.filter((m) => {
     const slug = m.civSlug || civSlug(m.civ) || String(m.civ || '').toLowerCase();
     const c = civCounts.get(slug) || 0;
-    return c >= 1 && c <= 3;
+    return c >= 1 && c <= 4;
   });
   addFactor(
     'pool-mains',
@@ -754,26 +853,28 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
   );
   addFactor(
     'pool-experiments',
-    'Civilizaciones ocasionales (≤3 partidas)',
+    'Civilizaciones ocasionales (≤4 partidas)',
     expMatches,
     ({ wins, losses }) => `Rotar fuera de tus civilizaciones principales registró ${wins}V-${losses}D.`,
   );
 
-  // Factor B: Fases de duración (Post-Imperial 48m+ y Juego temprano <22m)
-  const postImpMatches = valid.filter((m) => Number(m.durationGameSec ?? m.replay?.durationSeconds) >= 48 * 60);
+  // Factor B: Fases de duración (unificado a 1.7x según 1v1 vs TG)
+  const lateCut = isTeam ? 58 : 50;
+  const earlyCut = isTeam ? 28 : 22;
+  const postImpMatches = valid.filter((m) => Number(m.durationGameSec ?? m.replay?.durationSeconds) >= lateCut * 60);
   const earlyMatches = valid.filter((m) => {
     const d = Number(m.durationGameSec ?? m.replay?.durationSeconds);
-    return Number.isFinite(d) && d > 0 && d < 22 * 60;
+    return Number.isFinite(d) && d > 0 && d < earlyCut * 60;
   });
   addFactor(
     'phase-post-imp',
-    'Partidas largas / Post-Imperial (48m+)',
+    `Partidas largas / Post-Imperial (${lateCut}m+)`,
     postImpMatches,
-    ({ winRate }) => `Rendimiento del ${winRate}% cuando la partida supera los 48 minutos.`,
+    ({ winRate }) => `Rendimiento del ${winRate}% cuando la partida supera los ${lateCut} min (reloj de juego).`,
   );
   addFactor(
     'phase-early',
-    'Definiciones tempranas (<22m)',
+    `Definiciones tempranas (<${earlyCut}m)`,
     earlyMatches,
     ({ winRate }) => `Efectividad del ${winRate}% en choques de Edad Feudal.`,
   );
@@ -789,6 +890,7 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
     byMap.set(k, list);
   }
   for (const [k, list] of byMap.entries()) {
+    if (list.length < SAMPLE_POLICY.eloAttribution.minFactorGames) continue;
     const mName = list[0].mapName;
     addFactor(
       `map-${k}`,
@@ -798,45 +900,72 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
     );
   }
 
-  // Factor D: Aperturas rivales + Radar de Aperturas Rivales y Antídotos
+  // Factor D: Radar de Aperturas Rivales y Antídotos (sobre replays analizados de Insights; NO contamina gains/leaks de ELO oficial)
   const byOppOpening = new Map();
-  for (const m of valid) {
-    const op = cleanOpeningName(m.oppOpening);
-    if (!op) continue;
-    const list = byOppOpening.get(op) || [];
-    list.push(m);
-    byOppOpening.set(op, list);
+  for (const m of openingsPool) {
+    const ops = [];
+    if (Array.isArray(m.opponents) && m.opponents.length) {
+      for (const o of m.opponents) {
+        const cleaned = cleanOpeningName(o?.oppOpening || o?.oppStrategy);
+        if (cleaned) ops.push(cleaned);
+      }
+    }
+    if (!ops.length) {
+      const cleaned = cleanOpeningName(m.oppOpening);
+      if (cleaned) ops.push(cleaned);
+    }
+    const seen = new Set();
+    for (const op of ops) {
+      if (seen.has(op)) continue;
+      seen.add(op);
+      const list = byOppOpening.get(op) || [];
+      list.push(m);
+      byOppOpening.set(op, list);
+    }
   }
 
   const vsOpenings = [];
+  const minOpGames = SAMPLE_POLICY.eloAttribution.minOpeningGames;
   for (const [opName, list] of byOppOpening.entries()) {
-    addFactor(
-      `vs-op-${opName}`,
-      `Contra ${opName}`,
-      list,
-      ({ wins, losses, winRate }) => `Registraste ${wins}V-${losses}D (${winRate}% WR) enfrentando ${opName}.`,
-    );
-    if (list.length >= 2) {
+    // Solo incluir apertura rival en Motores/Fugas ELO si viene de partidas oficiales de Companion (nunca de Insights-only con myRatingDiff=null)
+    const officialOpList = list.filter((m) => m.source !== 'insights' || (m.myRatingDiff != null && Number.isFinite(Number(m.myRatingDiff))));
+    if (officialOpList.length >= SAMPLE_POLICY.eloAttribution.minFactorGames) {
+      addFactor(
+        `vs-op-${opName}`,
+        `Contra ${opName}`,
+        officialOpList,
+        ({ wins, losses, winRate }) => `Registraste ${wins}V-${losses}D (${winRate}% WR) enfrentando ${opName}.`,
+      );
+    }
+    if (list.length >= minOpGames) {
       const wins = list.filter((m) => m.won).length;
       const losses = list.length - wins;
       const netElo = Math.round(list.reduce((acc, m) => acc + matchNetEloImpact(m), 0));
 
-      // Buscar el mejor antídoto propio registrado contra esta apertura rival (apertura propia o civ propia)
-      const counterAcc = new Map();
+      const opCounterAcc = new Map();
+      const civCounterAcc = new Map();
       for (const m of list) {
         const myOp = cleanOpeningName(m.myOpening);
-        const label = myOp || (m.civ ? `Jugar ${m.civ}` : null);
-        if (!label) continue;
-        const cur = counterAcc.get(label) || { label, games: 0, wins: 0, losses: 0 };
-        cur.games += 1;
-        if (m.won) cur.wins += 1;
-        else cur.losses += 1;
-        counterAcc.set(label, cur);
+        if (myOp) {
+          const cur = opCounterAcc.get(myOp) || { label: myOp, kind: 'opening', games: 0, wins: 0, losses: 0 };
+          cur.games += 1;
+          if (m.won) cur.wins += 1; else cur.losses += 1;
+          opCounterAcc.set(myOp, cur);
+        }
+        if (m.civ) {
+          const cLbl = `Jugar ${m.civ}`;
+          const cur = civCounterAcc.get(cLbl) || { label: cLbl, kind: 'civ', games: 0, wins: 0, losses: 0 };
+          cur.games += 1;
+          if (m.won) cur.wins += 1; else cur.losses += 1;
+          civCounterAcc.set(cLbl, cur);
+        }
       }
-      const bestCounter = [...counterAcc.values()]
-        .filter((c) => c.games >= 2 && c.wins > c.losses)
+      const pickBest = (map) => [...map.values()]
         .map((c) => ({ ...c, winRate: pct(c.wins, c.games) }))
+        .filter((c) => (c.games >= SAMPLE_POLICY.eloAttribution.minAntidoteGames && c.winRate >= 65)
+          || (c.games >= SAMPLE_POLICY.eloAttribution.minAntidoteSweep && c.losses === 0))
         .sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0] || null;
+      const bestCounter = pickBest(opCounterAcc) || pickBest(civCounterAcc);
 
       vsOpenings.push({
         opening: opName,
@@ -860,33 +989,56 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
     .sort((a, b) => a.netElo - b.netElo)
     .slice(0, 3);
 
-  // Némesis y Presas (Civilizaciones rivales enfrentadas >= 3 veces)
+  // Némesis y Presas (unificado con sample-policy: >=6 en 1v1, >=8 en TG; solo partidas oficiales)
   const byOppCiv = new Map();
   for (const m of valid) {
-    if (!m.oppCiv) continue;
-    const slug = m.oppCivSlug || civSlug(m.oppCiv) || String(m.oppCiv).toLowerCase();
-    const cur = byOppCiv.get(slug) || { civ: m.oppCiv, slug, games: 0, wins: 0, losses: 0, netElo: 0 };
-    cur.games += 1;
-    if (m.won) cur.wins += 1;
-    else cur.losses += 1;
-    cur.netElo += matchNetEloImpact(m);
-    byOppCiv.set(slug, cur);
+    const oppCivs = (Array.isArray(m.opponents) && m.opponents.length)
+      ? m.opponents.map((o) => o?.civ || o?.oppCiv).filter(Boolean)
+      : (m.oppCiv ? [m.oppCiv] : []);
+    const seen = new Set();
+    for (const oc of oppCivs) {
+      const slug = civSlug(oc) || String(oc).toLowerCase();
+      if (!slug || seen.has(slug)) continue;
+      seen.add(slug);
+      const cur = byOppCiv.get(slug) || { civ: oc, slug, games: 0, wins: 0, losses: 0, netElo: 0 };
+      cur.games += 1;
+      if (m.won) cur.wins += 1;
+      else cur.losses += 1;
+      cur.netElo += matchNetEloImpact(m);
+      byOppCiv.set(slug, cur);
+    }
   }
+  const minOppCivGames = isTeam
+    ? SAMPLE_POLICY.eloAttribution.minOpponentCivTeam
+    : SAMPLE_POLICY.eloAttribution.minOpponentCiv1v1;
   const oppCivList = [...byOppCiv.values()]
-    .filter((c) => c.games >= 3)
+    .filter((c) => c.games >= minOppCivGames)
     .map((c) => ({ ...c, netElo: Math.round(c.netElo), winRate: pct(c.wins, c.games) }));
 
   const nemesisCivs = [...oppCivList]
-    .filter((c) => c.winRate <= 45)
+    .filter((c) => c.winRate <= 44)
     .sort((a, b) => a.winRate - b.winRate || b.games - a.games)
     .slice(0, 3);
   const preyCivs = [...oppCivList]
-    .filter((c) => c.winRate >= 58)
+    .filter((c) => c.winRate >= 60)
     .sort((a, b) => b.winRate - a.winRate || b.games - a.games)
     .slice(0, 3);
 
-  // 4. Inteligencia de Sesión y Fatiga / Tilt (agrupando partidas con < 90 min de separación)
-  const withTime = valid.filter((m) => Number.isFinite(Number(m.startedAt)) && Number(m.startedAt) > 0);
+  // 4. Inteligencia de Sesión y Fatiga / Tilt (eloSeries consecutivo oficial)
+  const ratedSeriesPts = (Array.isArray(eloSeries) ? eloSeries : [])
+    .filter((p) => p && Number.isFinite(Number(p.startedAt)) && Number(p.startedAt) > 0 && Number.isFinite(Number(p.diff)) && Number(p.diff) !== 0)
+    .sort((a, b) => Number(a.startedAt) - Number(b.startedAt))
+    .map((p) => ({
+      startedAt: Number(p.startedAt),
+      won: p.won === true || (p.won == null && Number(p.diff) > 0),
+      myRatingDiff: Number(p.diff),
+      isRealDiff: true,
+    }));
+  const useEloSeriesForSession = ratedSeriesPts.length >= 8;
+  const withTime = useEloSeriesForSession
+    ? ratedSeriesPts
+    : valid.filter((m) => Number.isFinite(Number(m.startedAt)) && Number(m.startedAt) > 0);
+
   let session = null;
   if (withTime.length >= 5) {
     const sessions = [];
@@ -903,10 +1055,10 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
     }
     if (currentSession.length) sessions.push(currentSession);
 
-    const b1 = []; // Partida #1 (frío)
-    const b23 = []; // Partidas #2–3 (en calor)
-    const b4p = []; // Partida #4+ (desgaste)
-    const post2Loss = []; // Tras 2+ derrotas seguidas en la misma sesión
+    const b1 = [];
+    const b23 = [];
+    const b4p = [];
+    const post2Loss = [];
 
     for (const sess of sessions) {
       let lossStreak = 0;
@@ -925,6 +1077,7 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
       if (!list.length) return null;
       const wins = list.filter((m) => m.won).length;
       const losses = list.length - wins;
+      const netElo = Math.round(list.reduce((acc, m) => acc + (m.isRealDiff ? m.myRatingDiff : matchNetEloImpact(m)), 0));
       return {
         id,
         label,
@@ -932,7 +1085,7 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
         wins,
         losses,
         winRate: pct(wins, list.length),
-        netElo: Math.round(list.reduce((acc, m) => acc + matchNetEloImpact(m), 0)),
+        netElo,
       };
     };
 
@@ -942,10 +1095,12 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
       summarizeBucket('fatigue', 'Partida #4+ (desgaste)', b4p),
     ].filter(Boolean);
 
-    const tiltRaw = post2Loss.length >= 2
+    const minTilt = SAMPLE_POLICY.eloAttribution.minSessionTilt;
+    const minFatigue = SAMPLE_POLICY.eloAttribution.minSessionFatigue;
+    const tiltRaw = post2Loss.length >= minTilt
       ? summarizeBucket('tilt', 'Tras 2+ derrotas seguidas', post2Loss)
       : null;
-    const tiltBucket = tiltRaw && (tiltRaw.winRate < 50 || tiltRaw.games >= 4)
+    const tiltBucket = tiltRaw
       ? { ...tiltRaw, isTiltRisk: tiltRaw.winRate < 46 }
       : null;
 
@@ -954,7 +1109,7 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
     let verdict = null;
     if (tiltBucket && tiltBucket.winRate <= 38) {
       verdict = `Tras 2 derrotas seguidas en una misma sesión tu winrate cae al ${tiltBucket.winRate}% (${tiltBucket.netElo} ELO). Cortar 15 minutos evita perder puntos por inercia.`;
-    } else if (fatBucket && fatBucket.games >= 3 && warmWr != null && warmWr - fatBucket.winRate >= 15) {
+    } else if (fatBucket && fatBucket.games >= minFatigue && warmWr != null && warmWr - fatBucket.winRate >= 15) {
       verdict = `Tu pico de rendimiento está en las partidas #2–3 (${warmWr}% WR) y cae al ${fatBucket.winRate}% a partir de la 4.ª partida seguida.`;
     } else if (warmWr != null) {
       verdict = `Rendimiento estable a lo largo de tus sesiones (${warmWr}% WR en partidas #2–3).`;
@@ -962,6 +1117,8 @@ function computeEloAttributionAndSession({ matches = [] } = {}) {
 
     session = {
       totalSessions: sessions.length,
+      source: useEloSeriesForSession ? 'eloSeries' : 'unified',
+      modeLabel: sessionModeLabel || null,
       buckets,
       postLossStreakTilt: tiltBucket,
       verdict,

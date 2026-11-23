@@ -1,3 +1,16 @@
+## v2.11.0 · Datos coherentes en Central, 200 partidas por modo, Postmatch v6 y ventanas Pro / Ultra
+
+- **Central con datos oficiales sin sesgo:** los winrates, mapas, civilizaciones, colores, roles de equipo y Motores/Fugas de ELO se calculan sobre tus partidas oficiales de AoE2 Companion. AoE2Insights solo aporta aperturas y eAPM, con su cobertura declarada.
+- **Hasta 200 partidas por modo con sincronización incremental:** Central amplía la muestra sin demorar el inicio, guarda el historial en caché local y en cada actualización solo pide las partidas nuevas. Empire Wars se carga al abrir su pestaña.
+- **Muestras mínimas unificadas y realidad de AoE2:DE:** sin conclusiones con 1–4 partidas, sin mezclar replays de RM Team en RM 1v1 o Empire Wars, relojes de victoria vs derrota con muestra pareada por edad, Maestría calculada solo sobre partidas que llegaron a Edad de los Castillos, Arena sin penalizar el menor eAPM y mapas de inicio nómada fuera del cálculo Pocket/Flank.
+- **Ventanas por plan:** Free ve `Últ. 10`; Pro alterna `Últ. 10` y `Últ. 20`; Ultra desbloquea `Últ. 50`, `Últ. 100` y el historial total.
+- **16 nuevos descubrimientos:** 8 en Central (Radiografía de Team Games, Color de la suerte, Espejo y meta, Perfil en derrotas, Resaca y revanchas, Relojes de victoria, Maestría histórica, Zona de confort de ELO) y 8 en Postmatch (Aldeanos fantasma, Punto de quiebre, Brecha de Herrería, Cambio de composición, Rol en equipo, Recursos atrapados, Crónica del replay y Castillo decisivo).
+- **Postmatch v6 y placas de partida:** banner principal a ancho completo, tarjetas por edad, anillo de maestría de civilización, capítulos navegables y lista de partidas recientes rediseñada.
+- **ADN del Jugador a escala exacta:** el radar dibuja cada eje 1:1 con su porcentaje y el eje `Clutch` pasa a llamarse **vs +ELO** (winrate contra rivales o equipos de mayor ELO).
+- **Ventana de Centro de mando normal:** deja de fijarse siempre al frente (`alwaysOnTop`), permitiendo usar el navegador (por ejemplo al iniciar sesión con Google) u otras ventanas sin tener que mover Relic, manteniendo el overlay en partida siempre visible.
+
+---
+
 ## v2.10.0 · Central v5, 9 Descubrimientos de Jugador, 194 Mapas Oficiales y Postmatch de las 56 Civilizaciones
 
 - **Rediseño visual de Central (v5) con jerarquía de launcher de juego:** nueva barra de navegación en 3 capítulos ilustrados (**Resumen**, **Civs y Mapas**, **Mejora y ELO**) con medallones de icono, arte integrado, escudos de civilización grandes con anillo de winrate y **194 imágenes isométricas oficiales de mapas de AoE2:DE** en fichas, listas y diagnósticos.

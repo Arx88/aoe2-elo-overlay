@@ -813,6 +813,317 @@ test('13. Central v5 Real Player Discoveries (9 modules, TG team-avg ELO gap, en
   assert.doesNotMatch(html, /\sstyle=/i, 'CSP: Central v5 HTML must contain 0 inline style="" attributes');
 });
 
+/* ============================================================================
+ * 14. Forensic P0/P1 Fixes, Representative Map Sample Floor, 16 Insights & Postmatch v6 CSP
+ * ============================================================================ */
+test('14. Forensic P0/P1 fixes, representative map sample floor, 16 AoE2 insights & Postmatch v6 CSP', () => {
+  const { parseScoutRows } = require('../src/scout');
+  const { analyzeMapPerformance, computePersonalAcademy } = require('../src/central-intel');
+  const {
+    computeTrident,
+    computeTrophies,
+    computePlayerDna,
+    computeTgRadiography,
+    computeLuckyColor,
+    computeMirrorAndMeta,
+    computeEloComfortAndPatch,
+  } = require('../src/central-discoveries');
+  const { analyzePostmatchEngine } = require('../src/engine/postmatch-engine');
+
+  // P0-1: parseScoutRows averages oppAvgElo & oppAvgEapm across ALL opponents in TG
+  const tgParsed = parseScoutRows({
+    rows: {
+      match_id: [901, 901, 901],
+      won: ['Won', 'Won', 'Won'],
+      map: ['Arabia', 'Arabia', 'Arabia'],
+      civilization: ['Persians', 'Persians', 'Persians'],
+      civilization_opponent: ['Franks', 'Britons', 'Mongols'],
+      strategy: ['Scout rush', 'Scout rush', 'Scout rush'],
+      strategy_opponent: ['Unknown', 'Archer rush', 'Fast castle'],
+      elo: [1300, 1300, 1300],
+      elo_opponent: [1200, 1350, 1500],
+      mean_eapm: [55, 55, 55],
+      mean_eapm_opponent: [30, 45, 60],
+      match_duration: [2100, 2100, 2100],
+      started_time: ['2026-11-20T10:00:00Z', '2026-11-20T10:00:00Z', '2026-11-20T10:00:00Z'],
+    },
+  });
+  assert.equal(tgParsed.length, 1);
+  assert.equal(tgParsed[0].oppAvgElo, 1350, 'P0-1: TG oppAvgElo must average all 3 opponents');
+  assert.equal(tgParsed[0].oppAvgEapm, 45, 'P0-1: TG oppAvgEapm must average all 3 opponents');
+  assert.equal(tgParsed[0].oppStrategy, 'Archer rush', 'P0-1: Must backfill oppStrategy when slot 0 is Unknown');
+
+  // Representative map sample floor: 4 games MUST be insufficient with 0 findings
+  const tinyMapMatches = Array.from({ length: 4 }, (_, i) => ({
+    matchId: `tm-${i}`, mapName: 'Socotra', mapKey: 'socotra', civ: 'Persians', won: true, myElo: 1200, oppElo: 1200,
+  }));
+  const tinyDiag = analyzeMapPerformance({ targetMap: 'Socotra', matches: tinyMapMatches, modeId: 'rm_1v1' });
+  assert.equal(tinyDiag.status, 'insufficient', '4 games on a map must NEVER be declared ready/expert');
+  assert.equal(tinyDiag.findings.length, 0);
+
+  // Trident: NEVER crown 3-4 game map as Fortress Map, and combo MUST match secretCiv
+  const trident = computeTrident({
+    stats: {
+      allCivs: [
+        { civ: 'Burgundians', civSlug: 'burgundians', games: 15, wins: 11, losses: 4, winRate: 73 },
+        { civ: 'Persians', civSlug: 'persians', games: 15, wins: 9, losses: 6, winRate: 60 },
+      ],
+      allMaps: [
+        { mapName: 'Socotra', mapKey: 'socotra', games: 4, wins: 4, losses: 0, winRate: 100 },
+        { mapName: 'Arabia', mapKey: 'arabia', games: 20, wins: 9, losses: 11, winRate: 45 },
+      ],
+    },
+    unifiedMatches: Array.from({ length: 6 }, (_, i) => ({
+      matchId: `c-${i}`, won: i < 5, civ: 'Persians', civSlug: 'persians', mapName: 'Arena', mapKey: 'arena',
+    })),
+    ladder: { winRate: 52 },
+  });
+  assert.equal(trident.fortressMap, null, '4-game 100% map must NOT be crowned Fortress Map');
+  assert.equal(trident.secretCiv.civSlug, 'burgundians');
+  assert.equal(trident.secretCiv.combo, null, 'P0-5: Burgundians Arma Secreta must NOT display Persians Arena combo');
+
+  // P0-3: Global trophies must NEVER fuse two ladders into one session
+  const baseT = Date.UTC(2026, 10, 20, 12, 0, 0);
+  const trophiesGlobal = computeTrophies({
+    eloSeries: [],
+    modeEloSeriesMap: {
+      ew_1v1: {
+        label: 'EW 1v1', streak: 0,
+        series: Array.from({ length: 6 }, (_, i) => ({ startedAt: baseT + i * 15 * 60_000, rating: 1000 + (i + 1) * 15, diff: 15, won: true })),
+      },
+      rm_1v1: {
+        label: 'RM 1v1', streak: 0,
+        series: Array.from({ length: 5 }, (_, i) => ({ startedAt: baseT + i * 15 * 60_000 + 60_000, rating: 1300 + (i + 1) * 10, diff: 10, won: true })),
+      },
+    },
+    unifiedMatches: [],
+    stats: { allCivs: [] },
+    ladder: {},
+  });
+  assert.equal(trophiesGlobal.bestSession.modeLabel, 'EW 1v1');
+  assert.equal(trophiesGlobal.bestSession.toElo - trophiesGlobal.bestSession.fromElo, trophiesGlobal.bestSession.netElo, 'P0-3: Session arithmetic must be exact');
+
+  // P0-4 & P1-4: Empire Wars DNA & Academy must NEVER show Dark Age / TC Alta Edad, and TC idle improvement has ▼ arrow
+  const ewDna = computePlayerDna({
+    modeId: 'ew_1v1',
+    stats: { allCivs: [{ civ: 'Ethiopians', games: 30, wins: 18, losses: 12, winRate: 60 }] },
+    combatDna: { isModeExact: false, sample: 8, tcDarkAvg: 99.6, tcEarlyAvg: 94, cavalryShare: 95 },
+  });
+  assert.notEqual(ewDna.title, 'Señor de los Establos', 'P0-4: Non-mode-exact RM Team replays must not hijack EW DNA');
+  assert.ok(!ewDna.signals.some((s) => /Alta Edad/i.test(s.label)), 'P0-4: EW must never display TC Alta Edad');
+
+  const mkRec = (idx, idle) => ({
+    profileId: 1, startedAt: baseT - idx * 3600_000,
+    telemetry: {
+      engineSummary: {
+        durationSeconds: 1200,
+        stages: [
+          { id: 'dark', status: 'ready', score: 90 },
+          { id: 'feudal', status: 'ready', score: 80 },
+          { id: 'castle', status: 'ready', score: 75 },
+        ],
+        self: { tcIdleDarkSeconds: idle, tcIdleFeudalPerTcSeconds: 0, eapm: 50, habits: { townBell: 0, attackMove: 5, patrol: 2 } },
+      },
+    },
+  });
+  const ewAcad = computePersonalAcademy({
+    storedRecords: [mkRec(0, 40), mkRec(1, 40), mkRec(2, 80), mkRec(3, 80)],
+    profileId: 1, isOwnProfile: true, modeId: 'ew_1v1', isFallbackScope: true,
+  });
+  assert.ok(!ewAcad.stageEvolution.some((s) => s.id === 'dark'), 'P0-4: EW Academy must omit Alta Edad Media');
+  const tcHabit = ewAcad.habits.find((h) => h.id === 'tc_idle');
+  assert.equal(tcHabit.deltaArrow, '▼', 'P1-4: Lower TC idle must use ▼ arrow');
+  assert.equal(tcHabit.improved, true);
+
+  // New Central insights: TG Radiography (Pocket vs Flank) + Lucky Color + Mirror/Meta + Comfort/Patch
+  const tgMatches = Array.from({ length: 8 }, (_, i) => ({
+    won: i < 6,
+    players: [
+      { profileId: 1, team: 1, color: 3, civ: 'Persians', matchRating: 1450 },
+      { profileId: 2, team: 1, color: 1, civ: 'Britons', matchRating: 1300 },
+      { profileId: 3, team: 1, color: 5, civ: 'Mayans', matchRating: 1320 },
+      { profileId: 4, team: 2, color: 2, civ: 'Franks', matchRating: 1350 },
+      { profileId: 5, team: 2, color: 4, civ: 'Mongols', matchRating: 1360 },
+      { profileId: 6, team: 2, color: 6, civ: 'Khmer', matchRating: 1340 },
+    ],
+  }));
+  const tgRadio = computeTgRadiography(tgMatches, { profileId: 1 });
+  assert.equal(tgRadio.pocket.games, 8, 'Color 3 between 1 and 5 must be detected as Pocket');
+  assert.equal(tgRadio.carry.games, 8, 'Highest ELO on team must be detected as Carry');
+
+  const lc = computeLuckyColor([
+    ...tgMatches,
+    ...Array.from({ length: 6 }, () => ({ won: false, players: [{ profileId: 1, color: 4 }] })),
+  ], { profileId: 1 });
+  assert.equal(lc.lucky.name, 'Verde');
+  assert.equal(lc.cursed.name, 'Amarillo');
+
+  const mm = computeMirrorAndMeta([
+    ...Array.from({ length: 5 }, (_, i) => ({ won: i < 4, civSlug: 'franks', oppCivSlug: 'franks', opponents: [{ civSlug: 'franks' }] })),
+    ...Array.from({ length: 5 }, (_, i) => ({ won: i < 2, civSlug: 'persians', oppCivSlug: 'sicilians', opponents: [{ civSlug: 'sicilians' }] })),
+  ]);
+  assert.equal(mm.mirror.games, 5);
+  assert.equal(mm.mirror.winRate, 80);
+
+  const ecp = computeEloComfortAndPatch({
+    fullRatingSeries: Array.from({ length: 20 }, (_, i) => ({ rating: 1200 + i * 10 })),
+    unifiedMatches: Array.from({ length: 5 }, () => ({ won: true, patch: 188329, civ: 'Persians' })),
+    ladder: { rating: 1390, peak: 1450 },
+  });
+  assert.ok(ecp.comfort.p20 < ecp.comfort.p80);
+  assert.equal(ecp.patches[0].patch, 188329);
+
+  // Postmatch v6 insights + Epic Match Plaques + strict CSP (0 inline styles)
+  const syntheticOps = [
+    { Chat: JSON.stringify({ player: 1, tauntNumber: 11, message: '11 gg wp' }) },
+    { Action: { world_time: 50_000, action_data: { DeQueue: { player_id: 1, unit_id: 83, amount: 1, building_ids: [10] } } } },
+    { Action: { world_time: 180_000, action_data: { DeQueue: { player_id: 1, unit_id: 83, amount: 2, building_ids: [10] } } } },
+    { Action: { world_time: 400_000, action_data: { Flare: { player_id: 1 } } } },
+    { Action: { world_time: 650_000, action_data: { Resign: { player_id: 2 } } } },
+  ];
+  const engOut = analyzePostmatchEngine(syntheticOps, {
+    selfSlot: 1, rivalSlot: 2, selfCiv: 'Persians', rivalCiv: 'Franks',
+    durationMs: 700_000, isTeamGame: true, teamRole: 'pocket', won: true,
+  });
+  assert.ok(engOut.postmatchInsights.ghostVillagers, 'Postmatch must compute Aldeanos Fantasma');
+  assert.equal(engOut.postmatchInsights.tgRoleEval.role, 'pocket', 'Postmatch must evaluate Pocket/Flank TG role');
+  assert.equal(engOut.postmatchInsights.replayChronicle.laugh11, 1, 'Postmatch must detect taunt 11 in Chat');
+
+  const rmHtml = TacticalUI.renderRecentMatchesList([
+    { matchId: '1', mapName: 'Arabia', myCiv: 'Persians', rivalCiv: 'Franks', rivalName: 'HANK_I', myRating: 1212, myRatingDiff: 17, won: true, durationSeconds: 1500, modeLabel: 'RM 1v1', hasTelemetry: true },
+  ], { selectedMatchId: '1' });
+  assert.match(rmHtml, /rm-epic/, 'Must render Epic Match Plaque');
+  assert.match(rmHtml, /rm-vs-medallion/, 'Must render VS medallion clash');
+  assert.doesNotMatch(rmHtml, /\sstyle=/i, 'CSP: Epic Match Plaques must have 0 inline styles');
+
+  const pmHtml = TacticalUI.renderPostMatch({
+    context: { mapName: 'Arabia', civ: 'Persians', mode: { label: 'RM Team', size: 'team' } },
+    result: { status: 'won', label: 'Victoria', ratingDiff: 16, durationSeconds: 1500 },
+    engine: { ...engOut, rivalCiv: 'Franks', rivalName: 'HANK_I' },
+  }, { comparison: true, compareMode: 'both', replay: true });
+  assert.match(pmHtml, /pm-hero-v6/, 'Must render Postmatch v6 Hero Banner');
+  assert.match(pmHtml, /pm-insights-v6/, 'Must render 8 new Postmatch insights section');
+  assert.match(pmHtml, /ALDEANOS FANTASMA/, 'Must render Ghost Villagers card');
+  assert.doesNotMatch(pmHtml, /\sstyle=/i, 'CSP: Postmatch v6 HTML must contain 0 inline style="" attributes');
+});
+
+/* ============================================================================
+ * 15. Deep Coherence v6: Companion-First Left-Join, 200-Match Delta Sync,
+ *     Nomad/Closed AoE2 Guards, Paired Clocks & Free/Pro/Ultra Window Tiering
+ * ============================================================================ */
+test('15. Companion-First Left-Join, 200-match Delta Sync, AoE2 domain guards & Free/Pro/Ultra sample windows', () => {
+  const { mergeRawMatches } = require('../src/central');
+  const { buildUnifiedModeMatches } = require('../src/civ-diagnostic');
+  const { computeWinLossClocks, computeCivMasteryHistory, computeTgRadiography } = require('../src/central-discoveries');
+
+  // A. mergeRawMatches Delta Sync preserves older settled matches up to 200 and updates fresh settled fields
+  const cached150 = Array.from({ length: 150 }, (_, i) => ({
+    matchId: String(1000 + i),
+    startedAt: (1000 + i) * 1000,
+    won: i % 2 === 0,
+  }));
+  const fresh60 = Array.from({ length: 60 }, (_, i) => ({
+    matchId: String(1100 + i),
+    startedAt: (1100 + i) * 1000,
+    won: true,
+    ratingDiff: 15,
+  }));
+  const merged200 = mergeRawMatches(fresh60, cached150, 200);
+  assert.equal(merged200.length, 160, 'Delta Sync must union 100 older + 60 fresh matches without truncation below 200');
+  assert.equal(merged200[0].matchId, '1159', 'Must sort newest first');
+  assert.equal(merged200[0].ratingDiff, 15, 'Fresh entry must overwrite cached entry for same matchId');
+
+  // B. Companion-First Left-Join: orphan AoE2Insights rows never pollute official match count or winrate
+  const comp10 = Array.from({ length: 10 }, (_, i) => ({
+    matchId: String(2000 + i),
+    startedAt: (2000 + i) * 1000,
+    won: i < 5, // 50% official WR
+    myCiv: 'Magyars',
+    rivalCiv: 'Franks',
+    mapName: 'Arabia',
+    myRating: 1300,
+    rivalRating: 1300,
+    myRatingDiff: i < 5 ? 16 : -16,
+  }));
+  const biasedIns = [
+    { matchId: '2000', civ: 'Magyars', oppCiv: 'Franks', map: 'Arabia', won: true, strategy: 'Scout rush', meanEapm: 55 },
+    ...Array.from({ length: 30 }, (_, i) => ({
+      matchId: String(9000 + i), // orphan Insights-only wins
+      civ: 'Magyars', oppCiv: 'Franks', map: 'Arabia', won: true, strategy: 'Fast castle', meanEapm: 60,
+    })),
+  ];
+  const strictPool = buildUnifiedModeMatches({
+    companionMatches: comp10,
+    insightsRows: biasedIns,
+    strictLeftJoin: true,
+  });
+  assert.equal(strictPool.length, 10, 'Strict Left-Join must keep exact 10 official Companion matches and drop 30 orphan Insights rows');
+  assert.equal(strictPool.filter((m) => m.won).length, 5, 'Official 50% winrate must not be inflated by orphan Insights wins');
+  assert.equal(strictPool.find((m) => m.matchId === '2000').myOpening, 'Scout rush', 'Matching matchId must still left-join opening and eAPM from Insights');
+
+  // C. Nomad-start maps (African Clearing) excluded from Pocket vs Flank color positions
+  const nomadTg = Array.from({ length: 8 }, (_, i) => ({
+    won: true,
+    mapName: i < 4 ? 'African Clearing' : 'Arabia',
+    players: [
+      { profileId: 1, team: 1, color: 3, civ: 'Persians', matchRating: 1400 },
+      { profileId: 2, team: 1, color: 1, civ: 'Britons', matchRating: 1350 },
+      { profileId: 3, team: 1, color: 5, civ: 'Mayans', matchRating: 1350 },
+      { profileId: 4, team: 2, color: 2, civ: 'Franks', matchRating: 1350 },
+      { profileId: 5, team: 2, color: 4, civ: 'Mongols', matchRating: 1350 },
+      { profileId: 6, team: 2, color: 6, civ: 'Khmer', matchRating: 1350 },
+    ],
+  }));
+  const nomadRadio = computeTgRadiography(nomadTg, { profileId: 1 });
+  assert.equal(nomadRadio.sample, 8);
+  assert.equal(nomadRadio.pocket, null, '4 Arabia games (<5 minRole) after excluding 4 African Clearing Nomad games must not emit noisy Pocket WR');
+
+  // D. winLossClocks per-metric paired sample guard (n=1 win in Castle Age must not emit deltaSec)
+  const clockRecs = Array.from({ length: 5 }, (_, i) => ({
+    profileId: 1,
+    leaderboardId: 4,
+    won: i === 0, // 1 win, 4 losses
+    telemetry: {
+      durationSeconds: 1800,
+      engineSummary: {
+        durationSeconds: 1800,
+        self: {
+          timings: {
+            feudalSeconds: 600 + i * 10,
+            castleSeconds: i === 0 ? 2094 : 1400 + i * 20,
+          },
+        },
+      },
+    },
+  }));
+  const clocksOut = computeWinLossClocks(clockRecs, { modeId: 'rm_team', profileId: 1, isOwnProfile: true });
+  const castleMetric = clocksOut.metrics.find((m) => m.id === 'castle');
+  assert.equal(castleMetric.deltaSec, null, '1 win vs 4 losses in Castle Age must not emit misleading V vs D deltaSec');
+  assert.equal( computeWinLossClocks(clockRecs, { modeId: 'ew_1v1', profileId: 1, isOwnProfile: true }), null, 'RM Team replays must never leak into EW 1v1 clocks');
+
+  // E. civMasteryHistory requires >=3 masteryGames and divides siegePct only by Castle-Age games
+  const cmhRecs = Array.from({ length: 4 }, (_, i) => ({
+    profileId: 1,
+    leaderboardId: 4,
+    telemetry: {
+      durationSeconds: 1500,
+      engineSummary: {
+        durationSeconds: 1500,
+        civMastery: i === 0 ? { leveraged: ['Bonus 1'], missed: [] } : null,
+        self: {
+          timings: { castleSeconds: i < 3 ? 1200 : null }, // only 3 reached Castle Age
+          topUnits: [{ name: 'Caballero', count: 20 }],
+          topWorkshops: i === 0 ? [{ name: 'Taller de maquinaria de asedio', count: 1 }] : [],
+        },
+      },
+    },
+  }));
+  const cmhOut = computeCivMasteryHistory(cmhRecs, { modeId: 'rm_team', profileId: 1, isOwnProfile: true });
+  assert.equal(cmhOut.utilizationPct, null, '1 single mastery game must not render a 100% mastery ring');
+  assert.equal(cmhOut.castleReachedGames, 3);
+  assert.equal(cmhOut.siegePct, 33, '1 siege game out of 3 Castle-Age games must be 33%, not 25%');
+});
+
 Promise.all(pending).then(() => {
   console.log(`\napi-and-central-intel-test: all ${passed} suites passed!`);
 });
