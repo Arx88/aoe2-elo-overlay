@@ -159,10 +159,29 @@ async function fetchMyHistoryImpl(options = {}) {
   try {
     const matches = [];
     const seen = new Set();
+    // Delta Sync incremental: si ya tenemos historial cacheado, recordamos los matchId ya asentados
+    // (con resultado booleano confirmado y ratingDiff presente o partida de hace > 30 min).
+    // Apenas la página 1 alcanza un matchId ya asentado, cortamos la paginación (1 request en vez de 6)
+    // y fusionamos monotónicamente con las filas previas.
+    const priorRows = (cached && Array.isArray(cached.rows)) ? cached.rows : [];
+    const settledPriorIds = new Set();
+    for (const r of priorRows) {
+      if (!r || r.matchId == null) continue;
+      const isOutcomeSettled = typeof r.won === 'boolean';
+      const isRatingSettled = r.leaderboardId == null || r.ratingDiff != null || (r.startedAt && (now - r.startedAt > 30 * 60 * 1000));
+      if (isOutcomeSettled && isRatingSettled) {
+        settledPriorIds.add(String(r.matchId));
+      }
+    }
+    let hitSettledHistory = false;
+
     const add = (list) => {
       const before = matches.length;
       for (const match of Array.isArray(list) ? list : []) {
         const matchKey = match && match.matchId != null ? String(match.matchId) : null;
+        if (matchKey && settledPriorIds.has(matchKey)) {
+          hitSettledHistory = true;
+        }
         if (matchKey && seen.has(matchKey)) continue;
         if (matchKey) seen.add(matchKey);
         matches.push(match);
@@ -176,15 +195,49 @@ async function fetchMyHistoryImpl(options = {}) {
       if (page > 1) await wait(PAGE_DELAY_MS);
       const lastPage = await fetchPage(page);
       if (!add(lastPage)) break;
+      if (hitSettledHistory) break;
       if (lastPage.length < PAGE_SIZE) break;
       if (page >= maxPages) break;
     }
 
     // La exclusión de la partida actual es por consumidor, no por caché: así
     // una precarga de cola puede compartirse con el informe del match.
-    const rows = parseMyHistory(matches, id, null);
-    if (cache) cache.set(key, { ts: now, rows });
-    log(`mi historial (#${id}): ${rows.length} partidas del modo en ${page} página(s)`);
+    const freshRows = parseMyHistory(matches, id, null);
+    let rows = freshRows;
+    if (priorRows.length > 0 && hitSettledHistory) {
+      const mergedMap = new Map();
+      for (const r of priorRows) {
+        if (r && r.matchId != null) mergedMap.set(String(r.matchId), r);
+      }
+      for (const r of freshRows) {
+        if (!r || r.matchId == null) continue;
+        const k = String(r.matchId);
+        const prev = mergedMap.get(k);
+        mergedMap.set(k, prev ? {
+          ...prev,
+          ...r,
+          won: typeof r.won === 'boolean' ? r.won : prev.won,
+          rating: r.rating != null ? r.rating : prev.rating,
+          ratingDiff: r.ratingDiff != null ? r.ratingDiff : prev.ratingDiff,
+        } : r);
+      }
+      rows = [...mergedMap.values()]
+        .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))
+        .slice(0, maxPages * PAGE_SIZE);
+    }
+    let fullMatches = matches;
+    if (priorRows.length > 0 && hitSettledHistory && Array.isArray(cached?.matches)) {
+      const mMap = new Map();
+      for (const m of cached.matches) {
+        if (m && m.matchId != null) mMap.set(String(m.matchId), m);
+      }
+      for (const m of matches) {
+        if (m && m.matchId != null) mMap.set(String(m.matchId), m);
+      }
+      fullMatches = [...mMap.values()].sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0)).slice(0, maxPages * PAGE_SIZE);
+    }
+    if (cache) cache.set(key, { ts: now, at: now, rows, matches: fullMatches });
+    log(`mi historial (#${id}): ${rows.length} partidas del modo en ${page} página(s)${hitSettledHistory ? ' (delta sync)' : ''}`);
     return { profileId: id, rows, fromCache: false, error: null };
   } catch (err) {
     log(`mi historial (#${id}) falló: ${err.message}`);

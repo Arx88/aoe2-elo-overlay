@@ -1,3 +1,18 @@
+## v2.10.0 · Central v5, 9 Descubrimientos de Jugador, 194 Mapas Oficiales y Postmatch de las 56 Civilizaciones
+
+- **Rediseño visual de Central (v5) con jerarquía de launcher de juego:** nueva barra de navegación en 3 capítulos ilustrados (**Resumen**, **Civs y Mapas**, **Mejora y ELO**) con medallones de icono, arte integrado, escudos de civilización grandes con anillo de winrate y **194 imágenes isométricas oficiales de mapas de AoE2:DE** en fichas, listas y diagnósticos.
+- **9 descubrimientos reales y no genéricos en Central:**
+  - **ADN del Jugador + Radar SVG de 5 ejes** (`Agresión`, `Ritmo`, `Clutch`, `Arsenal`, `Late`) con arquetipo táctico calculado.
+  - **Tridente Táctico clicable:** *Tu Arma Secreta*, *Tu Mapa Fortaleza* y *Tu Bestia Negra / Trampa Silenciosa / Matagigantes* (con brecha real por ELO promedio de equipo en partidas en equipo).
+  - **Tu Hora Dorada y Vitrina de Carrera:** rendimiento por franja horaria y día de la semana, más 6 trofeos históricos reales.
+  - **Química de Escuadrón y Rivales:** *Mejor Dupla*, *Dupla Cuesta Arriba*, *Cliente Favorito* y *Rival Maldito*.
+  - **Huella de Combate, Velocidad vs Cerebro (medidor SVG de eAPM) y Ventana Letal por Edad:** conecta las grabaciones `.aoe2record` locales con tu ritmo y fases de partida.
+- **Motor Postmatch consciente de las 56 civilizaciones:** auditoría completa de bonificaciones propias, ocultas y de equipo (incluyendo exención total de mercado para Sarracenos, restricciones reales de árbol tecnológico y tarjeta de maestría de civilización).
+- **Pantalla de inicio atmosférica y motor de sonidos ampliado:** secuencia de arranque a pantalla completa con ilustración umbral, emblema **R**, barra dorada y audio sutil; nuevos efectos táctiles para hover, tecleo en búsqueda, cambios de pestaña y progreso.
+- **Sincronización delta de API, caché unificada y nomenclatura oficial de AoE2:DE:** menor tráfico de red, detección automática de perfil al inicio y corrección de terminología oficial en español en toda la interfaz.
+
+---
+
 ## v2.8.0 · Sistema visual Obsidian Gold, Diagnóstico por Civilización, eAPM por Mapa y Detección Blindada
 
 - **Identidad visual Obsidian Gold unificada (Launcher + Overlay default + Postmatch):** gradiente obsidiana oscuro con bordes dorados finos en toda la aplicación, barra superior integrada sin cortes, encabezados limpios en cada sección, sin abuso de sombras y piel predeterminada del overlay (`Clásico`) alineada al mismo lenguaje visual.

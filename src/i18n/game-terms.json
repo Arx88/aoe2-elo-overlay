@@ -31,7 +31,7 @@
     "castle": {
       "en": "Castle Age",
       "es-ES": "Edad de los Castillos",
-      "es-MX": "Ed. Castillos",
+      "es-MX": "Edad de los Castillos",
       "zh-CN": "城堡时代"
     },
     "imperial": {
@@ -82,8 +82,8 @@
     },
     "archery_range": {
       "en": "Archery Range",
-      "es-ES": "Galería tiro con arco",
-      "es-MX": "Galería tiro con arco",
+      "es-ES": "Galería de tiro con arco",
+      "es-MX": "Galería de tiro con arco",
       "zh-CN": "靶场"
     },
     "stable": {
@@ -94,8 +94,8 @@
     },
     "siege_workshop": {
       "en": "Siege Workshop",
-      "es-ES": "Taller maq. de asedio",
-      "es-MX": "Taller maq. de asedio",
+      "es-ES": "Taller de maquinaria de asedio",
+      "es-MX": "Taller de maquinaria de asedio",
       "zh-CN": "攻城武器厂"
     },
     "castle": {
@@ -826,14 +826,14 @@
     },
     "6": {
       "en": "Elite Skirmisher",
-      "es-ES": "Hostigador de élite",
+      "es-ES": "Guerrillero de élite",
       "es-MX": "Guerrillero de élite",
       "zh-CN": "精锐掷矛手"
     },
     "7": {
       "en": "Skirmisher",
-      "es-ES": "Hostigador",
-      "es-MX": "Hostigador",
+      "es-ES": "Guerrillero",
+      "es-MX": "Guerrillero",
       "zh-CN": "掷矛手"
     },
     "8": {
@@ -874,8 +874,8 @@
     },
     "25": {
       "en": "Teutonic Knight",
-      "es-ES": "Cab. Orden Teutónica",
-      "es-MX": "Cab. Orden Teutónica",
+      "es-ES": "Caballero de la Orden Teutónica",
+      "es-MX": "Caballero de la Orden Teutónica",
       "zh-CN": "条顿骑士"
     },
     "36": {
@@ -940,8 +940,8 @@
     },
     "77": {
       "en": "Long Swordsman",
-      "es-ES": "Espad. espada larga",
-      "es-MX": "Espad. espada larga",
+      "es-ES": "Espadachín de espada larga",
+      "es-MX": "Espadachín de espada larga",
       "zh-CN": "长剑士"
     },
     "83": {
@@ -1102,20 +1102,20 @@
     },
     "448": {
       "en": "Scout Cavalry",
-      "es-ES": "Cab. de exploración",
-      "es-MX": "Cab. de exploración",
+      "es-ES": "Caballería de exploración",
+      "es-MX": "Caballería de exploración",
       "zh-CN": "斥候骑兵"
     },
     "473": {
       "en": "Two-Handed Swordsman",
-      "es-ES": "Espad. de mandoble",
-      "es-MX": "Espad. de mandoble",
+      "es-ES": "Espadachín de mandoble",
+      "es-MX": "Espadachín de mandoble",
       "zh-CN": "双手剑士"
     },
     "474": {
       "en": "Heavy Cavalry Archer",
-      "es-ES": "Cab. pesada de arq.",
-      "es-MX": "Cab. pesada de arq.",
+      "es-ES": "Arquero a caballo pesado",
+      "es-MX": "Arquero a caballo pesado",
       "zh-CN": "重装骑射手"
     },
     "492": {
@@ -1132,8 +1132,8 @@
     },
     "528": {
       "en": "Heavy Demolition Ship",
-      "es-ES": "Buque dem. pesado",
-      "es-MX": "Buque dem. pesado",
+      "es-ES": "Buque de demolición pesado",
+      "es-MX": "Buque de demolición pesado",
       "zh-CN": "重型爆破船"
     },
     "529": {
@@ -1144,14 +1144,14 @@
     },
     "530": {
       "en": "Elite Longbowman",
-      "es-ES": "Arq. tiro largo élite",
-      "es-MX": "Arq. tiro largo élite",
+      "es-ES": "Arquero de tiro largo de élite",
+      "es-MX": "Arquero de tiro largo de élite",
       "zh-CN": "精锐长弓兵"
     },
     "531": {
       "en": "Elite Throwing Axeman",
-      "es-ES": "Lanzador hachas élite",
-      "es-MX": "Lanzador hachas élite",
+      "es-ES": "Lanzador de hachas de élite",
+      "es-MX": "Lanzador de hachas de élite",
       "zh-CN": "精锐掷斧兵"
     },
     "532": {
@@ -1186,8 +1186,8 @@
     },
     "545": {
       "en": "Transport Ship",
-      "es-ES": "Barco transporte",
-      "es-MX": "Barco transporte",
+      "es-ES": "Barco de transporte",
+      "es-MX": "Barco de transporte",
       "zh-CN": "运输船"
     },
     "546": {
@@ -1216,8 +1216,8 @@
     },
     "554": {
       "en": "Elite Teutonic Knight",
-      "es-ES": "Cab O. Teutónica élite",
-      "es-MX": "Cab O. Teutónica élite",
+      "es-ES": "Caballero de la Orden Teutónica de élite",
+      "es-MX": "Caballero de la Orden Teutónica de élite",
       "zh-CN": "精锐条顿骑士"
     },
     "555": {
@@ -1240,8 +1240,8 @@
     },
     "558": {
       "en": "Elite War Elephant",
-      "es-ES": "Elefante guerra élite",
-      "es-MX": "Elefante guerra élite",
+      "es-ES": "Elefante de guerra de élite",
+      "es-MX": "Elefante de guerra de élite",
       "zh-CN": "精锐战象"
     },
     "559": {
@@ -1282,8 +1282,8 @@
     },
     "691": {
       "en": "Elite Cannon Galleon",
-      "es-ES": "Galeón artillado élite",
-      "es-MX": "Galeón artillado élite",
+      "es-ES": "Galeón artillado de élite",
+      "es-MX": "Galeón artillado de élite",
       "zh-CN": "精锐炮舰"
     },
     "692": {
@@ -1636,7 +1636,7 @@
     },
     "1155": {
       "en": "Imperial Skirmisher",
-      "es-ES": "Hostigador imperial",
+      "es-ES": "Guerrillero imperial",
       "es-MX": "Guerrillero imperial",
       "zh-CN": "帝王掷矛手"
     },
@@ -2219,7 +2219,7 @@
     "2571": {
       "en": "Elite Bolas Rider",
       "es-ES": "Jinete con boleadoras de élite",
-      "es-MX": "Jinete bol. élite",
+      "es-MX": "Jinete con boleadoras de élite",
       "zh-CN": "精锐掷石绳骑兵"
     },
     "2579": {
@@ -2230,7 +2230,7 @@
     },
     "2581": {
       "en": "Elite Blackwood Archer",
-      "es-ES": "Arquero bosques élite",
+      "es-ES": "Arquero de los bosques de élite",
       "es-MX": "Arq. ombú tupí de élite",
       "zh-CN": "精锐黑檀木步弓手"
     },
@@ -2254,7 +2254,7 @@
     },
     "2587": {
       "en": "Elite Temple Guard",
-      "es-ES": "Guardia templo élite",
+      "es-ES": "Guardia del templo de élite",
       "es-MX": "G. del templo de élite",
       "zh-CN": "精锐神庙护卫"
     },
@@ -2364,8 +2364,8 @@
     },
     "49": {
       "en": "Siege Workshop",
-      "es-ES": "Taller maq. de asedio",
-      "es-MX": "Taller maq. de asedio",
+      "es-ES": "Taller de maquinaria de asedio",
+      "es-MX": "Taller de maquinaria de asedio",
       "zh-CN": "攻城武器厂"
     },
     "50": {
@@ -2418,8 +2418,8 @@
     },
     "87": {
       "en": "Archery Range",
-      "es-ES": "Galería tiro con arco",
-      "es-MX": "Galería tiro con arco",
+      "es-ES": "Galería de tiro con arco",
+      "es-MX": "Galería de tiro con arco",
       "zh-CN": "靶场"
     },
     "101": {

@@ -54,6 +54,10 @@ function createApiCache({ maxEntries = 120 } = {}) {
     return promise;
   }
 
+  function getInflight(key) {
+    return inflight.get(key);
+  }
+
   function clear(prefix = null) {
     if (!prefix) {
       entries.clear();
@@ -76,7 +80,7 @@ function createApiCache({ maxEntries = 120 } = {}) {
     return { size: entries.size, inflight: inflight.size };
   }
 
-  return { get, set, getOrFetch, findFirst, clear, stats };
+  return { get, set, getOrFetch, getInflight, findFirst, clear, stats };
 }
 
 const apiCache = createApiCache({ maxEntries: 160 });
@@ -318,23 +322,42 @@ async function fetchExtendedProfile(profileId, { bypassCache = false, timeoutMs 
   );
 }
 
-/** Stats de un ladder en Companion: reutiliza `profileExt` si ya está fresco en caché. */
+/** Stats de un ladder en Companion: comparte caché y promesa en vuelo con `fetchExtendedProfile` (1 sola llamada para Rival + Smurf + Central). */
 async function fetchProfileStats(profileId, ladder, { timeoutMs = 10000, signal = null } = {}) {
   const id = Number(profileId);
   if (!Number.isFinite(id) || id <= 0) return null;
-  const ext = apiCache.get(`profileExt:${id}`, PROFILE_EXTENDED_CACHE_TTL_MS);
-  if (ext && Array.isArray(ext.stats)) {
-    const hit = ext.stats.find((s) => String(s?.leaderboardId || '').toLowerCase() === String(ladder || '').toLowerCase());
-    if (hit) return hit;
+  const extractFromExt = (ext) => {
+    if (!ext || !Array.isArray(ext.stats)) return null;
+    return ext.stats.find((s) => String(s?.leaderboardId || '').toLowerCase() === String(ladder || '').toLowerCase()) || null;
+  };
+  const extCached = apiCache.get(`profileExt:${id}`, PROFILE_EXTENDED_CACHE_TTL_MS);
+  const hitCached = extractFromExt(extCached);
+  if (hitCached) return hitCached;
+
+  const inflightExt = typeof apiCache.getInflight === 'function' ? apiCache.getInflight(`profileExt:${id}`) : null;
+  if (inflightExt) {
+    try {
+      const extResolved = await inflightExt;
+      const hitInflight = extractFromExt(extResolved);
+      if (hitInflight) return hitInflight;
+    } catch { /* fallback to direct stats */ }
   }
+
   return apiCache.getOrFetch(
     `profileStats:${id}:${ladder}`,
     PROFILE_EXTENDED_CACHE_TTL_MS,
-    () => getJson(
-      `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats?leaderboard_id=${encodeURIComponent(ladder)}`,
-      timeoutMs,
-      signal,
-    ),
+    async () => {
+      try {
+        const ext = await fetchExtendedProfile(id, { timeoutMs, signal });
+        const hit = extractFromExt(ext);
+        if (hit) return hit;
+      } catch { /* fallback to specific stats endpoint */ }
+      return getJson(
+        `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats?leaderboard_id=${encodeURIComponent(ladder)}`,
+        timeoutMs,
+        signal,
+      );
+    },
     { cacheNull: false },
   );
 }

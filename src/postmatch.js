@@ -364,6 +364,27 @@ function normalizeEngineSummary(raw) {
   const negatives = cleanInsightList(raw.negatives, 6, 'warn');
   const focus = raw.focus && text(raw.focus.title) && text(raw.focus.detail)
     ? { title: text(raw.focus.title, 90), detail: text(raw.focus.detail, 220) } : null;
+  const cleanMasteryItems = (list, max) => (Array.isArray(list) ? list.slice(0, max)
+    .filter((item) => item && text(item.title))
+    .map((item) => ({
+      id: text(item.id, 60),
+      category: text(item.category, 30) || 'eco',
+      title: text(item.title, 110),
+      metric: text(item.metric, 60) || '',
+      detail: text(item.detail, 200) || '',
+      priority: finite(item.priority, 0, 200) != null ? Math.round(item.priority) : 80,
+    })) : []);
+  const rawCm = raw.civMastery && typeof raw.civMastery === 'object' ? raw.civMastery : null;
+  const cmLev = rawCm ? cleanMasteryItems(rawCm.leveraged, 3) : [];
+  const cmMiss = rawCm ? cleanMasteryItems(rawCm.missed, 2) : [];
+  const civMastery = rawCm && (cmLev.length || cmMiss.length) ? {
+    civSlug: text(rawCm.civSlug, 40) || null,
+    civName: text(rawCm.civName, 50) || '',
+    rating: ['high', 'mid', 'low'].includes(rawCm.rating) ? rawCm.rating : 'mid',
+    leveraged: cmLev,
+    missed: cmMiss,
+    summary: text(rawCm.summary, 140) || '',
+  } : null;
   return {
     version: raw.version,
     isTeamGame: Boolean(raw.isTeamGame),
@@ -377,6 +398,7 @@ function normalizeEngineSummary(raw) {
     positives,
     negatives,
     focus,
+    civMastery,
   };
 }
 
@@ -523,15 +545,15 @@ function buildPersonalEvolution(telemetry, records, current) {
         if (Number.isFinite(curIdle) && Number.isFinite(prevIdle) && prevIdle > 0) {
           completed = curIdle < prevIdle - 10 || curIdle <= 45;
           detail = completed
-            ? `Bajaste el idle de ${Math.round(prevIdle)} s a ${Math.round(curIdle)} s`
+            ? `Bajaste el TC inactivo de ${Math.round(prevIdle)} s a ${Math.round(curIdle)} s`
             : `Objetivo: bajar de ${Math.round(prevIdle)} s (hoy ${Math.round(curIdle)} s)`;
         }
-      } else if (/Attack-Move|Patrullar/i.test(prevFocus)) {
+      } else if (/Attack-Move|Movimiento de ataque|Patrullar/i.test(prevFocus)) {
         const curMicro = (engine.self.habits?.attackMove || 0) + (engine.self.habits?.patrol || 0);
         completed = curMicro >= 5;
         detail = completed
-          ? `${curMicro} órdenes de Attack-Move / Patrol registradas hoy`
-          : `Objetivo: usar al menos 5 Attack-Move / Patrol (hoy ${curMicro})`;
+          ? `${curMicro} órdenes de Movimiento de ataque y Patrullar registradas hoy`
+          : `Objetivo: usar al menos 5 Movimiento de ataque y Patrullar (hoy ${curMicro})`;
       } else if (/Campana Urbana/i.test(prevFocus)) {
         const bells = engine.self.habits?.townBell || 0;
         completed = bells === 0;
@@ -540,7 +562,7 @@ function buildPersonalEvolution(telemetry, records, current) {
         const prevM = prevEng.self.habits?.market || 0;
         const curM = engine.self.habits?.market || 0;
         completed = curM < prevM;
-        detail = completed ? `Bajaste el Mercado de ${prevM} a ${curM} ops` : `Mercado: ${curM} ops (antes ${prevM})`;
+        detail = completed ? `Bajaste el Mercado de ${prevM} a ${curM} operaciones` : `Mercado: ${curM} operaciones (antes ${prevM})`;
       } else if (/Herrería/i.test(prevFocus)) {
         const curBs = engine.self.techProfile?.blacksmithCount || 0;
         completed = curBs >= 2;
@@ -578,7 +600,7 @@ function buildPersonalEvolution(telemetry, records, current) {
     if (milGames.length >= 3 && noMicroGames.length >= Math.ceil(milGames.length * 0.6)) {
       recurringPattern = {
         id: 'pattern-no-micro',
-        title: 'Patrón repetido · Sin Attack-Move / Patrol',
+        title: 'Patrón repetido · Sin Movimiento de ataque ni Patrullar',
         detail: `Ocurrió en ${noMicroGames.length} de tus últimos ${milGames.length} replays con ejército.`,
       };
     } else if (woodSellGames.length >= Math.ceil(recentSet.length * 0.5)) {

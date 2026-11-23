@@ -4765,7 +4765,1813 @@ select.field,
 .page[data-page="central"] .cx-grid-2,
 .page[data-page="central"] .cx-civ-master-card,
 .page[data-page="central"] .cx-maps-card,
+.page[data-page="central"] .cx-academy-card,
 .page[data-page="postmatch"] .pm-section {
   content-visibility: auto;
   contain-intrinsic-size: 280px;
+}
+
+/* Interactive Map Row + Real Isometric AoE2:DE Map Artwork */
+.cx-entity-row.is-map-btn {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  background: rgba(15, 19, 24, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 11px;
+  padding: 10px 12px;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.cx-entity-row.is-map-btn:hover {
+  border-color: rgba(214, 184, 117, 0.36);
+  background: rgba(24, 30, 38, 0.88);
+}
+.cx-entity-row.is-map-btn.is-selected {
+  border-color: rgba(214, 184, 117, 0.65);
+  background: linear-gradient(90deg, rgba(199, 173, 118, 0.14), rgba(17, 22, 28, 0.92));
+  box-shadow: inset 2px 0 0 #d6b875;
+}
+.central-entity-crest.is-map {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 45%, rgba(214, 184, 117, 0.12), rgba(10, 13, 18, 0.92));
+  border: 1px solid rgba(214, 184, 117, 0.22);
+  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.map-art-thumb {
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+}
+.map-art-thumb.is-sm {
+  width: 34px;
+  height: 34px;
+}
+.map-art-thumb.is-lg {
+  width: 52px;
+  height: 52px;
+}
+.cx-diag-crest.is-map-art {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 45%, rgba(214, 184, 117, 0.16), rgba(11, 14, 19, 0.94));
+  border: 1px solid rgba(214, 184, 117, 0.32);
+  padding: 4px;
+  flex: none;
+}
+.cx-diag-bestciv {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cx-diag-bestciv .civ-badge,
+.cx-inline-crest .civ-badge {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  vertical-align: middle;
+  flex: none;
+}
+.cx-inline-crest {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* Central High-Hierarchy Architectural Section Bar (Full-Width, Icons + Live Subtitles + Gold Accent) */
+.cx-subnav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(18, 23, 30, 0.94) 0%, rgba(12, 16, 21, 0.98) 100%);
+  border: 1px solid rgba(214, 184, 117, 0.20);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.cx-subnav.is-2col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.cx-subtab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 18px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #bac5cd;
+  text-align: left;
+  transition: background-color 110ms ease, color 110ms ease;
+}
+.cx-subtab + .cx-subtab {
+  border-left: 1px solid rgba(255, 255, 255, 0.065);
+}
+.cx-subtab::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+  transition: background-color 110ms ease, opacity 110ms ease;
+}
+.cx-subtab-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: background-color 110ms ease, border-color 110ms ease;
+}
+.cx-subtab-ico .product-icon {
+  width: 19px;
+  height: 19px;
+  opacity: 0.78;
+  transition: opacity 110ms ease;
+}
+.cx-subtab-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cx-subtab-copy strong {
+  font-size: 14.5px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+  color: #d7e0e6;
+  line-height: 1.2;
+}
+.cx-subtab-copy small {
+  font-size: 11.5px;
+  color: #84939e;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cx-subtab:hover:not(.is-active) {
+  background: rgba(255, 255, 255, 0.035);
+}
+.cx-subtab:hover:not(.is-active) .cx-subtab-copy strong {
+  color: #ffffff;
+}
+.cx-subtab:hover:not(.is-active) .cx-subtab-ico {
+  border-color: rgba(214, 184, 117, 0.24);
+}
+.cx-subtab:hover:not(.is-active) .cx-subtab-ico .product-icon {
+  opacity: 0.96;
+}
+.cx-subtab.is-active {
+  background: linear-gradient(180deg, rgba(214, 184, 117, 0.14) 0%, rgba(164, 134, 76, 0.06) 100%);
+}
+.cx-subtab.is-active::after {
+  background: linear-gradient(90deg, rgba(214, 184, 117, 0.35), #ecd296 50%, rgba(214, 184, 117, 0.35));
+  box-shadow: 0 0 12px rgba(236, 210, 150, 0.55);
+}
+.cx-subtab.is-active .cx-subtab-ico {
+  background: rgba(214, 184, 117, 0.16);
+  border-color: rgba(214, 184, 117, 0.45);
+}
+.cx-subtab.is-active .cx-subtab-ico .product-icon {
+  opacity: 1;
+}
+.cx-subtab.is-active .cx-subtab-copy strong {
+  color: #f6e1ae;
+}
+.cx-subtab.is-active .cx-subtab-copy small {
+  color: #c2b695;
+}
+@media (max-width: 780px) {
+  .cx-subnav,
+  .cx-subnav.is-2col {
+    grid-template-columns: 1fr;
+  }
+  .cx-subtab + .cx-subtab {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.065);
+  }
+}
+.cx-view-pane {
+  display: none;
+  flex-direction: column;
+  gap: 22px;
+}
+.cx-view-pane.is-active {
+  display: flex;
+  animation: reveal 180ms ease both;
+}
+
+/* Laboratorio de Mejora Personal (#cxSectionAcademy) — Clean Airy Hairline Hierarchy */
+.cx-acad-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.cx-acad-focus-strip {
+  padding: 16px 20px;
+  border-radius: 10px;
+  border-left: 3px solid #d6b875;
+  background: linear-gradient(90deg, rgba(214, 184, 117, 0.10), rgba(15, 19, 25, 0.45));
+}
+.cx-acad-focus-main h4 {
+  margin: 6px 0 4px;
+  font-size: 16px;
+  font-weight: 680;
+  color: #f5efe1;
+  letter-spacing: -0.01em;
+}
+.cx-acad-focus-main p {
+  margin: 0;
+  font-size: 13px;
+  color: #a9b5be;
+  max-width: 72ch;
+}
+.cx-acad-stage-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-radius: 12px;
+  background: rgba(11, 15, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  overflow: hidden;
+}
+.cx-acad-stage-cell {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cx-acad-stage-cell + .cx-acad-stage-cell {
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cx-acad-st-top,
+.cx-acad-st-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cx-acad-st-top span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #c5cfd6;
+}
+.cx-acad-st-bottom b {
+  font-size: 22px;
+  font-weight: 720;
+  color: #f3ede0;
+  font-variant-numeric: tabular-nums;
+}
+.cx-acad-st-bottom b small {
+  font-size: 12px;
+  font-weight: 500;
+  color: #7d8a94;
+}
+.cx-acad-st-meta {
+  font-size: 11.5px;
+  color: #84929c;
+}
+.cx-acad-habits-table {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 32px;
+}
+.cx-acad-habit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cx-acad-habit-row:nth-last-child(-n+2) {
+  border-bottom-color: transparent;
+}
+.cx-acad-h-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cx-acad-h-copy strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #e4eaee;
+}
+.cx-acad-h-copy small {
+  font-size: 12px;
+  color: #87949e;
+}
+.cx-acad-h-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.cx-acad-h-val {
+  font-size: 18px;
+  font-weight: 720;
+  color: #f3ede0;
+  font-variant-numeric: tabular-nums;
+}
+.cx-acad-habit-row.is-win .cx-acad-h-val { color: #8cdbb3; }
+.cx-acad-habit-row.is-loss .cx-acad-h-val { color: #ef9991; }
+
+/* Balance de ELO + Antídotos y Sesión (#cxSectionIntel) — Full-Width, Breathable, Zero Broken Icons */
+.cx-intel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.cx-elo-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+}
+.cx-elo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cx-elo-list {
+  display: flex;
+  flex-direction: column;
+}
+.cx-elo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cx-elo-row:last-child { border-bottom: 0; }
+.cx-elo-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(15, 20, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.cx-elo-ico .product-icon {
+  width: 20px;
+  height: 20px;
+}
+.cx-elo-ico.is-map {
+  border-color: rgba(214, 184, 117, 0.28);
+  padding: 2px;
+}
+.cx-elo-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cx-elo-copy strong {
+  font-size: 13.5px;
+  font-weight: 620;
+  color: #edf1f4;
+}
+.cx-elo-copy small {
+  font-size: 12px;
+  color: #8c99a3;
+}
+.cx-elo-impact {
+  font-size: 18px;
+  font-weight: 740;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cx-elo-impact small {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.cx-elo-impact.is-win { color: #8cdbb3; }
+.cx-elo-impact.is-loss { color: #ef9991; }
+
+.cx-elo-spotlight-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.cx-elo-spot {
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: rgba(11, 15, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cx-elo-spot.is-win { border-top: 2px solid rgba(110, 198, 152, 0.52); }
+.cx-elo-spot.is-loss { border-top: 2px solid rgba(226, 98, 107, 0.52); }
+.cx-elo-spot-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cx-elo-spot strong {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: #f3ede0;
+}
+.cx-elo-spot > small {
+  font-size: 12px;
+  color: #8c99a3;
+}
+
+.cx-intel-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  align-items: start;
+}
+.cx-intel-split.is-single {
+  grid-template-columns: 1fr;
+}
+.cx-intel-left,
+.cx-session-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.cx-vs-openings-list,
+.cx-session-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cx-vs-op-row,
+.cx-sess-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cx-vs-op-top,
+.cx-sess-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+.cx-vs-op-top strong,
+.cx-sess-top strong {
+  font-weight: 600;
+  color: #e9eef2;
+}
+.cx-vs-op-top strong small {
+  color: #8895a0;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.cx-antidote-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(214, 184, 117, 0.12);
+  border: 1px solid rgba(214, 184, 117, 0.28);
+  font-size: 11px;
+  color: #dfc384;
+  margin-right: 4px;
+}
+.cx-antidote-pill b {
+  color: #f6e1ae;
+}
+.cx-cruces-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cx-cruces-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cx-matchup-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cx-matchup-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 10px;
+  background: rgba(12, 16, 22, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cx-matchup-pill .civ-badge {
+  width: 26px !important;
+  height: 26px !important;
+  object-fit: contain;
+  flex: none;
+}
+.cx-mp-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.cx-mp-text b {
+  font-size: 12.5px;
+  color: #edf1f4;
+}
+.cx-mp-text small {
+  font-size: 11px;
+  color: #93a0aa;
+}
+.cx-matchup-pill.is-win { border-color: rgba(110, 198, 152, 0.30); }
+.cx-matchup-pill.is-loss { border-color: rgba(226, 98, 107, 0.30); }
+.cx-sess-tilt-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(226, 98, 107, 0.10);
+  border: 1px solid rgba(226, 98, 107, 0.30);
+  font-size: 12px;
+  color: #f0b2ab;
+}
+.cx-session-verdict {
+  margin: 4px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #aebac3;
+}
+@media (max-width: 1020px) {
+  .cx-acad-stage-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cx-acad-stage-cell:nth-child(3) { border-left: 0; }
+  .cx-acad-stage-cell:nth-child(n+3) { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .cx-acad-habits-table,
+  .cx-elo-split,
+  .cx-intel-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Exact geometric & vertical centering for Relic sidebar brand lockup */
+.rail-brand {
+  min-height: 98px !important;
+  padding: 24px 0 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.rail-logo {
+  width: 152px !important;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  display: block !important;
+  transform: none !important;
+}
+
+/* Full-Window Atmospheric Startup Sequence (wizard-umbral.webp + Relic R + golden bar) */
+.app-boot-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(62% 58% at 50% 48%, rgba(12, 16, 22, 0.68) 0%, rgba(8, 10, 14, 0.93) 100%),
+    url("assets/art/wizard-umbral.webp") center center / cover no-repeat,
+    #090c10;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1), transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-app-region: drag;
+}
+.app-boot-loader.is-done {
+  opacity: 0;
+  transform: scale(1.018);
+  pointer-events: none;
+}
+.app-boot-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.app-boot-mark {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 24px rgba(214, 184, 117, 0.35));
+  animation: bootMarkPulse 1.8s ease-in-out infinite;
+}
+@keyframes bootMarkPulse {
+  0%, 100% { opacity: 0.86; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+.app-boot-track {
+  width: 196px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  overflow: hidden;
+  box-shadow: 0 0 12px rgba(214, 184, 117, 0.14);
+}
+.app-boot-track > i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(214, 184, 117, 0.45), #ecd296, #d6b875);
+  box-shadow: 0 0 10px rgba(236, 210, 150, 0.65);
+  transform-origin: left center;
+  transform: scaleX(0.16);
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.app-boot-track > i.is-p35 { transform: scaleX(0.38); }
+.app-boot-track > i.is-p72 { transform: scaleX(0.76); }
+.app-boot-track > i.is-p100 { transform: scaleX(1); }
+
+/* Postmatch: Aprovechamiento de bonos de civilización (Hairline, limpio, sin sobrecarga) */
+.pm-civ-mastery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 26, 33, 0.92), rgba(13, 17, 22, 0.96));
+  border: 1px solid rgba(199, 173, 118, 0.22);
+}
+.pm-cm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.pm-cm-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.pm-cm-crest {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(12, 16, 22, 0.85);
+  border: 1px solid rgba(214, 184, 117, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.pm-cm-crest .civ-badge {
+  width: 24px !important;
+  height: 24px !important;
+  object-fit: contain;
+}
+.pm-cm-kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dfc384;
+}
+.pm-cm-summary {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #b5c0c8;
+}
+.pm-cm-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.pm-cm-pill.is-win {
+  color: #8cdbb3;
+  background: rgba(110, 198, 152, 0.12);
+  border: 1px solid rgba(110, 198, 152, 0.32);
+}
+.pm-cm-pill.is-mid {
+  color: #ebd08c;
+  background: rgba(214, 184, 117, 0.12);
+  border: 1px solid rgba(214, 184, 117, 0.30);
+}
+.pm-cm-pill.is-loss {
+  color: #f0a49d;
+  background: rgba(226, 98, 107, 0.12);
+  border: 1px solid rgba(226, 98, 107, 0.30);
+}
+.pm-cm-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pm-cm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.pm-cm-row:last-child { border-bottom: 0; padding-bottom: 2px; }
+.pm-cm-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex: none;
+  margin-top: 1px;
+}
+.pm-cm-row.is-win .pm-cm-mark {
+  color: #8cdbb3;
+  background: rgba(110, 198, 152, 0.14);
+}
+.pm-cm-row.is-loss .pm-cm-mark {
+  color: #f0b072;
+  background: rgba(235, 175, 92, 0.14);
+}
+.pm-cm-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pm-cm-copy strong {
+  font-size: 13.5px;
+  font-weight: 620;
+  color: #edf2f5;
+}
+.pm-cm-copy small {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #93a0aa;
+}
+.pm-cm-metric {
+  font-size: 12px;
+  font-weight: 650;
+  color: #dfc384;
+  white-space: nowrap;
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+ * CENTRAL v5 — GAME-LAUNCHER VISUAL HIERARCHY & REAL DISCOVERIES
+ * Oversized Civ Shields (40-56px), Isometric Map Diamonds (52-80px),
+ * Sculpted Chapter Tabs, SVG WR Rings, 5-Axis DNA Radar & Heat Bars
+ * ===================================================================== */
+
+/* 1. Sculpted Chapter Tabs (.cx-subnav) with art washes & live badges */
+.page[data-page="central"] .cx-subnav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+  padding: 0;
+}
+.page[data-page="central"] .cx-subnav.is-2col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.page[data-page="central"] .cx-subtab {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 70px;
+  padding: 13px 16px 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(168deg, #171d25 0%, #10151b 100%);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+.page[data-page="central"] .cx-subtab + .cx-subtab {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+.page[data-page="central"] .cx-subtab::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--tab-art) right center / cover no-repeat;
+  mask-image: linear-gradient(100deg, transparent 22%, #000 100%);
+  opacity: 0.14;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.page[data-page="central"] .cx-subtab.is-tab-overview { --tab-art: url("assets/art/central-archivo.webp"); }
+.page[data-page="central"] .cx-subtab.is-tab-mastery { --tab-art: url("assets/art/central-civs.webp"); }
+.page[data-page="central"] .cx-subtab.is-tab-intel { --tab-art: url("assets/art/central-elo.webp"); }
+.page[data-page="central"] .cx-subtab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: transparent;
+}
+.page[data-page="central"] .cx-subtab-ico {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(12, 16, 22, 0.84);
+  border: 1px solid rgba(214, 184, 117, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.page[data-page="central"] .cx-subtab-ico .product-icon {
+  width: 26px;
+  height: 26px;
+  opacity: 0.88;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+}
+.page[data-page="central"] .cx-subtab-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.page[data-page="central"] .cx-subtab-copy strong {
+  font-size: 15px;
+  font-weight: 720;
+  letter-spacing: -0.015em;
+  color: #e4ebf0;
+}
+.page[data-page="central"] .cx-subtab-copy small {
+  font-size: 11.5px;
+  color: #8c9aa5;
+}
+.page[data-page="central"] .cx-subtab-badge {
+  flex: none;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(10, 14, 19, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  font-size: 11px;
+  font-weight: 680;
+  color: #b7c4cd;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-subtab:hover:not(.is-active) {
+  border-color: rgba(214, 184, 117, 0.36);
+  transform: translateY(-1px);
+}
+.page[data-page="central"] .cx-subtab:hover:not(.is-active)::before { opacity: 0.24; }
+.page[data-page="central"] .cx-subtab.is-active {
+  border-color: rgba(214, 184, 117, 0.58);
+  background: linear-gradient(168deg, #242119 0%, #14171d 100%);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(246, 224, 168, 0.22);
+}
+.page[data-page="central"] .cx-subtab.is-active::before { opacity: 0.34; }
+.page[data-page="central"] .cx-subtab.is-active::after {
+  background: linear-gradient(90deg, rgba(214, 184, 117, 0.2), #f2d799 50%, rgba(214, 184, 117, 0.2));
+  box-shadow: 0 0 14px rgba(242, 215, 153, 0.55);
+}
+.page[data-page="central"] .cx-subtab.is-active .cx-subtab-ico {
+  background: radial-gradient(circle, rgba(214, 184, 117, 0.24), rgba(16, 19, 24, 0.92));
+  border-color: rgba(236, 210, 150, 0.56);
+}
+.page[data-page="central"] .cx-subtab.is-active .cx-subtab-ico .product-icon { opacity: 1; }
+.page[data-page="central"] .cx-subtab.is-active .cx-subtab-copy strong { color: #f8e5b6; }
+.page[data-page="central"] .cx-subtab.is-active .cx-subtab-copy small { color: #cfc09a; }
+.page[data-page="central"] .cx-subtab.is-active .cx-subtab-badge {
+  background: rgba(214, 184, 117, 0.16);
+  border-color: rgba(236, 210, 150, 0.42);
+  color: #f6e1ae;
+}
+
+/* 2. SVG Winrate Ring Pedestal (56px Civ Shield inside 72-74px ring) */
+.page[data-page="central"] .cx-ring-pedestal {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, rgba(24, 30, 39, 0.95), rgba(10, 13, 18, 0.98));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.52);
+}
+.page[data-page="central"] .cx-ring-pedestal.is-sz-74 { width: 74px; height: 74px; }
+.page[data-page="central"] .cx-wr-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: none;
+}
+.page[data-page="central"] .cx-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.09);
+  stroke-width: 3.2;
+}
+.page[data-page="central"] .cx-ring-val {
+  fill: none;
+  stroke: #e5c680;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+.page[data-page="central"] .cx-ring-val.is-win { stroke: #78d8a6; }
+.page[data-page="central"] .cx-ring-val.is-loss { stroke: #ef8a81; }
+.page[data-page="central"] .cx-ring-val.is-gold { stroke: #ebd08c; }
+.page[data-page="central"] .cx-ring-inner {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.page[data-page="central"] .cx-ring-inner .civ-badge {
+  width: 52px !important;
+  height: 52px !important;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.65));
+}
+
+/* 3. Player DNA & Archetype Banner + Pure SVG 5-Axis Radar */
+.page[data-page="central"] .cx-dna-banner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 264px;
+  gap: 20px;
+  align-items: center;
+  padding: 22px 26px;
+  border-radius: 16px;
+  border: 1px solid rgba(214, 184, 117, 0.34);
+  background: linear-gradient(108deg, #161d25 0%, #10151c 56%, #0d1117 100%);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(246, 224, 168, 0.14);
+}
+.page[data-page="central"] .cx-dna-banner.is-no-radar {
+  grid-template-columns: 1fr;
+}
+.page[data-page="central"] .cx-dna-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url("assets/art/prematch-estandartes.webp") right center / cover no-repeat;
+  mask-image: linear-gradient(96deg, transparent 14%, rgba(0, 0, 0, 0.65) 62%, #000 100%);
+  opacity: 0.34;
+  pointer-events: none;
+}
+.page[data-page="central"] .cx-dna-left {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-dna-id {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.page[data-page="central"] .cx-dna-fallback-ico {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(214, 184, 117, 0.22), rgba(12, 16, 22, 0.96));
+  border: 1px solid rgba(214, 184, 117, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.page[data-page="central"] .cx-dna-fallback-ico .product-icon { width: 34px; height: 34px; }
+.page[data-page="central"] .cx-dna-copy h3 {
+  margin: 4px 0 5px;
+  font-size: 27px;
+  font-weight: 780;
+  letter-spacing: -0.025em;
+  color: #f8e8c0;
+  line-height: 1.12;
+}
+.page[data-page="central"] .cx-dna-copy p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #bac6ce;
+  line-height: 1.45;
+  max-width: 54ch;
+}
+.page[data-page="central"] .cx-dna-signals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 14px;
+}
+.page[data-page="central"] .cx-dna-sig {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 14px;
+}
+.page[data-page="central"] .cx-dna-sig + .cx-dna-sig {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding-left: 16px;
+}
+.page[data-page="central"] .cx-dna-sig span {
+  font-size: 10.5px;
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b99a4;
+}
+.page[data-page="central"] .cx-dna-sig b {
+  font-size: 17px;
+  font-weight: 740;
+  color: #f4eee1;
+  font-variant-numeric: tabular-nums;
+}
+.page[data-page="central"] .cx-dna-sig small {
+  font-size: 11.5px;
+  color: #93a1ac;
+}
+.page[data-page="central"] .cx-dna-radar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.page[data-page="central"] .cx-dna-radar-svg {
+  width: 260px;
+  height: 218px;
+  overflow: visible;
+  stroke: none;
+  fill: none;
+}
+.page[data-page="central"] .cx-radar-web {
+  fill: rgba(12, 16, 22, 0.28);
+  stroke: rgba(255, 255, 255, 0.11);
+  stroke-width: 1;
+}
+.page[data-page="central"] .cx-radar-spoke {
+  stroke: rgba(255, 255, 255, 0.09);
+  stroke-width: 1;
+}
+.page[data-page="central"] .cx-radar-poly {
+  fill: rgba(214, 184, 117, 0.24);
+  stroke: #f2d799;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.page[data-page="central"] .cx-radar-dot.is-live {
+  fill: #f8e5b6;
+  stroke: #12171e;
+  stroke-width: 1.5;
+}
+.page[data-page="central"] .cx-radar-dot.is-dim {
+  fill: #5a6670;
+  stroke: none;
+}
+.page[data-page="central"] .cx-radar-lbl {
+  fill: #dbe3e8;
+  stroke: none;
+  font-size: 10.5px;
+  font-weight: 680;
+  letter-spacing: 0.03em;
+}
+.page[data-page="central"] .cx-radar-val {
+  fill: #dfc384;
+  stroke: none;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* 4. Tactical Trident 3-Card Showcase Poster Strip */
+.page[data-page="central"] .cx-spotlight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.page[data-page="central"] .cx-spotlight-grid.is-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.page[data-page="central"] .cx-spotlight-grid.is-cols-1 { grid-template-columns: 1fr; }
+.page[data-page="central"] .cx-spot-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 174px;
+  padding: 18px 20px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  background: linear-gradient(166deg, #181f27 0%, #10141a 100%);
+  text-align: left;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.page[data-page="central"] .cx-spot-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--spot-art) right bottom / cover no-repeat;
+  mask-image: linear-gradient(125deg, transparent 26%, #000 100%);
+  opacity: 0.22;
+  pointer-events: none;
+}
+.page[data-page="central"] .cx-spot-card.is-civ-spot { --spot-art: url("assets/art/central-civs.webp"); border-top: 2px solid rgba(110, 198, 152, 0.62); }
+.page[data-page="central"] .cx-spot-card.is-map-spot { --spot-art: url("assets/art/central-mapas.webp"); border-top: 2px solid rgba(236, 210, 150, 0.65); }
+.page[data-page="central"] .cx-spot-card.is-nemesis-spot { --spot-art: url("assets/art/central-elo.webp"); border-top: 2px solid rgba(235, 118, 114, 0.62); }
+.page[data-page="central"] .cx-spot-card.is-upset-spot { --spot-art: url("assets/art/central-elo.webp"); border-top: 2px solid rgba(236, 210, 150, 0.65); }
+.page[data-page="central"] button.cx-spot-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(236, 210, 150, 0.45);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34);
+}
+.page[data-page="central"] .cx-spot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.page[data-page="central"] .cx-eyebrow.is-win { color: #8cdbb3; }
+.page[data-page="central"] .cx-eyebrow.is-gold { color: #ecd296; }
+.page[data-page="central"] .cx-eyebrow.is-loss { color: #f29d95; }
+.page[data-page="central"] .cx-spot-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgba(10, 14, 19, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #d7e1e8;
+}
+.page[data-page="central"] .cx-spot-pill.is-win { color: #8cdbb3; border-color: rgba(110, 198, 152, 0.32); }
+.page[data-page="central"] .cx-spot-pill.is-gold { color: #f2d799; border-color: rgba(214, 184, 117, 0.36); }
+.page[data-page="central"] .cx-spot-pill.is-loss { color: #f29d95; border-color: rgba(235, 118, 114, 0.34); }
+.page[data-page="central"] .cx-spot-mid {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.page[data-page="central"] .cx-spot-map-frame {
+  width: 82px;
+  height: 82px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 45%, rgba(214, 184, 117, 0.18), rgba(10, 13, 18, 0.94));
+  border: 1px solid rgba(214, 184, 117, 0.34);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+.page[data-page="central"] .cx-spot-map-frame.is-loss {
+  border-color: rgba(235, 118, 114, 0.38);
+  background: radial-gradient(circle at 50% 45%, rgba(235, 118, 114, 0.16), rgba(10, 13, 18, 0.94));
+}
+.page[data-page="central"] .cx-spot-map-frame .map-art-thumb {
+  width: 74px !important;
+  height: 74px !important;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.72));
+}
+.page[data-page="central"] .cx-spot-medal-frame {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(214, 184, 117, 0.22), rgba(11, 15, 20, 0.96));
+  border: 2px solid rgba(214, 184, 117, 0.48);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.page[data-page="central"] .cx-spot-medal-frame .civ-badge { width: 48px !important; height: 48px !important; }
+.page[data-page="central"] .cx-spot-medal-frame .product-icon { width: 34px; height: 34px; }
+.page[data-page="central"] .cx-spot-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-spot-num {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  font-variant-numeric: tabular-nums;
+}
+.page[data-page="central"] .cx-spot-num.is-win { color: #8cdbb3; }
+.page[data-page="central"] .cx-spot-num.is-gold { color: #f6e1ae; }
+.page[data-page="central"] .cx-spot-num.is-loss { color: #f29d95; }
+.page[data-page="central"] .cx-spot-hero strong {
+  font-size: 16.5px;
+  font-weight: 680;
+  color: #f3f6f8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page[data-page="central"] .cx-spot-foot {
+  font-size: 12px;
+  color: #9ba8b2;
+  line-height: 1.35;
+}
+
+/* 5. Circadian Golden Hour + Career Trophy Vitrina */
+.page[data-page="central"] .cx-grid-2.is-single-col {
+  grid-template-columns: 1fr;
+}
+.page[data-page="central"] .cx-circadian-card {
+  --central-section-art: url("assets/art/postmatch-v3-cabecera.webp");
+}
+.page[data-page="central"] .cx-trophies-card {
+  --central-section-art: url("assets/art/central-archivo.webp");
+}
+.page[data-page="central"] .cx-combat-dna-card {
+  --central-section-art: url("assets/art/central-civs.webp");
+}
+.page[data-page="central"] .cx-tempo-card {
+  --central-section-art: url("assets/art/central-archivo.webp");
+}
+.page[data-page="central"] :is(.cx-circadian-card, .cx-trophies-card, .cx-combat-dna-card, .cx-tempo-card) .cx-card-head::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -18px -20px -8px 32%;
+  opacity: 0.36;
+  mask-image: linear-gradient(90deg, transparent, #000 82%);
+  background: linear-gradient(0deg, #14191f, transparent 68%), var(--central-section-art) right 48% / cover;
+  pointer-events: none;
+}
+.page[data-page="central"] .cx-circ-cols,
+.page[data-page="central"] .cx-killer-cols {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.page[data-page="central"] .cx-circ-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 8px 10px;
+  border-radius: 12px;
+  background: rgba(11, 15, 20, 0.70);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.page[data-page="central"] .cx-circ-col.is-golden {
+  border-color: rgba(236, 210, 150, 0.48);
+  background: linear-gradient(180deg, rgba(214, 184, 117, 0.14), rgba(11, 15, 20, 0.82));
+}
+.page[data-page="central"] .cx-circ-wr {
+  font-size: 18px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  color: #edf2f5;
+}
+.page[data-page="central"] .cx-circ-col.is-gold .cx-circ-wr { color: #f6e1ae; }
+.page[data-page="central"] .cx-circ-col.is-win .cx-circ-wr { color: #8cdbb3; }
+.page[data-page="central"] .cx-circ-col.is-loss .cx-circ-wr { color: #f29d95; }
+.page[data-page="central"] .cx-circ-track {
+  position: relative;
+  width: 28px;
+  height: 76px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.page[data-page="central"] .cx-circ-track.sm { height: 58px; width: 24px; }
+.page[data-page="central"] .cx-circ-track::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.page[data-page="central"] .cx-circ-fill {
+  display: block;
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #d6b875, #8a7240);
+  transition: height 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.page[data-page="central"] .cx-circ-fill.is-gold { background: linear-gradient(180deg, #f6e1ae, #c8a24e); }
+.page[data-page="central"] .cx-circ-fill.is-win { background: linear-gradient(180deg, #8cdbb3, #3f9c6d); }
+.page[data-page="central"] .cx-circ-fill.is-loss { background: linear-gradient(180deg, #ef948c, #b14a44); }
+.page[data-page="central"] .cx-circ-col strong { font-size: 12.5px; font-weight: 660; color: #e5ecef; }
+.page[data-page="central"] .cx-circ-col small { font-size: 10.5px; color: #83919c; }
+.page[data-page="central"] .cx-circ-elo {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 640;
+  color: #9ba8b3;
+  font-variant-numeric: tabular-nums;
+}
+.page[data-page="central"] .cx-circ-elo.win { color: #8cdbb3; }
+.page[data-page="central"] .cx-circ-elo.loss { color: #f29d95; }
+.page[data-page="central"] .cx-day-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.page[data-page="central"] .cx-day-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  background: rgba(11, 15, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #b7c3cc;
+}
+.page[data-page="central"] .cx-day-chip.is-win b { color: #8cdbb3; }
+.page[data-page="central"] .cx-day-chip.is-loss b { color: #f29d95; }
+.page[data-page="central"] .cx-circ-punchline {
+  margin: 0;
+  font-size: 12.5px;
+  color: #b5c1ca;
+}
+
+/* Career Trophy Vitrina */
+.page[data-page="central"] .cx-trophies-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.page[data-page="central"] .cx-trophy-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  background: rgba(11, 15, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+}
+.page[data-page="central"] .cx-trophy-tile.is-gold { border-left: 3px solid rgba(236, 210, 150, 0.65); }
+.page[data-page="central"] .cx-trophy-tile.is-win { border-left: 3px solid rgba(110, 198, 152, 0.62); }
+.page[data-page="central"] .cx-trophy-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(19, 25, 33, 0.92);
+  border: 1px solid rgba(214, 184, 117, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.page[data-page="central"] .cx-trophy-ico .product-icon { width: 22px; height: 22px; }
+.page[data-page="central"] .cx-trophy-ico .civ-badge { width: 28px !important; height: 28px !important; }
+.page[data-page="central"] .cx-trophy-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-trophy-copy span {
+  font-size: 9.5px;
+  font-weight: 720;
+  letter-spacing: 0.09em;
+  color: #8f9da8;
+}
+.page[data-page="central"] .cx-trophy-copy b {
+  font-size: 19px;
+  font-weight: 760;
+  color: #f5eee0;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.page[data-page="central"] .cx-trophy-copy small {
+  font-size: 11px;
+  color: #8f9ca6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 6. Last Match Battle Header + Squad Chemistry Strip */
+.page[data-page="central"] .cx-lm-head-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.page[data-page="central"] .cx-lm-map-art {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: radial-gradient(circle, rgba(214, 184, 117, 0.16), rgba(11, 15, 20, 0.94));
+  border: 1px solid rgba(214, 184, 117, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.page[data-page="central"] .cx-lm-map-art .map-art-thumb { width: 46px !important; height: 46px !important; }
+.page[data-page="central"] .cx-lm-crests {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.page[data-page="central"] .cx-lm-crests .civ-badge { width: 26px !important; height: 26px !important; }
+.page[data-page="central"] .cx-lm-crests em { font-style: normal; font-size: 11px; color: #7e8d98; }
+
+.page[data-page="central"] .cx-chem-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+.page[data-page="central"] .cx-chem-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(11, 15, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.page[data-page="central"] .cx-chem-chip.is-win { border-left: 3px solid #78d8a6; }
+.page[data-page="central"] .cx-chem-chip.is-loss { border-left: 3px solid #ef8a81; }
+.page[data-page="central"] .cx-chem-chip:hover { border-color: rgba(214, 184, 117, 0.42); transform: translateY(-1px); }
+.page[data-page="central"] .cx-chem-chip span { font-size: 9.5px; font-weight: 720; letter-spacing: 0.09em; color: #8c9aa5; }
+.page[data-page="central"] .cx-chem-chip b { font-size: 14.5px; font-weight: 680; color: #f2f6f8; }
+.page[data-page="central"] .cx-chem-chip em { font-style: normal; font-size: 12px; font-weight: 650; }
+.page[data-page="central"] .cx-chem-chip.is-win em { color: #8cdbb3; }
+.page[data-page="central"] .cx-chem-chip.is-loss em { color: #f29d95; }
+
+/* 7. Tab 2: OVERSIZED Civ Shields (40px/52px) & Isometric Maps (52px/80px) + Clean Hairline Findings */
+.page[data-page="central"] .cx-master-detail {
+  grid-template-columns: minmax(340px, 415px) minmax(0, 1fr);
+  gap: 24px;
+}
+.page[data-page="central"] .cx-entity-row {
+  padding: 10px 14px !important;
+  gap: 14px !important;
+  border-radius: 12px !important;
+  background: rgba(13, 18, 24, 0.76) !important;
+  border: 1px solid rgba(255, 255, 255, 0.065) !important;
+}
+.page[data-page="central"] .cx-entity-row:hover {
+  border-color: rgba(214, 184, 117, 0.34) !important;
+  background: rgba(20, 26, 34, 0.90) !important;
+}
+.page[data-page="central"] .cx-entity-row.is-selected {
+  background: linear-gradient(96deg, rgba(214, 184, 117, 0.16), rgba(14, 19, 25, 0.92)) !important;
+  border-color: rgba(236, 210, 150, 0.52) !important;
+  box-shadow: inset 3px 0 0 #ecd296;
+}
+.page[data-page="central"] .central-entity-crest {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 12px !important;
+  background: radial-gradient(circle, rgba(28, 35, 45, 0.95), rgba(10, 14, 19, 0.98)) !important;
+  border: 1px solid rgba(214, 184, 117, 0.22) !important;
+}
+.page[data-page="central"] .central-entity-crest .civ-badge {
+  width: 38px !important;
+  height: 38px !important;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.58));
+}
+.page[data-page="central"] .central-entity-crest.is-map {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 13px !important;
+  padding: 3px !important;
+}
+.page[data-page="central"] .central-entity-crest.is-map .map-art-thumb {
+  width: 50px !important;
+  height: 50px !important;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.65));
+}
+.page[data-page="central"] .cx-entity-stat b,
+.page[data-page="central"] .cx-map-row-wr {
+  font-size: 16.5px !important;
+  font-weight: 760 !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-map-row-wr.win { color: #8cdbb3; }
+.page[data-page="central"] .cx-map-row-wr.loss { color: #f29d95; }
+.page[data-page="central"] .cx-map-row-name {
+  font-size: 14.5px;
+  font-weight: 660;
+  color: #edf2f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page[data-page="central"] .cx-map-row-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.page[data-page="central"] .cx-map-row-sub > small {
+  font-size: 11.5px;
+  color: #8f9da8;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-diag-panel {
+  background: linear-gradient(168deg, #171f28 0%, #0f141a 62%, #0c1015 100%) !important;
+  border: 1px solid rgba(214, 184, 117, 0.24) !important;
+  border-radius: 14px !important;
+  padding: 22px 24px !important;
+}
+.page[data-page="central"] .cx-diag-crest.is-map-art {
+  width: 92px !important;
+  height: 92px !important;
+  border-radius: 18px !important;
+  padding: 5px !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.50);
+}
+.page[data-page="central"] .cx-diag-crest.is-map-art .map-art-thumb {
+  width: 80px !important;
+  height: 80px !important;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.72));
+}
+.page[data-page="central"] .cx-diag-title-row h4 {
+  font-size: 23px !important;
+  font-weight: 760 !important;
+  letter-spacing: -0.02em;
+}
+.page[data-page="central"] .cx-diag-big-wr {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #f6e1ae !important;
+  line-height: 1;
+}
+.page[data-page="central"] .cx-diag-bestciv .civ-badge,
+.page[data-page="central"] .cx-inline-crest .civ-badge {
+  width: 28px !important;
+  height: 28px !important;
+}
+.page[data-page="central"] .cx-inline-map {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.page[data-page="central"] .cx-inline-map .map-art-thumb {
+  width: 34px !important;
+  height: 34px !important;
+}
+.page[data-page="central"] .cx-diag-finding {
+  background: linear-gradient(90deg, rgba(214, 184, 117, 0.08), rgba(12, 16, 22, 0.35)) !important;
+  border: 0 !important;
+  border-left: 3px solid rgba(214, 184, 117, 0.55) !important;
+  border-radius: 0 10px 10px 0 !important;
+  padding: 12px 14px !important;
+}
+.page[data-page="central"] .cx-diag-finding.is-loss {
+  background: linear-gradient(90deg, rgba(235, 118, 114, 0.10), rgba(12, 16, 22, 0.35)) !important;
+  border-left-color: #ef8a81 !important;
+}
+.page[data-page="central"] .cx-diag-finding.is-win {
+  background: linear-gradient(90deg, rgba(110, 198, 152, 0.10), rgba(12, 16, 22, 0.35)) !important;
+  border-left-color: #78d8a6 !important;
+}
+.page[data-page="central"] .cx-diag-f-metric {
+  font-size: 16px !important;
+  font-weight: 760 !important;
+}
+
+/* 8. Tab 3: Combat DNA, SVG Speed Gauge, Academy Upgrades & Bigger Matchup Portraits */
+.page[data-page="central"] .cx-acad-focus-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.page[data-page="central"] .cx-acad-focus-ico {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(214, 184, 117, 0.14);
+  border: 1px solid rgba(214, 184, 117, 0.36);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.page[data-page="central"] .cx-acad-focus-ico .product-icon { width: 26px; height: 26px; }
+.page[data-page="central"] .cx-acad-focus-main { flex: 1; min-width: 0; }
+.page[data-page="central"] .cx-acad-focus-pct {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+}
+.page[data-page="central"] .cx-acad-focus-pct b {
+  font-size: 28px;
+  font-weight: 800;
+  color: #f6e1ae;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.page[data-page="central"] .cx-acad-focus-pct small { font-size: 10.5px; color: #96a4af; }
+.page[data-page="central"] .cx-acad-st-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.page[data-page="central"] .cx-acad-st-lbl .product-icon { width: 20px; height: 20px; }
+.page[data-page="central"] .central-bar-track.xs { height: 4px; }
+
+.page[data-page="central"] .cx-combat-units {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.page[data-page="central"] .cx-unit-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.page[data-page="central"] .cx-unit-bar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+}
+.page[data-page="central"] .cx-unit-bar-top strong { color: #edf2f5; font-weight: 620; }
+.page[data-page="central"] .cx-unit-bar-top b { color: #f6e1ae; font-variant-numeric: tabular-nums; }
+.page[data-page="central"] .cx-unit-bar-top small { color: #8c9aa5; }
+.page[data-page="central"] .cx-combat-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+.page[data-page="central"] .cx-ckpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.page[data-page="central"] .cx-ckpi span { font-size: 10.5px; color: #8b99a4; text-transform: uppercase; letter-spacing: 0.06em; }
+.page[data-page="central"] .cx-ckpi b { font-size: 21px; font-weight: 760; color: #f3ede0; font-variant-numeric: tabular-nums; }
+.page[data-page="central"] .cx-ckpi b.win { color: #8cdbb3; }
+.page[data-page="central"] .cx-ckpi b.gold { color: #f6e1ae; }
+.page[data-page="central"] .cx-ckpi b.loss { color: #f29d95; }
+.page[data-page="central"] .cx-ckpi small { font-size: 10.5px; color: #82909b; }
+
+.page[data-page="central"] .cx-tempo-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.page[data-page="central"] .cx-speed-split {
+  display: grid;
+  grid-template-columns: 174px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+.page[data-page="central"] .cx-speed-gauge-svg {
+  width: 172px;
+  height: 94px;
+  fill: none;
+  stroke: none;
+}
+.page[data-page="central"] .cx-gauge-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.09);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.page[data-page="central"] .cx-gauge-arc {
+  fill: none;
+  stroke: #ecd296;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.page[data-page="central"] .cx-gauge-rival-tick {
+  stroke: #ef8a81;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+.page[data-page="central"] .cx-gauge-num {
+  fill: #f6e1ae;
+  stroke: none;
+  font-size: 24px;
+  font-weight: 800;
+}
+.page[data-page="central"] .cx-gauge-sub {
+  fill: #98a6b0;
+  stroke: none;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.page[data-page="central"] .cx-speed-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.page[data-page="central"] .cx-sf-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+.page[data-page="central"] .cx-sf-row span { color: #b6c2cb; }
+.page[data-page="central"] .cx-sf-row.is-win b { color: #8cdbb3; font-size: 16px; }
+.page[data-page="central"] .cx-sf-row.is-neutral b { color: #e8edf0; font-size: 16px; }
+.page[data-page="central"] .cx-sf-gem {
+  font-size: 12px;
+  color: #9ba8b2;
+  line-height: 1.4;
+}
+.page[data-page="central"] .cx-sf-gem b { color: #f2d799; }
+
+.page[data-page="central"] .cx-elo-ico {
+  width: 50px !important;
+  height: 50px !important;
+  border-radius: 12px !important;
+}
+.page[data-page="central"] .cx-elo-ico.is-map .map-art-thumb {
+  width: 44px !important;
+  height: 44px !important;
+}
+.page[data-page="central"] .cx-elo-impact {
+  font-size: 23px !important;
+}
+.page[data-page="central"] .cx-matchup-pill {
+  padding: 9px 14px 9px 10px !important;
+  gap: 11px !important;
+  border-radius: 12px !important;
+}
+.page[data-page="central"] .cx-matchup-pill .civ-badge {
+  width: 38px !important;
+  height: 38px !important;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
+}
+.page[data-page="central"] .cx-mp-text b { font-size: 14px !important; }
+
+@media (max-width: 1020px) {
+  .page[data-page="central"] .cx-dna-banner { grid-template-columns: 1fr; }
+  .page[data-page="central"] .cx-spotlight-grid { grid-template-columns: 1fr; }
+  .page[data-page="central"] .cx-subnav { grid-template-columns: 1fr; }
+  .page[data-page="central"] .cx-master-detail { grid-template-columns: 1fr; }
+}
+@media (prefers-contrast: more) {
+  .page[data-page="central"] .cx-subtab::before,
+  .page[data-page="central"] .cx-dna-banner::before,
+  .page[data-page="central"] .cx-spot-card::before { display: none; }
 }

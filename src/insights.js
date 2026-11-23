@@ -252,18 +252,44 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 // El informe y el consejo necesitan las mismas filas. Una única consulta en
 // vuelo alimenta ambos y conserva temporalmente la respuesta sin repetirla.
+function sliceColumnarPayload(payload, targetLimit) {
+  if (!payload || typeof payload !== 'object' || !payload.rows || typeof payload.rows !== 'object' || Array.isArray(payload.rows)) {
+    return payload;
+  }
+  const lim = Number(targetLimit);
+  if (!Number.isFinite(lim) || lim <= 0) return payload;
+  const slicedRows = {};
+  let cutAny = false;
+  for (const [col, arr] of Object.entries(payload.rows)) {
+    if (Array.isArray(arr) && arr.length > lim) {
+      slicedRows[col] = arr.slice(0, lim);
+      cutAny = true;
+    } else {
+      slicedRows[col] = arr;
+    }
+  }
+  return cutAny ? { ...payload, rows: slicedRows } : payload;
+}
+
 const replayRequests = new Map();
 const REPLAY_RAW_TTL_MS = 5 * 60 * 1000;
 async function fetchOpeningRows(profileId, options = {}) {
   const production = !options.fetchImpl && !options.sleep && options.attempts == null &&
     options.retryMs == null && options.timeoutMs == null;
   if (!production) return fetchOpeningRowsImpl(profileId, options);
-  const key = buildMatchUpsUrl(profileId, options.limit ?? ROW_LIMIT, options.mode ?? null,
+  const reqLimit = Number(options.limit ?? ROW_LIMIT) || ROW_LIMIT;
+  // Unificar toda consulta <= 500 filas (Rival=500, Scout=60, Smurf=25, Central=500) en UNA sola petición canónica (limit=500)
+  // y recortar localmente en memoria: elimina los 3 jobs HTTP 202 duplicados por rival.
+  const canonicalLimit = reqLimit <= ROW_LIMIT ? ROW_LIMIT : reqLimit;
+  const key = buildMatchUpsUrl(profileId, canonicalLimit, options.mode ?? null,
     options.fields || DEFAULT_FIELDS);
   const existing = replayRequests.get(key);
-  if (existing && (existing.pending || Date.now() - existing.at < REPLAY_RAW_TTL_MS)) return existing.promise;
+  if (existing && !options.force && (existing.pending || Date.now() - existing.at < REPLAY_RAW_TTL_MS)) {
+    const fullPayload = await existing.promise;
+    return reqLimit < canonicalLimit ? sliceColumnarPayload(fullPayload, reqLimit) : fullPayload;
+  }
   const entry = { at: Date.now(), pending: true, promise: null };
-  entry.promise = fetchOpeningRowsImpl(profileId, options).then((payload) => {
+  entry.promise = fetchOpeningRowsImpl(profileId, { ...options, limit: canonicalLimit }).then((payload) => {
     entry.pending = false;
     entry.at = Date.now();
     return payload;
@@ -277,7 +303,8 @@ async function fetchOpeningRows(profileId, options = {}) {
       if (!old.pending && oldKey !== key) { replayRequests.delete(oldKey); break; }
     }
   }
-  return entry.promise;
+  const fullPayload = await entry.promise;
+  return reqLimit < canonicalLimit ? sliceColumnarPayload(fullPayload, reqLimit) : fullPayload;
 }
 
 async function fetchOpeningRowsImpl(profileId, options = {}) {
@@ -526,6 +553,7 @@ module.exports = {
   sameMode,
   openingsCacheKey,
   buildMatchUpsUrl,
+  sliceColumnarPayload,
   fetchOpeningRows,
   parseOpeningRows,
   emptyOpenings,

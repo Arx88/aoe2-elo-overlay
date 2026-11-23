@@ -67,21 +67,21 @@ const OPENING_LABELS = {
   'Hoang Rush': 'Hoang',
   'Tower Rush': 'Torres',
   'Drush FC': 'Drush FC',
-  'Drush Archers': 'Drush arq.',
+  'Drush Archers': 'Drush + Arqueros',
   'Drush M@A': 'Drush M@A',
   Drush: 'Drush',
-  'M@A Archers': 'M@A arq.',
+  'M@A Archers': 'Hombres de armas + Arqueros',
   'M@A Rush': 'M@A',
   'Archer Rush': 'Arqueros',
   'Scout Rush': 'Scouts',
   'M@A Scouts': 'M@A scouts',
-  'Pike Skirm': 'Pica + honda',
+  'Pike Skirm': 'Piqueros + Guerrilleros',
   'FC Boom': 'FC boom',
   'Fast Castle': 'FC',
   'Monk Rush': 'Monjes',
   'Archer Opening': 'Arqueros',
   'Scout Opening': 'Scouts',
-  'Scouts into Archers': 'Scouts + arq.',
+  'Scouts into Archers': 'Scouts → Arqueros',
   Other: 'Otra',
 };
 
@@ -101,7 +101,7 @@ const OPENING_SPANISH = {
   'Archer Rush': 'Rush de arqueros',
   'Scout Rush': 'Scout rush',
   'M@A Scouts': 'M@A con scouts',
-  'Pike Skirm': 'Picas y honderos',
+  'Pike Skirm': 'Piqueros y guerrilleros',
   'FC Boom': 'Fast castle con boom',
   'Fast Castle': 'Fast castle',
   'Monk Rush': 'Rush de monjes',
@@ -556,12 +556,25 @@ async function analyzeReplayBuffer(buffer, { match, profileId } = {}) {
   const opening = classify(player, civ);
   const metrics = commandMetrics(player, durationMs);
   const rivalPlayerState = rivalReplayPlayer ? players.get(Number(rivalReplayPlayer.player_number)) : null;
+  const allyCivs = (Array.isArray(match.players) ? match.players : [])
+    .filter((p) => {
+      if (!p || Number(p.profileId) === Number(profileId)) return false;
+      if (ownTeam != null && p.team != null) return Number(p.team) === ownTeam;
+      if (selfResolvedTeam != null) {
+        const rp = replayPlayers.find((r) => Number(r.profile_id) === Number(p.profileId));
+        if (rp && rp.resolved_team_id != null) return Number(rp.resolved_team_id) === selfResolvedTeam;
+      }
+      return false;
+    })
+    .map((p) => p.civ)
+    .filter(Boolean);
   const rawMatchElo = matchPlayer ? (matchPlayer.matchRating ?? matchPlayer.rating) : null;
   const engineSummary = analyzePostmatchEngine(chapter.operations, {
     selfSlot: Number(self.player_number),
     rivalSlot: rivalReplayPlayer ? Number(rivalReplayPlayer.player_number) : null,
     selfCiv: civ,
     rivalCiv: (rivalMatchPlayer && rivalMatchPlayer.civ) || null,
+    allyCivs,
     selfAges: player.ageReachedMs || null,
     rivalAges: rivalPlayerState ? rivalPlayerState.ageReachedMs || null : null,
     opening: opening.name,

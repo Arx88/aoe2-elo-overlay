@@ -58,7 +58,7 @@ body::before {
 }
 .winbtn:hover { background: rgba(255, 255, 255, 0.09); color: #ffffff; }
 .winbtn.close:hover { background: rgba(196, 59, 52, 0.88); color: #ffffff; }
-.rail { padding-top: 28px !important; }
+.rail { padding-top: 0 !important; }
 .content-head { padding-top: 36px !important; }
 .session-badge {
   color: #cdd4d6;
@@ -253,7 +253,7 @@ body::before {
   position: relative;
   isolation: isolate;
 }
-.page[data-page="central"] :is(.cx-chart-head,.cx-civs-card .cx-card-head,.cx-civ-master-card .cx-card-head,.cx-maps-card .cx-card-head)::before {
+.page[data-page="central"] :is(.cx-chart-head,.cx-civs-card .cx-card-head,.cx-civ-master-card .cx-card-head,.cx-maps-card .cx-card-head,.cx-academy-card .cx-card-head,.cx-elo-card .cx-card-head,.cx-intel-card .cx-card-head)::before {
   content: "";
   position: absolute;
   z-index: -1;
@@ -274,6 +274,9 @@ body::before {
 .page[data-page="central"] .cx-civs-card,
 .page[data-page="central"] .cx-civ-master-card { --central-section-art: url("assets/art/central-civs.webp"); }
 .page[data-page="central"] .cx-maps-card { --central-section-art: url("assets/art/central-mapas.webp"); }
+.page[data-page="central"] .cx-academy-card { --central-section-art: url("assets/art/postmatch-v3-destacados.webp"); }
+.page[data-page="central"] .cx-elo-card { --central-section-art: url("assets/art/central-elo.webp"); }
+.page[data-page="central"] .cx-intel-card { --central-section-art: url("assets/art/prematch-estandartes.webp"); }
 .page[data-page="central"] :is(.cx-card-head, .cx-chart-title) h3 { font-size: 19px; margin: 0; letter-spacing: -.02em; }
 .page[data-page="central"] .cx-chart-nums { margin-top: 8px; }
 .page[data-page="central"] .cx-chart-stage { border-radius: 8px; }

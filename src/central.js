@@ -27,6 +27,12 @@ const { resolveMode, mapKey } = require('./rival');
 const { fetchOpeningRows } = require('./insights');
 const { parseScoutRows } = require('./scout');
 const { buildUnifiedModeMatches, buildModeCivDiagnostics } = require('./civ-diagnostic');
+const { computeModeDiscoveries } = require('./central-discoveries');
+const {
+  buildModeMapDiagnostics,
+  computePersonalAcademy,
+  computeEloAttributionAndSession,
+} = require('./central-intel');
 
 const centralInflight = new Map();
 
@@ -241,8 +247,14 @@ function buildDurationBuckets(items) {
  * `meanEapm` y `oppMeanEapm`, duración real, aperturas, mapas Open/Closed y
  * rendimiento frente a rivales de mayor o menor ELO.
  */
+function normalizeInsightsRows(input) {
+  if (!input) return [];
+  if (Array.isArray(input)) return input;
+  if (Array.isArray(input.rows)) return input.rows;
+  return parseScoutRows(input);
+}
 function analyzeInsightsRows(rawPayload) {
-  const parsed = Array.isArray(rawPayload) ? rawPayload : parseScoutRows(rawPayload || {});
+  const parsed = normalizeInsightsRows(rawPayload);
   if (!parsed.length) return null;
 
   const eapmSelf = [];
@@ -613,6 +625,7 @@ function parseAllTimeStatsBlock(statsBlocks = [], fallbackMatches = []) {
     bestCiv,
     weakestCiv: weakestCiv && bestCiv && weakestCiv.slug !== bestCiv.slug ? weakestCiv : null,
     minCivGames,
+    allMaps,
     topMaps: allMaps.slice(0, 7),
     topMapsByWr,
     bestMap,
@@ -693,15 +706,30 @@ function attachMapEapmToStats(stats, mapEapm) {
     if (!hit) return m;
     return {
       ...m,
+      mapKey: k,
       avgEapm: hit.avgEapm,
       avgApm: hit.avgApm,
       eapmSample: hit.eapmSample,
       eapmDelta: hit.eapmDelta,
     };
   });
+  let baseTopMaps = enrich(stats.topMaps);
+  let baseAllMaps = enrich(stats.allMaps || stats.topMaps);
+  if ((!baseAllMaps.length || stats.sourceScope !== 'all-time') && mapEapm.perMap && mapEapm.perMap.size > baseAllMaps.length) {
+    const seen = new Set(baseAllMaps.map((m) => mapKey(m.mapName)));
+    for (const [k, item] of mapEapm.perMap.entries()) {
+      if (!seen.has(k)) {
+        seen.add(k);
+        baseAllMaps.push(item);
+      }
+    }
+    baseAllMaps.sort((a, b) => b.games - a.games || (b.winRate || 0) - (a.winRate || 0));
+    baseTopMaps = baseAllMaps.slice(0, 7);
+  }
   return {
     ...stats,
-    topMaps: enrich(stats.topMaps),
+    allMaps: baseAllMaps,
+    topMaps: baseTopMaps,
     topMapsByWr: enrich(stats.topMapsByWr),
     topMapsByEapm: mapEapm.topMapsByEapm,
     modeAvgEapm: mapEapm.modeAvgEapm,
@@ -796,13 +824,17 @@ function computeBeforeVsNow({
 
   // 4. Telemetría local de replays (solo perfil propio si hay >= 2 replays medidos)
   if (isOwnProfile) {
+    const engineOf = (r) => r?.telemetry?.engineSummary || r?.telemetry?.engine || null;
     const validRecs = (Array.isArray(storedRecords) ? storedRecords : [])
-      .filter((r) => r && r.telemetry?.engine?.self && Number(r.profileId) === pid);
+      .filter((r) => r && engineOf(r)?.self && Number(r.profileId) === pid);
     if (validRecs.length >= 2) {
       const mid = Math.max(1, Math.floor(validRecs.length / 2));
       const recentRecs = validRecs.slice(0, mid);
       const olderRecs = validRecs.slice(mid);
-      const getTcUtil = (r) => r.telemetry.engine.self.tcUtilizationEarly ?? r.telemetry.engine.self.tcUtilization;
+      const getTcUtil = (r) => {
+        const s = engineOf(r)?.self;
+        return s?.tcUtilizationEarly ?? s?.tcUtilization;
+      };
       const beforeTc = avg(olderRecs.map(getTcUtil), 1);
       const nowTc = avg(recentRecs.map(getTcUtil), 1);
       if (beforeTc != null && nowTc != null) {
@@ -1274,7 +1306,8 @@ function computeCentralAnalytics({
 
   for (const rec of validRecords) {
     const t = rec.telemetry;
-    const self = t.engine?.self;
+    const eng = t.engineSummary || t.engine || null;
+    const self = eng?.self;
     if (self) {
       if (Number.isFinite(self.tcUtilizationEarly ?? self.tcUtilization)) {
         tcUtilList.push(self.tcUtilizationEarly ?? self.tcUtilization);
@@ -1282,7 +1315,7 @@ function computeCentralAnalytics({
       if (Number.isFinite(self.tcIdleEarlySeconds ?? self.tcIdleSeconds)) {
         tcIdleEarlyList.push(self.tcIdleEarlySeconds ?? self.tcIdleSeconds);
       }
-      const mins = Math.max(1, ((t.engine.durationSeconds || t.durationSeconds || 600) / 60));
+      const mins = Math.max(1, ((eng.durationSeconds || t.durationSeconds || 600) / 60));
       if (Number.isFinite(self.villagersOrdered) && self.villagersOrdered > 0) {
         vilsPerMinList.push(self.villagersOrdered / mins);
       }
@@ -1308,9 +1341,9 @@ function computeCentralAnalytics({
     avgImperialSeconds: avg(imperialSecList, 0),
   };
 
-  // Análisis AoE2Insights por modo
-  const parsedRows1v1 = parseScoutRows(insights1v1 || {});
-  const parsedRowsTeam = parseScoutRows(insightsTeam || {});
+  // Análisis AoE2Insights por modo (soporta tanto payload columnar crudo como filas ya parseadas de ReplayCache/Scout)
+  const parsedRows1v1 = normalizeInsightsRows(insights1v1);
+  const parsedRowsTeam = normalizeInsightsRows(insightsTeam);
   const insightsByMode = {
     rm_1v1: analyzeInsightsRows(parsedRows1v1),
     rm_team: analyzeInsightsRows(parsedRowsTeam),
@@ -1377,6 +1410,21 @@ function computeCentralAnalytics({
       matches: unifiedModeMatches,
       allTimeCivs: enrichedStats.allCivs || enrichedStats.topCivs || [],
     });
+    const mapDiagnostics = buildModeMapDiagnostics({
+      modeId,
+      matches: unifiedModeMatches,
+      allTimeMaps: enrichedStats.allMaps || enrichedStats.topMaps || [],
+    });
+    const academy = computePersonalAcademy({
+      storedRecords: modeStoredRecords.length ? modeStoredRecords : validRecords,
+      profileId: pid,
+      isOwnProfile,
+    });
+    const competitiveIntel = computeEloAttributionAndSession({
+      matches: unifiedModeMatches,
+      allTimeCivs: enrichedStats.allCivs || enrichedStats.topCivs || [],
+      allTimeMaps: enrichedStats.allMaps || enrichedStats.topMaps || [],
+    });
 
     const lastMatchVsAvg = computeLastMatchVsAvg({
       modeMatches: fallbackMatches,
@@ -1386,6 +1434,19 @@ function computeCentralAnalytics({
       isOwnProfile,
       modeLabel: MODE_LABELS[modeId],
     });
+    const discoveries = computeModeDiscoveries({
+      modeId,
+      isTeam: modeId === 'rm_team' || modeId === 'ew_team',
+      profileId: pid,
+      isOwnProfile,
+      ladder,
+      stats: enrichedStats,
+      insights: ins,
+      eloSeries,
+      modeMatches: fallbackMatches,
+      unifiedMatches: unifiedModeMatches,
+      storedRecords: validRecords,
+    });
 
     modes[modeId] = {
       id: modeId,
@@ -1393,6 +1454,10 @@ function computeCentralAnalytics({
       ladder,
       stats: enrichedStats,
       civDiagnostics,
+      mapDiagnostics,
+      academy,
+      competitiveIntel,
+      discoveries,
       unifiedMatchCount: unifiedModeMatches.length,
       eloSeries,
       eloStats: {
@@ -1458,6 +1523,37 @@ function computeCentralAnalytics({
     matches: globalUnifiedMatches,
     allTimeCivs: globalStats.allCivs || globalStats.topCivs || [],
   });
+  const globalMapDiagnostics = buildModeMapDiagnostics({
+    modeId: 'global',
+    matches: globalUnifiedMatches,
+    allTimeMaps: globalStats.allMaps || globalStats.topMaps || [],
+  });
+  const globalAcademy = computePersonalAcademy({
+    storedRecords: validRecords,
+    profileId: pid,
+    isOwnProfile,
+  });
+  const globalCompetitiveIntel = computeEloAttributionAndSession({
+    matches: globalUnifiedMatches,
+    allTimeCivs: globalStats.allCivs || globalStats.topCivs || [],
+    allTimeMaps: globalStats.allMaps || globalStats.topMaps || [],
+  });
+  const globalEloSeries = Object.values(modes)
+    .flatMap((m) => (Array.isArray(m?.eloSeries) ? m.eloSeries : []))
+    .sort((a, b) => Number(a.startedAt || 0) - Number(b.startedAt || 0));
+  const globalDiscoveries = computeModeDiscoveries({
+    modeId: 'global',
+    isTeam: false,
+    profileId: pid,
+    isOwnProfile,
+    ladder: globalLadder,
+    stats: globalStats,
+    insights: insightsByMode.global,
+    eloSeries: globalEloSeries,
+    modeMatches: allSummaries,
+    unifiedMatches: globalUnifiedMatches,
+    storedRecords: validRecords,
+  });
   const globalIns = insightsByMode.global;
   const globalDuration = globalIns?.durationAnalysis?.total >= 4
     ? { ...globalIns.durationAnalysis, sourceLabel: `AoE2Insights · ${globalIns.durationAnalysis.total} partidas` }
@@ -1474,6 +1570,10 @@ function computeCentralAnalytics({
     ladder: globalLadder,
     stats: globalStats,
     civDiagnostics: globalCivDiagnostics,
+    mapDiagnostics: globalMapDiagnostics,
+    academy: globalAcademy,
+    competitiveIntel: globalCompetitiveIntel,
+    discoveries: globalDiscoveries,
     unifiedMatchCount: globalUnifiedMatches.length,
     eloSeries: [],
     eloStats: { min: null, max: null, start: null, latest: globalLadder.rating, peak: globalLadder.peak, netDelta: null, totalPoints: 0 },
@@ -1590,7 +1690,8 @@ const centralBgRefresh = new Set();
 function readCachedRows(cache, pid, modeId) {
   if (!cache || typeof cache.get !== 'function') return null;
   const hit500 = cache.get(`scout:rows:v2:${pid}:${modeId}:500`);
-  if (hit500 && hit500.rows && Date.now() - (hit500.at || 0) < 6 * 60 * 60 * 1000) return hit500;
+  const ts = hit500 && (hit500.ts ?? hit500.at);
+  if (hit500 && hit500.rows && Number.isFinite(ts) && Date.now() - ts < 6 * 60 * 60 * 1000) return hit500;
   return null;
 }
 
@@ -1638,8 +1739,10 @@ async function fetchCentralCoreRaw(pid, { alias, cache, force, signal }) {
     rawPromise = (async () => {
       const mine1v1 = !force && cache?.get(`mine:${pid}:3`);
       const mineTeam = !force && cache?.get(`mine:${pid}:4`);
-      const freshMine1v1 = mine1v1 && Array.isArray(mine1v1.matches) && (Date.now() - (mine1v1.at || 0) < 3 * 60 * 1000) ? mine1v1.matches.slice(0, 40) : null;
-      const freshMineTeam = mineTeam && Array.isArray(mineTeam.matches) && (Date.now() - (mineTeam.at || 0) < 3 * 60 * 1000) ? mineTeam.matches.slice(0, 40) : null;
+      const m1Ts = mine1v1 && (mine1v1.ts ?? mine1v1.at ?? 0);
+      const m4Ts = mineTeam && (mineTeam.ts ?? mineTeam.at ?? 0);
+      const freshMine1v1 = mine1v1 && Array.isArray(mine1v1.matches) && (Date.now() - m1Ts < 3 * 60 * 1000) ? mine1v1.matches.slice(0, 40) : null;
+      const freshMineTeam = mineTeam && Array.isArray(mineTeam.matches) && (Date.now() - m4Ts < 3 * 60 * 1000) ? mineTeam.matches.slice(0, 40) : null;
 
       const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesTeamRes, matchesAllRes] = await Promise.allSettled([
         fetchPersonalStats([pid], 3, 7000, { signal }),
@@ -1690,11 +1793,17 @@ async function hydrateCentralInsights(pid, raw, { cache, force, signal }) {
 
   const next1v1 = i1Res.status === 'fulfilled' ? i1Res.value : raw.insights1v1;
   const nextTeam = i4Res.status === 'fulfilled' ? i4Res.value : raw.insightsTeam;
-  if (cache && next1v1 && Array.isArray(next1v1.rows)) {
-    cache.set(`scout:rows:v2:${pid}:3:500`, { ...next1v1, at: Date.now() });
+  if (cache && next1v1) {
+    const rows = normalizeInsightsRows(next1v1);
+    if (rows.length > 0) {
+      cache.set(`scout:rows:v2:${pid}:3:500`, { ts: Date.now(), rows, totalRows: Number(next1v1.count) || rows.length });
+    }
   }
-  if (cache && nextTeam && Array.isArray(nextTeam.rows)) {
-    cache.set(`scout:rows:v2:${pid}:4:500`, { ...nextTeam, at: Date.now() });
+  if (cache && nextTeam) {
+    const rows = normalizeInsightsRows(nextTeam);
+    if (rows.length > 0) {
+      cache.set(`scout:rows:v2:${pid}:4:500`, { ts: Date.now(), rows, totalRows: Number(nextTeam.count) || rows.length });
+    }
   }
   return {
     raw: { ...raw, insights1v1: next1v1, insightsTeam: nextTeam },

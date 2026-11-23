@@ -306,8 +306,8 @@ function op(playerId, ms, type, payload = {}) {
   assert.match(unifiedHtml, /pm-icon-tile/);
   assert.match(unifiedHtml, /Tu evolución · vs tus últimas 4 partidas/);
   assert.match(unifiedHtml, /Llegada a Feudal/);
-  assert.match(unifiedHtml, /Expansión eco/);
-  assert.match(unifiedHtml, /Edif\. militares/);
+  assert.match(unifiedHtml, /Expansión económica/);
+  assert.match(unifiedHtml, /Edificios militares/);
   assert.match(unifiedHtml, /Centros Urbanos/);
   assert.doesNotMatch(unifiedHtml, /Aldeanos pedidos|TC inactivo est\.|Uso de TC|Pico \d+ · faltaron/i);
   assert.match(unifiedHtml, /Récord personal/);
@@ -594,6 +594,209 @@ function op(playerId, ms, type, payload = {}) {
   });
   assert.ok(!sparseRep.engine.narrative.medals.some((m) => m.id === 'story-win-streak' || m.id === 'story-comeback-break'),
     'must not fabricate win/loss streaks without authoritative historyRows');
+}
+
+// 10. 100% Civilization-Aware Postmatch Engine & 56-Civ Mastery Suite
+{
+  const {
+    classifyCombatClass,
+    tcResearchDuration,
+    normalizeCivSlug,
+    civHasTech,
+  } = require('../src/engine/postmatch-engine');
+  const { CIV_MASTERY_PROFILES } = require('../src/engine/civ-mastery');
+  const CIV_TECH = require('../src/civ-tech.json');
+
+  // 10.1 Coverage: EVERY single standard civilization in civ-tech.json has a mastery profile
+  const allStdCivs = Object.keys(CIV_TECH.civilizations || {});
+  assert.ok(allStdCivs.length >= 56, `Expected >=56 standard civs in civ-tech.json, got ${allStdCivs.length}`);
+  for (const slug of allStdCivs) {
+    assert.ok(Array.isArray(CIV_MASTERY_PROFILES[slug]) && CIV_MASTERY_PROFILES[slug].length >= 1,
+      `Missing mastery profile for standard civ: ${slug}`);
+  }
+  assert.equal(normalizeCivSlug('Sarracenos'), 'saracens');
+  assert.equal(normalizeCivSlug('Borgoñeses'), 'burgundians');
+  assert.equal(normalizeCivSlug('Godos'), 'goths');
+  assert.equal(normalizeCivSlug('Malayos'), 'malay');
+  assert.equal(normalizeCivSlug('Kitán'), 'khitans');
+
+  // 10.2 Combat class audit fixes (14 previously misclassified units)
+  assert.equal(classifyCombatClass(1709, 49, { key: 'obus' }), 'none', 'Houfnice 1709 is siege (none)');
+  assert.equal(classifyCombatClass(1911, 87, { key: 'granadero' }), 'gunpowder', 'Jurchen Grenadier 1911 is gunpowder');
+  assert.equal(classifyCombatClass(2562, 82, { key: 'guerrero-guecha' }), 'ranged');
+  assert.equal(classifyCombatClass(2569, 82, { key: 'jinete-con-boleadoras' }), 'ranged');
+  assert.equal(classifyCombatClass(1010, 87, { key: 'escaramuzador-zenete' }), 'ranged');
+  assert.equal(classifyCombatClass(1952, 87, { key: 'saqueador-xianbei' }), 'ranged');
+  assert.equal(classifyCombatClass(755, 82, { key: 'tarcano' }), 'cavalry');
+  assert.equal(classifyCombatClass(869, 82, { key: 'huszar-magiar' }), 'cavalry');
+  assert.equal(classifyCombatClass(1655, 82, { key: 'costiller' }), 'cavalry');
+  assert.equal(classifyCombatClass(2566, 82, { key: 'kona' }), 'cavalry');
+  assert.equal(classifyCombatClass(751, 0, { key: 'explorador-aguila' }), 'infantry');
+  assert.equal(classifyCombatClass(2550, 0, { key: 'explorador-champi' }), 'infantry');
+  assert.equal(classifyCombatClass(7, 2556, { key: 'guerrillero' }), 'ranged', 'Settlement Skirm is ranged');
+  assert.equal(classifyCombatClass(1786, 2556, { key: 'lancero' }), 'infantry', 'Settlement Spear is infantry');
+
+  // 10.3 TC research speed bonuses (Portuguese TB, Vietnamese 2x WB/HC, Goths Loom, Malay ages)
+  assert.equal(tcResearchDuration(22, 'Godos', 'dark'), 1, 'Goths Spanish name gets instant Loom');
+  assert.equal(tcResearchDuration(101, 'Malayos', 'dark'), Math.round(130 / 1.66), 'Malay Spanish name ages up +66% faster');
+  assert.equal(tcResearchDuration(213, 'Vietnamese', 'feudal'), 38, 'Vietnamese Wheelbarrow 2x faster (38s)');
+  assert.equal(tcResearchDuration(249, 'Vietnamese', 'castle'), 28, 'Vietnamese Hand Cart 2x faster (28s)');
+  assert.equal(tcResearchDuration(22, 'Franks', 'dark', new Set(['franks', 'portuguese'])), 20, 'Portuguese ally TB speeds up Loom (20s)');
+  assert.equal(tcResearchDuration(213, 'Franks', 'feudal', new Set(['franks', 'portuguese'])), 60, 'Portuguese ally TB speeds up Wheelbarrow (60s)');
+  assert.equal(tcResearchDuration(101, 'Franks', 'dark', new Set(['franks', 'portuguese'])), 130, 'Portuguese ally TB must NOT speed up Age-Up');
+
+  const mkBuildOp = (pid, ms, buildingId) => ({
+    Action: { world_time: ms, action_data: { Build: { player_id: pid, building_id: buildingId } } },
+  });
+  const mkMarketOp = (pid, ms, type = 'Sell', resType = 1) => ({
+    Action: { world_time: ms, action_data: { [type]: { player_id: pid, resource_type: resType, data: [resType, 0, 1] } } },
+  });
+  const mkBaseEcoOps = (pid, maxMin = 24) => {
+    const out = [];
+    for (let t = 5_000; t <= maxMin * 60_000; t += 25_000) out.push(op(pid, t, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] }));
+    out.push(op(pid, 610_000, 'Research', { technology_type: 202, building_id: 200 }));
+    return out;
+  };
+
+  // 10.4 SARACENS (Spanish 'Sarracenos'): heavy early Market MUST NEVER trigger neg-market-heavy AND MUST award civ-saracens-market!
+  {
+    const ops = [...mkBaseEcoOps(1, 24)];
+    for (let i = 0; i < 14; i += 1) ops.push(mkMarketOp(1, 650_000 + i * 20_000, i % 2 === 0 ? 'Sell' : 'Buy', i % 2 === 0 ? 1 : 0));
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, selfCiv: 'Sarracenos', durationMs: 24 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1020_000 },
+    });
+    assert.ok(!res.negatives.some((n) => n.id === 'neg-market-heavy'), 'Saracens MUST NEVER be penalized for Market usage');
+    assert.match(res.self.marketProfile.note, /Mercado sarraceno|5%/i, 'Saracens market note must not accuse player');
+    assert.ok(res.civMastery && res.civMastery.leveraged.some((l) => l.id === 'civ-saracens-market'), 'Saracens Market leverage must be recognized');
+  }
+
+  // 10.5 TECH-TREE GUARD: Mapuche Kona (no Barding in tech tree!) must NEVER get neg-bs-cav-armor; Burmese Arambai wellEquipped with Padded (211)
+  {
+    assert.equal(civHasTech('mapuche', 81), false, 'Mapuche lacks Scale Barding');
+    const ops = [...mkBaseEcoOps(1, 24)];
+    ops.push(op(1, 1080_000, 'DeQueue', { unit_id: 2566, amount: 24, building_type: 82, building_ids: [500] }));
+    ops.push(op(1, 700_000, 'Research', { technology_type: 67, building_id: 300 }));
+    ops.push(op(1, 1060_000, 'Research', { technology_type: 68, building_id: 300 }));
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, selfCiv: 'Mapuche', durationMs: 24 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1020_000 },
+    });
+    assert.ok(!res.negatives.some((n) => n.id === 'neg-bs-cav-armor'), 'Mapuche Kona must NOT be penalized for missing Barding armor');
+    assert.equal(res.self.techProfile.armyRelevance.relevantExpected, 2, 'Mapuche Castle cav expects only Forging + Iron Casting (2)');
+    assert.equal(res.self.techProfile.armyRelevance.wellEquipped, true);
+  }
+  {
+    const ops = [];
+    for (let t = 5_000; t <= 24 * 60_000; t += 25_000) ops.push(op(1, t, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] }));
+    ops.push(op(1, 1080_000, 'DeQueue', { unit_id: 1126, amount: 22, building_type: 82, building_ids: [500] }));
+    ops.push(op(1, 1050_000, 'Research', { technology_type: 211, building_id: 300 })); // Only archer armor Burmese have!
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, selfCiv: 'Burmese', durationMs: 24 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1020_000 },
+    });
+    assert.equal(res.self.techProfile.armyRelevance.relevantExpected, 1, 'Burmese gunpowder expects only Padded Archer Armor (1)');
+    assert.equal(res.self.techProfile.armyRelevance.wellEquipped, true, 'Burmese Arambai with Padded Archer Armor must be wellEquipped');
+    // Also verify Burmese passive free DBA/BowSaw does NOT award manual-click medal-eco-techs
+    assert.ok(!res.positives.some((p) => p.id === 'medal-eco-techs'), 'Burmese must not auto-win medal-eco-techs for free lumber techs');
+  }
+
+  // 10.6 CHINESE DARK AGE GRACE: 35s unavoidable food-starvation pause at 0:00 must NOT emit neg-tc-gap
+  {
+    const ops = [];
+    for (let t = 35_000; t <= 16 * 60_000; t += 25_000) ops.push(op(1, t, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] }));
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, selfCiv: 'Chinese', durationMs: 16 * 60_000,
+      selfAges: { feudal: 600_000 },
+    });
+    assert.ok(!res.negatives.some((n) => n.id === 'neg-tc-gap'), 'Chinese structural 35s Dark opening must NOT trigger neg-tc-gap');
+  }
+
+  // 10.7 BURGUNDIANS EARLY ECO TECHS + KHITANS PASTURES + CUMANS 2TC FEUDAL + RIVAL MALAY BUFFER
+  {
+    const ops = [];
+    for (let t = 5_000; t <= 24 * 60_000; t += 25_000) ops.push(op(1, t, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] }));
+    ops.push(op(1, 300_000, 'Research', { technology_type: 202, building_id: 200 })); // DBA in Dark Age!
+    ops.push(op(1, 720_000, 'Research', { technology_type: 203, building_id: 200 })); // Bow Saw in Feudal!
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, selfCiv: 'Borgoñeses', durationMs: 24 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1020_000 },
+    });
+    assert.ok(res.self.techProfile.doubleBitAxeOffsetSec < 0, 'Burgundians Dark DBA must record negative offset');
+    assert.ok(res.civMastery && res.civMastery.leveraged.some((l) => l.id === 'civ-burgundians-early-eco'), 'Burgundians early eco must be leveraged');
+  }
+  {
+    const ops = [...mkBaseEcoOps(1, 24)];
+    for (let i = 0; i < 12; i += 1) ops.push(mkBuildOp(1, 700_000 + i * 20_000, 1889)); // 12 Pastures
+    ops.push(op(1, 680_000, 'Research', { technology_type: 1014, building_id: 201 })); // Domestication
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, selfCiv: 'Khitans', durationMs: 24 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1020_000 },
+    });
+    assert.equal(res.self.effectiveFarms, 24, 'Khitans 12 Pastures must count as 24 effective farms');
+    assert.ok(res.civMastery && res.civMastery.leveraged.some((l) => l.id === 'civ-khitans-pastures'), 'Khitans Pastures mastery must be leveraged');
+  }
+  {
+    const ops = [...mkBaseEcoOps(1, 24)];
+    ops.push(mkBuildOp(1, 660_000, 621)); // 2nd TC in Feudal!
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, rivalSlot: 2, selfCiv: 'Cumans', rivalCiv: 'Franks', durationMs: 24 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1200_000 },
+      rivalAges: { feudal: 600_000, castle: 1020_000 },
+    });
+    assert.ok(!res.negatives.some((n) => n.id === 'neg-late-castle'), 'Cumans 2TC Feudal boom must NOT trigger neg-late-castle');
+    assert.ok(res.civMastery && res.civMastery.leveraged.some((l) => l.id === 'civ-cumans-2tc'));
+  }
+  {
+    // Rival Malay reaches Castle 80s faster (normal +66% bonus) -> must NOT falsely fire neg-late-castle
+    const ops = [...mkBaseEcoOps(1, 22)];
+    const res = analyzePostmatchEngine(ops, {
+      selfSlot: 1, rivalSlot: 2, selfCiv: 'Franks', rivalCiv: 'Malayos', durationMs: 22 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1060_000 },
+      rivalAges: { feudal: 560_000, castle: 980_000 },
+    });
+    assert.ok(!res.negatives.some((n) => n.id === 'neg-late-castle'), 'Rival Malay +66% age-up speed must raise castle lag threshold');
+  }
+
+  // 10.8 FAIRNESS GATES & POSTMATCH UI RENDERING (0 inline styles)
+  {
+    const shortOps = [op(1, 10_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] })];
+    const shortRes = analyzePostmatchEngine(shortOps, { selfSlot: 1, selfCiv: 'Saracens', durationMs: 6 * 60_000 });
+    assert.equal(shortRes.civMastery, null, 'Short match (<10 min) must abstain from civMastery');
+
+    // Normalize & render civMastery in Postmatch UI cleanly with 0 inline styles
+    const ops = [...mkBaseEcoOps(1, 24)];
+    for (let i = 0; i < 6; i += 1) ops.push(mkMarketOp(1, 650_000 + i * 20_000, 'Sell', 1));
+    const eng = analyzePostmatchEngine(ops, {
+      selfSlot: 1, selfCiv: 'Saracens', durationMs: 24 * 60_000,
+      selfAges: { feudal: 600_000, castle: 1020_000 },
+    });
+    const norm = normalizeTelemetry({
+      schemaVersion: 1, matchId: '8888', profileId: '25399083', clock: 'game', durationSeconds: 1440,
+      source: { id: 'aoe2rec-local', type: 'replay-analysis', version: '2.9.0' },
+      context: { mapName: 'Arabia', leaderboardId: 3, civ: 'Saracens', gameSpeed: 'normal', startingAge: 'dark' },
+      metrics: { apm: { value: 50, definition: 'raw-command-apm-v1' }, eapm: { value: 44, definition: 'debounced-command-eapm-v1' } },
+      phases: {},
+      engineSummary: eng,
+    }, { matchId: '8888', profileId: '25399083' });
+    assert.ok(norm.data.engineSummary.civMastery, 'normalizeTelemetry must preserve civMastery');
+    const rep = buildPostMatchReport({
+      match: {
+        matchId: '8888', startedAt: Date.now() - 25 * 60_000, finishedAt: Date.now(),
+        leaderboardId: 3, mapName: 'Arabia',
+        players: [
+          { profileId: '25399083', name: 'PSX | Acido', civ: 'Saracens', team: 1, won: true, ratingDiff: 15 },
+          { profileId: '99999', name: 'Rival', civ: 'Franks', team: 2, won: false, ratingDiff: -15 },
+        ],
+      },
+      profileId: '25399083', telemetry: norm.data, records: [],
+    });
+    const html = TacticalUI.renderPostMatch(rep, { replay: true, comparison: true });
+    assert.match(html, /class="pm-civ-mastery"/, 'Postmatch UI must render Civ Mastery section');
+    assert.match(html, /Bonos de civilización/, 'Postmatch UI must label Civ Bonuses section');
+    assert.match(html, /Mercado sarraceno/, 'Postmatch UI must display Saracens Market leverage');
+    assert.doesNotMatch(html, /\sstyle=/i, 'CSP: Postmatch HTML with Civ Mastery must have 0 inline styles');
+  }
 }
 
 console.log('postmatch-engine-test: ok');

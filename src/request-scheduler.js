@@ -1,18 +1,35 @@
 'use strict';
 
-/** Coordina solicitudes de historial con cadencia adaptativa y cancelación por AbortSignal. */
+/**
+ * Coordina solicitudes con Token-Bucket (ráfaga inicial paralela hasta `maxConcurrent`,
+ * recarga continua cada `intervalMs`, backoff AIMD ante HTTP 429 y cancelación por AbortSignal).
+ */
 class RequestScheduler {
-  constructor({ intervalMs = 320, maxIntervalMs = 1000, maxConcurrent = 3, maxWaitMs = 8000 } = {}) {
+  constructor({ intervalMs = 220, maxIntervalMs = 1000, maxConcurrent = 3, maxWaitMs = 8000, burstTokens = maxConcurrent } = {}) {
     this.baseIntervalMs = intervalMs;
     this.intervalMs = intervalMs;
     this.maxIntervalMs = maxIntervalMs;
     this.maxConcurrent = maxConcurrent;
     this.maxWaitMs = maxWaitMs;
+    this.maxTokens = Math.max(1, Number(burstTokens) || maxConcurrent);
+    this.tokens = this.maxTokens;
+    this.lastRefillAt = Date.now();
     this.nextAt = 0;
     this.cooldownUntil = 0;
     this.active = 0;
     this.queue = [];
     this.timer = null;
+  }
+
+  _refill(now = Date.now()) {
+    if (now <= this.lastRefillAt) return;
+    const elapsed = now - this.lastRefillAt;
+    const step = Math.max(1, this.intervalMs);
+    const add = Math.floor(elapsed / step);
+    if (add > 0) {
+      this.tokens = Math.min(this.maxTokens, this.tokens + add);
+      this.lastRefillAt = this.tokens >= this.maxTokens ? now : (this.lastRefillAt + add * step);
+    }
   }
 
   run(task, priority = 0, { signal = null } = {}) {
@@ -41,7 +58,7 @@ class RequestScheduler {
   pump() {
     if (this.timer || !this.queue.length || this.active >= this.maxConcurrent) return;
     const now = Date.now();
-    const pause = Math.max(this.nextAt, this.cooldownUntil) - now;
+    this._refill(now);
     if (this.cooldownUntil - now > this.maxWaitMs) {
       const waiting = this.queue.splice(0);
       for (const item of waiting) {
@@ -53,8 +70,15 @@ class RequestScheduler {
       }
       return;
     }
-    if (pause > 0) {
-      this.timer = setTimeout(() => { this.timer = null; this.pump(); }, pause);
+    const cooldownPause = this.cooldownUntil - now;
+    if (cooldownPause > 0) {
+      this.timer = setTimeout(() => { this.timer = null; this.pump(); }, cooldownPause);
+      return;
+    }
+    if (this.tokens < 1) {
+      const waitForToken = Math.max(15, this.intervalMs - (now - this.lastRefillAt));
+      this.nextAt = now + waitForToken;
+      this.timer = setTimeout(() => { this.timer = null; this.pump(); }, waitForToken);
       return;
     }
     let first = 0;
@@ -70,10 +94,11 @@ class RequestScheduler {
       this.pump();
       return;
     }
+    if (this.tokens >= this.maxTokens) this.lastRefillAt = now;
+    this.tokens -= 1;
     this.active += 1;
-    this.nextAt = Date.now() + this.intervalMs;
+    this.nextAt = this.tokens >= 1 ? now : (now + this.intervalMs);
     Promise.resolve().then(item.task).then((value) => {
-      // Recuperación suave hacia la cadencia base tras respuestas limpias
       if (this.intervalMs > this.baseIntervalMs) {
         this.intervalMs = Math.max(this.baseIntervalMs, Math.round(this.intervalMs * 0.85));
       }
@@ -81,6 +106,8 @@ class RequestScheduler {
     }, (error) => {
       if (error && error.status === 429) {
         const delay = Number.isFinite(error.retryAfterMs) ? Math.max(0, error.retryAfterMs) : 5000;
+        this.tokens = 0;
+        this.lastRefillAt = Date.now();
         this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + delay);
         this.intervalMs = Math.min(this.maxIntervalMs, Math.max(650, Math.round(this.intervalMs * 1.5)));
       }

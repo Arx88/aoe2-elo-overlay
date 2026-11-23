@@ -23,7 +23,7 @@ const LINES = {
   cavarchers: { label: 'Arqueros montados', icon: 'bow', role: 'cavarchers', tiers: [[3, 'Cavalry Archer', 'Mounted Crossbowman'], [4, 'Heavy Cavalry Archer', 'Heavy Mounted Crossbowman']], techs: [...ARCHER_TECHS, ['Bloodlines', 2], ['Husbandry', 3], ['Parthian Tactics', 4]] },
   siege: { label: 'Asedio de apoyo', icon: 'castle', role: 'siege', tiers: [[3, 'Mangonel'], [4, 'Onager'], [4, 'Siege Onager']], techs: [['Siege Engineers', 4]] },
   skirmishers: { label: 'Guerrilleros', icon: 'shield', response: true, tiers: [[2, 'Skirmisher'], [3, 'Elite Skirmisher'], [4, 'Imperial Skirmisher']], techs: ARCHER_TECHS.filter(([n]) => n !== 'Thumb Ring' && n !== 'Ballistics') },
-  spears: { label: 'Lanzas y piqueros', icon: 'shield', response: true, tiers: [[2, 'Spearman'], [3, 'Pikeman'], [4, 'Halberdier']], techs: INF_TECHS },
+  spears: { label: 'Lanceros y piqueros', icon: 'shield', response: true, tiers: [[2, 'Spearman'], [3, 'Pikeman'], [4, 'Halberdier']], techs: INF_TECHS },
   monks: { label: 'Monjes', icon: 'target', response: true, tiers: [[3, 'Monk']], techs: [['Sanctity', 3], ['Fervor', 3], ['Block Printing', 4], ['Theocracy', 4]] },
 };
 // Decision-policy weights, not measured damage or matchup win probabilities.
@@ -149,7 +149,7 @@ function buildOpportunityPlan(options = {}) {
     // A unique counter is modeled explicitly; absence of Halberdier alone
     // never turns a civ with camels/monks/pikes into a cavalry weakness.
     if (line.key === 'archers' && rivalSlug === 'goths' && tree.civilizations[rivalSlug].nodes.Huskarl <= ageId) {
-      counters.unshift({ key: 'huskarl', label: 'Huskarls', risk: .98 });
+      counters.unshift({ key: 'huskarl', label: 'Huscarles', risk: .98 });
     }
     const counterRisk = clamp((counters[0]?.risk || 0) + .05 * Math.max(0, counters.filter((c) => c.risk >= .6).length - 1));
     const faced = scopeRows.filter((row) => (row.opponents || [row]).some((opponent) =>

@@ -53,6 +53,9 @@ let lastActiveSteamId = null;
 let lastSteamCheckAt = 0;
 const { CIV_SLUGS, CIV_ALIASES, civSlug } = require('./src/civs');
 const { CIV_GUIDE } = require('./src/civ-guide');
+let MAP_ART = {};
+try { MAP_ART = require('./src/map-art.json'); } catch { MAP_ART = {}; }
+try { app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required'); } catch { /* ignore */ }
 const {
   SHOW_AT_MS,
   HIDE_AT_MS,
@@ -132,6 +135,8 @@ try {
 
 const DEFAULT_CONFIG = {
   profileId: null,
+  autoProfileId: null,
+  autoAlias: null,
   pollSeconds: 15,
   idlePollSeconds: 3,
   width: 520,
@@ -3320,7 +3325,9 @@ function registerIpc() {
     applyHeight(height);
   });
 
-  ipcMain.handle('settings:get', () => ({
+  ipcMain.handle('settings:get', async () => {
+    await ensureProfileReady();
+    return {
     profileId,
     alias: playerAlias,
     origin: config.profileId ? 'manual' : 'auto',
@@ -3354,6 +3361,7 @@ function registerIpc() {
     postMatchReplay: Boolean(config.postMatchReplay),
     shields: CIV_SLUGS,
     civAliases: CIV_ALIASES,
+    mapArt: MAP_ART,
     language: config.language ? i18n.getLocale(config.language) : null,
     activeLanguage: i18n.getLocale(config.language),
     wizardCompleted: Boolean(config.wizardCompleted),
@@ -3368,7 +3376,8 @@ function registerIpc() {
     example: exampleStatus(),
     version: app.getVersion(),
     diagnostics: diagnostics(),
-  }));
+  };
+  });
 
   // Panel "Updater": estado real de electron-updater. En desarrollo el módulo
   // devuelve active:false y la UI lo muestra sin inventar datos.
@@ -3421,7 +3430,7 @@ function registerIpc() {
       if (!detected) {
         return { ok: false, error: 'No encontré ninguna cuenta de AoE2 en esta PC. Escribí tu nombre o tu ID.' };
       }
-      persistProfile(null);
+      persistConfig({ profileId: null, autoProfileId: Number(detected.profileId), autoAlias: detected.alias || null });
       setRuntimeProfile(detected.profileId, detected.alias);
       log(`detección pedida desde configuración: ${detected.alias || 'sin alias'} (${detected.profileId})`);
       return { ok: true, profileId: detected.profileId, alias: detected.alias };
@@ -3665,6 +3674,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('postmatch:get', async () => {
+    await ensureProfileReady();
     const recentMatches = await getRecentMatchesList(10);
     if (!postMatchReport && recentMatches.length > 0 && productState().featureAccess.postMatch) {
       const first = recentMatches[0];
@@ -3841,6 +3851,7 @@ function registerIpc() {
 
   let centralAbort = null;
   ipcMain.handle('central:get', async (_event, rawOptions) => {
+    await ensureProfileReady();
     const opts = (rawOptions && typeof rawOptions === 'object')
       ? rawOptions
       : { force: Boolean(rawOptions) };
@@ -5214,6 +5225,31 @@ function startPolling() {
   poll().then((status) => scheduleNext(status));
 }
 
+let startupDetectPromise = null;
+
+function readCachedDiskProfile() {
+  try {
+    if (!fs.existsSync(CENTRAL_CACHE_PATH)) return null;
+    const parsed = JSON.parse(fs.readFileSync(CENTRAL_CACHE_PATH, 'utf8'));
+    const pid = Number(parsed?.profileId);
+    if (!Number.isFinite(pid) || pid <= 0) return null;
+    const alias = parsed?.raw?.profileData?.name || null;
+    return { profileId: pid, alias };
+  } catch {
+    return null;
+  }
+}
+
+async function ensureProfileReady() {
+  if (profileId || NO_PROFILE || DEMO) return;
+  if (startupDetectPromise) {
+    await Promise.race([
+      startupDetectPromise,
+      new Promise((resolve) => setTimeout(resolve, 3500)),
+    ]);
+  }
+}
+
 async function bootstrap() {
   if (EXAMPLE_QUERY) {
     // Captura/verificación por línea de comandos: datos REALES, sin tocar la
@@ -5244,7 +5280,20 @@ async function bootstrap() {
     profileId = Number(config.profileId);
     log(`profile_id desde config.json: ${profileId}`);
   } else {
-    log('config.json sin profileId: detectando la cuenta del juego en segundo plano…');
+    // Sembrar al instante el último perfil auto-detectado (o el de central-cache.json) para que
+    // Central y Mi cuenta abran cargados en t=0ms mientras se verifica Steam en segundo plano.
+    const cachedDisk = readCachedDiskProfile();
+    const seededPid = Number(config.autoProfileId) > 0
+      ? Number(config.autoProfileId)
+      : (cachedDisk?.profileId || null);
+    const seededAlias = config.autoAlias || cachedDisk?.alias || null;
+    if (seededPid) {
+      profileId = seededPid;
+      playerAlias = seededAlias;
+      log(`profile_id auto-sembrado al instante: ${playerAlias || 'sin alias'} (${profileId})`);
+    } else {
+      log('config.json sin profileId: detectando la cuenta del juego…');
+    }
   }
   createWindow();
   screen.on('display-metrics-changed', () => {
@@ -5253,20 +5302,27 @@ async function bootstrap() {
     sendView(true);
   });
   initMinimizeWatcher();
-  if (!needsAutoDetect) {
+  if (profileId) {
     startPolling();
     startLive();
-  } else {
-    // Abrir la ventana de inmediato sin bloquear el arranque por el registro/red.
-    detectProfile(log)
+  }
+  if (needsAutoDetect) {
+    startupDetectPromise = detectProfile(log)
       .then((detected) => {
-        if (detected && !profileId) {
-          log(`perfil detectado: ${detected.alias || 'sin alias'} (${detected.profileId})`);
-          setRuntimeProfile(detected.profileId, detected.alias);
+        if (detected && Number(detected.profileId) > 0) {
+          persistConfig({ autoProfileId: Number(detected.profileId), autoAlias: detected.alias || null });
+          const changed = Number(profileId) !== Number(detected.profileId);
+          if (changed) {
+            log(`perfil detectado: ${detected.alias || 'sin alias'} (${detected.profileId})`);
+            setRuntimeProfile(detected.profileId, detected.alias);
+          } else if (detected.alias && playerAlias !== detected.alias) {
+            playerAlias = detected.alias;
+          }
           if (settingsWin && !settingsWin.isDestroyed()) {
             settingsWin.webContents.send('settings:profile-detected', {
-              profileId: detected.profileId,
-              alias: detected.alias || null,
+              profileId: Number(detected.profileId),
+              alias: detected.alias || playerAlias || null,
+              changed,
             });
           }
         } else if (!profileId) {
@@ -5276,7 +5332,10 @@ async function bootstrap() {
       })
       .catch((err) => {
         log(`detección falló: ${err.message}`);
-        startPolling();
+        if (!profileId) startPolling();
+      })
+      .finally(() => {
+        startupDetectPromise = null;
       });
   }
 

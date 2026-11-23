@@ -18,12 +18,12 @@
       "trainSeconds": 34
     },
     "6": {
-      "name": "Hostigador de élite",
+      "name": "Guerrillero de élite",
       "key": "hostigador-de-elite",
       "trainSeconds": 22
     },
     "7": {
-      "name": "Hostigador",
+      "name": "Guerrillero",
       "key": "hostigador",
       "trainSeconds": 26
     },
@@ -58,7 +58,7 @@
       "trainSeconds": 27
     },
     "25": {
-      "name": "Cab. Orden Teutónica",
+      "name": "Caballero de la Orden Teutónica",
       "key": "cab-orden-teutonica",
       "trainSeconds": 12
     },
@@ -113,7 +113,7 @@
       "trainSeconds": 21
     },
     "77": {
-      "name": "Espad. espada larga",
+      "name": "Espadachín de espada larga",
       "key": "espad-espada-larga",
       "trainSeconds": 21
     },
@@ -248,17 +248,17 @@
       "trainSeconds": 27
     },
     "448": {
-      "name": "Cab. de exploración",
+      "name": "Caballería de exploración",
       "key": "cab-de-exploracion",
       "trainSeconds": 30
     },
     "473": {
-      "name": "Espad. de mandoble",
+      "name": "Espadachín de mandoble",
       "key": "espad-de-mandoble",
       "trainSeconds": 21
     },
     "474": {
-      "name": "Cab. pesada de arq.",
+      "name": "Arquero a caballo pesado",
       "key": "cab-pesada-de-arq",
       "trainSeconds": 30
     },
@@ -273,7 +273,7 @@
       "trainSeconds": 31
     },
     "528": {
-      "name": "Buque dem. pesado",
+      "name": "Buque de demolición pesado",
       "key": "buque-dem-pesado",
       "trainSeconds": 31
     },
@@ -283,12 +283,12 @@
       "trainSeconds": 27
     },
     "530": {
-      "name": "Arq. tiro largo élite",
+      "name": "Arquero de tiro largo de élite",
       "key": "arq-tiro-largo-elite",
       "trainSeconds": 18
     },
     "531": {
-      "name": "Lanzador hachas élite",
+      "name": "Lanzador de hachas de élite",
       "key": "lanzador-hachas-elite",
       "trainSeconds": 13
     },
@@ -318,7 +318,7 @@
       "trainSeconds": 30
     },
     "545": {
-      "name": "Barco transporte",
+      "name": "Barco de transporte",
       "key": "barco-transporte",
       "trainSeconds": 46
     },
@@ -343,7 +343,7 @@
       "trainSeconds": 20
     },
     "554": {
-      "name": "Cab O. Teutónica élite",
+      "name": "Caballero de la Orden Teutónica de élite",
       "key": "cab-o-teutonica-elite",
       "trainSeconds": 12
     },
@@ -363,7 +363,7 @@
       "trainSeconds": 21
     },
     "558": {
-      "name": "Elefante guerra élite",
+      "name": "Elefante de guerra de élite",
       "key": "elefante-guerra-elite",
       "trainSeconds": 25
     },
@@ -398,7 +398,7 @@
       "trainSeconds": 46
     },
     "691": {
-      "name": "Galeón artillado élite",
+      "name": "Galeón artillado de élite",
       "key": "galeon-artillado-elite",
       "trainSeconds": 46
     },
@@ -693,7 +693,7 @@
       "trainSeconds": 24
     },
     "1155": {
-      "name": "Hostigador imperial",
+      "name": "Guerrillero imperial",
       "key": "hostigador-imperial",
       "trainSeconds": 22
     },
@@ -1188,7 +1188,7 @@
       "trainSeconds": 18
     },
     "2581": {
-      "name": "Arquero bosques élite",
+      "name": "Arquero de los bosques de élite",
       "key": "arquero-bosques-elite",
       "trainSeconds": 14
     },
@@ -1208,7 +1208,7 @@
       "trainSeconds": 28
     },
     "2587": {
-      "name": "Guardia templo élite",
+      "name": "Guardia del templo de élite",
       "key": "guardia-templo-elite",
       "trainSeconds": 24
     },
@@ -1300,7 +1300,7 @@
       "trainSeconds": 35
     },
     "49": {
-      "name": "Taller maq. de asedio",
+      "name": "Taller de maquinaria de asedio",
       "key": "taller-maq-de-asedio",
       "trainSeconds": 40
     },
@@ -1345,7 +1345,7 @@
       "trainSeconds": 60
     },
     "87": {
-      "name": "Galería tiro con arco",
+      "name": "Galería de tiro con arco",
       "key": "galeria-tiro-con-arco",
       "trainSeconds": 50
     },

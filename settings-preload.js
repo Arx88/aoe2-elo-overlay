@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('settings', {
   postmatchDismissOverlay: () => ipcRenderer.invoke('postmatch:dismiss-overlay'),
   centralGet: (force) => ipcRenderer.invoke('central:get', force),
   onCentral: (callback) => ipcRenderer.on('central:update', (_event, payload) => callback(payload)),
+  onProfileDetected: (callback) => ipcRenderer.on('settings:profile-detected', (_event, payload) => callback(payload)),
   tacticsGet: () => ipcRenderer.invoke('settings:tactics-get'),
   buildOrderGet: () => ipcRenderer.invoke('settings:build-order-get'),
   smartBuildOrder: (on) => ipcRenderer.invoke('settings:smart-build-order', on),

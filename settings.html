@@ -5,6 +5,8 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; font-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Relic · Centro de mando</title>
+    <link rel="preload" as="image" href="assets/art/wizard-umbral.webp" />
+    <link rel="preload" as="image" href="assets/brand/relic-icon.png" />
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="command.css" />
     <link rel="stylesheet" href="settings.css" />
@@ -14,6 +16,12 @@
     <link rel="stylesheet" href="wizard.css" />
   </head>
   <body>
+    <div id="appBootLoader" class="app-boot-loader" role="status" aria-live="polite">
+      <div class="app-boot-center">
+        <img class="app-boot-mark" src="assets/brand/relic-icon.png" alt="Relic" width="44" height="44" draggable="false" />
+        <div class="app-boot-track" aria-hidden="true"><i id="appBootFill"></i></div>
+      </div>
+    </div>
     <header class="winbar">
       <div class="winbar-brand">
         <img class="winbar-mark" src="assets/brand/relic-icon.png" alt="" width="20" height="20" draggable="false" />
