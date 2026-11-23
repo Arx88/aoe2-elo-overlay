@@ -369,6 +369,28 @@ async function redeemLicenseKey({ code, ...opts }) {
   return authedJsonRequest({ ...opts, path: '/v1/keys/redeem', method: 'POST', body: { code: String(code || '').trim() } });
 }
 
+async function createCheckoutOrder({ plan, cycle, method, coin = 'polygon_usdc', ...opts }) {
+  return authedJsonRequest({
+    ...opts,
+    path: '/v1/checkout/create',
+    method: 'POST',
+    body: {
+      plan: plan === 'pro' ? 'pro' : 'promax',
+      cycle: cycle === 'annual' ? 'annual' : 'monthly',
+      method: method === 'card' ? 'card' : 'crypto',
+      coin: coin === 'polygon_usdt' ? 'polygon_usdt' : 'polygon_usdc',
+    },
+  });
+}
+
+async function getCheckoutOrderStatus({ orderId, ...opts }) {
+  return authedJsonRequest({
+    ...opts,
+    path: `/v1/checkout/status?order=${encodeURIComponent(String(orderId || '').trim())}`,
+    method: 'GET',
+  });
+}
+
 module.exports = {
   DEFAULT_API_URL,
   RELEASE_PUBLIC_KEYS,
@@ -384,5 +406,7 @@ module.exports = {
   claimCurrentDevice,
   logoutRemoteSession,
   redeemLicenseKey,
+  createCheckoutOrder,
+  getCheckoutOrderStatus,
   submitRemoteFeedback,
 };

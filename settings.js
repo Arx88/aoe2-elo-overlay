@@ -3111,9 +3111,34 @@ function syncPlanPricingUi() {
   });
 }
 
+let activeCheckoutMethod = 'crypto';
+let activeCheckoutCoin = 'polygon_usdc';
+let activeCheckoutOrderId = null;
+let checkoutPollTimer = null;
+
+function stopCheckoutPolling() {
+  if (checkoutPollTimer) {
+    clearInterval(checkoutPollTimer);
+    checkoutPollTimer = null;
+  }
+}
+
+function resetCheckoutOrderUi() {
+  stopCheckoutPolling();
+  activeCheckoutOrderId = null;
+  const depBox = el('checkoutDepositBox');
+  if (depBox) depBox.hidden = true;
+  const confirmBtn = el('checkoutConfirmBtn');
+  if (confirmBtn) confirmBtn.disabled = false;
+}
+
 function paintCheckoutModal() {
   const cfg = PLAN_CATALOG[activeCheckoutPlan] || PLAN_CATALOG.promax;
   const isAnnual = activeBillingCycle === 'annual';
+  if (!isAnnual && activeCheckoutMethod === 'card') activeCheckoutMethod = 'crypto';
+  const isCard = activeCheckoutMethod === 'card' && isAnnual;
+  const coinLabel = activeCheckoutCoin === 'polygon_usdt' ? 'USDT' : 'USDC';
+
   const titleEl = el('checkoutModalTitle');
   const optM = el('checkoutOptMonthly');
   const optA = el('checkoutOptAnnual');
@@ -3125,6 +3150,11 @@ function paintCheckoutModal() {
   const perksEl = el('checkoutPerks');
   const confirmBtn = el('checkoutConfirmBtn');
   const noteEl = el('checkoutPreviewNote');
+  const cardBtn = el('checkoutMethodCard');
+  const cryptoBtn = el('checkoutMethodCrypto');
+  const cardSub = el('checkoutMethodCardSub');
+  const coinRow = el('checkoutCoinRow');
+  const coinLabelEl = el('checkoutCoinLabel');
 
   if (titleEl) titleEl.textContent = cfg.name;
   if (optM) optM.textContent = `${cfg.monthlyPrice}/mes`;
@@ -3141,6 +3171,23 @@ function paintCheckoutModal() {
   document.querySelectorAll('[data-checkout-cycle]').forEach((btn) => {
     btn.classList.toggle('is-active', btn.dataset.checkoutCycle === activeBillingCycle);
   });
+  if (cryptoBtn) cryptoBtn.classList.toggle('is-active', !isCard);
+  if (cardBtn) {
+    cardBtn.classList.toggle('is-active', isCard);
+    cardBtn.classList.toggle('is-annual-nudge', !isAnnual);
+  }
+  if (cardSub) {
+    cardSub.textContent = isAnnual ? 'Visa · Mastercard · PayGate' : 'Solo plan Anual (−20%)';
+  }
+  if (coinRow) coinRow.classList.toggle('is-card-mode', isCard);
+  if (coinLabelEl) {
+    coinLabelEl.textContent = isCard
+      ? 'Pago con tarjeta procesado vía PayGate.to'
+      : 'Moneda en red Polygon (PoS)';
+  }
+  document.querySelectorAll('[data-checkout-coin]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.checkoutCoin === activeCheckoutCoin);
+  });
 
   if (perksEl) {
     perksEl.replaceChildren();
@@ -3151,25 +3198,58 @@ function paintCheckoutModal() {
     });
   }
 
-  const commerceReady = Boolean(currentProduct?.commerce?.configured);
-  if (confirmBtn) {
-    confirmBtn.textContent = commerceReady
-      ? `Continuar al pago · ${isAnnual ? cfg.annualTotal : cfg.monthlyPrice} USD`
-      : 'Continuar al pago · Próximamente';
+  const priceStr = isAnnual ? cfg.annualTotal : cfg.monthlyPrice;
+  if (confirmBtn && !activeCheckoutOrderId) {
+    confirmBtn.textContent = isCard
+      ? `Pagar ${priceStr} con tarjeta →`
+      : `Pagar ${priceStr} en ${coinLabel} (Polygon)`;
   }
-  if (noteEl) {
-    noteEl.hidden = commerceReady;
+  if (noteEl && !activeCheckoutOrderId) {
+    noteEl.hidden = false;
+    noteEl.textContent = isCard
+      ? 'Se abrirá PayGate.to en tu navegador. Al confirmarse el pago, tu plan se activa automáticamente.'
+      : `Genera una dirección única en red Polygon (${coinLabel}). Tu plan se activa automáticamente al confirmarse.`;
   }
+}
+
+function startCheckoutPolling(orderId) {
+  stopCheckoutPolling();
+  activeCheckoutOrderId = orderId;
+  checkoutPollTimer = setInterval(async () => {
+    if (!activeCheckoutOrderId || typeof window.settings?.checkoutStatus !== 'function') return;
+    try {
+      const res = await window.settings.checkoutStatus(activeCheckoutOrderId);
+      if (res?.ok && res.order?.status === 'paid') {
+        stopCheckoutPolling();
+        const badge = el('checkoutOrderStatusBadge');
+        if (badge) {
+          badge.textContent = '¡Pago confirmado!';
+          badge.classList.add('is-paid');
+        }
+        const noteEl = el('checkoutPreviewNote');
+        if (noteEl) noteEl.textContent = '¡Listo! Tu plan ya quedó activado en tu cuenta Relic.';
+        const confirmBtn = el('checkoutConfirmBtn');
+        if (confirmBtn) {
+          confirmBtn.textContent = 'Plan activado ✓';
+          confirmBtn.disabled = true;
+        }
+        if (res.product) renderProduct(res.product);
+      }
+    } catch (_) {}
+  }, 5000);
 }
 
 function openCheckoutModal(planKey) {
   activeCheckoutPlan = planKey === 'pro' ? 'pro' : 'promax';
+  activeCheckoutMethod = activeBillingCycle === 'annual' ? 'card' : 'crypto';
+  resetCheckoutOrderUi();
   paintCheckoutModal();
   const modal = el('planCheckoutModal');
   if (modal) modal.hidden = false;
 }
 
 function closeCheckoutModal() {
+  resetCheckoutOrderUi();
   const modal = el('planCheckoutModal');
   if (modal) modal.hidden = true;
   syncPlanPricingUi();
@@ -3194,8 +3274,43 @@ document.querySelectorAll('[data-checkout-cycle]').forEach((btn) => {
     const next = btn.dataset.checkoutCycle === 'annual' ? 'annual' : 'monthly';
     if (next === activeBillingCycle) return;
     activeBillingCycle = next;
+    if (next === 'monthly') activeCheckoutMethod = 'crypto';
+    resetCheckoutOrderUi();
     paintCheckoutModal();
   });
+});
+
+document.querySelectorAll('[data-checkout-method]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const next = btn.dataset.checkoutMethod === 'card' ? 'card' : 'crypto';
+    if (next === 'card' && activeBillingCycle !== 'annual') {
+      activeBillingCycle = 'annual';
+    }
+    activeCheckoutMethod = next;
+    resetCheckoutOrderUi();
+    paintCheckoutModal();
+  });
+});
+
+document.querySelectorAll('[data-checkout-coin]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    activeCheckoutCoin = btn.dataset.checkoutCoin === 'polygon_usdt' ? 'polygon_usdt' : 'polygon_usdc';
+    resetCheckoutOrderUi();
+    paintCheckoutModal();
+  });
+});
+
+el('checkoutCopyAddrBtn')?.addEventListener('click', async () => {
+  const addr = el('checkoutDepositAddr')?.textContent?.trim();
+  if (!addr) return;
+  try {
+    await navigator.clipboard.writeText(addr);
+    const btn = el('checkoutCopyAddrBtn');
+    if (btn) {
+      btn.textContent = 'Copiada ✓';
+      setTimeout(() => { btn.textContent = 'Copiar'; }, 1800);
+    }
+  } catch (_) {}
 });
 
 el('checkoutCloseBtn')?.addEventListener('click', closeCheckoutModal);
@@ -3206,14 +3321,57 @@ checkoutBackdropEl?.addEventListener('click', (e) => {
 });
 
 el('checkoutConfirmBtn')?.addEventListener('click', async () => {
-  if (currentProduct?.commerce?.configured && typeof window.settings?.openCommerce === 'function') {
-    await window.settings.openCommerce('checkout');
-    closeCheckoutModal();
-  } else {
-    const note = el('checkoutPreviewNote');
-    if (note) {
-      note.textContent = 'Todavía estamos integrando la pasarela de pago. Si tenés una clave prepaga podés activarla abajo al instante.';
+  const btn = el('checkoutConfirmBtn');
+  const noteEl = el('checkoutPreviewNote');
+  if (typeof window.settings?.checkoutCreate !== 'function') return;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Generando orden...';
+  }
+  try {
+    const res = await window.settings.checkoutCreate({
+      plan: activeCheckoutPlan,
+      cycle: activeBillingCycle,
+      method: activeCheckoutMethod,
+      coin: activeCheckoutCoin,
+    });
+    if (!res?.ok) {
+      if (res?.authRequired || res?.unauthorized) {
+        if (noteEl) noteEl.textContent = 'Iniciá sesión con Google primero para vincular tu plan automáticamente.';
+        if (typeof window.settings?.authGoogleLogin === 'function') {
+          await window.settings.authGoogleLogin();
+        }
+      } else if (noteEl) {
+        noteEl.textContent = res?.error || 'No se pudo generar la orden de pago. Intentá de nuevo.';
+      }
+      if (btn) btn.disabled = false;
+      paintCheckoutModal();
+      return;
     }
+    const order = res.order || {};
+    if (order.method === 'crypto' && order.depositAddress) {
+      const depBox = el('checkoutDepositBox');
+      const depAmt = el('checkoutDepositAmount');
+      const depAddr = el('checkoutDepositAddr');
+      const badge = el('checkoutOrderStatusBadge');
+      if (depAmt) depAmt.textContent = `$${Number(order.amountUsd).toFixed(2)} ${order.currency || 'USDC'}`;
+      if (depAddr) depAddr.textContent = order.depositAddress;
+      if (badge) {
+        badge.textContent = 'Esperando pago';
+        badge.classList.remove('is-paid');
+      }
+      if (depBox) depBox.hidden = false;
+      if (btn) btn.textContent = 'Esperando transferencia en Polygon...';
+      if (noteEl) noteEl.textContent = 'Apenas se confirme en Polygon (suele tardar 10–30 s), tu plan se activa solo.';
+    } else {
+      if (btn) btn.textContent = 'Ventana de pago abierta · Esperando...';
+      if (noteEl) noteEl.textContent = 'Completá el pago en PayGate.to en tu navegador. Esta ventana se actualizará sola.';
+    }
+    if (order.orderId) startCheckoutPolling(order.orderId);
+  } catch (_) {
+    if (noteEl) noteEl.textContent = 'Error de conexión al crear la orden.';
+    if (btn) btn.disabled = false;
+    paintCheckoutModal();
   }
 });
 

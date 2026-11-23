@@ -4081,6 +4081,50 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('checkout:create', async (_event, payload = {}) => {
+    const apiUrl = licenseApiUrl();
+    const sessionToken = String(config.authSessionToken || '').trim();
+    if (!apiUrl) return { ok: false, error: 'Servidor de licencias no configurado.' };
+    if (!sessionToken) return { ok: false, authRequired: true, error: 'Iniciá sesión con Google para vincular el plan a tu cuenta.' };
+    const res = await licenseClient.createCheckoutOrder({
+      apiUrl,
+      sessionToken,
+      plan: payload?.plan,
+      cycle: payload?.cycle,
+      method: payload?.method,
+      coin: payload?.coin,
+    });
+    if (!res.ok) return { ok: false, unauthorized: Boolean(res.unauthorized), error: res.error || 'No se pudo iniciar el pago.' };
+    const data = res.data || {};
+    if (data.checkoutUrl) {
+      try {
+        const parsed = new URL(data.checkoutUrl);
+        if (parsed.protocol === 'https:' && parsed.hostname === 'checkout.paygate.to') {
+          await shell.openExternal(parsed.toString());
+        }
+      } catch (err) {
+        log(`checkout openExternal error: ${err.message}`);
+      }
+    }
+    return { ok: true, order: data };
+  });
+
+  ipcMain.handle('checkout:status', async (_event, orderId) => {
+    const apiUrl = licenseApiUrl();
+    const sessionToken = String(config.authSessionToken || '').trim();
+    if (!apiUrl || !sessionToken || !orderId) return { ok: false, error: 'missing-context' };
+    const res = await licenseClient.getCheckoutOrderStatus({ apiUrl, sessionToken, orderId });
+    if (!res.ok) return { ok: false, error: res.error };
+    const data = res.data || {};
+    if (data.status === 'paid') {
+      await syncRemoteLicense('checkout-paid').catch(() => {});
+      const auth = await fetchCurrentAuthState().catch(() => null);
+      if (auth) broadcastAuthState(auth);
+      return { ok: true, order: data, product: productState(), auth };
+    }
+    return { ok: true, order: data };
+  });
+
   ipcMain.handle('settings:language', (_event, rawLang) => {
     const next = i18n.normalizeLocale(rawLang);
     if (!next) return { ok: false, language: i18n.getLocale(config.language) };

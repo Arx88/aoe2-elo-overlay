@@ -878,14 +878,33 @@
           </button>
         </div>
 
+        <div class="checkout-method-row" role="group" aria-label="Método de pago">
+          <button type="button" class="checkout-method-opt is-active" id="checkoutMethodCrypto" data-checkout-method="crypto">
+            <span>USDT / USDC</span>
+            <small>Red Polygon · 0% extra</small>
+          </button>
+          <button type="button" class="checkout-method-opt" id="checkoutMethodCard" data-checkout-method="card">
+            <span>Tarjeta / Apple Pay</span>
+            <small id="checkoutMethodCardSub">Solo plan Anual (−20%)</small>
+          </button>
+        </div>
+
+        <div class="checkout-coin-row" id="checkoutCoinRow">
+          <span class="checkout-coin-label" id="checkoutCoinLabel">Moneda en red Polygon (PoS)</span>
+          <div class="checkout-coin-pills" role="group" aria-label="Stablecoin">
+            <button type="button" class="checkout-coin-pill is-active" data-checkout-coin="polygon_usdc">USDC</button>
+            <button type="button" class="checkout-coin-pill" data-checkout-coin="polygon_usdt">USDT</button>
+          </div>
+        </div>
+
         <div class="checkout-summary-box">
           <div class="checkout-line">
             <span id="checkoutPlanLine">Plan Relic Ultra (Mensual)</span>
             <strong id="checkoutSubtotal">$2.99 USD</strong>
           </div>
-          <div class="checkout-line is-save" id="checkoutSaveRow" hidden>
+          <div class="checkout-line is-save" id="checkoutSaveRow">
             <span>Descuento anual (−20%)</span>
-            <strong id="checkoutSaveVal">−$6.89 USD</strong>
+            <strong id="checkoutSaveVal">Sin descuento</strong>
           </div>
           <div class="checkout-line is-total">
             <span>Total hoy</span>
@@ -893,11 +912,23 @@
           </div>
         </div>
 
+        <div class="checkout-deposit-box" id="checkoutDepositBox" hidden>
+          <div class="checkout-deposit-head">
+            <span id="checkoutDepositTitle">Enviá exactamente <strong id="checkoutDepositAmount">$2.99 USDC</strong> (Polygon)</span>
+            <span class="checkout-deposit-badge" id="checkoutOrderStatusBadge">Esperando pago</span>
+          </div>
+          <div class="checkout-deposit-addr-row">
+            <code id="checkoutDepositAddr" class="checkout-deposit-addr">0x...</code>
+            <button type="button" id="checkoutCopyAddrBtn" class="btn checkout-copy-btn">Copiar</button>
+          </div>
+          <p class="checkout-deposit-hint" id="checkoutDepositHint">Usá únicamente red Polygon (PoS). Tu plan se activa automáticamente al confirmarse.</p>
+        </div>
+
         <ul class="checkout-perks" id="checkoutPerks"></ul>
 
         <div class="checkout-actions">
-          <button type="button" id="checkoutConfirmBtn" class="btn gold checkout-confirm-btn">Continuar al pago · Próximamente</button>
-          <p class="checkout-preview-note" id="checkoutPreviewNote">Pasarela de pago en integración. Apenas quede conectada podrás activar tu plan al instante desde acá.</p>
+          <button type="button" id="checkoutConfirmBtn" class="btn gold checkout-confirm-btn">Pagar con USDC (Polygon)</button>
+          <p class="checkout-preview-note" id="checkoutPreviewNote">Activación automática en tu cuenta Google apenas se confirma el pago.</p>
           <button type="button" id="checkoutUseKeyBtn" class="checkout-key-link">¿Ya tenés una clave prepaga? Canjeala acá →</button>
         </div>
       </div>

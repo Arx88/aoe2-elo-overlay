@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('settings', {
   authLogout: () => ipcRenderer.invoke('auth:logout'),
   authRevokeDevice: (machineHash) => ipcRenderer.invoke('auth:revokeDevice', machineHash),
   authRedeemKey: (code) => ipcRenderer.invoke('auth:redeemKey', code),
+  checkoutCreate: (payload) => ipcRenderer.invoke('checkout:create', payload),
+  checkoutStatus: (orderId) => ipcRenderer.invoke('checkout:status', orderId),
   onAuth: (callback) => ipcRenderer.on('auth:update', (_event, payload) => callback(payload)),
   openCommerce: (kind) => ipcRenderer.invoke('settings:open-commerce', kind),
   setLanguage: (lang) => ipcRenderer.invoke('settings:language', lang),
