@@ -19,7 +19,7 @@ const { seeOrder, pickCheckpoint } = require('./opening-review');
 const { observeQueue, collectCastlesWindow, supportedMap } = require('./castles-window');
 const { analyzePostmatchEngine } = require('./engine/postmatch-engine');
 
-const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v8';
+const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v9';
 
 const AGES = ['dark', 'feudal', 'castle', 'imperial'];
 const IDS = {
@@ -35,12 +35,13 @@ const IDS = {
   SPEARMAN: 93,
   PIKEMAN: 358,
   SCOUT_CAVALRY: 448,
-  LIGHT_CAVALRY: 37,
+  LIGHT_CAVALRY: 546,
   SERJEANT: 1658,
   BATTLE_ELEPHANT: 1132,
   SCORPION: 279,
   HEAVY_SCORPION: 542,
   BATTERING_RAM: 35,
+  BATTERING_RAM_DE: 1258,
   CAPPED_RAM: 422,
   SIEGE_RAM: 548,
   ARCHERY_RANGES: new Set([10, 14, 87]),
@@ -52,6 +53,7 @@ const IDS = {
   MONASTERY: 104,
   DONJON: 1665,
   TOWN_CENTER: 621,
+  TOWN_CENTERS: new Set([71, 109, 621]),
   ELEPHANT_CIVS: new Set(['Khmer', 'Burmese', 'Malay', 'Vietnamese']),
 };
 const FAST_CASTLE_MS = 9 * 60_000;
@@ -149,6 +151,7 @@ async function loadParser() {
 }
 
 function toArrayBuffer(buffer) {
+  if (buffer.byteOffset === 0 && buffer.byteLength === buffer.buffer.byteLength) return buffer.buffer;
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 }
 
@@ -183,13 +186,13 @@ function startingAgeLabel(id) {
   return ({ 2: 'dark', 3: 'feudal', 4: 'castle', 5: 'imperial' })[id] || 'dark';
 }
 
-function emptyPlayer() {
+function emptyPlayer(startingAge = 'dark') {
   return {
     actions: 0,
-    age: 'dark',
-    feudalMs: null,
-    castleMs: null,
-    imperialMs: null,
+    age: AGES.includes(startingAge) ? startingAge : 'dark',
+    feudalMs: startingAge === 'feudal' || startingAge === 'castle' || startingAge === 'imperial' ? 0 : null,
+    castleMs: startingAge === 'castle' || startingAge === 'imperial' ? 0 : null,
+    imperialMs: startingAge === 'imperial' ? 0 : null,
     practiceOrders: {},
     queues: [],
     villagers: Object.fromEntries(AGES.map((age) => [age, 0])),
@@ -291,12 +294,12 @@ function signals(player, civ) {
     feudal_stable: has(feudalBuildings, IDS.STABLES),
     feudal_siege_workshop: (feudalBuildings.get(IDS.SIEGE_WORKSHOP) || 0) > 0,
     feudal_monastery: (feudalBuildings.get(IDS.MONASTERY) || 0) > 0,
-    feudal_town_center: (feudalBuildings.get(IDS.TOWN_CENTER) || 0) > 0,
+    feudal_town_center: has(feudalBuildings, IDS.TOWN_CENTERS),
     feudal_donjon: (feudalBuildings.get(IDS.DONJON) || 0) > 0,
     castle_elephants: castle.get(IDS.BATTLE_ELEPHANT) || 0,
     castle_scorpions: sum(castle, [IDS.SCORPION, IDS.HEAVY_SCORPION]),
-    castle_rams: sum(castle, [IDS.BATTERING_RAM, IDS.CAPPED_RAM, IDS.SIEGE_RAM]),
-    castle_town_center: (castleBuildings.get(IDS.TOWN_CENTER) || 0) > 0,
+    castle_rams: sum(castle, [IDS.BATTERING_RAM, IDS.BATTERING_RAM_DE, IDS.CAPPED_RAM, IDS.SIEGE_RAM]),
+    castle_town_center: has(castleBuildings, IDS.TOWN_CENTERS),
     feudal_to_castle_ms: player.feudalMs != null && player.castleMs != null
       ? player.castleMs - player.feudalMs : null,
   };
@@ -443,26 +446,24 @@ function checkReplayRoster(expectedPlayers, replayPlayers) {
 }
 
 function checkReplayStart(startedAt, replayTimestamp) {
-  if (!Number.isFinite(startedAt) || !Number.isFinite(replayTimestamp) || replayTimestamp <= 0) return;
+  const tsMs = typeof startedAt === 'string' ? Date.parse(startedAt) : Number(startedAt);
+  if (!Number.isFinite(tsMs) || !Number.isFinite(replayTimestamp) || replayTimestamp <= 0) return;
   // Companion starts the match clock before the recorder. Allow loading time,
   // while rejecting the usual case of a different match with the same roster.
-  const seconds = startedAt / 1000;
+  const seconds = tsMs / 1000;
   if (Math.abs(seconds - replayTimestamp) > 180) {
     throw new Error('La hora del replay no coincide con la partida registrada.');
   }
 }
 
-/**
- * Lee el replay y devuelve la telemetría normalizable. `match` es la partida
- * confirmada por la API: su mapa/modo/civ mandan para validar el archivo.
- */
-async function analyzeReplayFile(filePath, { match, profileId } = {}) {
+async function analyzeReplayBuffer(buffer, { match, profileId } = {}) {
   if (!match || !Number.isFinite(Number(profileId))) {
     throw new Error('Falta la partida o el jugador para analizar el replay.');
   }
+  if (!buffer || buffer.byteLength > 80 * 1024 * 1024) {
+    throw new Error('El replay supera el límite de 80 MB.');
+  }
   const parser = await loadParser();
-  if (fs.statSync(filePath).size > 80 * 1024 * 1024) throw new Error('El replay supera el límite de 80 MB.');
-  const buffer = fs.readFileSync(filePath);
   let record;
   try {
     record = parser.parse_rec(toArrayBuffer(buffer));
@@ -480,6 +481,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
   const playerCount = checkReplayRoster(match.players, replayPlayers);
   checkReplayStart(match.startedAt, chapter.zheader.timestamp);
 
+  const startingAge = startingAgeLabel(Number(settings.starting_age_id));
   const players = new Map();
   const trackWindow = record.chapters.length === 1 && playerCount === 2 &&
     [3, '3', 'rm_1v1'].includes(match.leaderboardId) &&
@@ -487,7 +489,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     settings.num_starting_units === 0 && supportedMap(match.mapName);
   for (const p of replayPlayers) {
     if (Number.isFinite(p.player_number) && p.player_number > 0) {
-      players.set(p.player_number, { ...emptyPlayer(), profileId: Number(p.profile_id) });
+      players.set(p.player_number, { ...emptyPlayer(startingAge), profileId: Number(p.profile_id) });
     }
   }
   const { durationMs, replayEndMs } = gameClock(chapter);
@@ -512,7 +514,9 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     if (!action) continue;
     const data = action.action_data;
     if (!data || typeof data !== 'object') continue;
-    const type = Object.keys(data)[0];
+    let type = null;
+    for (const k in data) { type = k; break; }
+    if (!type) continue;
     const payload = data[type];
     if (!payload || typeof payload !== 'object') continue;
     const number = playerId(data);
@@ -533,16 +537,26 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     .find((p) => Number(p.profileId) === Number(profileId));
   const civ = (matchPlayer && matchPlayer.civ) || 'Unknown';
   const ownTeam = matchPlayer && matchPlayer.team != null ? Number(matchPlayer.team) : null;
+  const selfResolvedTeam = self.resolved_team_id != null ? Number(self.resolved_team_id) : null;
   const rivalMatchPlayer = (Array.isArray(match.players) ? match.players : [])
-    .find((p) => Number(p.profileId) !== Number(profileId) &&
-      (ownTeam == null || p.team == null || Number(p.team) !== ownTeam));
+    .find((p) => {
+      if (Number(p.profileId) === Number(profileId)) return false;
+      if (ownTeam != null && p.team != null) return Number(p.team) !== ownTeam;
+      if (selfResolvedTeam != null) {
+        const rp = replayPlayers.find((r) => Number(r.profile_id) === Number(p.profileId));
+        if (rp && rp.resolved_team_id != null) return Number(rp.resolved_team_id) !== selfResolvedTeam;
+      }
+      return true;
+    });
   const rivalReplayPlayer = rivalMatchPlayer
     ? replayPlayers.find((p) => Number(p.profile_id) === Number(rivalMatchPlayer.profileId))
-    : replayPlayers.find((p) => Number(p.profile_id) > 0 && Number(p.profile_id) !== Number(profileId));
+    : replayPlayers.find((p) => Number(p.profile_id) > 0 && Number(p.profile_id) !== Number(profileId) &&
+        (selfResolvedTeam == null || p.resolved_team_id == null || Number(p.resolved_team_id) !== selfResolvedTeam));
 
   const opening = classify(player, civ);
   const metrics = commandMetrics(player, durationMs);
   const rivalPlayerState = rivalReplayPlayer ? players.get(Number(rivalReplayPlayer.player_number)) : null;
+  const rawMatchElo = matchPlayer ? (matchPlayer.matchRating ?? matchPlayer.rating) : null;
   const engineSummary = analyzePostmatchEngine(chapter.operations, {
     selfSlot: Number(self.player_number),
     rivalSlot: rivalReplayPlayer ? Number(rivalReplayPlayer.player_number) : null,
@@ -552,10 +566,14 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
     rivalAges: rivalPlayerState ? rivalPlayerState.ageReachedMs || null : null,
     opening: opening.name,
     openingShort: openingShort(opening.name),
-    playerElo: matchPlayer && Number.isFinite(Number(matchPlayer.rating)) ? Number(matchPlayer.rating) : null,
+    playerElo: rawMatchElo != null && Number.isFinite(Number(rawMatchElo)) ? Number(rawMatchElo) : null,
     durationMs,
     isTeamGame: playerCount > 2,
+    startingAge,
   });
+  if (engineSummary && rivalMatchPlayer?.profileId) {
+    engineSummary.rivalProfileId = Number(rivalMatchPlayer.profileId);
+  }
   if (engineSummary && Number.isFinite(engineSummary.self?.eapm)) {
     metrics.eapm = {
       value: engineSummary.self.eapm,
@@ -584,7 +602,7 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
       civ,
       opening: opening.name,
       gameSpeed: speedLabel(Number(settings.speed)),
-      startingAge: startingAgeLabel(Number(settings.starting_age_id)),
+      startingAge,
       patch: String((chapter.zheader && chapter.zheader.game) || 'desconocido').slice(0, 60),
     },
     durationSeconds: Math.round(durationMs / 100) / 10,
@@ -599,8 +617,23 @@ async function analyzeReplayFile(filePath, { match, profileId } = {}) {
   };
 }
 
+/**
+ * Lee el replay y devuelve la telemetría normalizable. `match` es la partida
+ * confirmada por la API: su mapa/modo/civ mandan para validar el archivo.
+ */
+async function analyzeReplayFile(filePath, { match, profileId } = {}) {
+  if (!match || !Number.isFinite(Number(profileId))) {
+    throw new Error('Falta la partida o el jugador para analizar el replay.');
+  }
+  const st = await fs.promises.stat(filePath);
+  if (st.size > 80 * 1024 * 1024) throw new Error('El replay supera el límite de 80 MB.');
+  const buffer = await fs.promises.readFile(filePath);
+  return analyzeReplayBuffer(buffer, { match, profileId });
+}
+
 module.exports = {
   analyzeReplayFile,
+  analyzeReplayBuffer,
   commandMetrics,
   ageReachedNotice,
   classify,

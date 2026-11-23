@@ -10,6 +10,7 @@
   let ctx = null;
   let noiseBuf = null;
   let lastKeyAt = 0;
+  let idleSuspendTimer = null;
   let enabled = true;
 
   try {
@@ -17,13 +18,28 @@
     if (saved === '0' || saved === 'false') enabled = false;
   } catch (_) { /* ignore */ }
 
+  function scheduleSuspend() {
+    if (idleSuspendTimer) clearTimeout(idleSuspendTimer);
+    idleSuspendTimer = setTimeout(() => {
+      idleSuspendTimer = null;
+      if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+    }, 8000);
+  }
+
   function ensureCtx() {
     if (!enabled) return null;
     const AudioCtx = root.AudioContext || root.webkitAudioContext;
     if (!AudioCtx) return null;
     if (!ctx) ctx = new AudioCtx();
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    scheduleSuspend();
     return ctx;
+  }
+
+  if (typeof root.addEventListener === 'function') {
+    root.addEventListener('blur', () => {
+      if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+    });
   }
 
   function ensureNoise(ac) {

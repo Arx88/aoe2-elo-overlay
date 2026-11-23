@@ -62,6 +62,8 @@ function parseMyHistory(matches, myId, currentMatchId) {
       civ: me.civ || null,
       slug: me.civ ? civSlug(me.civ) : null,
       won: typeof me.won === 'boolean' ? me.won : null,
+      rating: Number.isFinite(Number(me.matchRating ?? me.rating)) ? Number(me.matchRating ?? me.rating) : null,
+      ratingDiff: Number.isFinite(Number(me.matchRatingDiff ?? me.ratingDiff)) ? Number(me.matchRatingDiff ?? me.ratingDiff) : null,
       startedAt: match.startedAt || null,
       myTeam: me.team != null ? Number(me.team) : null,
       players: (match.players || []).map((p) => ({

@@ -15,7 +15,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { execFile, execFileSync } = require('node:child_process');
 
 const { getJson } = require('./aoe');
 
@@ -76,6 +76,58 @@ function queryRegistry(keyPath, valueName) {
   } catch {
     return null;
   }
+}
+
+function queryRegistryAsync(keyPath, valueName) {
+  if (process.platform !== 'win32') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    execFile(
+      'reg',
+      ['query', keyPath, '/v', valueName],
+      { encoding: 'utf8', timeout: 1500, windowsHide: true },
+      (err, stdout) => {
+        resolve(err ? null : stdout);
+      },
+    );
+  });
+}
+
+/** Versión asíncrona no bloqueante de getActiveSteamId (ideal para polling periódico en main.js). */
+async function getActiveSteamIdAsync(log = () => {}) {
+  if (process.platform !== 'win32') return null;
+
+  const activeOut = await queryRegistryAsync('HKCU\\Software\\Valve\\Steam\\ActiveProcess', 'ActiveUser');
+  const activeAccountId = parseRegDword(activeOut, 'ActiveUser');
+  if (activeAccountId) {
+    const steamId = accountIdToSteamId64(activeAccountId);
+    if (steamId) {
+      log(`Steam activo detectado (ActiveUser): ${steamId}`);
+      return { steamId, source: 'steam-active-process' };
+    }
+  }
+
+  const pathOut = await queryRegistryAsync('HKCU\\Software\\Valve\\Steam', 'SteamPath');
+  const steamPaths = [
+    parseRegSz(pathOut, 'SteamPath'),
+    'C:\\Program Files (x86)\\Steam',
+    'C:\\Program Files\\Steam',
+  ].filter(Boolean);
+
+  for (const base of [...new Set(steamPaths)]) {
+    const vdfPath = path.join(base, 'config', 'loginusers.vdf');
+    try {
+      const raw = await fs.promises.readFile(vdfPath, 'utf8');
+      const steamId = parseLoginUsersVdf(raw);
+      if (steamId) {
+        log(`Steam reciente detectado (loginusers.vdf): ${steamId}`);
+        return { steamId, source: 'steam-loginusers' };
+      }
+    } catch {
+      /* archivo inexistente o ilegible: seguir con el siguiente candidato */
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -197,8 +249,8 @@ async function resolveSteamId(steamId) {
  * Game Pass / Xbox), cae a las carpetas locales ordenadas por partida reciente.
  */
 async function detectProfile(log = () => {}) {
-  // 1) Prioridad absoluta: sesión actual de Steam
-  const activeSteam = getActiveSteamId(log);
+  // 1) Prioridad absoluta: sesión actual de Steam (no bloqueante)
+  const activeSteam = await getActiveSteamIdAsync(log);
   if (activeSteam && activeSteam.steamId) {
     try {
       const activeFound = await resolveSteamId(activeSteam.steamId);
@@ -251,6 +303,7 @@ async function detectProfile(log = () => {}) {
 module.exports = {
   detectProfile,
   getActiveSteamId,
+  getActiveSteamIdAsync,
   accountIdToSteamId64,
   parseRegDword,
   parseLoginUsersVdf,

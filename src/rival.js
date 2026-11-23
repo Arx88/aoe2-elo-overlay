@@ -32,7 +32,7 @@
  * tiran excepción.
  */
 
-const { getJson, fetchMatches } = require('./aoe');
+const { getJson, fetchMatches, fetchProfileStats } = require('./aoe');
 const { civSlug } = require('./civs');
 const { predictRivalCivs } = require('./prematch-predict');
 const {
@@ -413,11 +413,42 @@ async function buildRivalInsights(options = {}) {
   // El historial se pide filtrado por el ladder EXACTO cuando la partida es
   // rankeada: RM no se mezcla con EW/DM. Sin modo (unranked) no se fuerza RM.
   const historyLadder = mode ? ladder : null;
-  // El mapa entra en la clave: el informe de Arabia no sirve para Arena.
+  // Base agnóstica de civ: en lobby la civ es null y al revelar en 0:00 NO hace falta
+  // volver a descargar /stats ni /api/matches — solo se re-resumen las aperturas por civ en memoria (<0.1 ms).
+  const baseKey = `rival:base:${id}:${ladder}:${modeId}:${mapKey(mapName)}`;
   const key = `rival:insights:${id}:${ladder}:${modeId}:${mapKey(mapName)}:${includeOpenings ? 1 : 0}${includeOpenings && civSlug(civ) ? `:${civSlug(civ)}` : ''}`;
   const cached = !historical && cache && cache.get(key);
   if (cached && now - cached.ts <= cacheTtlMs) {
     return { ...base, ...cached.data, ladder, fromCache: true };
+  }
+  const cachedBase = !historical && cache && cache.get(baseKey);
+  if (cachedBase && now - cachedBase.ts <= cacheTtlMs && cachedBase.data) {
+    const reused = { ...cachedBase.data, openings: null, openingError: null, openingsPending: false };
+    if (includeOpenings) {
+      const openingsRes = await openingsImpl({
+        profileId: id,
+        mode,
+        cache,
+        cacheTtlMs: openingsTtlMs,
+        now,
+        fetchImpl,
+        sleep,
+        log,
+      }).catch((err) => ({ ok: false, error: `aperturas: ${err.message}` }));
+      if (openingsRes) {
+        const openingCiv = civSlug(civ) ? civ : null;
+        const summary = summarizeOpeningsByMap(
+          (openingsRes.analyzedMatches || []).filter((row) => isPriorReplay(row, currentMatchId, cutoff)),
+          mapName,
+          openingCiv,
+        );
+        reused.openings = { ...openingsRes, ...summary, openingCiv };
+        delete reused.openings.analyzedMatches;
+        reused.openingError = openingsRes.ok === false ? openingsRes.error : null;
+      }
+    }
+    if (cache && !reused.error) cache.set(key, { ts: now, data: reused });
+    return { ...base, ...reused, ladder, fromCache: true };
   }
 
   const result = {
@@ -479,9 +510,13 @@ async function buildRivalInsights(options = {}) {
   // /stats y la PRIMERA página del historial son consultas independientes: se
   // piden A LA VEZ. Antes iban en serie (stats → historial → páginas) y el
   // primer dato del panel esperaba a todas.
-  const statsPromise = historical ? null : getJsonImpl(
-    `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
-      `?leaderboard_id=${encodeURIComponent(ladder)}`,
+  const statsPromise = historical ? null : (
+    getJsonImpl === getJson
+      ? fetchProfileStats(id, ladder)
+      : getJsonImpl(
+          `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats` +
+            `?leaderboard_id=${encodeURIComponent(ladder)}`,
+        )
   );
 
   const applyHistory = (records) => {
@@ -500,7 +535,7 @@ async function buildRivalInsights(options = {}) {
     Object.assign(result, normalizeProfileStats(raw, mapName));
     targetMapGames = result.currentMap ? Number(result.currentMap.games) : 0;
     const total = Number(result.totalGames) || 0;
-    if (total > 0) maxPages = Math.min(MAP_MAX_PAGES, Math.ceil(total / MAP_PAGE_SIZE) + 1);
+    if (total > 0) maxPages = Math.min(MAP_MAX_PAGES, Math.ceil(total / MAP_PAGE_SIZE));
   };
 
   try {
@@ -575,7 +610,7 @@ async function buildRivalInsights(options = {}) {
         );
         break;
       }
-      await wait(PAGE_DELAY_MS);
+      if (typeof sleep === 'function') await wait(PAGE_DELAY_MS);
       page += 1;
       lastPage = await fetchPage(page);
       if (!add(lastPage)) break;
@@ -643,9 +678,13 @@ async function buildRivalInsights(options = {}) {
       result.openingsPending = true;
       openingsPromise
         .then((late) => {
-          if (!late || typeof onOpenings !== 'function') return;
+          if (!late) return;
           try {
-            onOpenings(applyOpenings(late));
+            const applied = applyOpenings(late);
+            if (!historical && cache && !result.error) {
+              cache.set(key, { ts: Date.now(), data: { ...result } });
+            }
+            if (typeof onOpenings === 'function') onOpenings(applied);
           } catch (err) {
             log(`aperturas tardías #${id}: ${err.message}`);
           }
@@ -655,13 +694,11 @@ async function buildRivalInsights(options = {}) {
   }
 
   result.error = errors.length ? errors.join(' · ') : null;
-  // Un fallo de red NO se cachea: si quedara guardado, el reintento de la
-  // pre-partida devolvería el mismo resultado vacío durante 10 minutos.
-  // Un informe con aperturas en camino NO se cachea: quedaría 10 minutos
-  // diciendo "sin replays" aunque ya hayan llegado. Las aperturas tienen su
-  // propia cache de 30 min, así que reconstruirlo es barato.
-  if (!historical && cache && !result.error && !result.openingsPending) {
-    cache.set(key, { ts: now, data: result });
+  // Cachear la base agnóstica de civ inmediatamente aunque openings siga pendiente:
+  // al revelar civs en 0:00 no repite /stats ni /api/matches.
+  if (!historical && cache && !result.error) {
+    cache.set(baseKey, { ts: now, data: { ...result, openings: null, openingError: null, openingsPending: false } });
+    if (!result.openingsPending) cache.set(key, { ts: now, data: result });
   }
   if (result.error) log(`datos del rival #${id} incompletos: ${result.error}`);
 

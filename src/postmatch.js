@@ -151,11 +151,17 @@ function sanitizeEngineSide(side) {
   const num = (v, min = 0, max = 1e6) => finite(v, min, max);
   const topUnits = Array.isArray(side.topUnits) ? side.topUnits.slice(0, 5)
     .filter((u) => u && text(u.name) && num(u.count, 1, 50000) != null)
-    .map((u) => ({ key: text(u.key, 60) || text(u.name, 60), name: text(u.name, 60), count: Math.round(u.count) })) : [];
+    .map((u) => ({
+      key: text(u.key, 60) || text(u.name, 60),
+      unitId: num(u.unitId, 1, 100000) != null ? Math.round(u.unitId) : null,
+      name: text(u.name, 60),
+      count: Math.round(u.count),
+    })) : [];
   const topWorkshops = Array.isArray(side.topWorkshops) ? side.topWorkshops.slice(0, 4)
     .filter((w) => w && text(w.name) && num(w.count, 1, 500) != null)
     .map((w) => ({
       key: text(w.key, 60) || text(w.name, 60),
+      typeId: num(w.typeId, 1, 100000) != null ? Math.round(w.typeId) : null,
       name: text(w.name, 60),
       count: Math.round(w.count),
       units: Math.round(num(w.units, 0, 50000) || 0),
@@ -189,6 +195,7 @@ function sanitizeEngineSide(side) {
     castleSeconds: num(side.timings.castleSeconds, 0, 86400) != null ? Math.round(side.timings.castleSeconds) : null,
     imperialSeconds: num(side.timings.imperialSeconds, 0, 86400) != null ? Math.round(side.timings.imperialSeconds) : null,
     firstMilitarySeconds: num(side.timings.firstMilitarySeconds, 0, 86400) != null ? Math.round(side.timings.firstMilitarySeconds) : null,
+    castleDurationSec: num(side.timings.castleDurationSec, 0, 86400) != null ? Math.round(side.timings.castleDurationSec) : null,
   } : null;
   const arRaw = side.techProfile && side.techProfile.armyRelevance && typeof side.techProfile.armyRelevance === 'object'
     ? side.techProfile.armyRelevance : null;
@@ -221,9 +228,9 @@ function sanitizeEngineSide(side) {
     hasHandCart: Boolean(side.techProfile.hasHandCart),
     hasBloodlines: Boolean(side.techProfile.hasBloodlines),
     hasBallistics: Boolean(side.techProfile.hasBallistics),
-    ecoNames: Array.isArray(side.techProfile.ecoNames) ? side.techProfile.ecoNames.slice(0, 6).map((s) => text(s, 40)).filter(Boolean) : [],
-    blacksmithNames: Array.isArray(side.techProfile.blacksmithNames) ? side.techProfile.blacksmithNames.slice(0, 6).map((s) => text(s, 40)).filter(Boolean) : [],
-    combatKeyNames: Array.isArray(side.techProfile.combatKeyNames) ? side.techProfile.combatKeyNames.slice(0, 4).map((s) => text(s, 40)).filter(Boolean) : [],
+    ecoNames: Array.isArray(side.techProfile.ecoNames) ? side.techProfile.ecoNames.slice(0, 12).map((s) => text(s, 40)).filter(Boolean) : [],
+    blacksmithNames: Array.isArray(side.techProfile.blacksmithNames) ? side.techProfile.blacksmithNames.slice(0, 15).map((s) => text(s, 40)).filter(Boolean) : [],
+    combatKeyNames: Array.isArray(side.techProfile.combatKeyNames) ? side.techProfile.combatKeyNames.slice(0, 6).map((s) => text(s, 40)).filter(Boolean) : [],
     armyRelevance: ar,
   } : null;
   const mb = side.macroBuilds && typeof side.macroBuilds === 'object' ? {
@@ -317,6 +324,7 @@ function normalizeEngineSummary(raw) {
       rivalMilitary: finite(b.rivalMilitary, 0, 50000) != null ? Math.round(b.rivalMilitary) : null,
     })) : [];
   const openingSummary = raw.openingSummary && text(raw.openingSummary.name) ? {
+    key: text(raw.openingSummary.key, 60) || null,
     name: text(raw.openingSummary.name, 60),
     grade: ['S', 'A', 'B', 'C', 'D'].includes(raw.openingSummary.grade) ? raw.openingSummary.grade : null,
     score: finite(raw.openingSummary.score, 0, 100) != null ? Math.round(raw.openingSummary.score) : null,
@@ -375,36 +383,53 @@ function normalizeEngineSummary(raw) {
 function buildPersonalEvolution(telemetry, records, current) {
   const engine = telemetry && telemetry.engineSummary;
   if (!engine || !engine.self) return null;
+  const curDur = engine.durationSeconds ?? telemetry.durationSeconds;
+  // Abandonos tempranos (< 3 min in-game) no generan marcas personales ni alteran promedios.
+  if (Number.isFinite(curDur) && curDur > 0 && curDur < 180) return null;
   const minsOf = (eng, fallbackDur) => Math.max(1, ((eng.durationSeconds || fallbackDur || 600) / 60));
-  const extract = (eng, fallbackDur) => {
+  const curAdapterVersion = telemetry?.source?.version || null;
+  const isCompatibleTcSchema = (row) => {
+    const rowVer = row?.telemetry?.source?.version || null;
+    if (curAdapterVersion && rowVer && rowVer !== curAdapterVersion) return false;
+    const s = row?.telemetry?.engineSummary?.self;
+    if (s && Number.isFinite(s.tcIdleTotalSeconds) && Number.isFinite(s.tcIdleEarlySeconds) &&
+        s.tcIdleTotalSeconds < s.tcIdleEarlySeconds) {
+      return false;
+    }
+    return true;
+  };
+  const extract = (eng, fallbackDur, { tcCompatible = true } = {}) => {
     const mins = minsOf(eng, fallbackDur);
     return {
-      tcUtilization: eng.self.tcUtilizationEarly ?? eng.self.tcUtilization,
-      tcIdleSeconds: eng.self.tcIdleEarlySeconds ?? eng.self.tcIdleSeconds,
-      tcIdleDarkSeconds: eng.self.tcIdleDarkSeconds,
-      tcIdleFeudalSeconds: eng.self.tcIdleFeudalSeconds,
-      tcIdleTotalSeconds: eng.self.tcIdleTotalSeconds,
-      villagersPerMin: rounded(eng.self.villagersOrdered / mins, 2),
+      tcUtilization: tcCompatible ? (eng.self.tcUtilizationEarly ?? eng.self.tcUtilization) : null,
+      tcIdleSeconds: tcCompatible ? (eng.self.tcIdleEarlySeconds ?? eng.self.tcIdleSeconds) : null,
+      tcIdleDarkSeconds: tcCompatible ? eng.self.tcIdleDarkSeconds : null,
+      tcIdleFeudalSeconds: tcCompatible ? eng.self.tcIdleFeudalSeconds : null,
+      tcIdleTotalSeconds: tcCompatible ? eng.self.tcIdleTotalSeconds : null,
+      villagersPerMin: tcCompatible ? rounded(eng.self.villagersOrdered / mins, 2) : null,
       militaryPerMin: rounded(eng.self.militaryOrdered / mins, 2),
       eapm: eng.self.eapm,
     };
   };
 
-  // Partidas previas del MISMO jugador y mismo modo con motor local (todos los mapas del modo)
-  const prior = (Array.isArray(records) ? records : [])
-    .filter((row) => {
-      if (!row || identity(row.matchId) === current.matchId) return false;
-      if (row.profileId != null && identity(row.profileId) !== identity(current.profileId)) return false;
-      if (modeId(row.leaderboardId) !== current.leaderboardId) return false;
-      const at = timestamp(row.startedAt);
-      if (!current.startedAt || !at || at >= current.startedAt) return false;
-      return Boolean(row.telemetry && row.telemetry.engineSummary && row.telemetry.engineSummary.self);
-    })
-    .sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt))
-    .slice(0, 12);
+  // Partidas previas del MISMO jugador y mismo modo con motor local (todos los mapas del modo; nunca mezclar Unranked/Custom)
+  const prior = (current && current.leaderboardId != null && Array.isArray(records))
+    ? records.filter((row) => {
+        if (!row || identity(row.matchId) === current.matchId) return false;
+        if (row.profileId != null && identity(row.profileId) !== identity(current.profileId)) return false;
+        if (modeId(row.leaderboardId) !== current.leaderboardId) return false;
+        const at = timestamp(row.startedAt);
+        if (!current.startedAt || !at || at >= current.startedAt) return false;
+        const rDur = row.telemetry?.engineSummary?.durationSeconds ?? row.telemetry?.durationSeconds;
+        if (Number.isFinite(rDur) && rDur > 0 && rDur < 180) return false;
+        return Boolean(row.telemetry && row.telemetry.engineSummary && row.telemetry.engineSummary.self);
+      })
+      .sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt))
+      .slice(0, 12)
+    : [];
 
-  const nowVals = extract(engine, telemetry.durationSeconds);
-  const priorVals = prior.map((row) => extract(row.telemetry.engineSummary, row.telemetry.durationSeconds));
+  const nowVals = extract(engine, telemetry.durationSeconds, { tcCompatible: true });
+  const priorVals = prior.map((row) => extract(row.telemetry.engineSummary, row.telemetry.durationSeconds, { tcCompatible: isCompatibleTcSchema(row) }));
 
   const compare = (key, direction, label, unit) => {
     const cur = nowVals[key];
@@ -438,13 +463,14 @@ function buildPersonalEvolution(telemetry, records, current) {
     eapm: compare('eapm', 'higher', 'Ritmo eAPM', 'eAPM'),
   };
 
-  // Titular personal verificable (basado en eAPM real, sin usar estimaciones falsas de TC)
+  // Titular personal verificable (basado en eAPM real, con separador decimal español y etiqueta honesta "mediana")
+  const fmtEs = (v) => String(v).replace('.', ',');
   let headline = null;
   if (prior.length >= 2) {
     if (metrics.eapm?.isBest) {
-      headline = { kind: 'record', text: `Récord personal · ${metrics.eapm.current} eAPM (mejor ritmo de tus últimas ${prior.length + 1} partidas)` };
+      headline = { kind: 'record', text: `Récord personal · ${fmtEs(metrics.eapm.current)} eAPM (mejor ritmo de tus últimas ${prior.length + 1} partidas)` };
     } else if (metrics.eapm?.improved && metrics.eapm.delta >= 3) {
-      headline = { kind: 'up', text: `Mejoraste tu ritmo · +${metrics.eapm.delta} eAPM sobre tu media personal (${prior.length} partidas)` };
+      headline = { kind: 'up', text: `Mejoraste tu ritmo · +${fmtEs(metrics.eapm.delta)} eAPM sobre tu mediana personal (${prior.length} partidas)` };
     }
   }
 
@@ -494,10 +520,12 @@ function buildPersonalEvolution(telemetry, records, current) {
       if (/huecos de TC|Centro Urbano/i.test(prevFocus)) {
         const prevIdle = prevVals0.tcIdleSeconds;
         const curIdle = nowVals.tcIdleSeconds;
-        completed = Number.isFinite(curIdle) && Number.isFinite(prevIdle) && (curIdle < prevIdle - 10 || curIdle <= 45);
-        detail = completed
-          ? `Bajaste el idle de ${Math.round(prevIdle)} s a ${Math.round(curIdle)} s`
-          : `Objetivo: bajar de ${Math.round(prevIdle || 0)} s (hoy ${Math.round(curIdle || 0)} s)`;
+        if (Number.isFinite(curIdle) && Number.isFinite(prevIdle) && prevIdle > 0) {
+          completed = curIdle < prevIdle - 10 || curIdle <= 45;
+          detail = completed
+            ? `Bajaste el idle de ${Math.round(prevIdle)} s a ${Math.round(curIdle)} s`
+            : `Objetivo: bajar de ${Math.round(prevIdle)} s (hoy ${Math.round(curIdle)} s)`;
+        }
       } else if (/Attack-Move|Patrullar/i.test(prevFocus)) {
         const curMicro = (engine.self.habits?.attackMove || 0) + (engine.self.habits?.patrol || 0);
         completed = curMicro >= 5;
@@ -544,66 +572,41 @@ function buildPersonalEvolution(telemetry, records, current) {
   const recentSet = [engine, ...prior.slice(0, 7).map((r) => r.telemetry.engineSummary)];
   if (recentSet.length >= 3) {
     const milGames = recentSet.filter((e) => (e.self.militaryOrdered || 0) >= 20);
-    const noMicroGames = milGames.filter((e) => ((e.self.habits?.attackMove || 0) + (e.self.habits?.patrol || 0)) === 0);
-    const woodSellGames = recentSet.filter((e) => (e.self.marketProfile?.sold?.wood || 0) >= 200);
-    const satGames = recentSet.filter((e) => (e.self.topWorkshops || []).some((w) => w.status === 'saturated'));
+    const noMicroGames = milGames.filter((e) =>
+      ((e.self.habits?.attackMove || 0) + (e.self.habits?.patrol || 0)) === 0 && (e.self.combatMicro?.stopMicro || 0) === 0);
+    const woodSellGames = recentSet.filter((e) => (e.self.marketProfile?.earlyOps || 0) >= 5 && (e.self.marketProfile?.sold?.wood || 0) >= 300);
     if (milGames.length >= 3 && noMicroGames.length >= Math.ceil(milGames.length * 0.6)) {
       recurringPattern = {
         id: 'pattern-no-micro',
         title: 'Patrón repetido · Sin Attack-Move / Patrol',
-        detail: `Ocurrió en ${noMicroGames.length} de tus últimas ${milGames.length} partidas con ejército.`,
+        detail: `Ocurrió en ${noMicroGames.length} de tus últimos ${milGames.length} replays con ejército.`,
       };
     } else if (woodSellGames.length >= Math.ceil(recentSet.length * 0.5)) {
       recurringPattern = {
         id: 'pattern-wood-sell',
-        title: 'Patrón repetido · Exceso de madera en Mercado',
-        detail: `Vendiste madera en ${woodSellGames.length} de tus últimas ${recentSet.length} partidas: probá dejar 2–3 leñadores menos.`,
-      };
-    } else if (satGames.length >= 2) {
-      recurringPattern = {
-        id: 'pattern-ws-sat',
-        title: 'Patrón repetido · Colas militares saturadas',
-        detail: `En ${satGames.length} de tus últimas ${recentSet.length} partidas te faltaron edificios militares.`,
+        title: 'Patrón repetido · Exceso temprano de madera en Mercado',
+        detail: `Vendiste madera temprano en ${woodSellGames.length} de tus últimos ${recentSet.length} replays: probá dejar 2–3 leñadores menos.`,
       };
     }
   }
 
-  // Mejora progresiva seguida (3 partidas al hilo mejorando la misma métrica: ej. 64 s -> 39 s -> 18 s)
+  // Mejora progresiva en replays analizados (basada exclusivamente en eAPM comprobable)
   let consecutiveImprovement = null;
   if (priorVals.length >= 2) {
-    const idleChain = [priorVals[1]?.tcIdleSeconds, priorVals[0]?.tcIdleSeconds, nowVals.tcIdleSeconds];
-    const utilChain = [priorVals[1]?.tcUtilization, priorVals[0]?.tcUtilization, nowVals.tcUtilization];
     const eapmChain = [priorVals[1]?.eapm, priorVals[0]?.eapm, nowVals.eapm];
-    if (idleChain.every(Number.isFinite) && idleChain[0] - idleChain[1] >= 5 && idleChain[1] - idleChain[2] >= 5) {
-      consecutiveImprovement = {
-        kind: 'tc_idle',
-        steps: 3,
-        chainLabel: `${Math.round(idleChain[0])} s → ${Math.round(idleChain[1])} s → ${Math.round(idleChain[2])} s`,
-        title: `3 partidas seguidas bajando tu TC inactivo`,
-        detail: `Progresión real: ${Math.round(idleChain[0])} s → ${Math.round(idleChain[1])} s → ${Math.round(idleChain[2])} s en Alta + Feudal.`,
-      };
-    } else if (utilChain.every(Number.isFinite) && utilChain[1] - utilChain[0] >= 1 && utilChain[2] - utilChain[1] >= 1) {
-      const f = (v) => String(v).replace('.', ',');
-      consecutiveImprovement = {
-        kind: 'tc_util',
-        steps: 3,
-        chainLabel: `${f(utilChain[0])}% → ${f(utilChain[1])}% → ${f(utilChain[2])}%`,
-        title: `3 partidas seguidas subiendo tu continuidad de TC`,
-        detail: `Escalada constante: ${f(utilChain[0])}% → ${f(utilChain[1])}% → ${f(utilChain[2])}%.`,
-      };
-    } else if (eapmChain.every(Number.isFinite) && eapmChain[1] - eapmChain[0] >= 2 && eapmChain[2] - eapmChain[1] >= 2) {
+    if (eapmChain.every(Number.isFinite) && eapmChain[1] - eapmChain[0] >= 2 && eapmChain[2] - eapmChain[1] >= 2) {
       const f = (v) => String(v).replace('.', ',');
       consecutiveImprovement = {
         kind: 'eapm',
         steps: 3,
         chainLabel: `${f(eapmChain[0])} → ${f(eapmChain[1])} → ${f(eapmChain[2])}`,
-        title: `3 partidas seguidas acelerando tu eAPM`,
+        title: `3 replays seguidos acelerando tu eAPM`,
         detail: `Subiste tu ritmo mecánico paso a paso: ${f(eapmChain[0])} → ${f(eapmChain[1])} → ${f(eapmChain[2])} eAPM.`,
       };
     }
   }
 
-  // Calentamiento de sesión (partidas jugadas en las últimas 3 horas)
+  // Calentamiento de sesión (replays de las últimas 3 horas, basado en eAPM comprobable)
   let sessionWarmup = null;
   if (current.startedAt && prior.length >= 1) {
     const SESSION_MS = 3 * 60 * 60 * 1000;
@@ -615,31 +618,21 @@ function buildPersonalEvolution(telemetry, records, current) {
       const firstRow = sameSession[sameSession.length - 1];
       const firstVals = extract(firstRow.telemetry.engineSummary, firstRow.telemetry.durationSeconds);
       const matchNum = sameSession.length + 1;
-      if (Number.isFinite(nowVals.tcUtilization) && Number.isFinite(firstVals.tcUtilization) &&
-          nowVals.tcUtilization - firstVals.tcUtilization >= 2.5) {
-        const diff = rounded(nowVals.tcUtilization - firstVals.tcUtilization, 1);
-        sessionWarmup = {
-          matchNumber: matchNum,
-          metric: `Partida #${matchNum}`,
-          deltaLabel: `+${String(diff).replace('.', ',')} pp TC`,
-          title: `Ya entraste en calor (+${String(diff).replace('.', ',')} pp TC en esta sesión)`,
-          detail: `En tu partida #${matchNum} de hoy mejoraste respecto a tu arranque (${String(firstVals.tcUtilization).replace('.', ',')}% → ${String(nowVals.tcUtilization).replace('.', ',')}%).`,
-        };
-      } else if (Number.isFinite(nowVals.eapm) && Number.isFinite(firstVals.eapm) &&
+      if (Number.isFinite(nowVals.eapm) && Number.isFinite(firstVals.eapm) &&
           nowVals.eapm - firstVals.eapm >= 4) {
         const diff = rounded(nowVals.eapm - firstVals.eapm, 1);
         sessionWarmup = {
           matchNumber: matchNum,
-          metric: `Partida #${matchNum}`,
+          metric: `Sesión`,
           deltaLabel: `+${String(diff).replace('.', ',')} eAPM`,
           title: `Ya entraste en calor (+${String(diff).replace('.', ',')} eAPM en esta sesión)`,
-          detail: `Tu velocidad efectiva creció desde la 1.ª partida de hoy (${String(firstVals.eapm).replace('.', ',')} → ${String(nowVals.eapm).replace('.', ',')} eAPM).`,
+          detail: `Tu velocidad efectiva creció en esta sesión (${String(firstVals.eapm).replace('.', ',')} → ${String(nowVals.eapm).replace('.', ',')} eAPM).`,
         };
       }
     }
   }
 
-  // Rachas de ejecución consecutivas (efecto hábito real basado en tus replays locales)
+  // Hábitos sostenidos en tus últimos replays locales analizados (nunca afirma "seguidas" sobre partidas sin replay)
   let improvementStreak = null;
   const chain = [engine, ...prior.map((r) => r.telemetry.engineSummary)];
   if (chain.length >= 2) {
@@ -658,11 +651,11 @@ function buildPersonalEvolution(telemetry, records, current) {
     if (consecutiveImprovement && consecutiveImprovement.kind === 'eapm') {
       improvementStreak = { count: consecutiveImprovement.steps, label: `${consecutiveImprovement.title} (${consecutiveImprovement.chainLabel})`, kind: 'climb' };
     } else if (armedStreak >= 2) {
-      improvementStreak = { count: armedStreak, label: `${armedStreak} partidas seguidas equipando bien tu ejército`, kind: 'blacksmith' };
+      improvementStreak = { count: armedStreak, label: `${armedStreak} replays equipando bien tu ejército`, kind: 'blacksmith' };
     } else if (woodStreak >= 2) {
-      improvementStreak = { count: woodStreak, label: `${woodStreak} partidas seguidas con Hacha puntual`, kind: 'eco' };
+      improvementStreak = { count: woodStreak, label: `${woodStreak} replays con Hacha puntual`, kind: 'eco' };
     } else if (noBellStreak >= 3) {
-      improvementStreak = { count: noBellStreak, label: `${noBellStreak} partidas seguidas sin Campana Urbana`, kind: 'defense' };
+      improvementStreak = { count: noBellStreak, label: `${noBellStreak} replays sin Campana Urbana`, kind: 'defense' };
     }
   }
 
@@ -705,6 +698,7 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
   records = null,
   historyRows = null,
   benchmark = null,
+  hasAuthoritativeHistory = false,
 } = {}) {
   if (!engine || !engine.self) return null;
   const fmtDec = (v) => String(v).replace('.', ',');
@@ -719,14 +713,14 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
   const posPool = [];
   const negPool = [];
 
-  // Historial reciente deduplicado del mismo modo (records locales + historyRows de API)
+  // Historial contiguo oficial del mismo modo (requiere historyRows reales de API; nunca inferir rachas sobre registros locales dispersos ni mezclar Unranked/Custom)
   const modeHistory = (() => {
-    if (!current || !current.startedAt) return [];
+    if (!hasAuthoritativeHistory || !current || !current.startedAt || current.leaderboardId == null) return [];
     const merged = new Map();
     for (const row of [...(Array.isArray(historyRows) ? historyRows : []), ...(Array.isArray(records) ? records : [])]) {
       if (!row || !identity(row.matchId) || identity(row.matchId) === current.matchId) continue;
       if (row.profileId != null && identity(row.profileId) !== identity(current.profileId)) continue;
-      if (current.leaderboardId && modeId(row.leaderboardId) !== current.leaderboardId) continue;
+      if (modeId(row.leaderboardId) !== current.leaderboardId) continue;
       const at = timestamp(row.startedAt);
       if (!at || at >= current.startedAt) continue;
       const key = identity(row.matchId);
@@ -738,93 +732,122 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
         rating: finite(row.rating, 100, 4000) ?? prev.rating ?? null,
         ratingDiff: finite(row.ratingDiff) ?? prev.ratingDiff ?? null,
         match: row.match || prev.match || null,
+        players: row.players || prev.players || null,
       } : row);
     }
     return [...merged.values()].sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt));
   })();
 
-  // A0. FAMILIA HISTORIA, RACHAS Y MOMENTUM (hacerte sentir el progreso y la historia de cada partida)
+  const isShortAbandon = Number.isFinite(engine.durationSeconds) && engine.durationSeconds > 0 && engine.durationSeconds < 180;
+  if (isShortAbandon) {
+    return {
+      verdict: 'Partida breve (<3 min) · sin diagnóstico de ejecución ni marcas personales.',
+      streak: null,
+      medals: [],
+      issues: Array.isArray(engine.negatives) ? engine.negatives.slice(0, 2) : [],
+      focus: engine.focus || {
+        title: 'Partida demasiado breve para diagnóstico completo',
+        detail: 'La partida terminó antes de los 3 minutos; el análisis completo aparece en partidas regulares.',
+      },
+    };
+  }
+
+  // A0. FAMILIA HISTORIA, RACHAS Y MOMENTUM (solo con historial contiguo real verificado)
   let winStreakCount = 0;
   if (resultStatus === 'won') {
-    winStreakCount = 1;
-    for (const row of modeHistory) {
-      if (row.won === true) winStreakCount += 1;
-      else if (row.won === false) break;
-    }
-    if (winStreakCount >= 3) {
-      posPool.push({
-        id: 'story-win-streak', domain: 'win_streak', flavor: 'story', requiresHistory: true,
-        tier: 'gold', score: 97, icon: 'trophy',
-        tag: 'EN RACHA', badgeName: 'Racha Imparable',
-        title: `¡${winStreakCount} victorias seguidas!`,
-        metric: `${winStreakCount} V al hilo`,
-        detail: `Venís en tu mejor inercia: ${winStreakCount} triunfos consecutivos en este modo.`,
-      });
-    } else if (winStreakCount === 2) {
-      posPool.push({
-        id: 'story-win-streak-2', domain: 'win_streak', flavor: 'story', requiresHistory: true,
-        tier: 'green', score: 83, icon: 'trophy',
-        tag: 'EN RACHA', badgeName: 'Doble Victoria',
-        title: '2 victorias consecutivas',
-        metric: '2 V al hilo',
-        detail: `Dos triunfos seguidos: consolidaste tu buena racha en este modo.`,
-      });
-    } else {
-      // ¿Cortó una mala racha de >= 2 derrotas?
-      let priorLosses = 0;
+    if (hasAuthoritativeHistory && modeHistory.length > 0) {
+      winStreakCount = 1;
       for (const row of modeHistory) {
-        if (row.won === false) priorLosses += 1;
-        else if (row.won === true) break;
+        if (row.won === true) winStreakCount += 1;
+        else break; // Un resultado desconocido o derrota corta toda racha verificable
       }
-      if (priorLosses >= 2) {
+      if (winStreakCount >= 3) {
         posPool.push({
-          id: 'story-comeback-break', domain: 'win_streak', flavor: 'story', requiresHistory: true,
-          tier: 'gold', score: 92, icon: 'shield',
-          tag: 'CAMBIO DE INERCIA', badgeName: 'Vuelta al Triunfo',
-          title: `Cortaste una racha de ${priorLosses} derrotas`,
-          metric: 'Racha cortada',
-          detail: `Diste vuelta la tendencia y volviste a sumar en este modo.`,
+          id: 'story-win-streak', domain: 'win_streak', flavor: 'story', requiresHistory: true,
+          tier: 'gold', score: 97, icon: 'trophy',
+          tag: 'EN RACHA', badgeName: 'Racha Imparable',
+          title: `¡${winStreakCount} victorias seguidas!`,
+          metric: `${winStreakCount} V al hilo`,
+          detail: `Venís en tu mejor inercia: ${winStreakCount} triunfos consecutivos en este modo.`,
         });
+      } else if (winStreakCount === 2) {
+        posPool.push({
+          id: 'story-win-streak-2', domain: 'win_streak', flavor: 'story', requiresHistory: true,
+          tier: 'green', score: 83, icon: 'trophy',
+          tag: 'EN RACHA', badgeName: 'Doble Victoria',
+          title: '2 victorias consecutivas',
+          metric: '2 V al hilo',
+          detail: `Dos triunfos seguidos: consolidaste tu buena racha en este modo.`,
+        });
+      } else {
+        // ¿Cortó una mala racha contigua de >= 2 derrotas?
+        let priorLosses = 0;
+        for (const row of modeHistory) {
+          if (row.won === false) priorLosses += 1;
+          else break;
+        }
+        if (priorLosses >= 2) {
+          posPool.push({
+            id: 'story-comeback-break', domain: 'win_streak', flavor: 'story', requiresHistory: true,
+            tier: 'gold', score: 92, icon: 'shield',
+            tag: 'CAMBIO DE INERCIA', badgeName: 'Vuelta al Triunfo',
+            title: `Cortaste una racha de ${priorLosses} derrotas`,
+            metric: 'Racha cortada',
+            detail: `Diste vuelta la tendencia y volviste a sumar en este modo.`,
+          });
+        }
+      }
+
+      // Escalada neta de ELO en partidas contiguas con ratingDiff confirmado
+      const contiguousDiffs = [];
+      if (finite(current?.ratingDiff) != null) {
+        contiguousDiffs.push(finite(current.ratingDiff));
+        for (const r of modeHistory.slice(0, 4)) {
+          const d = finite(r.ratingDiff);
+          if (d == null) break;
+          contiguousDiffs.push(d);
+        }
+      }
+      if (contiguousDiffs.length >= 3) {
+        const netElo = Math.round(contiguousDiffs.reduce((s, d) => s + d, 0));
+        if (netElo >= 25) {
+          posPool.push({
+            id: 'story-elo-climb', domain: 'elo_momentum', flavor: 'story', requiresHistory: true,
+            tier: netElo >= 45 ? 'gold' : 'green', score: netElo >= 45 ? 93 : 84, icon: 'trend',
+            tag: 'ESCALADA', badgeName: 'Subida de ELO',
+            title: `Sumaste +${netElo} ELO en tus últimas ${contiguousDiffs.length} partidas`,
+            metric: `+${netElo} ELO`,
+            detail: `Tu ranking viene creciendo de forma sostenida en este tramo.`,
+          });
+        }
       }
     }
 
-    // Escalada neta de ELO en las últimas 3-5 partidas
-    const diffSamples = [
-      finite(current?.ratingDiff),
-      ...modeHistory.slice(0, 4).map((r) => finite(r.ratingDiff)),
-    ].filter((d) => d != null);
-    if (diffSamples.length >= 3) {
-      const netElo = Math.round(diffSamples.reduce((s, d) => s + d, 0));
-      if (netElo >= 25) {
-        posPool.push({
-          id: 'story-elo-climb', domain: 'elo_momentum', flavor: 'story', requiresHistory: true,
-          tier: netElo >= 45 ? 'gold' : 'green', score: netElo >= 45 ? 93 : 84, icon: 'trend',
-          tag: 'ESCALADA', badgeName: 'Subida de ELO',
-          title: `Sumaste +${netElo} ELO en tus últimas ${diffSamples.length} partidas`,
-          metric: `+${netElo} ELO`,
-          detail: `Tu ranking viene creciendo de forma sostenida en este tramo.`,
-        });
-      }
-    }
-
-    // Nuevo techo reciente de ELO
-    const curRating = finite(player?.rating, 100, 4000);
+    // Nuevo techo reciente de ELO (comparando post-partida contra máximos post-partida previos)
+    const curRating = finite(player?.matchRating ?? player?.rating, 100, 4000);
     const curDiff = finite(current?.ratingDiff);
     const newElo = (curRating != null && curDiff != null) ? Math.round(curRating + curDiff) : null;
-    const priorRatings = modeHistory.map((r) => finite(r.rating, 100, 4000)).filter((v) => v != null);
-    if (newElo != null && priorRatings.length >= 4 && newElo > Math.max(...priorRatings)) {
+    const priorPostRatings = modeHistory
+      .map((r) => {
+        const base = finite(r.rating, 100, 4000);
+        if (base == null) return null;
+        const d = finite(r.ratingDiff) || 0;
+        return Math.max(base, Math.round(base + d));
+      })
+      .filter((v) => v != null);
+    if (hasAuthoritativeHistory && newElo != null && priorPostRatings.length >= 4 && newElo > Math.max(...priorPostRatings)) {
       posPool.push({
         id: 'story-new-elo-peak', domain: 'elo_peak', flavor: 'story', requiresHistory: true,
         tier: 'gold', score: 98, icon: 'crown',
         tag: 'NUEVO TECHO', badgeName: 'Pico de ELO',
         title: `Nuevo máximo reciente: ${newElo.toLocaleString('es-AR')} ELO`,
         metric: `${newElo} ELO`,
-        detail: `Superaste tu punto más alto de las últimas ${priorRatings.length + 1} partidas en este modo.`,
+        detail: `Superaste tu punto más alto de las últimas ${priorPostRatings.length + 1} partidas en este modo.`,
       });
     }
 
-    // Mata-Gigantes (1v1 contra rival +40 ELO arriba)
-    const rivalRating = finite(rivalPlayer?.rating, 100, 4000);
+    // Mata-Gigantes (1v1 contra rival +40 ELO arriba — hecho directo de esta partida)
+    const rivalRating = finite(rivalPlayer?.matchRating ?? rivalPlayer?.rating, 100, 4000);
     if (!teamMode && curRating != null && rivalRating != null && rivalRating - curRating >= 40) {
       const gap = Math.round(rivalRating - curRating);
       posPool.push({
@@ -838,11 +861,11 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
       });
     }
 
-    // Revancha cobrada / Le tenés la medida (historial contra el MISMO rival)
+    // Revancha cobrada / Le tenés la medida (historial contiguo real contra el MISMO rival)
     const rivalPid = identity(rivalPlayer?.profileId);
-    if (!teamMode && rivalPid) {
+    if (hasAuthoritativeHistory && !teamMode && rivalPid) {
       const vsSameRival = modeHistory.filter((r) => {
-        const ps = r.match?.players;
+        const ps = r.match?.players || r.players;
         return Array.isArray(ps) && ps.some((p) => identity(p.profileId) === rivalPid);
       });
       if (vsSameRival.length >= 1) {
@@ -871,14 +894,14 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
       }
     }
 
-    // Dueño del Mapa (racha de 3+ victorias en el mapa o >= 65% WR con >= 5 partidas)
+    // Dueño del Mapa (racha contigua de 3+ victorias en el mapa o >= 65% WR con >= 5 partidas)
     const mapLabel = current?.mapName && current.mapName !== '—' ? current.mapName : null;
-    if (mapLabel) {
+    if (hasAuthoritativeHistory && mapLabel) {
       let mapStreak = 1;
       const mapRows = modeHistory.filter((r) => mapKey(r.mapName) === mapKey(mapLabel));
       for (const r of mapRows) {
         if (r.won === true) mapStreak += 1;
-        else if (r.won === false) break;
+        else break;
       }
       if (mapStreak >= 3) {
         posPool.push({
@@ -904,13 +927,13 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
       }
     }
 
-    // Maestría de Civilización (invicto 3+ seguidas o >= 65% WR con esta civ)
-    if (current?.civ) {
+    // Maestría de Civilización (invicto contiguo 3+ seguidas o >= 65% WR con esta civ)
+    if (hasAuthoritativeHistory && current?.civ) {
       const civRows = modeHistory.filter((r) => r.civ && mapKey(r.civ) === mapKey(current.civ));
       let civStreak = 1;
       for (const r of civRows) {
         if (r.won === true) civStreak += 1;
-        else if (r.won === false) break;
+        else break;
       }
       const civW = civRows.filter((r) => r.won === true).length + 1;
       const civL = civRows.filter((r) => r.won === false).length;
@@ -937,8 +960,8 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
     }
   }
 
-  // Personalidad de ritmo de partida: Victoria Relámpago (<20m) o Batalla Épica (>=45m)
-  const durSec = engine.durationSeconds || current?.elapsedSeconds || null;
+  // Personalidad de ritmo de partida: usa SOLO reloj de juego del replay (no mezcla 1.0x wall-clock con 1.7x game-clock)
+  const durSec = finite(engine.durationSeconds, 1, 86400);
   if (resultStatus === 'won' && durSec != null && durSec >= 480 && durSec <= 1200) {
     posPool.push({
       id: 'story-blitz-win', domain: 'match_pace', flavor: 'story',
@@ -1007,18 +1030,20 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
         tag: 'RÉCORD PERSONAL', badgeName: 'Pulso Acelerado',
         title: `Récord de ritmo mecánico (${fmtDec(em.eapm.current)} eAPM)`,
         metric: `${fmtDec(em.eapm.current)} eAPM`,
-        delta: `+${fmtDec(em.eapm.delta)} vs media`,
+        delta: `+${fmtDec(em.eapm.delta)} vs mediana`,
         detail: `Tu velocidad efectiva más alta en las últimas ${evolution.sampleSize + 1} partidas.`,
       });
     } else if (em.eapm?.improved && em.eapm.delta >= 4) {
       posPool.push({
         id: 'evo-eapm-up', domain: 'stamina_pace', flavor: 'evolution', requiresHistory: true,
         tier: 'green', score: 84, icon: 'trend',
-        tag: 'MEJORASTE TU MEDIA', badgeName: 'Ritmo en Subida',
-        title: `Jugaste +${fmtDec(em.eapm.delta)} eAPM sobre tu promedio`,
+        tag: 'SOBRE TU MEDIANA', badgeName: 'Ritmo en Subida',
+        title: `Jugaste +${fmtDec(em.eapm.delta)} eAPM sobre tu mediana`,
         metric: `${fmtDec(em.eapm.current)} eAPM`,
-        delta: `Media ${fmtDec(em.eapm.median)}`,
-        detail: `Mejor ritmo que el ${em.eapm.betterThanPct}% de tus últimas ${em.eapm.sampleSize}.`,
+        delta: `Mediana ${fmtDec(em.eapm.median)}`,
+        detail: em.eapm.betterThanPct >= 65
+          ? `Mejor ritmo que el ${em.eapm.betterThanPct}% de tus últimas ${em.eapm.sampleSize}.`
+          : `Superaste tu mediana reciente (${fmtDec(em.eapm.median)} eAPM) en las últimas ${em.eapm.sampleSize} partidas.`,
       });
     }
 
@@ -1028,7 +1053,7 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
     if (em.eapm && em.eapm.delta != null && em.eapm.delta <= -7) {
       negPool.push({
         id: 'evo-eapm-drop', domain: 'stamina_pace', severity: 72, icon: 'trend',
-        title: `Ritmo más lento que tu media (${fmtDec(em.eapm.current)} vs ${fmtDec(em.eapm.median)} eAPM)`,
+        title: `Ritmo más lento que tu mediana (${fmtDec(em.eapm.current)} vs ${fmtDec(em.eapm.median)} eAPM)`,
         metric: `${fmtDec(em.eapm.delta)} eAPM`,
         detail: `Estuviste por debajo de tu velocidad habitual en esta partida.`,
       });
@@ -1311,17 +1336,20 @@ function storedMatch(input, record) {
       profileId: Number(identity(player.profileId)), name: text(player.name) || null,
       civ: text(player.civ) || null, team: finite(player.team, 0, 16),
       won: typeof player.won === 'boolean' ? player.won : null,
-      rating: finite(player.rating, 100, 4000),
-      matchRatingDiff: finite(player.matchRatingDiff),
+      rating: finite(player.matchRating ?? player.rating, 100, 4000),
+      matchRating: finite(player.matchRating ?? player.rating, 100, 4000),
+      matchRatingDiff: finite(player.matchRatingDiff ?? player.ratingDiff),
     }));
   const self = players.find((player) => player.profileId === record.profileId);
   if (self) {
     self.name = record.playerName || self.name;
     self.civ = record.civ || self.civ;
     self.won = record.won;
+    self.rating = record.rating ?? self.rating ?? null;
+    self.matchRating = self.rating;
     self.matchRatingDiff = record.ratingDiff;
   } else players.push({ profileId: record.profileId, name: record.playerName, civ: record.civ,
-    won: record.won, matchRatingDiff: record.ratingDiff, team: null });
+    won: record.won, rating: record.rating ?? null, matchRating: record.rating ?? null, matchRatingDiff: record.ratingDiff, team: null });
   return { matchId: record.matchId, mapName: record.mapName,
     leaderboardId: record.leaderboardId,
     leaderboardName: (resolveMode(record.leaderboardId) || {}).label || 'Sin ranking confirmado',
@@ -1346,8 +1374,8 @@ function recordFromMatch(match, profileId, telemetry, now = Date.now()) {
     won, startedAt, finishedAt,
     elapsedSeconds: startedAt && finishedAt && finishedAt >= startedAt
       ? Math.round((finishedAt - startedAt) / 1000) : null,
-    rating: finite(player.rating, 100, 4000),
-    ratingDiff: finite(player.matchRatingDiff),
+    rating: finite(player.matchRating ?? player.rating, 100, 4000),
+    ratingDiff: finite(player.matchRatingDiff ?? player.ratingDiff),
     updatedAt: finite(now, 1) || Date.now(), telemetry: null,
   };
   const normalized = normalizeTelemetry(telemetry, result);
@@ -1382,6 +1410,9 @@ class PerformanceStore {
     this.filePath = options.filePath || null;
     this.log = typeof options.log === 'function' ? options.log : () => {};
     this.records = new Map();
+    this._sortedByProfile = new Map();
+    this.revision = 0;
+    this.dirty = false;
     this.timer = null;
     this.lastError = null;
     if (!this.filePath) return;
@@ -1417,6 +1448,7 @@ class PerformanceStore {
       startedAt: record.startedAt || previous.startedAt,
       finishedAt: record.finishedAt || previous.finishedAt,
       elapsedSeconds: record.elapsedSeconds == null ? previous.elapsedSeconds : record.elapsedSeconds,
+      rating: record.rating == null ? previous.rating : record.rating,
       ratingDiff: record.ratingDiff == null ? previous.ratingDiff : record.ratingDiff,
       telemetry: record.telemetry || previous.telemetry,
     } : record;
@@ -1436,6 +1468,8 @@ class PerformanceStore {
           civ: player.civ || before.civ || null,
           team: player.team == null ? before.team ?? null : player.team,
           won: player.won == null ? before.won ?? null : player.won,
+          rating: player.rating == null ? before.rating ?? null : player.rating,
+          matchRating: player.matchRating == null ? before.matchRating ?? null : player.matchRating,
           matchRatingDiff: player.matchRatingDiff == null ? before.matchRatingDiff ?? null : player.matchRatingDiff,
         });
       }
@@ -1447,6 +1481,9 @@ class PerformanceStore {
         (a[1].startedAt || a[1].updatedAt) - (b[1].startedAt || b[1].updatedAt));
       for (const [oldKey] of oldest.slice(0, this.records.size - MAX_RECORDS)) this.records.delete(oldKey);
     }
+    this._sortedByProfile.clear();
+    this.revision += 1;
+    this.dirty = true;
     this.scheduleFlush();
     return structuredClone(merged);
   }
@@ -1456,30 +1493,71 @@ class PerformanceStore {
     return record ? this.upsert(record) : null;
   }
 
+  listReadOnly(profileId) {
+    const id = identity(profileId) || '__all__';
+    let cached = this._sortedByProfile.get(id);
+    if (!cached) {
+      cached = [...this.records.values()]
+        .filter((r) => id === '__all__' || String(r.profileId) === id)
+        .sort((a, b) => (b.startedAt || b.updatedAt) - (a.startedAt || a.updatedAt));
+      this._sortedByProfile.set(id, cached);
+    }
+    return cached;
+  }
+
+  getLatest(profileId) {
+    const arr = this.listReadOnly(profileId);
+    return arr.length ? arr[0] : null;
+  }
+
+  getByMatchId(profileId, matchId) {
+    const key = `${Number(identity(profileId))}:${identity(matchId)}`;
+    return this.records.get(key) || null;
+  }
+
   list(profileId) {
-    const id = identity(profileId);
-    return [...this.records.values()].filter((r) => id == null || String(r.profileId) === id)
-      .sort((a, b) => (b.startedAt || b.updatedAt) - (a.startedAt || a.updatedAt))
-      .map((record) => structuredClone(record));
+    return this.listReadOnly(profileId).map((record) => structuredClone(record));
   }
 
   getMatch(profileId, matchId) {
-    const key = `${Number(identity(profileId))}:${identity(matchId)}`;
-    const record = this.records.get(key);
+    const record = this.getByMatchId(profileId, matchId);
     return record ? structuredClone(record.match) : null;
   }
 
   scheduleFlush() {
     if (!this.filePath) return;
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.flush(), 400);
+    this.timer = setTimeout(() => { this.flushAsync(); }, 400);
     if (this.timer.unref) this.timer.unref();
+  }
+
+  async flushAsync() {
+    clearTimeout(this.timer);
+    this.timer = null;
+    if (!this.filePath || !this.dirty) return true;
+    try {
+      const records = [...this.records.values()].sort((a, b) =>
+        (a.startedAt || a.updatedAt) - (b.startedAt || b.updatedAt)).slice(-MAX_RECORDS);
+      const json = JSON.stringify({ version: STORE_VERSION, records });
+      if (Buffer.byteLength(json) > MAX_BYTES) throw new Error('límite de tamaño excedido');
+      await fs.promises.mkdir(path.dirname(this.filePath), { recursive: true });
+      const temporary = `${this.filePath}.${process.pid}.tmp`;
+      await fs.promises.writeFile(temporary, json, { encoding: 'utf8', mode: 0o600 });
+      await fs.promises.rename(temporary, this.filePath);
+      this.dirty = false;
+      this.lastError = null;
+      return true;
+    } catch (error) {
+      this.lastError = `No se pudo guardar el historial de rendimiento: ${error.message}`;
+      this.log(this.lastError);
+      return false;
+    }
   }
 
   flush() {
     clearTimeout(this.timer);
     this.timer = null;
-    if (!this.filePath) return true;
+    if (!this.filePath || !this.dirty) return true;
     try {
       const records = [...this.records.values()].sort((a, b) =>
         (a.startedAt || a.updatedAt) - (b.startedAt || b.updatedAt)).slice(-MAX_RECORDS);
@@ -1489,6 +1567,7 @@ class PerformanceStore {
       const temporary = `${this.filePath}.${process.pid}.tmp`;
       fs.writeFileSync(temporary, json, { encoding: 'utf8', mode: 0o600 });
       fs.renameSync(temporary, this.filePath);
+      this.dirty = false;
       this.lastError = null;
       return true;
     } catch (error) {
@@ -1696,7 +1775,10 @@ function buildPostMatchReport(options = {}) {
   const baselines = telemetry ? [...records].sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt))
     .map((row) => comparableTelemetry(row, current, telemetry)).filter(Boolean) : [];
   const benchmark = mapBenchmark(current, options.historyRows, records, options.historyError);
-  if (options.historyPending && !benchmark.games && benchmark.status === 'empty') benchmark.status = 'loading';
+  if (options.historyPending) benchmark.status = 'loading';
+  const hasAuthoritativeHistory = Boolean(
+    !options.historyPending && !options.historyError && Array.isArray(options.historyRows) && options.historyRows.length > 0,
+  );
   const stages = PHASES.map((phase) => buildStage(phase, telemetry, baselines, normalized.status));
   const metrics = {};
   for (const [id, spec] of Object.entries(SUMMARY_METRICS)) {
@@ -1743,6 +1825,7 @@ function buildPostMatchReport(options = {}) {
       records,
       historyRows: options.historyRows,
       benchmark,
+      hasAuthoritativeHistory,
     }),
   } : null;
   const report = {

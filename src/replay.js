@@ -11,9 +11,89 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const AdmZip = require('adm-zip');
-const { analyzeReplayFile } = require('./replay-analysis');
+const { Worker } = require('node:worker_threads');
+const { analyzeReplayFile, analyzeReplayBuffer } = require('./replay-analysis');
 const { listAccounts } = require('./detect');
+
+const WORKER_IDLE_MS = 60_000;
+const replayInflight = new Map();
+let workerInstance = null;
+let workerIdleTimer = null;
+let workerReqId = 0;
+const workerPending = new Map();
+
+function stopIdleWorker() {
+  if (workerIdleTimer) { clearTimeout(workerIdleTimer); workerIdleTimer = null; }
+  if (workerInstance && workerPending.size === 0) {
+    const w = workerInstance;
+    workerInstance = null;
+    w.terminate().catch(() => {});
+  }
+}
+
+function bumpWorkerIdle() {
+  if (workerIdleTimer) clearTimeout(workerIdleTimer);
+  if (workerPending.size === 0) {
+    workerIdleTimer = setTimeout(stopIdleWorker, WORKER_IDLE_MS);
+    if (workerIdleTimer.unref) workerIdleTimer.unref();
+  }
+}
+
+function getReplayWorker() {
+  if (workerInstance) return workerInstance;
+  const w = new Worker(path.join(__dirname, 'replay-worker.js'));
+  w.on('message', (msg) => {
+    const entry = msg && workerPending.get(msg.id);
+    if (!entry) return;
+    workerPending.delete(msg.id);
+    bumpWorkerIdle();
+    if (msg.ok) entry.resolve(msg.result);
+    else entry.reject(new Error(msg.error || 'Error analizando replay'));
+  });
+  const failAll = (err) => {
+    if (workerInstance === w) workerInstance = null;
+    for (const entry of workerPending.values()) entry.reject(err);
+    workerPending.clear();
+  };
+  w.on('error', failAll);
+  w.on('exit', (code) => {
+    if (workerInstance === w) workerInstance = null;
+    if (workerPending.size > 0) failAll(new Error(`Replay worker exited (${code})`));
+  });
+  workerInstance = w;
+  return w;
+}
+
+function analyzeOffThread({ filePath = null, buffer = null, match, profileId }) {
+  // Fallback directo en entornos sin worker_threads o si falla la creación
+  if (process.env.AOE_REPLAY_INLINE === '1') {
+    return filePath
+      ? analyzeReplayFile(filePath, { match, profileId })
+      : analyzeReplayBuffer(buffer, { match, profileId });
+  }
+  return new Promise((resolve, reject) => {
+    let w;
+    try {
+      w = getReplayWorker();
+    } catch {
+      const p = filePath
+        ? analyzeReplayFile(filePath, { match, profileId })
+        : analyzeReplayBuffer(buffer, { match, profileId });
+      p.then(resolve, reject);
+      return;
+    }
+    if (workerIdleTimer) { clearTimeout(workerIdleTimer); workerIdleTimer = null; }
+    const id = ++workerReqId;
+    workerPending.set(id, { resolve, reject });
+    if (buffer) {
+      const copy = new Uint8Array(buffer.byteLength);
+      copy.set(buffer);
+      w.postMessage({ id, buffer: copy.buffer, match, profileId }, [copy.buffer]);
+    } else {
+      w.postMessage({ id, filePath, match, profileId });
+    }
+  });
+}
 
 const REPLAY_BASE = process.env.AOE2_REPLAY_BASE ||
   'https://api.ageofempires.com/api/GameStats/AgeII/GetMatchReplay/';
@@ -64,7 +144,8 @@ async function downloadReplay(matchId, profileId, { timeoutMs = 30_000 } = {}) {
   }
 }
 
-function extractRecord(zipBuffer) {
+function extractRecordBuffer(zipBuffer) {
+  const AdmZip = require('adm-zip');
   let zip;
   try {
     zip = new AdmZip(zipBuffer);
@@ -77,14 +158,19 @@ function extractRecord(zipBuffer) {
   const entry = entries[0];
   const size = Number(entry.header && entry.header.size) || 0;
   if (size > MAX_RECORD_BYTES) throw new Error('El replay descomprimido es demasiado grande.');
+  const data = entry.getData();
+  if (!data || data.byteLength > MAX_RECORD_BYTES) {
+    throw new Error('El replay descomprimido es demasiado grande.');
+  }
+  return data;
+}
 
+function extractRecord(zipBuffer) {
+  const data = extractRecordBuffer(zipBuffer);
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'aoe2-elo-replay-'));
   const filePath = path.join(directory, 'partida.aoe2record');
   try {
-    fs.writeFileSync(filePath, entry.getData());
-    if (fs.statSync(filePath).size > MAX_RECORD_BYTES) {
-      throw new Error('El replay descomprimido es demasiado grande.');
-    }
+    fs.writeFileSync(filePath, data);
   } catch (error) {
     fs.rmSync(directory, { recursive: true, force: true });
     throw error;
@@ -99,7 +185,7 @@ function extractRecord(zipBuffer) {
 /**
  * Busca el replay recién guardado localmente en `%USERPROFILE%\Games\Age of Empires 2 DE\<id>\savegame\`.
  * Evita esperar varios minutos a que Microsoft publique el ZIP (HTTP 404).
- * Valida roster completo y hora mediante `analyzeReplayFile`.
+ * Valida roster completo y hora mediante `analyzeReplayFile` en un Worker (0 bloqueo del hilo principal).
  */
 async function tryLocalReplay(match, profileId) {
   let accounts;
@@ -108,32 +194,36 @@ async function tryLocalReplay(match, profileId) {
   } catch {
     return null;
   }
-  const refTime = Number(match && (match.finishedAt || match.startedAt)) || Date.now();
+  const rawRef = match && (match.finishedAt || match.startedAt);
+  const refTime = (typeof rawRef === 'string' ? Date.parse(rawRef) : Number(rawRef)) || Date.now();
   const candidates = [];
   for (const acc of accounts) {
     const dir = path.join(acc.dir, 'savegame');
     let entries;
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
     } catch {
       continue;
     }
     for (const entry of entries) {
       if (!entry.isFile() || !/\.aoe2record$/i.test(entry.name)) continue;
+      // Excluir rec.aoe2record (grabación viva/incompleta)
+      if (/^rec\.aoe2record$/i.test(entry.name)) continue;
       const full = path.join(dir, entry.name);
       try {
-        const stat = fs.statSync(full);
+        const stat = await fs.promises.stat(full);
         if (stat.size <= 0 || stat.size > MAX_RECORD_BYTES) continue;
-        // Solo archivos recientes alrededor de la partida (±2 horas para tolerar desfase)
+        // Solo archivos cercanos alrededor de la partida (±2 horas para tolerar desfase)
         if (Math.abs(stat.mtimeMs - refTime) > 2 * 60 * 60 * 1000) continue;
-        candidates.push({ full, mtimeMs: stat.mtimeMs });
+        candidates.push({ full, mtimeMs: stat.mtimeMs, dist: Math.abs(stat.mtimeMs - refTime) });
       } catch { /* ignorar */ }
     }
   }
-  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  // Ordenar por cercanía real a la partida (no más nuevo primero) para no enganchar otro replay en revanchas
+  candidates.sort((a, b) => a.dist - b.dist);
   for (const item of candidates.slice(0, 6)) {
     try {
-      const telemetry = await analyzeReplayFile(item.full, { match, profileId });
+      const telemetry = await analyzeOffThread({ filePath: item.full, match, profileId });
       if (telemetry) {
         return {
           ...telemetry,
@@ -152,47 +242,54 @@ async function tryLocalReplay(match, profileId) {
 
 /**
  * Pipeline completo: primero intenta el .aoe2record local (<1s) y, si no está,
- * descarga desde Microsoft, extrae de forma segura y analiza localmente.
+ * descarga desde Microsoft, extrae en memoria (0 archivo temporal) y analiza en Worker.
+ * Deduplicado en vuelo por (matchId, profileId).
  */
 async function fetchReplayTelemetry(match, profileId, { onStatus, skipLocal = false } = {}) {
   const id = match && match.matchId;
   if (!id) throw new Error('La partida no tiene un ID de replay.');
   if (!Number.isFinite(Number(profileId))) throw new Error('Falta el perfil para pedir el replay.');
 
-  if (!skipLocal) {
+  const inflightKey = `${id}:${Number(profileId)}:${skipLocal ? 'net' : 'all'}`;
+  if (replayInflight.has(inflightKey)) return replayInflight.get(inflightKey);
+
+  const task = (async () => {
+    if (!skipLocal) {
+      if (onStatus) {
+        onStatus({
+          status: 'analyzing',
+          label: 'Analizando replay local',
+          detail: 'Leyendo economía, producción y ritmo desde tu carpeta savegame.',
+        });
+      }
+      const local = await tryLocalReplay(match, profileId);
+      if (local) return local;
+    }
+
+    if (onStatus) {
+      onStatus({
+        status: 'downloading',
+        label: 'Descargando partida',
+        detail: `Replay de #${id} desde Microsoft.`,
+      });
+    }
+    const zip = await downloadReplay(id, profileId);
+
     if (onStatus) {
       onStatus({
         status: 'analyzing',
-        label: 'Analizando replay local',
-        detail: 'Leyendo economía, producción y ritmo desde tu carpeta savegame.',
+        label: 'Analizando partida',
+        detail: 'Leyendo órdenes del replay: economía, ejército, edades y ritmo.',
       });
     }
-    const local = await tryLocalReplay(match, profileId);
-    if (local) return local;
-  }
+    const recordBuffer = extractRecordBuffer(zip);
+    return analyzeOffThread({ buffer: recordBuffer, match, profileId });
+  })().finally(() => {
+    if (replayInflight.get(inflightKey) === task) replayInflight.delete(inflightKey);
+  });
 
-  if (onStatus) {
-    onStatus({
-      status: 'downloading',
-      label: 'Descargando partida',
-      detail: `Replay de #${id} desde Microsoft.`,
-    });
-  }
-  const zip = await downloadReplay(id, profileId);
-
-  if (onStatus) {
-    onStatus({
-      status: 'analyzing',
-      label: 'Analizando partida',
-      detail: 'Leyendo órdenes del replay: economía, ejército, edades y ritmo.',
-    });
-  }
-  const extracted = extractRecord(zip);
-  try {
-    return await analyzeReplayFile(extracted.filePath, { match, profileId });
-  } finally {
-    extracted.cleanup();
-  }
+  replayInflight.set(inflightKey, task);
+  return task;
 }
 
 module.exports = {

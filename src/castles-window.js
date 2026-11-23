@@ -5,7 +5,7 @@ const VERSION = 'castles-command-window-v1';
 const AGE_ORDER_DEFINITION = 'first-age-research-command-game-seconds-v1';
 const supportedMap = (value) => typeof value === 'string' && /^(Arabia|Runestones|Arena)$/i.test(value);
 const LINES = {
-  scout: { label: 'Scouts', singular: 'Scout', ids: [448, 37] },
+  scout: { label: 'Scouts', singular: 'Scout', ids: [448, 546] },
   archer: { label: 'Arqueros', singular: 'Arquero', ids: [4] },
   militia: { label: 'Milicia / M@A', singular: 'Milicia / M@A', ids: [74, 75] },
   spear: { label: 'Lanceros', singular: 'Lancero', ids: [93] },

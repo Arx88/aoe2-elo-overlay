@@ -7,36 +7,59 @@ body {
   position: relative;
   isolation: isolate;
 }
-body:has(.nav-item[data-page="central"].active) { --launcher-art-opacity: 0; }
-body:has(.nav-item[data-page="overlay"].active) {
+body[data-page="central"] { --launcher-art-opacity: 0; }
+body[data-page="central"]::before { display: none; }
+body[data-page="overlay"] {
   --launcher-heading-art: url("assets/art/prematch-estandartes.webp");
   --launcher-heading-position: right 8%;
   --launcher-art-opacity: .88;
 }
-body:has(.nav-item[data-page="tactics"].active) { --launcher-heading-art: url("assets/art/durante.webp"); --launcher-art-position: right 53%; }
-body:has(.nav-item[data-page="postmatch"].active) { --launcher-heading-art: url("assets/art/postmatch.webp"); --launcher-art-position: right 31%; }
-body:has(.nav-item[data-page="skins"].active) { --launcher-heading-art: url("assets/art/apariencia.webp"); --launcher-art-opacity: .60; --launcher-art-position: right 44%; }
-body:has(.nav-item[data-page="plans"].active) { --launcher-heading-art: url("assets/art/acceso.webp"); --launcher-art-opacity: .58; --launcher-art-position: right 51%; }
-body:has(.nav-item[data-page="updater"].active) { --launcher-heading-art: url("assets/art/actualizaciones.webp"); --launcher-art-opacity: .60; --launcher-art-position: right 54%; }
+body[data-page="tactics"] { --launcher-heading-art: url("assets/art/durante.webp"); --launcher-art-position: right 53%; }
+body[data-page="postmatch"] { --launcher-heading-art: url("assets/art/postmatch.webp"); --launcher-art-position: right 31%; }
+body[data-page="skins"] { --launcher-heading-art: url("assets/art/apariencia.webp"); --launcher-art-opacity: .60; --launcher-art-position: right 44%; }
+body[data-page="plans"] { --launcher-heading-art: url("assets/art/acceso.webp"); --launcher-art-opacity: .58; --launcher-art-position: right 51%; }
+body[data-page="updater"] { --launcher-heading-art: url("assets/art/actualizaciones.webp"); --launcher-art-opacity: .60; --launcher-art-position: right 54%; }
 body::before {
   content: "";
   position: absolute;
   z-index: -1;
-  inset: 42px 0 auto var(--launcher-rail);
-  height: 176px;
+  inset: 0 0 auto var(--launcher-rail);
+  height: 214px;
   background: linear-gradient(90deg, var(--ui-page) 16%, transparent 72%),
     var(--launcher-heading-art) var(--launcher-heading-position, var(--launcher-art-position, right 46%)) / min(1160px, 100%) auto no-repeat;
-  mask-image: linear-gradient(180deg, #0004 0, #000b 48px, #000 80px, #000c 115px, transparent 100%);
+  mask-image: linear-gradient(180deg, #0008 0, #000d 48px, #000 92px, #000c 145px, transparent 100%);
   opacity: var(--launcher-art-opacity);
   pointer-events: none;
 }
+/* Seamless frameless titlebar: zero separated strip, zero color difference, floating controls only */
 .winbar {
-  position: relative;
-  background: #0a0e12;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  z-index: 50;
+  justify-content: flex-end;
+  background: transparent !important;
+  border-bottom: 0 !important;
+  -webkit-app-region: drag;
 }
-.winbar-controls { background: transparent; }
-.winbar-context { color: #a1aaad; }
+.winbar-brand { display: none !important; }
+.winbar-controls {
+  background: transparent;
+  height: 36px;
+  -webkit-app-region: no-drag;
+}
+.winbtn {
+  width: 44px;
+  height: 36px;
+  color: rgba(232, 238, 241, 0.72);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.winbtn:hover { background: rgba(255, 255, 255, 0.09); color: #ffffff; }
+.winbtn.close:hover { background: rgba(196, 59, 52, 0.88); color: #ffffff; }
+.rail { padding-top: 28px !important; }
+.content-head { padding-top: 36px !important; }
 .session-badge {
   color: #cdd4d6;
   font-size: 10px;

@@ -114,17 +114,24 @@ function resolveHighlightTargets(feature) {
   }
 }
 
+let hadPreviewHighlight = false;
 function applyPreviewHighlight() {
-  document.querySelectorAll('.preview-hl').forEach((node) => node.classList.remove('preview-hl'));
   const feature = previewHighlight && previewHighlight.feature ? previewHighlight.feature : null;
+  if (!feature && !hadPreviewHighlight) {
+    if (previewHighlightBarEl && !previewHighlightBarEl.hidden) previewHighlightBarEl.hidden = true;
+    return;
+  }
+  document.querySelectorAll('.preview-hl').forEach((node) => node.classList.remove('preview-hl'));
   const isPreviewContext = Boolean(feature) && !moving && (
     (lastState && lastState.example) ||
     (postMatchEl && !postMatchEl.hidden)
   );
   if (!isPreviewContext) {
+    hadPreviewHighlight = false;
     if (previewHighlightBarEl) previewHighlightBarEl.hidden = true;
     return;
   }
+  hadPreviewHighlight = true;
   const targets = resolveHighlightTargets(feature);
   for (const el of targets) el.classList.add('preview-hl');
   if (previewHighlightBarEl) {
@@ -1044,28 +1051,7 @@ function knownOpponentCount() {
 }
 
 function renderRivalInfo() {
-  if (!rivalInfoEl) return;
-  // La visibilidad la decide applyVisibility(): acá solo se pinta el contenido.
-  const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
-  rivalInfoEl.classList.toggle('single', reports.length <= 1);
-  rivalGrid.innerHTML = reports.length
-    ? reports.map(rivalCard).join('')
-    : `<div class="rival-empty">Buscando los datos del rival…</div>`;
-  // Con 1-4 replays un porcentaje parece certeza. Se dice UNA vez por
-  // sección: antes cada tarjeta repetía el mismo aviso y ocupaba dos líneas.
-  const smallSample = reports.some((r) => {
-    const o = r && r.openings;
-    const n = o ? Number(o.mapCivAnalyzed) || 0 : 0;
-    return Boolean(o && o.mapCivFavorite) && n > 0 && n < 5;
-  });
-  if (rivalFootnoteEl) {
-    const total = knownOpponentCount();
-    const notes = [];
-    if (reports.length && total > reports.length) notes.push(`Análisis de ${reports.length} de ${total} rivales.`);
-    if (smallSample) notes.push('Muestra chica: es una pista, no una tendencia.');
-    rivalFootnoteEl.hidden = !notes.length;
-    rivalFootnoteEl.textContent = notes.join(' ');
-  }
+  // #rivalInfo permanece siempre oculto (reemplazado por #scouting unificado): evitar DOM churn innecesario.
   renderScouting();
   applyVisibility();
 }
@@ -1425,14 +1411,7 @@ function scoutRecommendBlock(tip) {
 }
 
 function renderScoutInfo() {
-  if (!scoutInfoEl) return;
-  // La visibilidad la decide applyVisibility(); el `matchId` del payload hace
-  // que el consejo sobreviva al arranque de la partida.
-  const { tips } = tipsForCurrentMatch();
-  scoutInfoEl.classList.toggle('single', tips.length <= 1);
-  scoutGrid.innerHTML = tips.length
-    ? tips.map(scoutCard).join('')
-    : `<div class="rival-empty">Preparando el consejo del rival…</div>`;
+  // #scoutInfo permanece siempre oculto (reemplazado por #scouting unificado): evitar DOM churn innecesario.
   renderScouting();
   applyVisibility();
 }
@@ -2013,28 +1992,25 @@ let stageScale = 1;
 const HEIGHT_PADDING = 8;
 
 function fitStage() {
-  if (!stage) return;
+  if (!stage) return 0;
   const natural = stage.scrollHeight;
-  // -2 por el redondeo subpíxel de getBoundingClientRect(): sin eso el
-  // Math.ceil de reportHeight() pedía 1156 contra 1155 disponibles.
+  // -2 por el redondeo subpíxel: sin eso el Math.ceil pedía 1156 contra 1155 disponibles.
   const usable = stageMaxHeight - HEIGHT_PADDING - 2;
   let scale = 1;
   if (usable > 0 && natural > usable) {
-    // No recortar información: con muchas opciones en un monitor pequeño,
-    // el mínimo anterior de 0.82 dejaba la parte inferior fuera de pantalla.
     scale = usable / natural;
   }
   if (Math.abs(scale - stageScale) > 0.002) {
     stageScale = scale;
     stage.style.transform = scale < 1 ? `scale(${scale.toFixed(4)})` : '';
   }
+  return natural;
 }
 
 function reportHeight() {
-  // Mide TODO el stage: si el ELO está oculto a 0:20, la ventana se achica
-  // sola y deja de estorbar; si vuelve la tarjeta de civ, vuelve a crecer.
-  fitStage();
-  const height = Math.ceil(stage.getBoundingClientRect().height) + HEIGHT_PADDING;
+  // Mide el stage una sola vez (evita doble reflow forzado tras escribir transform).
+  const natural = fitStage();
+  const height = Math.ceil(natural * stageScale) + HEIGHT_PADDING;
   if (Math.abs(height - lastReported) > 1) {
     lastReported = height;
     window.overlay.reportHeight(height);
@@ -2450,7 +2426,7 @@ window.addEventListener('unhandledrejection', (event) =>
   window.overlay.reportError(String(event.reason)),
 );
 
-const resizeObserver = new ResizeObserver(() => reportHeight());
+const resizeObserver = new ResizeObserver(() => scheduleHeight());
 resizeObserver.observe(stage);
 
 // Avisar recién ahora que los listeners están puestos.

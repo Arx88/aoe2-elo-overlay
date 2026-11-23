@@ -389,7 +389,8 @@ function op(playerId, ms, type, payload = {}) {
 
   assert.equal(res.self.techProfile.hasDoubleBitAxe, true);
   assert.equal(res.self.techProfile.hasBowSaw, true);
-  assert.equal(res.self.techProfile.ecoCount, 3);
+  // Franks reciben Arado pesado (13) gratis al llegar a Castillos -> 3 investigadas + 1 gratis = 4
+  assert.equal(res.self.techProfile.ecoCount, 4);
   assert.equal(res.self.techProfile.blacksmithCount, 4);
   assert.equal(res.self.techProfile.combatKeyCount, 2);
   assert.equal(res.self.macroBuilds.farms, 12);
@@ -567,17 +568,32 @@ function op(playerId, ms, type, payload = {}) {
         { profileId: '99999', name: 'GrandMaster', civ: 'Mayans', team: 2, won: false, rating: 1295, matchRatingDiff: -21 },
       ],
     },
-    profileId: '25399083', telemetry: curNorm.data, records,
+    profileId: '25399083', telemetry: curNorm.data, records, historyRows: records,
   });
 
   assert.ok(rep.engine.evolution.consecutiveImprovement, 'must detect 3-match progressive improvement');
-  assert.match(rep.engine.evolution.consecutiveImprovement.chainLabel, /64 s → 38 s → 16 s/);
+  assert.match(rep.engine.evolution.consecutiveImprovement.chainLabel, /38 → 43 → 49/);
   assert.ok(rep.engine.evolution.sessionWarmup, 'must detect same-session warm-up improvement');
   assert.equal(rep.engine.narrative.streak.count, 3);
   assert.match(rep.engine.narrative.streak.label, /3 victorias seguidas/);
   assert.equal(rep.engine.narrative.medals.length, 3);
   const flavors = new Set(rep.engine.narrative.medals.map((m) => m.flavor));
   assert.equal(flavors.size, 3, `expected 3 distinct flavors (story + evolution + execution), got ${[...flavors].join(',')}`);
+
+  // Sparse local records WITHOUT authoritative API historyRows must NEVER fabricate fake win/loss streaks
+  const sparseRep = buildPostMatchReport({
+    match: {
+      matchId: '3003', startedAt: Date.now() - 10 * 60_000, finishedAt: Date.now(),
+      leaderboardId: 3, mapName: 'Arabia',
+      players: [
+        { profileId: '25399083', name: 'PSX | Acido', civ: 'Franks', team: 1, won: true, matchRating: 1231, matchRatingDiff: 21 },
+        { profileId: '99999', name: 'GrandMaster', civ: 'Mayans', team: 2, won: false, matchRating: 1295, matchRatingDiff: -21 },
+      ],
+    },
+    profileId: '25399083', telemetry: curNorm.data, records, historyRows: [], historyPending: false,
+  });
+  assert.ok(!sparseRep.engine.narrative.medals.some((m) => m.id === 'story-win-streak' || m.id === 'story-comeback-break'),
+    'must not fabricate win/loss streaks without authoritative historyRows');
 }
 
 console.log('postmatch-engine-test: ok');

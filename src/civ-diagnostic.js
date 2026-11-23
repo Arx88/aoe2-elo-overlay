@@ -462,6 +462,124 @@ function deduplicateFindings(passing, direction, maxCount = 3) {
 }
 
 /**
+ * Pre-indexa una sola vez por modo las estructuras compartidas entre todas las civs
+ * para pasar `buildModeCivDiagnostics` de O(C * N log N) a O(N) con resultados idénticos.
+ */
+function buildModePreindex(matches, phaseBuckets) {
+  const isValidTactical = (m) => !(Number.isFinite(m.durationGameSec) && m.durationGameSec > 0 && m.durationGameSec < EARLY_RESIGN_GAME_SEC);
+  const resolved = (Array.isArray(matches) ? matches : []).filter((m) => m && typeof m.won === 'boolean' && m.civ);
+  const slugOf = new WeakMap();
+  const allCountBySlug = new Map();
+  const validBySlug = new Map();
+  const validAll = [];
+  const expOf = new WeakMap();
+
+  let totalN = 0;
+  let totalW = 0;
+  let totalExpSum = 0;
+  let totalResSum = 0;
+
+  for (const m of resolved) {
+    const s = m.civSlug || civSlug(m.civ);
+    slugOf.set(m, s);
+    allCountBySlug.set(s, (allCountBySlug.get(s) || 0) + 1);
+    if (!isValidTactical(m)) continue;
+    validAll.push(m);
+    if (!validBySlug.has(s)) validBySlug.set(s, []);
+    validBySlug.get(s).push(m);
+    const e = eloExpectancy(m.myElo, m.oppElo);
+    expOf.set(m, e);
+    totalN += 1;
+    if (m.won) totalW += 1;
+    totalExpSum += e;
+    totalResSum += (m.won ? 1 : 0) - e;
+  }
+
+  // Régimen local de ELO en UNA sola pasada O(N log N) para todas las civs
+  const chronoAll = resolved.filter((m) => Number.isFinite(m.myElo)).sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+  const localDeltasBySlug = new Map();
+  for (let i = 0; i < chronoAll.length; i += 1) {
+    if (i < 8) continue;
+    const m = chronoAll[i];
+    const windowStart = Math.max(0, i - 25);
+    const priorElos = [];
+    for (let j = windowStart; j < i; j += 1) priorElos.push(chronoAll[j].myElo);
+    const med = median(priorElos);
+    if (med != null) {
+      const s = slugOf.get(m);
+      if (!localDeltasBySlug.has(s)) localDeltasBySlug.set(s, []);
+      localDeltasBySlug.get(s).push(m.myElo - med);
+    }
+  }
+
+  // Totales pre-agregados por dimensión categórica fija (resta O(1) para `otherMatches`)
+  const makeDimIndex = (filterFn, keyFn) => {
+    let scopedN = 0;
+    let scopedW = 0;
+    const groups = new Map();
+    for (const m of validAll) {
+      if (!filterFn(m)) continue;
+      scopedN += 1;
+      if (m.won) scopedW += 1;
+      const k = keyFn(m);
+      if (!k) continue;
+      let g = groups.get(k);
+      if (!g) { g = { n: 0, w: 0 }; groups.set(k, g); }
+      g.n += 1;
+      if (m.won) g.w += 1;
+    }
+    return { scopedN, scopedW, groups };
+  };
+  const openFilter = (m) => !m.openness || OPEN_MAP_KINDS.has(m.openness);
+  const dimTotals = {
+    openness: makeDimIndex(() => true, (m) => m.openness),
+    map: makeDimIndex(() => true, (m) => m.mapKey),
+    myOpening: makeDimIndex(openFilter, (m) => m.myOpening),
+    oppOpening: makeDimIndex(openFilter, (m) => m.oppOpening),
+  };
+
+  // Totales de duración por fase para hazard condicional
+  let durTotalN = 0;
+  const phaseTotals = new Map();
+  for (const b of phaseBuckets) phaseTotals.set(b.id, { riskN: 0, inN: 0, lossN: 0, winN: 0 });
+  for (const m of validAll) {
+    if (!(Number.isFinite(m.durationGameSec) && m.durationGameSec >= EARLY_RESIGN_GAME_SEC)) continue;
+    durTotalN += 1;
+    for (const b of phaseBuckets) {
+      if (m.durationGameSec >= b.min) {
+        const pt = phaseTotals.get(b.id);
+        pt.riskN += 1;
+        if (m.durationGameSec < b.max) {
+          pt.inN += 1;
+          if (m.won) pt.winN += 1;
+          else pt.lossN += 1;
+        }
+      }
+    }
+  }
+
+  const validEapmRows = validAll.filter((m) => Number.isFinite(m.myEapm));
+
+  return {
+    resolved,
+    slugOf,
+    allCountBySlug,
+    validBySlug,
+    validAll,
+    expOf,
+    totalN,
+    totalW,
+    totalExpSum,
+    totalResSum,
+    localDeltasBySlug,
+    dimTotals,
+    durTotalN,
+    phaseTotals,
+    validEapmRows,
+  };
+}
+
+/**
  * Diagnóstico completo de una civilización contra el propio baseline del jugador
  * en el mismo modo de juego.
  */
@@ -471,6 +589,7 @@ function analyzeCivPerformance({
   matches = [],
   allTimeCivStat = null,
   allTimeModeCivs = [],
+  _precomputed = null,
 } = {}) {
   const slug = civSlug(targetCiv) || String(targetCiv || '').trim().toLowerCase();
   const displayName = String(targetCiv || '').trim() || slug;
@@ -481,36 +600,71 @@ function analyzeCivPerformance({
   const isTeam = String(modeId).includes('team');
   const phaseBuckets = isTeam ? PHASE_BUCKETS_TEAM : PHASE_BUCKETS_1V1;
 
-  // Filtrar partidas con resultado confirmado
-  const resolved = (Array.isArray(matches) ? matches : []).filter((m) => m && typeof m.won === 'boolean' && m.civ);
-  const civAll = resolved.filter((m) => (m.civSlug || civSlug(m.civ)) === slug);
-  const otherAll = resolved.filter((m) => (m.civSlug || civSlug(m.civ)) !== slug);
-
-  // Separar early resigns / dodges (<5:00 in-game) de las partidas tácticas
+  // Filtrar partidas con resultado confirmado (usando pre-índice O(1) cuando viene de buildModeCivDiagnostics)
   const isValidTactical = (m) => !(Number.isFinite(m.durationGameSec) && m.durationGameSec > 0 && m.durationGameSec < EARLY_RESIGN_GAME_SEC);
-  const civMatches = civAll.filter(isValidTactical);
-  const otherMatches = otherAll.filter(isValidTactical);
-  const earlyResigns = civAll.length - civMatches.length;
+  let resolved;
+  let civMatches;
+  let otherMatches = null;
+  let earlyResigns;
+  let nOther;
+  let wOther;
+  let lOther;
+  let avgExpOther;
+  let residualOther;
+
+  if (_precomputed) {
+    resolved = _precomputed.resolved;
+    civMatches = _precomputed.validBySlug.get(slug) || [];
+    const allCountC = _precomputed.allCountBySlug.get(slug) || 0;
+    earlyResigns = allCountC - civMatches.length;
+    nOther = _precomputed.totalN - civMatches.length;
+    let wC0 = 0;
+    let civExpSum = 0;
+    let civResSum = 0;
+    for (const m of civMatches) {
+      const e = _precomputed.expOf.get(m);
+      if (m.won) wC0 += 1;
+      civExpSum += e;
+      civResSum += (m.won ? 1 : 0) - e;
+    }
+    wOther = _precomputed.totalW - wC0;
+    lOther = nOther - wOther;
+    avgExpOther = nOther > 0 ? (_precomputed.totalExpSum - civExpSum) / nOther : 0.5;
+    residualOther = nOther >= 5 ? (_precomputed.totalResSum - civResSum) / nOther : 0;
+  } else {
+    resolved = (Array.isArray(matches) ? matches : []).filter((m) => m && typeof m.won === 'boolean' && m.civ);
+    const civAll = resolved.filter((m) => (m.civSlug || civSlug(m.civ)) === slug);
+    const otherAll = resolved.filter((m) => (m.civSlug || civSlug(m.civ)) !== slug);
+    civMatches = civAll.filter(isValidTactical);
+    otherMatches = otherAll.filter(isValidTactical);
+    earlyResigns = civAll.length - civMatches.length;
+    nOther = otherMatches.length;
+    wOther = otherMatches.filter((m) => m.won).length;
+    lOther = nOther - wOther;
+    const expOther = otherMatches.map((m) => eloExpectancy(m.myElo, m.oppElo));
+    avgExpOther = expOther.length ? expOther.reduce((a, b) => a + b, 0) / expOther.length : 0.5;
+    residualOther = nOther >= 5
+      ? otherMatches.reduce((acc, m, idx) => acc + ((m.won ? 1 : 0) - expOther[idx]), 0) / nOther
+      : 0;
+  }
+
+  const getOtherMatches = () => {
+    if (otherMatches === null) {
+      otherMatches = _precomputed.validAll.filter((m) => _precomputed.slugOf.get(m) !== slug);
+    }
+    return otherMatches;
+  };
 
   const nC = civMatches.length;
   const wC = civMatches.filter((m) => m.won).length;
   const lC = nC - wC;
   const rawWr = nC > 0 ? wC / nC : null;
-
-  const nOther = otherMatches.length;
-  const wOther = otherMatches.filter((m) => m.won).length;
-  const lOther = nOther - wOther;
   const rawBaselineWr = nOther > 0 ? wOther / nOther : 0.5;
 
   // 1. Baseline ajustado por ELO esperado (E_i)
-  const expOther = otherMatches.map((m) => eloExpectancy(m.myElo, m.oppElo));
-  const avgExpOther = expOther.length ? expOther.reduce((a, b) => a + b, 0) / expOther.length : 0.5;
-  const residualOther = nOther >= 5
-    ? otherMatches.reduce((acc, m, idx) => acc + ((m.won ? 1 : 0) - expOther[idx]), 0) / nOther
-    : 0;
-
-  const expCiv = civMatches.map((m) => eloExpectancy(m.myElo, m.oppElo));
-  const avgExpCiv = expCiv.length ? expCiv.reduce((a, b) => a + b, 0) / expCiv.length : 0.5;
+  const avgExpCiv = nC > 0
+    ? civMatches.reduce((acc, m) => acc + (_precomputed ? _precomputed.expOf.get(m) : eloExpectancy(m.myElo, m.oppElo)), 0) / nC
+    : 0.5;
   const expectedBaseline = clamp(avgExpCiv + residualOther, 0.05, 0.95);
   const eloGapEffect = avgExpCiv - avgExpOther; // negativo = enfrentó rivales de mayor ELO
 
@@ -567,7 +721,10 @@ function analyzeCivPerformance({
   }[confidence];
 
   // Desgloses siempre disponibles para los chips [ Mapas | Fases | Aperturas | Ritmo ]
-  const breakdowns = buildBreakdowns(civMatches, otherMatches, phaseBuckets);
+  const otherEapmsFast = _precomputed
+    ? _precomputed.validEapmRows.filter((m) => _precomputed.slugOf.get(m) !== slug).map((m) => m.myEapm)
+    : null;
+  const breakdowns = buildBreakdowns(civMatches, otherEapmsFast ? null : getOtherMatches(), phaseBuckets, otherEapmsFast);
 
   // Guardrail de muestra chica (< 5 partidas): CERO causas alucinadas
   if (nC < MIN_DIAGNOSIS_GAMES) {
@@ -631,16 +788,21 @@ function analyzeCivPerformance({
   }
 
   // Régimen local de ELO (elimina sesgo de subida histórica a largo plazo)
-  const chronoAll = [...resolved].filter((m) => Number.isFinite(m.myElo)).sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
-  const localEloDeltas = [];
-  for (let i = 0; i < chronoAll.length; i += 1) {
-    const m = chronoAll[i];
-    if ((m.civSlug || civSlug(m.civ)) !== slug) continue;
-    const windowStart = Math.max(0, i - 25);
-    const priorElos = chronoAll.slice(windowStart, i).map((x) => x.myElo);
-    if (priorElos.length >= 8) {
-      const med = median(priorElos);
-      if (med != null) localEloDeltas.push(m.myElo - med);
+  let localEloDeltas;
+  if (_precomputed) {
+    localEloDeltas = _precomputed.localDeltasBySlug.get(slug) || [];
+  } else {
+    const chronoAll = [...resolved].filter((m) => Number.isFinite(m.myElo)).sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+    localEloDeltas = [];
+    for (let i = 0; i < chronoAll.length; i += 1) {
+      const m = chronoAll[i];
+      if ((m.civSlug || civSlug(m.civ)) !== slug) continue;
+      const windowStart = Math.max(0, i - 25);
+      const priorElos = chronoAll.slice(windowStart, i).map((x) => x.myElo);
+      if (priorElos.length >= 8) {
+        const med = median(priorElos);
+        if (med != null) localEloDeltas.push(m.myElo - med);
+      }
     }
   }
   const medLocalSpike = localEloDeltas.length >= 5 ? median(localEloDeltas) : null;
@@ -667,26 +829,42 @@ function analyzeCivPerformance({
     buildCopy,
   }) => {
     const scopedC = civMatches.filter(filterFn);
-    const scopedO = otherMatches.filter(filterFn);
     if (scopedC.length < minCivCount) return;
 
     const groupsC = new Map();
-    const groupsO = new Map();
+    let scopedCWins = 0;
     for (const m of scopedC) {
+      if (m.won) scopedCWins += 1;
       const k = keyFn(m);
       if (!k) continue;
       if (!groupsC.has(k)) groupsC.set(k, { key: k, label: labelFn(m, k), rows: [] });
       groupsC.get(k).rows.push(m);
     }
-    for (const m of scopedO) {
-      const k = keyFn(m);
-      if (!k) continue;
-      if (!groupsO.has(k)) groupsO.set(k, { key: k, rows: [] });
-      groupsO.get(k).rows.push(m);
+
+    const preDim = _precomputed?.dimTotals?.[dimId] || null;
+    let scopedOLen = 0;
+    let scopedOWins = 0;
+    let groupsO = null;
+    if (preDim) {
+      scopedOLen = preDim.scopedN - scopedC.length;
+      scopedOWins = preDim.scopedW - scopedCWins;
+    } else {
+      const scopedO = getOtherMatches().filter(filterFn);
+      scopedOLen = scopedO.length;
+      groupsO = new Map();
+      for (const m of scopedO) {
+        if (m.won) scopedOWins += 1;
+        const k = keyFn(m);
+        if (!k) continue;
+        let g = groupsO.get(k);
+        if (!g) { g = { n: 0, w: 0 }; groupsO.set(k, g); }
+        g.n += 1;
+        if (m.won) g.w += 1;
+      }
     }
 
-    const baseWrScoped = scopedO.length >= 5
-      ? scopedO.filter((m) => m.won).length / scopedO.length
+    const baseWrScoped = scopedOLen >= 5
+      ? scopedOWins / scopedOLen
       : rawBaselineWr;
 
     for (const [k, grpC] of groupsC.entries()) {
@@ -694,9 +872,21 @@ function analyzeCivPerformance({
       if (nf < minCivCount) continue;
       const wf = grpC.rows.filter((m) => m.won).length;
       const lf = nf - wf;
-      const grpO = groupsO.get(k);
-      const no = grpO ? grpO.rows.length : 0;
-      const wo = grpO ? grpO.rows.filter((m) => m.won).length : 0;
+      let no = 0;
+      let wo = 0;
+      if (preDim) {
+        const totG = preDim.groups.get(k);
+        if (totG) {
+          no = totG.n - nf;
+          wo = totG.w - wf;
+        }
+      } else {
+        const grpO = groupsO.get(k);
+        if (grpO) {
+          no = grpO.n;
+          wo = grpO.w;
+        }
+      }
       const lo = no - wo;
 
       // Double-shrunk subgroup baseline + civ rate
@@ -704,7 +894,7 @@ function analyzeCivPerformance({
       const pCivHat = (wf + 8 * pRef) / (nf + 8);
       const lift = pCivHat - pRef;
       const wCShare = nf / nC;
-      const wOShare = scopedO.length > 0 ? no / scopedO.length : 0;
+      const wOShare = scopedOLen > 0 ? no / scopedOLen : 0;
       // Si el jugador jugó >=95% de TODAS sus partidas (con C y con ~C) en un único
       // valor de mapa/tipo de mapa, señalar ese mapa no explica nada nuevo (solo repite el WR global).
       if ((dimId === 'map' || dimId === 'openness') && wCShare >= 0.95 && wOShare >= 0.95) {
@@ -717,8 +907,8 @@ function analyzeCivPerformance({
         : binomialExactTwoSided(wf, nf, pRef);
 
       const mixImpact = (wCShare - wOShare) * (pRef - baseWrScoped);
-      const pValMix = allowMixEffect && scopedO.length >= 10
-        ? fisherExactTwoSided(nf, scopedC.length - nf, no, scopedO.length - no)
+      const pValMix = allowMixEffect && scopedOLen >= 10
+        ? fisherExactTwoSided(nf, scopedC.length - nf, no, scopedOLen - no)
         : 1;
 
       // ¿Simpson's Paradox / Map-Mix? El jugador pierde igual con TODAS las civs en este contexto
@@ -925,31 +1115,48 @@ function analyzeCivPerformance({
   // 4C. Tier 2A: Hazard condicional por fase de duración (tiempo IN-GAME 1.7x)
   // Evita el sesgo de supervivencia: divide por las partidas que LLEGARON a esa fase (R_b).
   const durC = civMatches.filter((m) => Number.isFinite(m.durationGameSec) && m.durationGameSec >= EARLY_RESIGN_GAME_SEC);
-  const durO = otherMatches.filter((m) => Number.isFinite(m.durationGameSec) && m.durationGameSec >= EARLY_RESIGN_GAME_SEC);
-  if (durC.length >= 5 && durO.length >= 10) {
+  const durON = _precomputed
+    ? (_precomputed.durTotalN - durC.length)
+    : getOtherMatches().filter((m) => Number.isFinite(m.durationGameSec) && m.durationGameSec >= EARLY_RESIGN_GAME_SEC).length;
+  if (durC.length >= 5 && durON >= 10) {
+    const durO = _precomputed ? null : getOtherMatches().filter((m) => Number.isFinite(m.durationGameSec) && m.durationGameSec >= EARLY_RESIGN_GAME_SEC);
     for (const b of phaseBuckets) {
       const riskC = durC.filter((m) => m.durationGameSec >= b.min);
-      const riskO = durO.filter((m) => m.durationGameSec >= b.min);
       const inC = riskC.filter((m) => m.durationGameSec < b.max);
-      const inO = riskO.filter((m) => m.durationGameSec < b.max);
-      if (inC.length < 4 || riskC.length < 4 || riskO.length < 6) continue;
-
       const lossC = inC.filter((m) => !m.won).length;
       const winC = inC.length - lossC;
-      const lossO = inO.filter((m) => !m.won).length;
-      const winO = inO.length - lossO;
+
+      let riskOLen;
+      let inOLen;
+      let lossO;
+      let winO;
+      if (_precomputed) {
+        const pt = _precomputed.phaseTotals.get(b.id);
+        riskOLen = pt.riskN - riskC.length;
+        inOLen = pt.inN - inC.length;
+        lossO = pt.lossN - lossC;
+        winO = pt.winN - winC;
+      } else {
+        const riskO = durO.filter((m) => m.durationGameSec >= b.min);
+        const inO = riskO.filter((m) => m.durationGameSec < b.max);
+        riskOLen = riskO.length;
+        inOLen = inO.length;
+        lossO = inO.filter((m) => !m.won).length;
+        winO = inOLen - lossO;
+      }
+      if (inC.length < 4 || riskC.length < 4 || riskOLen < 6) continue;
 
       // Hazard de derrota (morir en esta fase dado que seguías vivo)
-      const hLossRef = (lossO + 6 * 0.25) / (riskO.length + 6);
+      const hLossRef = (lossO + 6 * 0.25) / (riskOLen + 6);
       const hLossC = (lossC + 8 * hLossRef) / (riskC.length + 8);
       const lossLift = hLossC - hLossRef; // positivo = muere MÁS en esta fase
-      const pLossHaz = fisherExactTwoSided(lossC, riskC.length - lossC, lossO, riskO.length - lossO);
+      const pLossHaz = fisherExactTwoSided(lossC, riskC.length - lossC, lossO, riskOLen - lossO);
 
       // Hazard de victoria (cerrar ganando en esta fase dado que seguías vivo)
-      const hWinRef = (winO + 6 * 0.25) / (riskO.length + 6);
+      const hWinRef = (winO + 6 * 0.25) / (riskOLen + 6);
       const hWinC = (winC + 8 * hWinRef) / (riskC.length + 8);
       const winLift = hWinC - hWinRef;
-      const pWinHaz = fisherExactTwoSided(winC, riskC.length - winC, winO, riskO.length - winO);
+      const pWinHaz = fisherExactTwoSided(winC, riskC.length - winC, winO, riskOLen - winO);
 
       const useLoss = Math.abs(lossLift) >= Math.abs(winLift);
       const sign = useLoss ? -1 : 1;
@@ -957,7 +1164,7 @@ function analyzeCivPerformance({
       const pVal = useLoss ? pLossHaz : pWinHaz;
       const impact = (riskC.length / nC) * lift;
       const wrInBucket = pct(winC, inC.length);
-      const wrBaseBucket = inO.length >= 4 ? pct(winO, inO.length) : Math.round(rawBaselineWr * 100);
+      const wrBaseBucket = inOLen >= 4 ? pct(winO, inOLen) : Math.round(rawBaselineWr * 100);
 
       const phaseTitle = sign < 0
         ? (b.id === 'early' ? `Vulnerable en ${b.label} (${b.sub})`
@@ -976,7 +1183,7 @@ function analyzeCivPerformance({
         pValue: pVal,
         lift,
         impact,
-        refRate: inO.length >= 4 ? winO / inO.length : rawBaselineWr,
+        refRate: inOLen >= 4 ? winO / inOLen : rawBaselineWr,
         shortTag: `${b.label}`,
         civRows: inC,
         targetIds: targetMatchIds(inC, sign),
@@ -1006,8 +1213,9 @@ function analyzeCivPerformance({
     buildCopy,
   }) => {
     const cRows = civMatches.filter((m) => filterFn(m) && Number.isFinite(valueFn(m)));
-    const oRows = otherMatches.filter((m) => filterFn(m) && Number.isFinite(valueFn(m)));
-    if (cRows.length < minCiv || oRows.length < 8) return;
+    if (cRows.length < minCiv) return;
+    const oRows = getOtherMatches().filter((m) => filterFn(m) && Number.isFinite(valueFn(m)));
+    if (oRows.length < 8) return;
 
     const cLossVals = cRows.filter((m) => !m.won).map(valueFn);
     const oLossVals = oRows.filter((m) => !m.won).map(valueFn);
@@ -1241,7 +1449,7 @@ function analyzeCivPerformance({
 }
 
 /** Construye los mini-desgloses [ Mapas | Fases | Aperturas | Ritmo ] de la civ. */
-function buildBreakdowns(civMatches, otherMatches, phaseBuckets) {
+function buildBreakdowns(civMatches, otherMatches, phaseBuckets, otherEapmsOverride = null) {
   const mapAgg = new Map();
   const opAgg = new Map();
   for (const m of civMatches) {
@@ -1280,7 +1488,9 @@ function buildBreakdowns(civMatches, otherMatches, phaseBuckets) {
   }).filter((b) => b.games > 0);
 
   const civEapms = civMatches.map((m) => m.myEapm).filter(Number.isFinite);
-  const otherEapms = otherMatches.map((m) => m.myEapm).filter(Number.isFinite);
+  const otherEapms = Array.isArray(otherEapmsOverride)
+    ? otherEapmsOverride
+    : (otherMatches || []).map((m) => m.myEapm).filter(Number.isFinite);
   const civMedEapm = median(civEapms);
   const otherMedEapm = median(otherEapms);
   const outpaced = civMatches.filter((m) => Number.isFinite(m.myEapm) && Number.isFinite(m.oppEapm) && m.myEapm > m.oppEapm);
@@ -1323,6 +1533,10 @@ function buildModeCivDiagnostics({
     if (!bySlug.has(slug)) bySlug.set(slug, { civ: m.civ, stat: null });
   }
 
+  const isTeam = String(modeId).includes('team');
+  const phaseBuckets = isTeam ? PHASE_BUCKETS_TEAM : PHASE_BUCKETS_1V1;
+  const precomputed = buildModePreindex(matches, phaseBuckets);
+
   const out = {};
   for (const [slug, info] of bySlug.entries()) {
     out[slug] = analyzeCivPerformance({
@@ -1331,6 +1545,7 @@ function buildModeCivDiagnostics({
       matches,
       allTimeCivStat: info.stat,
       allTimeModeCivs: allTimeCivs,
+      _precomputed: precomputed,
     });
   }
   return out;

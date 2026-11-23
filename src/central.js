@@ -101,9 +101,11 @@ function readDiskCache(diskCachePath, pid) {
 function writeDiskCache(diskCachePath, pid, raw) {
   if (!diskCachePath || !raw) return;
   try {
-    const tmp = `${diskCachePath}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ profileId: Number(pid), ts: Date.now(), raw }), 'utf8');
-    fs.renameSync(tmp, diskCachePath);
+    const tmp = `${diskCachePath}.${process.pid}.tmp`;
+    const payload = JSON.stringify({ profileId: Number(pid), ts: Date.now(), raw });
+    fs.promises.writeFile(tmp, payload, 'utf8')
+      .then(() => fs.promises.rename(tmp, diskCachePath))
+      .catch(() => { fs.promises.unlink(tmp).catch(() => {}); });
   } catch {
     // Nunca fallar por caché en disco
   }
@@ -1582,51 +1584,70 @@ function computeCentralAnalytics({
  * Carga completa de datos para la pestaña Central (perfil propio o buscado),
  * con caché en memoria (5 min por jugador) y respaldo en disco para el propio.
  */
-async function fetchCentralDashboard({
-  profileId,
-  alias = null,
-  cache = null,
-  performanceStore = null,
-  diskCachePath = null,
-  force = false,
-  isOwnProfile = true,
-  ownProfileId = null,
-  log = () => {},
-} = {}) {
-  const pid = Number(profileId);
-  if (!Number.isFinite(pid) || pid <= 0) {
-    return { ok: false, error: 'Seleccioná o detectá tu cuenta primero.', profileId: null };
+const centralComputedCache = new Map();
+const centralBgRefresh = new Set();
+
+function readCachedRows(cache, pid, modeId) {
+  if (!cache || typeof cache.get !== 'function') return null;
+  const hit500 = cache.get(`scout:rows:v2:${pid}:${modeId}:500`);
+  if (hit500 && hit500.rows && Date.now() - (hit500.at || 0) < 6 * 60 * 60 * 1000) return hit500;
+  return null;
+}
+
+function getStoredRecordsFast(performanceStore, pid, isOwnProfile) {
+  if (!isOwnProfile || !performanceStore) return [];
+  if (typeof performanceStore.listReadOnly === 'function') return performanceStore.listReadOnly(pid);
+  return performanceStore.list(pid);
+}
+
+function storeRevOf(performanceStore, storedRecords) {
+  if (performanceStore && typeof performanceStore.revision === 'number') return performanceStore.revision;
+  return storedRecords.length;
+}
+
+function computeCentralMemoized(cacheKey, rawTs, raw, { alias, storedRecords, storeRev, isOwnProfile, ownProfileId, extra = null }) {
+  const memoKey = `${cacheKey}:${rawTs}:${storeRev}:${alias || ''}:${isOwnProfile ? 1 : 0}:${ownProfileId || ''}:${extra?.insightsPending ? 1 : 0}:${extra?.stale ? 1 : 0}`;
+  const hit = centralComputedCache.get(memoKey);
+  if (hit) return hit;
+  const computed = computeCentralAnalytics({
+    ...raw,
+    alias: alias || raw.alias,
+    storedRecords,
+    isOwnProfile,
+    ownProfileId,
+  });
+  const result = extra ? { ...computed, ...extra } : computed;
+  if (centralComputedCache.size > 24) {
+    centralComputedCache.delete(centralComputedCache.keys().next().value);
   }
+  centralComputedCache.set(memoKey, result);
+  return result;
+}
 
-  const storedRecords = (isOwnProfile && performanceStore) ? performanceStore.list(pid) : [];
-  const cacheKey = `central:v4:${pid}`;
+function hasModeGames(profileData, ladder, matches, ladderKey) {
+  if (Array.isArray(matches) && matches.length > 0) return true;
+  if (ladder && ((ladder.wins || 0) + (ladder.losses || 0)) > 0) return true;
+  const lb = (profileData?.leaderboards || []).find((l) => String(l.leaderboardId || '').toLowerCase() === ladderKey);
+  return Boolean(lb && ((lb.games || 0) > 0 || (lb.wins || 0) + (lb.losses || 0) > 0));
+}
 
-  if (!force && cache && cache.get(cacheKey)) {
-    const cached = cache.get(cacheKey);
-    if (Date.now() - cached.ts < 5 * 60 * 1000) {
-      return computeCentralAnalytics({
-        ...cached.raw,
-        alias: alias || cached.raw.alias,
-        storedRecords,
-        isOwnProfile,
-        ownProfileId,
-      });
-    }
-  }
-
+async function fetchCentralCoreRaw(pid, { alias, cache, force, signal }) {
   const inflightKey = `${pid}:${force ? 'force' : 'norm'}`;
   let rawPromise = centralInflight.get(inflightKey);
   if (!rawPromise) {
     rawPromise = (async () => {
-      const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesTeamRes, matchesAllRes, insights1v1Res, insightsTeamRes] = await Promise.allSettled([
-        fetchPersonalStats([pid], 3, 7000),
-        fetchPersonalStats([pid], 4, 7000),
-        fetchExtendedProfile(pid, { bypassCache: Boolean(force), timeoutMs: 10000 }),
-        fetchMatches(pid, 40, 1, 'rm_1v1', { priority: 'own', bypassCache: Boolean(force) }),
-        fetchMatches(pid, 40, 1, 'rm_team', { priority: 'own', bypassCache: Boolean(force) }),
-        fetchMatches(pid, 30, 1, null, { priority: 'own', bypassCache: Boolean(force) }),
-        fetchOpeningRows(pid, { mode: resolveMode(3), limit: 250 }),
-        fetchOpeningRows(pid, { mode: resolveMode(4), limit: 250 }),
+      const mine1v1 = !force && cache?.get(`mine:${pid}:3`);
+      const mineTeam = !force && cache?.get(`mine:${pid}:4`);
+      const freshMine1v1 = mine1v1 && Array.isArray(mine1v1.matches) && (Date.now() - (mine1v1.at || 0) < 3 * 60 * 1000) ? mine1v1.matches.slice(0, 40) : null;
+      const freshMineTeam = mineTeam && Array.isArray(mineTeam.matches) && (Date.now() - (mineTeam.at || 0) < 3 * 60 * 1000) ? mineTeam.matches.slice(0, 40) : null;
+
+      const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesTeamRes, matchesAllRes] = await Promise.allSettled([
+        fetchPersonalStats([pid], 3, 7000, { signal }),
+        fetchPersonalStats([pid], 4, 7000, { signal }),
+        fetchExtendedProfile(pid, { bypassCache: Boolean(force), timeoutMs: 10000, signal }),
+        freshMine1v1 ? Promise.resolve(freshMine1v1) : fetchMatches(pid, 40, 1, 'rm_1v1', { priority: 'own', bypassCache: Boolean(force), signal }),
+        freshMineTeam ? Promise.resolve(freshMineTeam) : fetchMatches(pid, 40, 1, 'rm_team', { priority: 'own', bypassCache: Boolean(force), signal }),
+        fetchMatches(pid, 30, 1, null, { priority: 'own', bypassCache: Boolean(force), signal }),
       ]);
 
       const ladder1v1 = stats1v1Res.status === 'fulfilled' ? (stats1v1Res.value.get(pid) || null) : null;
@@ -1635,8 +1656,6 @@ async function fetchCentralDashboard({
       const matches1v1 = matches1v1Res.status === 'fulfilled' ? matches1v1Res.value : [];
       const matchesTeam = matchesTeamRes.status === 'fulfilled' ? matchesTeamRes.value : [];
       const matchesAll = matchesAllRes.status === 'fulfilled' ? matchesAllRes.value : [];
-      const insights1v1 = insights1v1Res.status === 'fulfilled' ? insights1v1Res.value : null;
-      const insightsTeam = insightsTeamRes.status === 'fulfilled' ? insightsTeamRes.value : null;
 
       return {
         profileId: pid,
@@ -1647,43 +1666,205 @@ async function fetchCentralDashboard({
         matches1v1,
         matchesTeam,
         matchesAll,
-        insights1v1,
-        insightsTeam,
+        insights1v1: !force ? readCachedRows(cache, pid, 3) : null,
+        insightsTeam: !force ? readCachedRows(cache, pid, 4) : null,
       };
     })().finally(() => {
       if (centralInflight.get(inflightKey) === rawPromise) centralInflight.delete(inflightKey);
     });
     centralInflight.set(inflightKey, rawPromise);
   }
+  return rawPromise;
+}
 
-  const raw = await rawPromise;
+async function hydrateCentralInsights(pid, raw, { cache, force, signal }) {
+  const need1v1 = (!raw.insights1v1 || force) && hasModeGames(raw.profileData, raw.ladder1v1, raw.matches1v1, 'rm_1v1');
+  const needTeam = (!raw.insightsTeam || force) && hasModeGames(raw.profileData, raw.ladderTeam, raw.matchesTeam, 'rm_team');
+  if (!need1v1 && !needTeam) return { raw, updated: false };
 
-  // Si la red falló por completo y existe caché en disco del perfil propio, lo usamos
-  if (!raw.profileData && !raw.matchesAll.length && isOwnProfile && diskCachePath) {
-    const disk = readDiskCache(diskCachePath, pid);
-    if (disk && disk.raw) {
-      log(`central: usando caché en disco para #${pid}`);
-      return computeCentralAnalytics({
-        ...disk.raw,
-        alias: alias || disk.raw.alias,
+  const [i1Res, i4Res] = await Promise.allSettled([
+    need1v1 ? fetchOpeningRows(pid, { mode: resolveMode(3), limit: 500, cache, force, signal }) : Promise.resolve(raw.insights1v1),
+    needTeam ? fetchOpeningRows(pid, { mode: resolveMode(4), limit: 500, cache, force, signal }) : Promise.resolve(raw.insightsTeam),
+  ]);
+  if (signal?.aborted) return { raw, updated: false };
+
+  const next1v1 = i1Res.status === 'fulfilled' ? i1Res.value : raw.insights1v1;
+  const nextTeam = i4Res.status === 'fulfilled' ? i4Res.value : raw.insightsTeam;
+  if (cache && next1v1 && Array.isArray(next1v1.rows)) {
+    cache.set(`scout:rows:v2:${pid}:3:500`, { ...next1v1, at: Date.now() });
+  }
+  if (cache && nextTeam && Array.isArray(nextTeam.rows)) {
+    cache.set(`scout:rows:v2:${pid}:4:500`, { ...nextTeam, at: Date.now() });
+  }
+  return {
+    raw: { ...raw, insights1v1: next1v1, insightsTeam: nextTeam },
+    updated: Boolean((need1v1 && next1v1) || (needTeam && nextTeam)),
+  };
+}
+
+async function fetchCentralDashboard({
+  profileId,
+  alias = null,
+  cache = null,
+  performanceStore = null,
+  diskCachePath = null,
+  force = false,
+  isOwnProfile = true,
+  ownProfileId = null,
+  onUpdate = null,
+  signal = null,
+  log = () => {},
+} = {}) {
+  const pid = Number(profileId);
+  if (!Number.isFinite(pid) || pid <= 0) {
+    return { ok: false, error: 'Seleccioná o detectá tu cuenta primero.', profileId: null };
+  }
+
+  const storedRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+  const storeRev = storeRevOf(performanceStore, storedRecords);
+  const cacheKey = `central:v4:${pid}`;
+
+  if (!force && cache && cache.get(cacheKey)) {
+    const cached = cache.get(cacheKey);
+    if (Date.now() - cached.ts < 5 * 60 * 1000) {
+      return computeCentralMemoized(cacheKey, cached.ts, cached.raw, {
+        alias,
         storedRecords,
+        storeRev,
         isOwnProfile,
         ownProfileId,
       });
     }
   }
 
+  // Phase 0 (Instant Disk SWR <50 ms): devolver el último caché en disco del perfil propio
+  // inmediatamente y revalidar en segundo plano sin bloquear el primer pintado.
+  if (!force && isOwnProfile && diskCachePath && typeof onUpdate === 'function') {
+    const disk = readDiskCache(diskCachePath, pid);
+    if (disk && disk.raw && (disk.raw.profileData || (disk.raw.matchesAll || []).length)) {
+      const diskTs = Number(disk.ts) || 1;
+      const staleView = computeCentralMemoized(cacheKey, diskTs, disk.raw, {
+        alias,
+        storedRecords,
+        storeRev,
+        isOwnProfile,
+        ownProfileId,
+        extra: { stale: true },
+      });
+      if (!centralBgRefresh.has(pid)) {
+        centralBgRefresh.add(pid);
+        (async () => {
+          try {
+            const coreRaw = await fetchCentralCoreRaw(pid, { alias, cache, force: false, signal });
+            if (signal?.aborted) return;
+            if (coreRaw.profileData || coreRaw.matchesAll.length || coreRaw.matches1v1.length) {
+              const ts = Date.now();
+              const merged = {
+                ...coreRaw,
+                insights1v1: coreRaw.insights1v1 || disk.raw.insights1v1 || null,
+                insightsTeam: coreRaw.insightsTeam || disk.raw.insightsTeam || null,
+              };
+              if (cache) cache.set(cacheKey, { ts, raw: merged });
+              writeDiskCache(diskCachePath, pid, merged);
+              const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+              const freshRev = storeRevOf(performanceStore, freshRecords);
+              const needInsights =
+                (!coreRaw.insights1v1 && hasModeGames(merged.profileData, merged.ladder1v1, merged.matches1v1, 'rm_1v1')) ||
+                (!coreRaw.insightsTeam && hasModeGames(merged.profileData, merged.ladderTeam, merged.matchesTeam, 'rm_team'));
+              onUpdate(computeCentralMemoized(cacheKey, ts, merged, {
+                alias,
+                storedRecords: freshRecords,
+                storeRev: freshRev,
+                isOwnProfile,
+                ownProfileId,
+                extra: needInsights ? { insightsPending: true } : null,
+              }));
+              if (needInsights) {
+                const { raw: enriched, updated } = await hydrateCentralInsights(pid, merged, { cache, force: false, signal });
+                if (signal?.aborted) return;
+                const ts2 = Date.now();
+                if (cache) cache.set(cacheKey, { ts: ts2, raw: enriched });
+                if (updated) writeDiskCache(diskCachePath, pid, enriched);
+                const r2 = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+                onUpdate(computeCentralMemoized(cacheKey, ts2, enriched, {
+                  alias,
+                  storedRecords: r2,
+                  storeRev: storeRevOf(performanceStore, r2),
+                  isOwnProfile,
+                  ownProfileId,
+                }));
+              }
+            }
+          } catch (err) {
+            log(`central swr: ${err.message}`);
+          } finally {
+            centralBgRefresh.delete(pid);
+          }
+        })();
+      }
+      return staleView;
+    }
+  }
+
+  // Phase 1 (~400 ms): Core Companion + World's Edge (sin bloquear en AoE2Insights)
+  let raw = await fetchCentralCoreRaw(pid, { alias, cache, force, signal });
+
+  // Si la red falló por completo y existe caché en disco del perfil propio, lo usamos
+  if (!raw.profileData && !raw.matchesAll.length && isOwnProfile && diskCachePath) {
+    const disk = readDiskCache(diskCachePath, pid);
+    if (disk && disk.raw) {
+      log(`central: usando caché en disco para #${pid}`);
+      return computeCentralMemoized(cacheKey, Number(disk.ts) || 1, disk.raw, {
+        alias,
+        storedRecords,
+        storeRev,
+        isOwnProfile,
+        ownProfileId,
+      });
+    }
+  }
+
+  const need1v1Insights = (!raw.insights1v1 || force) && hasModeGames(raw.profileData, raw.ladder1v1, raw.matches1v1, 'rm_1v1');
+  const needTeamInsights = (!raw.insightsTeam || force) && hasModeGames(raw.profileData, raw.ladderTeam, raw.matchesTeam, 'rm_team');
+  const shouldLazyInsights = typeof onUpdate === 'function' && (need1v1Insights || needTeamInsights);
+
+  if (!shouldLazyInsights && (need1v1Insights || needTeamInsights)) {
+    const hydrated = await hydrateCentralInsights(pid, raw, { cache, force, signal });
+    raw = hydrated.raw;
+  }
+
+  const ts = Date.now();
   if (raw.profileData || raw.matchesAll.length || raw.matches1v1.length) {
-    if (cache) cache.set(cacheKey, { ts: Date.now(), raw });
+    if (cache) cache.set(cacheKey, { ts, raw });
     if (isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, raw);
   }
 
-  return computeCentralAnalytics({
-    ...raw,
-    alias: alias || raw.alias,
+  if (shouldLazyInsights) {
+    hydrateCentralInsights(pid, raw, { cache, force, signal })
+      .then(({ raw: enriched, updated }) => {
+        if (signal?.aborted) return;
+        const ts2 = Date.now();
+        if (cache) cache.set(cacheKey, { ts: ts2, raw: enriched });
+        if (updated && isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, enriched);
+        const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+        onUpdate(computeCentralMemoized(cacheKey, ts2, enriched, {
+          alias,
+          storedRecords: freshRecords,
+          storeRev: storeRevOf(performanceStore, freshRecords),
+          isOwnProfile,
+          ownProfileId,
+        }));
+      })
+      .catch((err) => log(`central insights bg: ${err.message}`));
+  }
+
+  return computeCentralMemoized(cacheKey, ts, raw, {
+    alias,
     storedRecords,
+    storeRev,
     isOwnProfile,
     ownProfileId,
+    extra: shouldLazyInsights ? { insightsPending: true } : null,
   });
 }
 

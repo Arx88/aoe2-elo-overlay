@@ -22,8 +22,10 @@ const UNIT_TABLE = TABLE.units || {};
 const BUILDING_TABLE = TABLE.buildings || {};
 const VILLAGERS = new Set([83, 293]);
 const VILLAGER_TRAIN_S = 25;
-/** Tope de cola por TC (6 aldeanos) para permitir colas reales sin que clics fallidos arrastren minutos. */
-const TC_MAX_QUEUE_AHEAD_MS = 50_000;
+/** Tope de cola por TC (6 aldeanos = 150 s) para permitir colas reales de 4+ aldeanos sin truncar el inicio de Alta Edad. */
+const TC_MAX_QUEUE_AHEAD_MS = 150_000;
+/** Unidades económicas/civiles que NO son militares (Pesquero, Barco mercante, Carreta de mercancías, Transporte, Mula). */
+const CIVILIAN_UNIT_IDS = new Set([13, 17, 128, 204, 545, 1808]);
 
 /** Investigaciones que ocupan la cola del Centro Urbano (duración base en s). */
 const TC_RESEARCH_SECONDS = Object.freeze({
@@ -80,14 +82,16 @@ const COMBAT_KEY_TECH_NAMES = Object.freeze({
   315: 'Leva',
 });
 
-const MILITARY_BUILDING_TYPES = new Set([12, 87, 101, 49, 45, 82, 104, 1665]);
-const MILITARY_COMMANDS = new Set(['Move', 'DeAttackMove', 'AttackGround', 'Patrol', 'Formation', 'Stance', 'Target', 'Attack', 'Order', 'Stop']);
+const MILITARY_BUILDING_TYPES = new Set([10, 12, 14, 20, 45, 49, 82, 86, 87, 101, 104, 153, 498, 1251, 1665, 1806]);
+const MILITARY_COMMANDS = new Set(['Move', 'DeAttackMove', 'AttackGround', 'Patrol', 'Formation', 'Stance', 'Target', 'Attack', 'Stop']);
+const PURE_COMBAT_COMMANDS = new Set(['DeAttackMove', 'AttackGround', 'Patrol', 'Formation', 'Stance', 'Target', 'Attack', 'Stop']);
 const ECO_COMMANDS = new Set(['DeQueue', 'Queue', 'Multiqueue', 'Build', 'Wall', 'Research', 'Buy', 'Sell', 'Tribute', 'Gatherpoint', 'GatherPoint', 'BackToWork', 'Repair', 'Interact']);
 const GUNPOWDER_UNIT_IDS = new Set([5, 46, 557, 771, 773, 1126, 1128]); // incluye Arambai (solo armadura arq., no Emplumado)
 const RANGED_OVERRIDE_IDS = new Set([827, 829, 1738, 1740, 1759, 1761]); // Carreta de guerra coreana, Ratha
 const CAV_ARMOR_ONLY_IDS = new Set([1120, 1122, 1744, 1746]); // Elefante con balista / Elefante de asedio (solo Armadura de cab.)
 const SPEAR_LINE_UNIT_IDS = new Set([93, 358, 359]);
-const NON_BLACKSMITH_UNIT_IDS = new Set([13, 17, 36, 42, 125, 128, 286, 440, 1001, 1003, 1263, 1704, 1706, 1708, 1904, 1907]);
+const NON_BLACKSMITH_UNIT_IDS = new Set([13, 17, 36, 42, 125, 128, 204, 286, 440, 545, 1001, 1003, 1263, 1704, 1706, 1708, 1808, 1904, 1907]);
+const COMBAT_CLASS_CACHE = new Map();
 
 /**
  * Clasifica cada unidad entrenada según la rama real de Herrería que la beneficia:
@@ -99,19 +103,71 @@ const NON_BLACKSMITH_UNIT_IDS = new Set([13, 17, 36, 42, 125, 128, 286, 440, 100
  * - none: Asedio, Monjes, Barcos y Comercio (0 dependencia obligatoria de Herrería terrestre)
  */
 function classifyCombatClass(unitId, bType, unit) {
-  if (NON_BLACKSMITH_UNIT_IDS.has(unitId) || [45, 49, 84, 104, 1189, 1806].includes(bType)) return 'none';
-  if (CAV_ARMOR_ONLY_IDS.has(unitId)) return 'cavArmorOnly';
-  if (RANGED_OVERRIDE_IDS.has(unitId)) return 'ranged';
-  if (GUNPOWDER_UNIT_IDS.has(unitId)) return 'gunpowder';
-  if ([101, 86, 153].includes(bType)) return 'cavalry';
-  if ([87, 10, 14].includes(bType)) return 'ranged';
-  if ([12, 20, 498].includes(bType)) return 'infantry';
-  const k = String(unit?.key || '');
-  if (/jenizaro|conquistador|artillero|arambai/.test(k)) return 'gunpowder';
-  if (/lanzapiedras|petardo|organo|husita|cohete|canon|ariete|onagro|mangana|escorpion|mangonel|monje|misionero|mercante|carreta-de-merc|mula|torre-de-asedio|pesquero|galera|barco|carabela|dromon|brulote|tortuga|drakkar/.test(k)) return 'none';
-  if (/arquero|mangudai|chu-ko-nu|plumas|ballestero|kipchak|ratan|genoves|hondero|hostigador|carreta-de-guerra|carro-de-guerra/.test(k)) return 'ranged';
-  if (/caballero|paladin|jinete|catafracta|boyardo|tarkan|husar|keshik|leitis|konnik|coustillier|mameluco|elefante|camello|shrivamsha|monaspa|savar|centurion|estepa|caballeria|explorador/.test(k)) return 'cavalry';
-  return 'infantry';
+  const cacheKey = `${unitId}:${bType}`;
+  const cached = COMBAT_CLASS_CACHE.get(cacheKey);
+  if (cached !== undefined) return cached;
+  let result;
+  if (CAV_ARMOR_ONLY_IDS.has(unitId)) result = 'cavArmorOnly';
+  else if (NON_BLACKSMITH_UNIT_IDS.has(unitId) || [45, 49, 84, 104, 1189, 1806].includes(bType)) result = 'none';
+  else if (RANGED_OVERRIDE_IDS.has(unitId)) result = 'ranged';
+  else if (GUNPOWDER_UNIT_IDS.has(unitId)) result = 'gunpowder';
+  else if ([101, 86, 153].includes(bType)) result = 'cavalry';
+  else if ([87, 10, 14].includes(bType)) result = 'ranged';
+  else if ([12, 20, 498].includes(bType)) result = 'infantry';
+  else {
+    const k = String(unit?.key || '');
+    if (/jenizaro|conquistador|artillero|arambai/.test(k)) result = 'gunpowder';
+    else if (/lanzapiedras|petardo|organo|husita|cohete|canon|ariete|onagro|mangana|escorpion|mangonel|monje|misionero|mercante|carreta-de-merc|mula|torre-de-asedio|pesquero|galera|barco|carabela|dromon|brulote|tortuga|drakkar/.test(k)) result = 'none';
+    else if (/arquero|mangudai|chu-ko-nu|plumas|ballestero|kipchak|ratan|genoves|hondero|hostigador|carreta-de-guerra|carro-de-guerra/.test(k)) result = 'ranged';
+    else if (/caballero|paladin|jinete|catafracta|boyardo|tarkan|husar|keshik|leitis|konnik|coustillier|mameluco|elefante|camello|shrivamsha|monaspa|savar|centurion|estepa|caballeria|explorador/.test(k)) result = 'cavalry';
+    else result = 'infantry';
+  }
+  COMBAT_CLASS_CACHE.set(cacheKey, result);
+  return result;
+}
+
+/**
+ * Tecnologías que ciertas civilizaciones reciben GRATIS al subir de edad
+ * (nunca generan una acción `Research` en el replay). Se acreditan al alcanzar
+ * la edad correspondiente para evitar falsas acusaciones en Herrería y Eco.
+ */
+function seedCivFreeTechs(state, startingAge = 'dark') {
+  const civ = String(state.civ || '').toLowerCase();
+  const fMs = state.feudalReachedMs;
+  const cMs = state.castleReachedMs;
+  const iMs = state.imperialReachedMs;
+  const grantEco = (id, ms) => { if (ms != null && !state.ecoTechs.has(id)) state.ecoTechs.set(id, ms); };
+  const grantBs = (id, ms) => { if (ms != null && !state.blacksmithTechs.has(id)) state.blacksmithTechs.set(id, ms); };
+  const grantCombat = (id, ms) => { if (ms != null && !state.combatTechs.has(id)) state.combatTechs.set(id, ms); };
+
+  // Empire Wars inicia en Feudal con Telar, Hacha, Collera y Carretilla ya investigados
+  if (startingAge === 'feudal' || startingAge === 'castle' || startingAge === 'imperial') {
+    if (state.loomMs == null) state.loomMs = 0;
+    grantEco(202, 0);
+    grantEco(14, 0);
+    grantEco(213, 0);
+  }
+  if (civ.includes('burmese') || civ.includes('birman')) {
+    grantEco(202, fMs); grantEco(203, cMs); grantEco(221, iMs);
+  } else if (civ.includes('magyar') || civ.includes('magiar')) {
+    grantBs(67, fMs); grantBs(68, cMs); grantBs(75, iMs);
+  } else if (civ.includes('frank') || civ.includes('franco')) {
+    grantEco(14, fMs); grantEco(13, cMs); grantEco(12, iMs);
+  } else if (civ.includes('viking')) {
+    grantEco(213, fMs); grantEco(249, cMs);
+  } else if (civ.includes('bohemian') || civ.includes('bohemio')) {
+    grantEco(55, fMs); grantEco(278, fMs); grantEco(182, cMs); grantEco(279, cMs);
+  } else if (civ.includes('korean') || civ.includes('corean')) {
+    grantBs(211, fMs); grantBs(212, cMs); grantBs(219, iMs);
+  } else if (civ.includes('malay') || civ.includes('malayo')) {
+    grantBs(74, fMs); grantBs(76, cMs); grantBs(77, iMs);
+  } else if (civ.includes('turk') || civ.includes('turco')) {
+    grantCombat(47, iMs);
+  } else if (civ.includes('tatar') || civ.includes('tártar') || civ.includes('tartar')) {
+    grantCombat(437, cMs);
+  } else if (civ.includes('vietnam')) {
+    grantCombat(315, iMs);
+  }
 }
 
 function computeArmyTechRelevance(state, durationMs) {
@@ -316,9 +372,9 @@ function actionInfo(operation) {
   const action = operation && operation.Action;
   const data = action && action.action_data;
   if (!data || typeof data !== 'object') return null;
-  const keys = Object.keys(data);
-  if (!keys.length) return null;
-  const type = keys[0];
+  let type = null;
+  for (const k in data) { type = k; break; }
+  if (!type) return null;
   const payload = data[type];
   if (!payload || typeof payload !== 'object') return null;
   const pid = Number(payload.player_id ?? action.player_id ?? (action.game_command && action.game_command.player_id));
@@ -328,26 +384,52 @@ function actionInfo(operation) {
   return { type, payload, playerId: pid, ms };
 }
 
-function tcResearchDuration(techId, civ) {
+function persianTcRate(civ, age = 'dark') {
+  const name = String(civ || '').toLowerCase();
+  if (!name.includes('persian') && !name.includes('persa')) return 1;
+  if (age === 'imperial') return 1.2;
+  if (age === 'castle') return 1.15;
+  if (age === 'feudal') return 1.1;
+  return 1.05;
+}
+
+function villagerTrainMs(civ, age = 'dark') {
+  return Math.round((VILLAGER_TRAIN_S * 1000) / persianTcRate(civ, age));
+}
+
+function tcResearchDuration(techId, civ, age = 'dark') {
   const base = TC_RESEARCH_SECONDS[techId];
   if (!base) return 0;
   const name = String(civ || '').toLowerCase();
   if (techId === 22 && name.includes('goth')) return 1;
   if ((techId === 101 || techId === 102 || techId === 103) && name.includes('malay')) return Math.round(base / 1.66);
-  return base;
+  const rate = persianTcRate(civ, techId === 101 ? 'dark' : techId === 102 ? 'feudal' : techId === 103 ? 'castle' : age);
+  return rate > 1 ? Math.round(base / rate) : base;
 }
 
-function createSlotState(slot, civ, ages = null) {
+function createSlotState(slot, civ, ages = null, startingAge = 'dark') {
+  const normStart = String(startingAge || 'dark').toLowerCase();
+  const feudalReachedMs = Number.isFinite(ages?.feudal)
+    ? ages.feudal
+    : (normStart === 'feudal' || normStart === 'castle' || normStart === 'imperial' ? 0 : null);
+  const castleReachedMs = Number.isFinite(ages?.castle)
+    ? ages.castle
+    : (normStart === 'castle' || normStart === 'imperial' ? 0 : null);
+  const imperialReachedMs = Number.isFinite(ages?.imperial)
+    ? ages.imperial
+    : (normStart === 'imperial' ? 0 : null);
   return {
     slot,
     civ: civ || null,
+    startingAge: normStart,
     tcs: new Map(),           // buildingKey -> { busyUntil, intervals, villagers }
     seenTcTechs: new Set(),   // evita sumar doble un Research repetido en el replay
-    feudalReachedMs: Number.isFinite(ages?.feudal) ? ages.feudal : null,
-    castleReachedMs: Number.isFinite(ages?.castle) ? ages.castle : null,
-    imperialReachedMs: Number.isFinite(ages?.imperial) ? ages.imperial : null,
+    feudalReachedMs,
+    castleReachedMs,
+    imperialReachedMs,
     feudalClickMs: null,
     firstMilitaryMs: null,
+    lastTownBellMs: -Infinity,
     effectiveActionTimes: [],
     militaryActionTimes: [],
     ecoActionTimes: [],
@@ -413,28 +495,38 @@ function pickShortestQueue(list) {
   return list[0];
 }
 
-function tcWindowStats(tcs, winStart, winEnd, { zeroPrimary = false, capEachToLast = false } = {}) {
-  if (!tcs.size || !Number.isFinite(winEnd) || winEnd <= winStart) {
-    return { idleSeconds: null, utilization: null, busySeconds: 0, windowSeconds: 0 };
-  }
-  let totalBusy = 0;
-  let totalWindow = 0;
-  let tcCount = 0;
+function premergeTcIntervals(tcs) {
+  const out = [];
   let index = 0;
   for (const tc of tcs.values()) {
     const isPrimary = index === 0;
     index += 1;
     if (!tc.intervals.length) continue;
-    const allMerged = mergeIntervals(tc.intervals);
-    const firstEver = allMerged[0][0];
-    const lastEver = allMerged[allMerged.length - 1][1];
-    const tcStart = Math.max(winStart, (isPrimary && zeroPrimary) ? 0 : firstEver);
-    const tcEnd = Math.min(winEnd, capEachToLast ? lastEver : (isPrimary ? winEnd : lastEver));
+    const merged = mergeIntervals(tc.intervals);
+    if (!merged.length) continue;
+    out.push({ isPrimary, merged, firstEver: merged[0][0], lastEver: merged[merged.length - 1][1] });
+  }
+  return out;
+}
+
+function tcWindowStats(mergedTcs, winStart, winEnd, { zeroPrimary = false, capEachToLast = false } = {}) {
+  if (!mergedTcs.length || !Number.isFinite(winEnd) || winEnd <= winStart) {
+    return { idleSeconds: null, utilization: null, busySeconds: 0, windowSeconds: 0, tcCount: 0 };
+  }
+  let totalBusy = 0;
+  let totalWindow = 0;
+  let tcCount = 0;
+  for (const tc of mergedTcs) {
+    const tcStart = Math.max(winStart, (tc.isPrimary && zeroPrimary) ? 0 : tc.firstEver);
+    const tcEnd = Math.min(winEnd, capEachToLast ? tc.lastEver : (tc.isPrimary ? winEnd : tc.lastEver));
     if (tcEnd <= tcStart) continue;
-    const clamped = allMerged
-      .map(([s, e]) => [Math.max(s, tcStart), Math.min(e, tcEnd)])
-      .filter(([s, e]) => e > s);
-    const busy = clamped.reduce((sum, [s, e]) => sum + (e - s), 0) / 1000;
+    let busyMs = 0;
+    for (const [s, e] of tc.merged) {
+      const cs = s > tcStart ? s : tcStart;
+      const ce = e < tcEnd ? e : tcEnd;
+      if (ce > cs) busyMs += (ce - cs);
+    }
+    const busy = busyMs / 1000;
     const span = Math.max(busy, (tcEnd - tcStart) / 1000);
     totalBusy += busy;
     totalWindow += span;
@@ -448,30 +540,29 @@ function tcWindowStats(tcs, winStart, winEnd, { zeroPrimary = false, capEachToLa
   return { idleSeconds, utilization, busySeconds: totalBusy, windowSeconds: totalWindow, tcCount };
 }
 
-function findBiggestTcGap(state, durationMs) {
-  if (!state.tcs.size) return null;
-  const endLimitMs = state.castleReachedMs != null ? Math.min(state.castleReachedMs, durationMs) : durationMs;
+function findBiggestTcGap(state, durationMs, mergedTcs, isRival = false) {
+  if (!mergedTcs.length || durationMs < 180_000) return null;
+  // Ignorar los últimos 30 s previos a la rendición para no penalizar el cierre de partida.
+  const effectiveEnd = Math.max(0, durationMs - 30_000);
+  const endLimitMs = state.castleReachedMs != null ? Math.min(state.castleReachedMs, effectiveEnd) : effectiveEnd;
   const feudalMs = state.feudalReachedMs != null ? state.feudalReachedMs : Infinity;
+  const isEwStart = state.startingAge === 'feudal' || state.startingAge === 'castle' || state.startingAge === 'imperial';
   let best = null;
-  let idx = 0;
-  for (const tc of state.tcs.values()) {
-    const isPrimary = idx === 0;
-    idx += 1;
-    if (!tc.intervals.length) continue;
-    const merged = mergeIntervals(tc.intervals);
-    const tcStart = isPrimary ? 0 : merged[0][0];
-    const tcEnd = Math.min(endLimitMs, isPrimary ? endLimitMs : merged[merged.length - 1][1]);
+  for (const tc of mergedTcs) {
+    const tcStart = tc.isPrimary ? 0 : tc.firstEver;
+    const tcEnd = Math.min(endLimitMs, tc.isPrimary ? endLimitMs : tc.lastEver);
     if (tcEnd <= tcStart) continue;
-    const clamped = merged
-      .map(([s, e]) => [Math.max(s, tcStart), Math.min(e, tcEnd)])
-      .filter(([s, e]) => e > s);
     let cursor = tcStart;
-    for (const [s, e] of clamped) {
-      if (s - cursor >= 15_000) {
-        const dur = s - cursor;
-        if (!best || dur > best.durMs) best = { startMs: cursor, endMs: s, durMs: dur };
+    for (const [s, e] of tc.merged) {
+      if (e <= tcStart) continue;
+      if (s >= tcEnd) break;
+      const cs = s > tcStart ? s : tcStart;
+      const ce = e < tcEnd ? e : tcEnd;
+      if (cs - cursor >= 15_000) {
+        const dur = cs - cursor;
+        if (!best || dur > best.durMs) best = { startMs: cursor, endMs: cs, durMs: dur };
       }
-      cursor = Math.max(cursor, e);
+      if (ce > cursor) cursor = ce;
     }
     if (tcEnd - cursor >= 15_000) {
       const dur = tcEnd - cursor;
@@ -482,12 +573,15 @@ function findBiggestTcGap(state, durationMs) {
   const startSec = Math.round(best.startMs / 1000);
   const endSec = Math.round(best.endMs / 1000);
   const durationSec = Math.round(best.durMs / 1000);
-  const age = best.startMs >= feudalMs ? 'Feudal' : 'Alta Edad';
-  const milOrders = state.militaryActionTimes.filter((t) => t >= best.startMs - 5000 && t <= best.endMs).length;
+  const age = (isEwStart || best.startMs >= feudalMs) ? 'Feudal' : 'Alta Edad';
+  const hasMilitaryByGap = state.firstMilitaryMs != null && best.endMs >= state.firstMilitaryMs;
+  const milOrders = hasMilitaryByGap
+    ? state.militaryActionTimes.filter((t) => t >= best.startMs - 5000 && t <= best.endMs).length
+    : 0;
   const ecoOrders = state.ecoActionTimes.filter((t) => t >= best.startMs && t <= best.endMs).length;
   const cause = milOrders >= 10 ? 'combat' : ecoOrders >= 8 ? 'eco' : 'quiet';
   const causeText = cause === 'combat'
-    ? `mientras microeabas · ${milOrders} órdenes mil.`
+    ? `${isRival ? 'mientras microeaba' : 'mientras microeabas'} · ${milOrders} órdenes mil.`
     : cause === 'eco'
       ? `durante tareas eco · ${ecoOrders} órdenes`
       : 'sin presión militar registrada';
@@ -502,24 +596,36 @@ function findBiggestTcGap(state, durationMs) {
   };
 }
 
-function buildMarketProfile(state) {
+function buildMarketProfile(state, isRival = false) {
   const b = state.marketBought;
   const s = state.marketSold;
   const totalOps = state.marketCount;
   if (!totalOps) return null;
   let note = `${totalOps} operaciones en el Mercado`;
   if (s.wood >= 300 && b.food >= 200) {
-    note = `Vendiste ${s.wood} mad. y compraste ${b.food} com. → exceso de leñadores / faltaron granjas`;
+    note = isRival
+      ? `Vendió ${s.wood} mad. y compró ${b.food} com. (desbalance madera/granjas)`
+      : `Vendiste ${s.wood} mad. y compraste ${b.food} com. → exceso de leñadores / faltaron granjas`;
   } else if (s.wood >= 400) {
-    note = `Vendiste ${s.wood} de madera → revisá si dejás demasiados leñadores`;
+    note = isRival
+      ? `Vendió ${s.wood} de madera en el Mercado`
+      : `Vendiste ${s.wood} de madera → revisá si dejás demasiados leñadores`;
   } else if (b.food >= 400) {
-    note = `Compraste ${b.food} de comida → faltó transición temprana a granjas`;
+    note = isRival
+      ? `Compró ${b.food} de comida en el Mercado`
+      : `Compraste ${b.food} de comida → faltó transición temprana a granjas`;
   } else if (s.food >= 400) {
-    note = `Vendiste ${s.food} de comida para financiar oro`;
+    note = isRival
+      ? `Vendió ${s.food} de comida para financiar oro`
+      : `Vendiste ${s.food} de comida para financiar oro`;
   } else if (s.stone >= 200) {
-    note = `Vendiste ${s.stone} de piedra para acelerar oro`;
+    note = isRival
+      ? `Vendió ${s.stone} de piedra para acelerar oro`
+      : `Vendiste ${s.stone} de piedra para acelerar oro`;
   } else if (b.stone >= 200) {
-    note = `Compraste ${b.stone} de piedra (castillo / TCs)`;
+    note = isRival
+      ? `Compró ${b.stone} de piedra (castillo / TCs)`
+      : `Compraste ${b.stone} de piedra (castillo / TCs)`;
   }
   return {
     totalOps,
@@ -530,6 +636,15 @@ function buildMarketProfile(state) {
   };
 }
 
+function pluralWorkshopName(name) {
+  const lower = String(name || '').toLowerCase();
+  if (lower.includes('galería')) return 'galerías de tiro con arco';
+  if (lower.includes('taller')) return 'talleres de asedio';
+  if (lower.endsWith('s')) return lower;
+  if (lower.endsWith('l') || lower.endsWith('r')) return `${lower}es`;
+  return `${lower}s`;
+}
+
 function medianOf(values) {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -537,23 +652,34 @@ function medianOf(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function finalizePlayer(state, durationMs) {
+function finalizePlayer(state, durationMs, { isRival = false } = {}) {
+  // Nunca reportar llegadas a edades posteriores al final real de la partida
+  if (state.feudalReachedMs != null && state.feudalReachedMs > durationMs) state.feudalReachedMs = null;
+  if (state.castleReachedMs != null && state.castleReachedMs > durationMs) state.castleReachedMs = null;
+  if (state.imperialReachedMs != null && state.imperialReachedMs > durationMs) state.imperialReachedMs = null;
+  // Acreditar tecnologías gratuitas de la civilización y del inicio (ej. Empire Wars)
+  seedCivFreeTechs(state, state.startingAge);
+
   const durSec = Math.max(1, durationMs / 1000);
   const durMin = durSec / 60;
+  const mergedTcs = premergeTcIntervals(state.tcs);
+  const isEwStart = state.startingAge === 'feudal' || state.startingAge === 'castle' || state.startingAge === 'imperial';
 
-  // TC inactivo separado por edad:
-  // - Alta Edad (0:00 -> llegada a Feudal)
-  // - Feudal (llegada a Feudal -> llegada a Castillos)
-  // - Alta + Feudal (ventana crítica de macro antes de Castillos / 200 pop)
-  // - Total partida (hasta el último aldeano activo de cada TC, sin contar pausas tras dejar de sacar)
-  const darkEndMs = state.feudalReachedMs != null ? Math.min(state.feudalReachedMs, durationMs) : durationMs;
+  // TC inactivo separado por edad (sin explotar tras llegar a Imperial / tope de población):
+  const darkEndMs = isEwStart
+    ? 0
+    : (state.feudalReachedMs != null ? Math.min(state.feudalReachedMs, durationMs) : durationMs);
   const feudalEndMs = state.castleReachedMs != null ? Math.min(state.castleReachedMs, durationMs) : durationMs;
-  const darkStats = tcWindowStats(state.tcs, 0, darkEndMs, { zeroPrimary: true });
+  const boomEndMs = state.imperialReachedMs != null ? Math.min(state.imperialReachedMs, durationMs) : durationMs;
+
+  const darkStats = isEwStart
+    ? { idleSeconds: null, utilization: null, busySeconds: 0, windowSeconds: 0, tcCount: 0 }
+    : tcWindowStats(mergedTcs, 0, darkEndMs, { zeroPrimary: true });
   const feudalStats = state.feudalReachedMs != null && feudalEndMs > darkEndMs
-    ? tcWindowStats(state.tcs, darkEndMs, feudalEndMs, { zeroPrimary: false })
-    : { idleSeconds: null, utilization: null };
-  const earlyStats = tcWindowStats(state.tcs, 0, feudalEndMs, { zeroPrimary: true });
-  const totalStats = tcWindowStats(state.tcs, 0, durationMs, { zeroPrimary: true, capEachToLast: true });
+    ? tcWindowStats(mergedTcs, darkEndMs, feudalEndMs, { zeroPrimary: isEwStart })
+    : { idleSeconds: null, utilization: null, tcCount: 0 };
+  const earlyStats = tcWindowStats(mergedTcs, 0, feudalEndMs, { zeroPrimary: true });
+  const totalStats = tcWindowStats(mergedTcs, 0, boomEndMs, { zeroPrimary: true, capEachToLast: true });
 
   const tcIdleDarkSeconds = darkStats.idleSeconds;
   const tcUtilizationDark = darkStats.utilization;
@@ -565,8 +691,11 @@ function finalizePlayer(state, durationMs) {
     : tcIdleFeudalSeconds;
   const tcIdleEarlySeconds = earlyStats.idleSeconds;
   const tcUtilizationEarly = earlyStats.utilization;
-  const tcIdleTotalSeconds = totalStats.idleSeconds;
-  const tcUtilizationTotal = totalStats.utilization;
+  // Invariante: tcIdleTotalSeconds nunca puede ser menor que tcIdleEarlySeconds
+  const tcIdleTotalSeconds = totalStats.idleSeconds != null
+    ? (tcIdleEarlySeconds != null ? Math.max(totalStats.idleSeconds, tcIdleEarlySeconds) : totalStats.idleSeconds)
+    : tcIdleEarlySeconds;
+  const tcUtilizationTotal = totalStats.utilization ?? tcUtilizationEarly;
 
   // Alias principales apuntan a Alta + Feudal (la fase crítica de macro en AoE2)
   const tcIdleSeconds = tcIdleEarlySeconds ?? tcIdleTotalSeconds;
@@ -619,7 +748,9 @@ function finalizePlayer(state, durationMs) {
         ? Math.min(w.count * 2 + 2, Math.max(w.count + 1, Math.ceil(w.count * (peakQueue / 3.5))))
         : null;
       const note = status === 'saturated'
-        ? `Saturado (pico ${Math.round(peakQueue)}) · necesitabas ~${recommendedCount} ${w.name.toLowerCase()}s`
+        ? (isRival
+          ? `Saturado (pico ${Math.round(peakQueue)}) · requería ~${recommendedCount} ${pluralWorkshopName(w.name)}`
+          : `Saturado (pico ${Math.round(peakQueue)}) · necesitabas ~${recommendedCount} ${pluralWorkshopName(w.name)}`)
         : `Pico ${Math.round(peakQueue)} en cola · flujo parejo`;
       return {
         key: w.key,
@@ -654,21 +785,27 @@ function finalizePlayer(state, durationMs) {
     if (dtSec >= 2) tcGaps.push(dtSec); // descarta doble clic inmediato
   }
   const tcReturnSec = tcGaps.length >= 4 ? Math.round(medianOf(tcGaps)) : null;
-  const biggestTcGap = findBiggestTcGap(state, durationMs);
-  const marketProfile = buildMarketProfile(state);
+  const biggestTcGap = findBiggestTcGap(state, durationMs, mergedTcs, isRival);
+  const marketProfile = buildMarketProfile(state, isRival);
 
-  // Ritmo temprano vs tardío (resistencia de late game) y minuto pico de intensidad
+  // Ritmo de mid game (min 15-30) vs late game (min 30+) en partidas >= 35 min
+  // (evita comparar Alta Edad pasiva min 0-18 contra guerras de Imperial, que inflaba 200%+)
   let eapmEarly = null;
   let eapmLate = null;
   let eapmRetentionPct = null;
-  if (durationMs >= 22 * 60_000 && state.effectiveActionTimes.length >= 60) {
-    const splitMs = 18 * 60_000;
-    const earlyCount = state.effectiveActionTimes.filter((t) => t < splitMs).length;
-    const lateCount = state.effectiveActionTimes.length - earlyCount;
-    const lateMin = Math.max(1, (durationMs - splitMs) / 60_000);
-    eapmEarly = Math.round((earlyCount / 18) * 10) / 10;
+  if (durationMs >= 35 * 60_000 && state.effectiveActionTimes.length >= 120) {
+    const midStartMs = 15 * 60_000;
+    const lateStartMs = 30 * 60_000;
+    let midCount = 0;
+    let lateCount = 0;
+    for (const t of state.effectiveActionTimes) {
+      if (t >= lateStartMs) lateCount += 1;
+      else if (t >= midStartMs) midCount += 1;
+    }
+    const lateMin = Math.max(5, (durationMs - lateStartMs) / 60_000);
+    eapmEarly = Math.round((midCount / 15) * 10) / 10;
     eapmLate = Math.round((lateCount / lateMin) * 10) / 10;
-    if (eapmEarly >= 15) {
+    if (eapmEarly >= 20) {
       eapmRetentionPct = Math.round((eapmLate / eapmEarly) * 100);
     }
   }
@@ -704,8 +841,9 @@ function finalizePlayer(state, durationMs) {
   const feudalMilitaryOrdered = state.feudalReachedMs != null
     ? state.militaryEvents.reduce((sum, ev) => (ev.ms >= fStartMs && ev.ms <= fEndMs ? sum + ev.amount : sum), 0)
     : 0;
-  const castleDurationSec = (state.castleReachedMs != null && durationMs > state.castleReachedMs)
-    ? Math.round((durationMs - state.castleReachedMs) / 1000)
+  const castleEndMs = state.imperialReachedMs != null ? Math.min(state.imperialReachedMs, durationMs) : durationMs;
+  const castleDurationSec = (state.castleReachedMs != null && castleEndMs > state.castleReachedMs)
+    ? Math.round((castleEndMs - state.castleReachedMs) / 1000)
     : 0;
 
   const techProfile = {
@@ -720,9 +858,9 @@ function finalizePlayer(state, durationMs) {
     hasHandCart: handCartMs != null,
     hasBloodlines: state.combatTechs.has(435),
     hasBallistics: state.combatTechs.has(93),
-    ecoNames: [...state.ecoTechs.keys()].map((id) => ECO_TECH_NAMES[id]).filter(Boolean).slice(0, 6),
-    blacksmithNames: [...state.blacksmithTechs.keys()].map((id) => BLACKSMITH_TECH_NAMES[id]).filter(Boolean).slice(0, 6),
-    combatKeyNames: [...state.combatTechs.keys()].map((id) => COMBAT_KEY_TECH_NAMES[id]).filter(Boolean).slice(0, 4),
+    ecoNames: [...state.ecoTechs.keys()].map((id) => ECO_TECH_NAMES[id]).filter(Boolean).slice(0, 12),
+    blacksmithNames: [...state.blacksmithTechs.keys()].map((id) => BLACKSMITH_TECH_NAMES[id]).filter(Boolean).slice(0, 15),
+    combatKeyNames: [...state.combatTechs.keys()].map((id) => COMBAT_KEY_TECH_NAMES[id]).filter(Boolean).slice(0, 6),
     armyRelevance,
   };
 
@@ -924,14 +1062,20 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
     followScore = self.townCenters >= 2 ? 92 : 55;
   }
 
+  const isEwStart = state.startingAge === 'feudal' || state.startingAge === 'castle' || state.startingAge === 'imperial';
+  const isVeryShortAbandon = !isEwStart && fMs == null && durMs < 180_000;
+
   const openingScore = clampScore(darkScore * 0.50 + timingScore * 0.35 + followScore * 0.15);
   const darkAgeScore = clampScore(darkScore * 0.75 + timingScore * 0.25);
-  const openingTitle = openingShort || (opening && opening !== 'Other' ? opening : 'Apertura estándar');
+  const isGenericOpening = !opening || opening === 'Other' || String(openingShort || '').toLowerCase() === 'otra';
+  const openingTitle = !isGenericOpening ? (openingShort || opening) : 'Apertura estándar';
   let openingTip;
-  if (timingDeltaSec != null && timingDeltaSec > 45) {
+  if (isVeryShortAbandon) {
+    openingTip = 'Partida breve (<3 min) · sin calificación de apertura';
+  } else if (timingDeltaSec != null && timingDeltaSec > 45) {
     openingTip = `${target.mode === 'fc' ? 'Castillos' : 'Feudal'} +${timingDeltaSec} s sobre referencia de ${openingTitle}`;
   } else if (feudalSec != null) {
-    openingTip = `Feudal ${fmtClockShort(feudalSec)}${state.loomMs != null ? ` · Telar ${fmtClockShort(state.loomMs / 1000)}` : ''} · ${openingTitle}`;
+    openingTip = `Feudal ${fmtClockShort(feudalSec)}${state.loomMs != null ? ` · Telar ${fmtClockShort(state.loomMs / 1000)}` : ''}${!isGenericOpening ? ` · ${openingTitle}` : ''}`;
   } else {
     openingTip = 'Ejecución de apertura estable';
   }
@@ -939,35 +1083,48 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
   const openingSummary = {
     key: opening,
     name: openingTitle,
-    grade: gradeFromScore(openingScore),
-    score: openingScore,
+    grade: isVeryShortAbandon ? null : gradeFromScore(openingScore),
+    score: isVeryShortAbandon ? null : openingScore,
     feudalSeconds: feudalSec != null ? Math.round(feudalSec) : null,
     darkIdleSeconds: darkIdle != null ? Math.round(darkIdle) : null,
     tip: openingTip,
   };
 
-  // 1. ALTA EDAD (hechos 100% comprobables del replay: clic a Feudal + Telar)
+  // 1. ALTA EDAD (hechos 100% comprobables del replay: clic a Feudal + Telar; omitida en Empire Wars)
   const darkLoomMs = state.loomMs != null && (fMs == null || state.loomMs <= fMs) ? state.loomMs : null;
   const darkMetricParts = [
     state.feudalClickMs != null ? `Clic ${fmtClockShort(state.feudalClickMs / 1000)}` : null,
     darkLoomMs != null ? `Telar ${fmtClockShort(darkLoomMs / 1000)}` : null,
   ].filter(Boolean);
   const darkTip = timingDeltaSec != null && timingDeltaSec > 45
-    ? `Feudal +${timingDeltaSec} s sobre referencia de ${openingTitle}`
+    ? `${target.mode === 'fc' && castleSec != null ? 'Castillos' : 'Feudal'} +${timingDeltaSec} s sobre referencia de ${openingTitle}`
     : feudalSec != null
       ? `Llegada a Feudal en ${fmtClockShort(feudalSec)}${darkLoomMs != null ? ` · Telar ${fmtClockShort(darkLoomMs / 1000)}` : ''}`
-      : 'Alta Edad en progreso';
+      : isVeryShortAbandon
+        ? 'Partida terminada antes de completar Alta Edad'
+        : 'Alta Edad en progreso';
   const stages = [
-    {
-      id: 'dark',
-      label: 'Alta Edad',
-      subtitle: feudalSec ? `Feudal ${fmtClockShort(feudalSec)}` : '0:00',
-      status: 'ready',
-      grade: gradeFromScore(darkAgeScore),
-      score: darkAgeScore,
-      metric: darkMetricParts.join(' · ') || (feudalSec ? `Feudal ${fmtClockShort(feudalSec)}` : '—'),
-      tip: darkTip,
-    },
+    isEwStart
+      ? {
+          id: 'dark',
+          label: 'Alta Edad',
+          subtitle: 'Inicio Feudal',
+          status: 'not_reached',
+          grade: null,
+          score: null,
+          metric: 'Empire Wars',
+          tip: 'La partida inició directamente en Edad Feudal.',
+        }
+      : {
+          id: 'dark',
+          label: 'Alta Edad',
+          subtitle: feudalSec ? `Feudal ${fmtClockShort(feudalSec)}` : '0:00',
+          status: isVeryShortAbandon ? 'not_reached' : 'ready',
+          grade: isVeryShortAbandon ? null : gradeFromScore(darkAgeScore),
+          score: isVeryShortAbandon ? null : darkAgeScore,
+          metric: isVeryShortAbandon ? 'Partida breve' : (darkMetricParts.join(' · ') || (feudalSec ? `Feudal ${fmtClockShort(feudalSec)}` : '—')),
+          tip: darkTip,
+        },
   ];
 
   // 2. FEUDAL
@@ -987,13 +1144,25 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
     const utilBest = Math.min(98, 94 + eloBand * 2.5);
     const utilWorst = Math.max(55, 68 + eloBand * 5);
     const utilScore = fUtil != null ? linearScore(fUtil, utilBest, utilWorst) : 60;
-    const isFastTransition = fDurSec < 195;
+    // Transición rápida a Castillos (Fast Castle): investigación Castillos dura 160s + 2–4 aldeanos (50–100s) ≈ <= 275s
+    const isFastTransition = cMs != null && fDurSec <= 275;
     const paceScore = linearScore(fPace, 3.6 + eloBand * 0.5, 1.2);
-    const feudalScore = isFastTransition
-      ? clampScore(utilScore * 0.85 + 15)
-      : clampScore(utilScore * 0.65 + paceScore * 0.35);
-
     const hasDba = Boolean(self.techProfile?.hasDoubleBitAxe);
+    const dbaDelay = self.techProfile?.doubleBitAxeDelaySec;
+    let feudalScoreRaw = isFastTransition
+      ? (utilScore * 0.85 + 15)
+      : (utilScore * 0.65 + paceScore * 0.35);
+    // Penalizar fallos graves en Feudal (bache >=30s en Feudal, >55s idle/TC o Hacha muy tardía) para evitar "Feudal Impecable (S)" contradictorio
+    if (self.biggestTcGap?.age === 'Feudal' && self.biggestTcGap.durationSec >= 30) {
+      feudalScoreRaw -= Math.min(18, Math.round(self.biggestTcGap.durationSec * 0.45));
+    }
+    if (fIdlePerTc != null && fIdlePerTc >= 55) {
+      feudalScoreRaw -= Math.min(18, Math.round((fIdlePerTc - 40) * 0.25));
+    }
+    if (!isFastTransition && fDurSec >= 240 && (!hasDba || (dbaDelay != null && dbaDelay >= 300))) {
+      feudalScoreRaw -= 10;
+    }
+    const feudalScore = clampScore(feudalScoreRaw);
     let feudalTip;
     if (isFastTransition) {
       feudalTip = `Transición rápida a Castillos (${fmtDurShort(fDurSec)} en Feudal)`;
@@ -1038,20 +1207,21 @@ function buildStageGrades(self, state, { opening = null, openingShort = null, pl
       ? linearScore(self.workshopUtilization, 82, 25)
       : (cMil >= 15 ? 65 : 40);
     const combatMicro = state.attackMoveCount + state.patrolCount;
+    const meleeTotal = (state.armyClasses?.cavalry || 0) + (state.armyClasses?.infantry || 0);
     const microScore = clampScore(
-      (combatMicro >= 12 ? 95 : combatMicro >= 4 ? 75 : combatMicro >= 1 ? 58 : 35)
+      (combatMicro >= 12 ? 95 : combatMicro >= 4 ? 75 : combatMicro >= 1 ? 58 : (meleeTotal < 15 || state.stopMicroCount > 0 ? 68 : 35))
       - Math.min(30, state.townBellCount * 15),
     );
     const castleScore = clampScore(boomScore * 0.35 + milPaceScore * 0.30 + wsScore * 0.15 + microScore * 0.20);
 
     const bldSummary = (self.topWorkshops || []).slice(0, 2).map((w) => `${w.count} ${w.name}`).join(' · ');
     let castleTip;
-    if (combatMicro === 0 && cMil >= 15) {
+    if (combatMicro === 0 && state.stopMicroCount === 0 && cMil >= 15 && meleeTotal >= 15) {
       castleTip = 'Sumá Attack-Move o Patrol en peleas';
     } else if (self.workshopsCount >= 3) {
       castleTip = `${self.townCenters} TC · ${bldSummary || `${self.workshopsCount} edif. militares`}`;
     } else {
-      castleTip = `${self.townCenters} TC · ${self.macroBuilds?.farms || 0} granjas en Castillos`;
+      castleTip = `${self.townCenters} TC · ${self.macroBuilds?.farms || 0} granjas totales`;
     }
 
     stages.push({
@@ -1154,10 +1324,13 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
       detail: `Subiste en ${fmtClockShort(tm.feudalSeconds)} (rival ${fmtClockShort(rtm.feudalSeconds)}).`,
     });
   } else if (openingSummary && openingSummary.grade === 'S') {
+    const cleanOpeningName = (openingSummary.name && !/^otra$/i.test(openingSummary.name))
+      ? openingSummary.name
+      : 'Apertura sólida';
     addPos({
       id: 'medal-opening-s', domain: 'tempo_ages', tier: 'gold', score: 84, icon: 'opening',
       badgeName: 'Apertura de Manual',
-      title: `${openingSummary.name} · Calificación S`,
+      title: `${cleanOpeningName} · Calificación S`,
       metric: openingSummary.feudalSeconds ? `Feudal ${fmtClockShort(openingSummary.feudalSeconds)}` : 'Grado S',
       detail: openingSummary.tip || 'Ejecución de apertura de altísimo nivel para tu banda.',
     });
@@ -1177,23 +1350,29 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
   }
 
   // 4. Mejoras Económicas a tiempo (Hacha de doble filo / Sierra de arco / Eco techs)
+  const dbaWasLate = tp.hasDoubleBitAxe && tp.doubleBitAxeDelaySec != null && tp.doubleBitAxeDelaySec >= 240;
   if (tp.hasDoubleBitAxe && tp.doubleBitAxeDelaySec != null && tp.doubleBitAxeDelaySec <= 75 &&
       (!tm.castleSeconds || (tp.hasBowSaw && (tp.bowSawDelaySec == null || tp.bowSawDelaySec <= 90)))) {
+    const earlyWoodText = tp.doubleBitAxeDelaySec <= 0
+      ? `Activaste Hacha anticipada${tp.hasBowSaw ? ' y Sierra a tiempo' : ''}.`
+      : `Activaste madera a los +${tp.doubleBitAxeDelaySec} s de llegar a Feudal${tp.hasBowSaw ? ' y Sierra en Castillos' : ''}.`;
     addPos({
       id: 'medal-eco-techs', domain: 'eco_techs', tier: tp.ecoCount >= 5 ? 'gold' : 'green',
       score: tp.hasBowSaw ? 83 : 76, icon: 'wood',
       badgeName: 'Maestro Leñador',
       title: tp.hasBowSaw ? 'Hacha y Sierra de arco al instante' : 'Hacha de doble filo puntual',
       metric: `${tp.ecoCount} mejoras eco`,
-      detail: `Activaste madera a los +${tp.doubleBitAxeDelaySec} s de llegar a Feudal${tp.hasBowSaw ? ` y Sierra en Castillos` : ''}.`,
+      detail: earlyWoodText,
     });
   } else if (tp.ecoCount >= 4 && (isTeamGame || rtp.ecoCount == null || tp.ecoCount >= rtp.ecoCount + 2)) {
+    const praisedEco = (tp.ecoNames || []).filter((n) => !(dbaWasLate && /Hacha de doble filo/i.test(n)));
+    const ecoList = praisedEco.slice(0, 3).join(', ').replace(/\.+$/, '');
     addPos({
       id: 'medal-eco-lead', domain: 'eco_techs', score: 75, icon: 'resources',
       badgeName: 'Economía Mejorada',
       title: `${tp.ecoCount} mejoras económicas investigadas`,
       metric: `${tp.ecoCount} techs eco`,
-      detail: tp.ecoNames?.length ? `Incluye ${tp.ecoNames.slice(0, 3).join(', ')}.` : 'Sostuviste las tecnologías clave de recolección.',
+      detail: ecoList ? `Incluye ${ecoList}.` : 'Sostuviste las tecnologías clave de recolección.',
     });
   }
 
@@ -1204,7 +1383,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
         : ar.primaryClass === 'ranged' ? 'Puntería Forjada'
           : ar.primaryClass === 'gunpowder' ? 'Pólvora Blindada'
             : 'Infantería de Hierro';
-    const techList = ar.relevantNames.slice(0, 3).join(', ');
+    const techList = ar.relevantNames.slice(0, 3).join(', ').replace(/\.+$/, '');
     addPos({
       id: 'medal-blacksmith-relevant', domain: 'blacksmith_techs',
       tier: ar.relevantCount >= ar.relevantExpected ? 'gold' : 'green',
@@ -1241,14 +1420,21 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
 
   // 8. Micro de Combate (Attack-Move / Patrol / Formaciones / Posturas)
   const combatMicroTotal = self.habits.attackMove + self.habits.patrol;
-  const tacticalMicro = (cm.formations || 0) + (cm.stances || 0);
+  const formCount = cm.formations || 0;
+  const stanceCount = cm.stances || 0;
+  const tacticalMicro = formCount + stanceCount;
   if (combatMicroTotal >= 12 || (combatMicroTotal >= 6 && tacticalMicro >= 8)) {
+    const microMetric = tacticalMicro >= 4
+      ? (formCount > 0 && stanceCount > 0
+        ? `+${formCount} form. · ${stanceCount} post.`
+        : formCount > 0 ? `+${formCount} formaciones` : `+${stanceCount} posturas`)
+      : `${combatMicroTotal} órdenes`;
     addPos({
       id: 'medal-combat-micro', domain: 'micro_combat', tier: combatMicroTotal >= 25 ? 'gold' : 'green',
       score: combatMicroTotal >= 25 ? 80 : 72, icon: 'combat',
       badgeName: 'Micro Quirúrgica',
       title: `Control activo (${combatMicroTotal} Attack-Move/Patrol)`,
-      metric: tacticalMicro >= 4 ? `+${tacticalMicro} posturas` : `${cm.controlSharePct ?? 0}% control`,
+      metric: microMetric,
       detail: `Evitaste sobre-enfocar unidades en pelea con órdenes limpias de combate.`,
     });
   }
@@ -1264,21 +1450,24 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
     });
   }
 
-  // 10. Resistencia de Late Game / Ciclo de TC veloz / Ritmo eAPM
+  // 10. Resistencia de Late Game (mid min 15-30 vs late min 30+) / Ciclo de TC veloz
+  const fmtDec = (v) => String(v).replace('.', ',');
   if (self.eapmRetentionPct != null && self.eapmRetentionPct >= 95 && (self.eapmLate || 0) >= 35) {
     addPos({
       id: 'medal-stamina', domain: 'stamina_pace', tier: self.eapmRetentionPct >= 105 ? 'gold' : 'green',
       score: 81, icon: 'trend',
       badgeName: 'Resistencia de Late Game',
-      title: `Sostuviste tu ritmo hasta el final (${self.eapmEarly} → ${self.eapmLate} eAPM)`,
-      metric: `${self.eapmRetentionPct}% ritmo`,
-      detail: `No perdiste velocidad tras el min 18${self.peakEapm ? ` · pico ${self.peakEapm} eAPM al min ${self.peakEapmMinute}` : ''}.`,
+      title: `Sostuviste tu ritmo en late game (${fmtDec(self.eapmEarly)} → ${fmtDec(self.eapmLate)} eAPM)`,
+      metric: self.eapmRetentionPct > 125
+        ? `+${self.eapmRetentionPct - 100}% en late`
+        : `${self.eapmRetentionPct}% ritmo`,
+      detail: `No bajaste tu velocidad tras el min 30${self.peakEapm ? ` · pico ${self.peakEapm} eAPM al min ${self.peakEapmMinute}` : ''}.`,
     });
-  } else if (cm.tcReturnSec != null && cm.tcReturnSec <= 18 && self.villagersOrdered >= 25) {
+  } else if (cm.tcReturnSec != null && cm.tcReturnSec <= 18 && (self.feudalActiveTcs || 1) <= 1 && self.villagersOrdered >= 25) {
     addPos({
       id: 'medal-tc-cycle', domain: 'stamina_pace', score: 75, icon: 'clock',
       badgeName: 'Ciclo Relámpago',
-      title: `Volviste al TC cada ${cm.tcReturnSec} s en promedio`,
+      title: `Volviste al TC cada ${cm.tcReturnSec} s (mediana)`,
       metric: `${cm.tcReturnSec} s/ciclo`,
       detail: `Tu memoria muscular de hotkey de TC mantuvo la cola siempre viva.`,
     });
@@ -1327,9 +1516,11 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
     });
   }
 
-  // 14. Etapa de Nivel S (Feudal / Castillos / Imperial impecable)
+  // 14. Etapa de Nivel S (Feudal / Castillos / Imperial impecable — nunca contradecir un bache/Hacha tardía de Feudal)
   const stageList = Array.isArray(stages) ? stages : [];
+  const hasFeudalFlaw = (self.biggestTcGap?.age === 'Feudal' && self.biggestTcGap.durationSec >= 30) || dbaWasLate;
   const topStageS = ['imperial', 'castle', 'feudal']
+    .filter((id) => !(id === 'feudal' && hasFeudalFlaw))
     .map((id) => stageList.find((s) => s.id === id && s.status === 'ready' && s.grade === 'S'))
     .find(Boolean);
   if (topStageS) {
@@ -1365,8 +1556,8 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
       id: 'medal-eco-max', domain: 'eco_max', score: 73, icon: 'resources',
       badgeName: 'Eco al Máximo',
       title: 'Carretilla y Carro de mano completados',
-      metric: 'Recolección +100%',
-      detail: `Llevaste la eficiencia de tus aldeanos al máximo en partida larga.`,
+      metric: 'Eco completa',
+      detail: `Llevaste la capacidad y velocidad de tus aldeanos al máximo en partida larga.`,
     });
   }
 
@@ -1445,9 +1636,11 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
     });
   }
 
-  // 4. Llegada tardía a Castillos o Feudal vs Rival (solo 1v1; ignora 2TC Feudal Boom y agresión Feudal extendida)
+  // 4. Llegada tardía a Castillos o Feudal vs Rival (solo 1v1; ignora 2TC Feudal Boom, Fast Castle intencional y agresión Feudal extendida)
   const isTwoTcFeudalBoom = (self.feudalActiveTcs || 1) >= 2 && (self.villagersOrdered || 0) >= 55;
   const heavierFeudalAggro = (self.feudalMilitaryOrdered || 0) >= ((rival?.feudalMilitaryOrdered || 0) + 8);
+  const isIntentionalFc = /fast castle|fc\b|monk|boom/i.test(`${openingSummary?.key || ''} ${openingSummary?.name || ''}`) ||
+    (tm.castleSeconds != null && rtm.castleSeconds != null && tm.castleSeconds <= rtm.castleSeconds);
   if (!isTeamGame && !isTwoTcFeudalBoom && !heavierFeudalAggro &&
       tm.castleSeconds != null && rtm.castleSeconds != null && tm.castleSeconds - rtm.castleSeconds >= 65) {
     const behind = Math.round(tm.castleSeconds - rtm.castleSeconds);
@@ -1458,7 +1651,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
       metric: `${fmtClockShort(tm.castleSeconds)} vs ${fmtClockShort(rtm.castleSeconds)}`,
       detail: `El rival tomó ventana de tecnología y presión antes en Edad de los Castillos.`,
     });
-  } else if (!isTeamGame && tm.feudalSeconds != null && rtm.feudalSeconds != null && tm.feudalSeconds - rtm.feudalSeconds >= 50) {
+  } else if (!isTeamGame && !isIntentionalFc && tm.feudalSeconds != null && rtm.feudalSeconds != null && tm.feudalSeconds - rtm.feudalSeconds >= 50) {
     const behind = Math.round(tm.feudalSeconds - rtm.feudalSeconds);
     addNeg({
       id: 'neg-late-feudal', domain: 'tempo_ages', severity: 74,
@@ -1505,25 +1698,30 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
     });
   }
 
-  // 9. Desbalance de recursos reflejado en Mercado (respeta bono de Mercado de Sarracenos)
-  const marketLimit = civLower.includes('saracen') ? 16 : 10;
-  if (self.habits.market >= marketLimit || (!civLower.includes('saracen') && self.marketProfile?.sold?.wood >= 500 && self.marketProfile?.bought?.food >= 300)) {
+  // 9. Desbalance temprano de recursos reflejado en Mercado (no penaliza ventas normales en Imperial/TG largo)
+  const earlyMarketOps = self.marketProfile?.earlyOps || 0;
+  const earlyMarketLimit = civLower.includes('saracen') ? 10 : 6;
+  const isPreImpMarketIssue = tm.imperialSeconds == null && durMin < 30 && self.habits.market >= (civLower.includes('saracen') ? 16 : 10);
+  if (earlyMarketOps >= earlyMarketLimit || isPreImpMarketIssue) {
+    const opsShown = earlyMarketOps >= earlyMarketLimit ? earlyMarketOps : self.habits.market;
     addNeg({
       id: 'neg-market-heavy', domain: 'economy_boom', severity: 74,
       icon: 'market',
-      title: `Uso intensivo del Mercado (${self.habits.market} ops)`,
-      metric: `${self.habits.market} ops`,
+      title: earlyMarketOps >= earlyMarketLimit
+        ? `Uso intensivo del Mercado temprano (${earlyMarketOps} ops < min 20)`
+        : `Uso intensivo del Mercado (${self.habits.market} ops)`,
+      metric: `${opsShown} ops`,
       detail: self.marketProfile?.note || 'Revisá el reparto temprano de aldeanos para no perder oro en comisiones.',
     });
   }
 
-  // 10. Caída de ritmo en late game (fatiga)
+  // 10. Caída de ritmo en late game (fatiga real tras el min 30)
   if (self.eapmRetentionPct != null && self.eapmRetentionPct <= 72 && (self.eapmEarly || 0) >= 30) {
     const drop = 100 - self.eapmRetentionPct;
     addNeg({
       id: 'neg-stamina-drop', domain: 'stamina_pace', severity: 73,
       icon: 'trend',
-      title: `Tu ritmo cayó ${drop}% tras el min 18 (${self.eapmEarly} → ${self.eapmLate} eAPM)`,
+      title: `Tu ritmo cayó ${drop}% tras el min 30 (${fmtDec(self.eapmEarly)} → ${fmtDec(self.eapmLate)} eAPM)`,
       metric: `−${drop}% eAPM`,
       detail: `En partidas largas bajó tu velocidad de producción y micro en el tramo decisivo.`,
     });
@@ -1589,7 +1787,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
   } else if (self.biggestTcGap && self.biggestTcGap.durationSec >= 35) {
     focus = {
       title: `Evitar pausas largas de TC en ${self.biggestTcGap.age}`,
-      detail: `Pausa sin órdenes de TC de ${fmtDurShort(self.biggestTcGap.durationSec)} (${self.biggestTcGap.summary}).`,
+      detail: `Pausa sin órdenes de TC de ${fmtDurShort(self.biggestTcGap.durationSec)}: ${self.biggestTcGap.summary}.`,
     };
   } else if (topNeg?.domain === 'blacksmith_techs' && ar?.criticalMissing) {
     focus = {
@@ -1672,15 +1870,15 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
 function analyzePostmatchEngine(operations, {
   selfSlot, rivalSlot = null, selfCiv = null, rivalCiv = null,
   selfAges = null, rivalAges = null, opening = null, openingShort = null,
-  playerElo = null, durationMs = 0, isTeamGame = false,
+  playerElo = null, durationMs = 0, isTeamGame = false, startingAge = 'dark',
 } = {}) {
   const list = Array.isArray(operations) ? operations : [];
   if (!list.length || !Number.isFinite(Number(selfSlot))) return null;
 
   const selfId = Number(selfSlot);
   const rivalId = Number.isFinite(Number(rivalSlot)) && Number(rivalSlot) > 0 ? Number(rivalSlot) : null;
-  const tracked = new Map([[selfId, createSlotState(selfId, selfCiv, selfAges)]]);
-  if (rivalId && rivalId !== selfId) tracked.set(rivalId, createSlotState(rivalId, rivalCiv, rivalAges));
+  const tracked = new Map([[selfId, createSlotState(selfId, selfCiv, selfAges, startingAge)]]);
+  if (rivalId && rivalId !== selfId) tracked.set(rivalId, createSlotState(rivalId, rivalCiv, rivalAges, startingAge));
 
   let maxMs = Number(durationMs) || 0;
 
@@ -1700,9 +1898,66 @@ function analyzePostmatchEngine(operations, {
       state.lastActionByType.set(info.type, info.ms);
     }
 
-    if (MILITARY_COMMANDS.has(info.type)) {
+    if (PURE_COMBAT_COMMANDS.has(info.type)) {
       state.militaryActions += 1;
       state.militaryActionTimes.push(info.ms);
+    } else if (info.type === 'Move') {
+      // Solo contar Move como acción militar cuando ya existen unidades militares
+      // (evita contar movimientos de aldeanos/ovejas/explorador inicial en Alta Edad como micro militar)
+      if (state.firstMilitaryMs != null && info.ms >= state.firstMilitaryMs) {
+        state.militaryActions += 1;
+        state.militaryActionTimes.push(info.ms);
+      } else {
+        state.ecoActions += 1;
+        state.ecoActionTimes.push(info.ms);
+      }
+    } else if (info.type === 'Order') {
+      const oType = info.payload.order_type;
+      if (oType === 'Pack') {
+        state.militaryActions += 1;
+        state.militaryActionTimes.push(info.ms);
+      } else {
+        state.ecoActions += 1;
+        state.ecoActionTimes.push(info.ms);
+      }
+      // Cancelación de cola (`Unqueue`): descuenta 1 ítem de la cola del TC o taller real
+      if (oType === 'Unqueue') {
+        const objIds = Array.isArray(info.payload.object_ids) && info.payload.object_ids.length
+          ? info.payload.object_ids.map(String)
+          : (info.payload.building_id != null ? [String(info.payload.building_id)] : []);
+        for (const oid of objIds) {
+          const tc = state.tcs.get(oid);
+          if (tc && tc.busyUntil != null && tc.busyUntil > info.ms && tc.intervals.length) {
+            const curAge = state.imperialReachedMs != null && info.ms >= state.imperialReachedMs ? 'imperial'
+              : state.castleReachedMs != null && info.ms >= state.castleReachedMs ? 'castle'
+                : state.feudalReachedMs != null && info.ms >= state.feudalReachedMs ? 'feudal' : 'dark';
+            const popMs = villagerTrainMs(state.civ, curAge);
+            const last = tc.intervals[tc.intervals.length - 1];
+            if (last && last[1] - last[0] > popMs) {
+              last[1] = Math.max(info.ms, last[1] - popMs);
+            } else {
+              tc.intervals.pop();
+            }
+            tc.busyUntil = tc.intervals.length ? tc.intervals[tc.intervals.length - 1][1] : info.ms;
+            if (state.villagersOrdered > 0) state.villagersOrdered -= 1;
+            if (tc.villagers > 0) tc.villagers -= 1;
+            continue;
+          }
+          const ws = state.workshops.get(oid);
+          if (ws && ws.busyUntil != null && ws.busyUntil > info.ms && ws.intervals.length) {
+            const last = ws.intervals[ws.intervals.length - 1];
+            const popMs = ws.lastTrainMs || 25_000;
+            if (last && last[1] - last[0] > popMs) {
+              last[1] = Math.max(info.ms, last[1] - popMs);
+            } else {
+              ws.intervals.pop();
+            }
+            ws.busyUntil = ws.intervals.length ? ws.intervals[ws.intervals.length - 1][1] : info.ms;
+            if (state.militaryOrdered > 0) state.militaryOrdered -= 1;
+            if (ws.units > 0) ws.units -= 1;
+          }
+        }
+      }
     } else if (ECO_COMMANDS.has(info.type)) {
       state.ecoActions += 1;
       state.ecoActionTimes.push(info.ms);
@@ -1723,7 +1978,16 @@ function analyzePostmatchEngine(operations, {
         else state.marketSold[resKey] += mult * 100;
       }
     }
-    else if (info.type === 'TownBell') state.townBellCount += 1;
+    else if (info.type === 'TownBell') {
+      // En aoe2rec-js real: data[4] === 1 es sonar campana ON; data[4] === 0 es apagarla (OFF).
+      // Además, con N TCs seleccionados emite N paquetes en el mismo ms -> debounce 1000 ms.
+      const bytes = Array.isArray(info.payload.data) ? info.payload.data : null;
+      const isRingOn = !bytes || bytes.length < 5 || Number(bytes[4]) === 1;
+      if (isRingOn && info.ms - state.lastTownBellMs >= 1000) {
+        state.townBellCount += 1;
+        state.lastTownBellMs = info.ms;
+      }
+    }
     else if (info.type === 'Tribute') state.tributesSent += 1;
     else if (info.type === 'Delete') state.selfDeleted += 1;
     else if (info.type === 'Formation') state.formationsCount += 1;
@@ -1734,11 +1998,11 @@ function analyzePostmatchEngine(operations, {
     else if (info.type === 'Repair') state.repairsCount += 1;
     else if (info.type === 'Build') {
       const bid = readBuildId(info.payload);
-      if (bid === 50) state.farmsBuilt += 1;
+      if (bid === 50 || bid === 1889) state.farmsBuilt += 1; // Granja o Pastizal (Khitans)
       else if (bid === 70) state.housesBuilt += 1;
-      else if (bid === 82) state.castlesBuilt += 1;
-      else if (bid === 621 || bid === 109) state.extraTcsBuilt += 1;
-      else if (bid === 79 || bid === 234 || bid === 235) state.towersBuilt += 1;
+      else if (bid === 82 || bid === 1251) state.castlesBuilt += 1; // Castillo o Krepost
+      else if (bid === 621 || bid === 109 || bid === 71) state.extraTcsBuilt += 1;
+      else if (bid === 79 || bid === 234 || bid === 235 || bid === 236 || bid === 1665) state.towersBuilt += 1;
     }
 
     if (info.type === 'Research') {
@@ -1747,16 +2011,21 @@ function analyzePostmatchEngine(operations, {
       if (ECO_TECH_NAMES[techId] && !state.ecoTechs.has(techId)) state.ecoTechs.set(techId, info.ms);
       if (BLACKSMITH_TECH_NAMES[techId] && !state.blacksmithTechs.has(techId)) state.blacksmithTechs.set(techId, info.ms);
       if (COMBAT_KEY_TECH_NAMES[techId] && !state.combatTechs.has(techId)) state.combatTechs.set(techId, info.ms);
-      const tcSec = tcResearchDuration(techId, state.civ);
+      const curAge = state.imperialReachedMs != null && info.ms >= state.imperialReachedMs ? 'imperial'
+        : state.castleReachedMs != null && info.ms >= state.castleReachedMs ? 'castle'
+          : state.feudalReachedMs != null && info.ms >= state.feudalReachedMs ? 'feudal' : 'dark';
+      const tcSec = tcResearchDuration(techId, state.civ, curAge);
       if (tcSec > 0 && !state.seenTcTechs.has(techId)) {
         state.seenTcTechs.add(techId);
         const bIds = Array.isArray(info.payload.building_ids) && info.payload.building_ids.length
           ? info.payload.building_ids.map(String)
-          : state.tcs.size ? [[...state.tcs.keys()][0]] : [`tc_${info.playerId}`];
+          : (info.payload.building_id > 0 ? [String(info.payload.building_id)]
+            : state.tcs.size ? [[...state.tcs.keys()][0]] : [`tc_${info.playerId}`]);
         const tc = pickShortestQueue(bIds.map((k) => ensureTc(state, k)));
+        const vTrain = villagerTrainMs(state.civ, curAge);
         const start = tc.busyUntil === null
           ? info.ms
-          : Math.min(info.ms + VILLAGER_TRAIN_S * 1000, Math.max(info.ms, tc.busyUntil));
+          : Math.min(info.ms + vTrain, Math.max(info.ms, tc.busyUntil));
         const end = start + tcSec * 1000;
         tc.intervals.push([start, end]);
         tc.busyUntil = end;
@@ -1783,18 +2052,38 @@ function analyzePostmatchEngine(operations, {
         state.tcOrderTimes.push(info.ms);
         const bIds = Array.isArray(info.payload.building_ids) && info.payload.building_ids.length
           ? info.payload.building_ids.map(String)
-          : [`tc_${info.playerId}`];
-        const tc = pickShortestQueue(bIds.map((k) => ensureTc(state, k)));
-        const start = tc.busyUntil === null ? info.ms : Math.max(info.ms, tc.busyUntil);
-        const maxEnd = info.ms + TC_MAX_QUEUE_AHEAD_MS;
-        const end = Math.min(maxEnd, start + Math.min(5, amount) * VILLAGER_TRAIN_S * 1000);
-        if (end > start) {
-          tc.intervals.push([start, end]);
-          tc.busyUntil = end;
+          : (state.tcs.size ? [[...state.tcs.keys()][0]] : [`tc_${info.playerId}`]);
+        // Si antes se creó un TC sintético `tc_<pid>` por un Research sin building_ids y ahora llegan IDs reales, migrarlo
+        const synthKey = `tc_${info.playerId}`;
+        if (bIds[0] !== synthKey && state.tcs.has(synthKey) && !state.tcs.has(bIds[0])) {
+          const synth = state.tcs.get(synthKey);
+          state.tcs.delete(synthKey);
+          synth.id = bIds[0];
+          state.tcs.set(bIds[0], synth);
         }
-        tc.villagers += amount;
+        const candidates = bIds.map((k) => ensureTc(state, k));
+        const curAge = state.imperialReachedMs != null && info.ms >= state.imperialReachedMs ? 'imperial'
+          : state.castleReachedMs != null && info.ms >= state.castleReachedMs ? 'castle'
+            : state.feudalReachedMs != null && info.ms >= state.feudalReachedMs ? 'feudal' : 'dark';
+        const vTrain = villagerTrainMs(state.civ, curAge);
+        const toQueue = Math.min(10, amount);
+        // Distribuir 1 a 1 en el TC con cola más corta (comportamiento real de Shift+Q con múltiples TCs)
+        for (let q = 0; q < toQueue; q += 1) {
+          const tc = pickShortestQueue(candidates);
+          const start = tc.busyUntil === null ? info.ms : Math.max(info.ms, tc.busyUntil);
+          const maxEnd = info.ms + TC_MAX_QUEUE_AHEAD_MS;
+          const end = Math.min(maxEnd, start + vTrain);
+          if (end > start) {
+            tc.intervals.push([start, end]);
+            tc.busyUntil = end;
+          }
+          tc.villagers += 1;
+        }
         if (state.firstTcOrderMs === null || info.ms < state.firstTcOrderMs) state.firstTcOrderMs = info.ms;
         state.lastTcOrderMs = Math.max(state.lastTcOrderMs || 0, info.ms);
+      } else if (CIVILIAN_UNIT_IDS.has(unitId) || bType === 84) {
+        // Pesqueros, carretas comerciales, barcos mercantes, transportes y mulas son económicos, nunca militares
+        continue;
       } else {
         state.militaryOrdered += amount;
         state.militaryEvents.push({ ms: info.ms, amount });
@@ -1806,34 +2095,40 @@ function analyzePostmatchEngine(operations, {
         bucket.count += amount;
         state.unitCounts.set(unit.key, bucket);
 
-        if (MILITARY_BUILDING_TYPES.has(bType) || bType > 0) {
+        if (MILITARY_BUILDING_TYPES.has(bType)) {
           const bIds = Array.isArray(info.payload.building_ids) && info.payload.building_ids.length
             ? info.payload.building_ids.map(String)
             : [`ws_${bType}`];
           const candidates = bIds.map((k) => {
             let ws = state.workshops.get(k);
             if (!ws) {
-              ws = { id: k, typeId: bType, busyUntil: null, intervals: [], units: 0, firstMs: info.ms, lastMs: info.ms, maxQueue: 0, orders: 0, overloadedOrders: 0 };
+              ws = { id: k, typeId: bType, busyUntil: null, intervals: [], units: 0, firstMs: info.ms, lastMs: info.ms, maxQueue: 0, orders: 0, overloadedOrders: 0, lastTrainMs: 25_000 };
               state.workshops.set(k, ws);
             }
             return ws;
           });
-          const ws = pickShortestQueue(candidates);
           const trainSec = unit.trainSeconds || 25;
           const trainMs = trainSec * 1000;
-          const remMs = ws.busyUntil !== null ? Math.max(0, ws.busyUntil - info.ms) : 0;
-          const qDepth = remMs / trainMs + amount;
-          ws.maxQueue = Math.max(ws.maxQueue, qDepth);
-          ws.orders += 1;
-          if (qDepth >= 4) ws.overloadedOrders += 1;
-          const start = ws.busyUntil === null ? info.ms : Math.max(info.ms, ws.busyUntil);
-          const end = Math.min(info.ms + 10 * trainMs, start + amount * trainMs);
-          if (end > start) {
-            ws.intervals.push([start, end]);
-            ws.busyUntil = end;
+          const toQueue = Math.min(20, amount);
+          for (let q = 0; q < toQueue; q += 1) {
+            const ws = pickShortestQueue(candidates);
+            const remMs = ws.busyUntil !== null ? Math.max(0, ws.busyUntil - info.ms) : 0;
+            const qDepth = remMs / trainMs + 1;
+            ws.maxQueue = Math.max(ws.maxQueue, qDepth);
+            if (q === 0) {
+              ws.orders += 1;
+              if (qDepth >= 4) ws.overloadedOrders += 1;
+            }
+            const start = ws.busyUntil === null ? info.ms : Math.max(info.ms, ws.busyUntil);
+            const end = Math.min(info.ms + 10 * trainMs, start + trainMs);
+            if (end > start) {
+              ws.intervals.push([start, end]);
+              ws.busyUntil = end;
+            }
+            ws.units += 1;
+            ws.lastTrainMs = trainMs;
+            ws.lastMs = Math.max(ws.lastMs, info.ms);
           }
-          ws.units += amount;
-          ws.lastMs = Math.max(ws.lastMs, info.ms);
         }
       }
     }
@@ -1841,13 +2136,27 @@ function analyzePostmatchEngine(operations, {
 
   const selfState = tracked.get(selfId);
   const rivalState = rivalId ? tracked.get(rivalId) : null;
-  const self = finalizePlayer(selfState, maxMs);
-  const rival = rivalState ? finalizePlayer(rivalState, maxMs) : null;
+  const self = finalizePlayer(selfState, maxMs, { isRival: false });
+  const rival = rivalState ? finalizePlayer(rivalState, maxMs, { isRival: true }) : null;
   const timeline = buildTimelineBuckets(selfState, rivalState, maxMs, 12);
   const { openingSummary, stages } = buildStageGrades(self, selfState, { opening, openingShort, playerElo, durationMs: maxMs });
-  const { highlights, positives, negatives, focus } = buildHighlightsAndFocus(self, rival, {
+  const isShortAbandon = maxMs < 180_000 && selfState.feudalReachedMs == null;
+  const rawHf = buildHighlightsAndFocus(self, rival, {
     durationMs: maxMs, openingSummary, stages, isTeamGame: Boolean(isTeamGame), selfCiv,
   });
+  const { highlights, positives, negatives, focus } = isShortAbandon
+    ? {
+        highlights: rawHf.negatives.slice(0, 1),
+        positives: [],
+        negatives: rawHf.negatives,
+        focus: rawHf.negatives.length
+          ? rawHf.focus
+          : {
+              title: 'Partida demasiado breve para diagnóstico completo',
+              detail: 'La partida terminó antes de los 3 minutos; el análisis completo aparece en partidas regulares.',
+            },
+      }
+    : rawHf;
 
   return {
     version: VERSION,

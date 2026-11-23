@@ -126,9 +126,13 @@ function openingName(raw, locale = DEFAULT_LOCALE) {
   return String(raw || '');
 }
 
+const BUNDLE_CACHE = new Map();
+
 function getBundle(locale = DEFAULT_LOCALE) {
   const lang = getLocale(locale);
-  return {
+  const cached = BUNDLE_CACHE.get(lang);
+  if (cached) return cached;
+  const bundle = {
     locale: lang,
     supported: SUPPORTED_LOCALES.map((c) => LOCALES[c].meta),
     strings: LOCALES[lang],
@@ -142,6 +146,8 @@ function getBundle(locale = DEFAULT_LOCALE) {
       buildings: Object.fromEntries(Object.entries(GAME_TERMS.buildings).map(([k, v]) => [k, v[lang]])),
     },
   };
+  BUNDLE_CACHE.set(lang, bundle);
+  return bundle;
 }
 
 function getAllBundles() {

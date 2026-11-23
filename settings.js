@@ -601,8 +601,35 @@ function bindInteractiveEloChart() {
   };
 
   let activePoint = pts.length - 1;
+  let hoverVisible = false;
+  let cachedMatrix = null;
+  let cachedInvMatrix = null;
+  let cachedRect = null;
+  let hoverRaf = 0;
+  let pendingClientX = 0;
+  let pendingClientY = 0;
+
+  const invalidateGeom = () => {
+    cachedMatrix = null;
+    cachedInvMatrix = null;
+    cachedRect = null;
+  };
+  const ensureGeom = () => {
+    if (!cachedMatrix || !cachedRect) {
+      const m = svg.getScreenCTM();
+      if (!m) return false;
+      cachedMatrix = m;
+      try { cachedInvMatrix = m.inverse(); } catch { cachedInvMatrix = null; }
+      cachedRect = stage.getBoundingClientRect();
+    }
+    return Boolean(cachedMatrix && cachedRect);
+  };
+  window.addEventListener('resize', invalidateGeom, { passive: true });
+
   function showPoint(index) {
+    if (hoverVisible && index === activePoint) return;
     activePoint = index;
+    hoverVisible = true;
     const nearest = pts[index];
     if (hoverLine) {
       hoverLine.setAttribute('x1', String(nearest.x));
@@ -635,33 +662,46 @@ function bindInteractiveEloChart() {
       ttDate.textContent = [outcome, nearest.date].filter(Boolean).join(' · ');
     }
     tooltip.hidden = false;
-    const matrix = svg.getScreenCTM();
-    if (matrix) {
-      const rect = stage.getBoundingClientRect();
-      const point = new DOMPoint(nearest.x, nearest.y).matrixTransform(matrix);
-      const left = Math.max(0, Math.min(rect.width - tooltip.offsetWidth, point.x - rect.left - tooltip.offsetWidth / 2));
-      tooltip.style.left = `${left}px`;
-      tooltip.style.top = `${Math.max(0, point.y - rect.top - tooltip.offsetHeight - 12)}px`;
+    if (ensureGeom()) {
+      const point = new DOMPoint(nearest.x, nearest.y).matrixTransform(cachedMatrix);
+      const ttW = tooltip.offsetWidth || 120;
+      const ttH = tooltip.offsetHeight || 42;
+      const left = Math.max(0, Math.min(cachedRect.width - ttW, point.x - cachedRect.left - ttW / 2));
+      const top = Math.max(0, point.y - cachedRect.top - ttH - 12);
+      tooltip.style.left = '0px';
+      tooltip.style.top = '0px';
+      tooltip.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
     }
     if (document.activeElement === stage) {
-      stage.setAttribute('aria-label', `${nearest.rating} ELO · ${ttDate?.textContent || nearest.date}. Flechas para recorrer registros.`);
+      stage.setAttribute('aria-label', `${nearest.rating} ELO · ${ttDate?.textContent || nearest.date}. Flechas para recorrer partidas.`);
     }
   }
 
+  stage.addEventListener('mouseenter', invalidateGeom, { passive: true });
   stage.addEventListener('mousemove', (event) => {
-    const matrix = svg.getScreenCTM();
-    if (!matrix) return;
-    const relX = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse()).x;
-    let nearest = 0;
-    for (let i = 1; i < pts.length; i += 1) {
-      if (Math.abs(pts[i].x - relX) < Math.abs(pts[nearest].x - relX)) nearest = i;
-    }
-    showPoint(nearest);
-  });
+    pendingClientX = event.clientX;
+    pendingClientY = event.clientY;
+    if (hoverRaf) return;
+    hoverRaf = requestAnimationFrame(() => {
+      hoverRaf = 0;
+      if (!ensureGeom() || !cachedInvMatrix) return;
+      const relX = new DOMPoint(pendingClientX, pendingClientY).matrixTransform(cachedInvMatrix).x;
+      let nearest = 0;
+      let bestDist = Math.abs(pts[0].x - relX);
+      for (let i = 1; i < pts.length; i += 1) {
+        const d = Math.abs(pts[i].x - relX);
+        if (d < bestDist) { bestDist = d; nearest = i; }
+      }
+      showPoint(nearest);
+    });
+  }, { passive: true });
 
-  stage.addEventListener('focus', () => showPoint(activePoint));
-  stage.addEventListener('blur', hideHover);
-  stage.addEventListener('mouseleave', () => { if (document.activeElement !== stage) hideHover(); });
+  stage.addEventListener('focus', () => { invalidateGeom(); showPoint(activePoint); });
+  stage.addEventListener('blur', () => { hoverVisible = false; hideHover(); });
+  stage.addEventListener('mouseleave', () => {
+    if (hoverRaf) { cancelAnimationFrame(hoverRaf); hoverRaf = 0; }
+    if (document.activeElement !== stage) { hoverVisible = false; hideHover(); }
+  });
   stage.addEventListener('keydown', (event) => {
     const index = { ArrowLeft: activePoint - 1, ArrowRight: activePoint + 1, Home: 0, End: pts.length - 1 }[event.key];
     if (index == null) return;
@@ -741,7 +781,10 @@ function bindCentralInteractions() {
 
   const civFilterInput = centralDashboardEl.querySelector('#cxCivFilterInput');
   if (civFilterInput) {
+    let civFilterTimer = null;
     const applyCivFilter = () => {
+      clearTimeout(civFilterTimer);
+      civFilterTimer = null;
       const pos = civFilterInput.selectionStart;
       centralCivFilter = civFilterInput.value;
       if (lastCentralPayload) {
@@ -755,7 +798,8 @@ function bindCentralInteractions() {
     };
     civFilterInput.addEventListener('input', (event) => {
       if (event.isComposing) return;
-      applyCivFilter();
+      clearTimeout(civFilterTimer);
+      civFilterTimer = setTimeout(applyCivFilter, 100);
     });
     civFilterInput.addEventListener('compositionend', applyCivFilter);
   }
@@ -1001,15 +1045,43 @@ async function runCentralSearchNow() {
   await executeCentralSearch(query);
 }
 
+let centralLoadedAt = 0;
+let centralLoadedPid = null;
+
 async function loadCentral(force = false, { animateSwap = false } = {}) {
   if (!window.settings?.centralGet || (centralBusy && !animateSwap)) return;
+  const targetPid = centralViewedProfile?.profileId ?? currentProfileId ?? null;
+  const targetAlias = centralViewedProfile?.alias || lastLoadedInfo?.alias || null;
+  // Si ya tenemos datos frescos (< 15s) para este mismo perfil y no es refresh forzado, cambio de pestaña en <1ms.
+  if (
+    !force &&
+    !animateSwap &&
+    lastCentralPayload?.ok &&
+    !lastCentralPayload.stale &&
+    Number(centralLoadedPid) === Number(targetPid) &&
+    Date.now() - centralLoadedAt < 15000
+  ) {
+    return;
+  }
   const request = ++centralRequest;
   centralBusy = true;
   if (refreshCentralBtn) refreshCentralBtn.disabled = true;
   const reqOpts = centralViewedProfile
     ? { profileId: centralViewedProfile.profileId, alias: centralViewedProfile.alias, force: Boolean(force) }
     : { force: Boolean(force) };
-  if (animateSwap && centralDashboardEl) {
+  // Mostrar siempre el nombre del jugador + skeleton instantáneo a t=0ms (nunca pantalla vacía).
+  const hasSameProfileOnScreen = Boolean(
+    lastCentralPayload?.ok &&
+    targetPid != null &&
+    Number(lastCentralPayload.profileId) === Number(targetPid),
+  );
+  if (!hasSameProfileOnScreen && centralDashboardEl && typeof TacticalUI === 'object' && TacticalUI.renderCentralSkeleton) {
+    centralDashboardEl.innerHTML = TacticalUI.renderCentralSkeleton({
+      alias: targetAlias,
+      profileId: targetPid,
+      isExternal: Boolean(centralViewedProfile),
+    });
+  } else if (animateSwap && centralDashboardEl) {
     centralDashboardEl.classList.add('is-loading');
   }
   if (centralViewedProfile) {
@@ -1018,6 +1090,10 @@ async function loadCentral(force = false, { animateSwap = false } = {}) {
   try {
     const res = await window.settings.centralGet(reqOpts);
     if (request !== centralRequest) return;
+    if (res?.ok) {
+      centralLoadedAt = Date.now();
+      centralLoadedPid = res.profileId ?? targetPid;
+    }
     paintCentral(res, { animateSwap });
     if (res?.ok && centralViewedProfile) {
       setStatus(`Explorando perfil: ${res.alias || `#${res.profileId}`}`);
@@ -1193,6 +1269,7 @@ window.settings.onClock((payload) => {
 });
 
 setInterval(() => {
+  if (document.hidden || activePage !== 'player') return;
   paintPoll();
   paintClock();
 }, 1000);
@@ -1410,9 +1487,11 @@ refreshPostMatchBtn.addEventListener('click', async () => {
 
 window.settings.onPostMatch((payload) => paintPostMatch(payload));
 window.settings.onCentral?.((payload) => {
-  if (!payload || centralBusy) return;
+  if (!payload || !payload.ok) return;
   const visibleId = centralViewedProfile?.profileId ?? currentProfileId;
   if (visibleId ? Number(payload.profileId) !== Number(visibleId) : payload.isOwnProfile === false) return;
+  centralLoadedAt = Date.now();
+  centralLoadedPid = payload.profileId ?? visibleId;
   paintCentral(payload, { preserveMode: true });
 });
 window.settings.onProduct((product) => {
@@ -1633,9 +1712,10 @@ async function loadCurrent() {
   if (info.product) renderProduct(info.product);
   paintAccountHeader(info);
   applyLanguageUi(info.activeLanguage || 'es-MX');
-  await loadPostMatch();
-  await loadBuildOrder();
-  loadCentral(false);
+  // Cargar bajo demanda solo la pestaña activa (evita 3 IPC + API duplicados al arranque).
+  if (activePage === 'central') loadCentral(false);
+  else if (activePage === 'postmatch') loadPostMatch();
+  else if (activePage === 'tactics') loadTactics();
   autoUpdateInput.checked = Boolean(info.autoUpdate);
   matchStartedAt = Number.isFinite(info.matchStartedAt) && info.matchStartedAt > 0
     ? info.matchStartedAt
@@ -1883,10 +1963,14 @@ const PAGE_META = {
 };
 
 let activePage = 'player';
+let postmatchLoadedAt = 0;
+let tacticsLoadedAt = 0;
+document.body.dataset.page = activePage;
 
 function goTo(page) {
   if (!PAGE_META[page]) return;
   activePage = page;
+  document.body.dataset.page = page;
   for (const button of navButtons) {
     const current = button.dataset.page === page;
     button.classList.toggle('active', current);
@@ -1908,9 +1992,16 @@ function goTo(page) {
   pageTitle.textContent = (locTitle && locTitle !== `pages.${page}.title`) ? locTitle : PAGE_META[page].title;
   pageSub.textContent = (locSub && locSub !== `pages.${page}.sub`) ? locSub : PAGE_META[page].sub;
   pageIndex.textContent = (locIdx && locIdx !== `pages.${page}.index`) ? locIdx : PAGE_META[page].index;
+  if (page === 'player') { paintPoll(); paintClock(); }
   if (page === 'central') loadCentral(false);
-  if (page === 'postmatch') loadPostMatch();
-  if (page === 'tactics') loadTactics();
+  if (page === 'postmatch' && (!lastPostMatchPayload || Date.now() - postmatchLoadedAt > 20000)) {
+    postmatchLoadedAt = Date.now();
+    loadPostMatch();
+  }
+  if (page === 'tactics' && (!lastTacticsPayload || Date.now() - tacticsLoadedAt > 20000)) {
+    tacticsLoadedAt = Date.now();
+    loadTactics();
+  }
   if (pagesEl) pagesEl.scrollTop = 0;
 }
 

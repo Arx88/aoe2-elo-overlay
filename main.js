@@ -20,6 +20,20 @@ const http = require('node:http');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+// Mantener conexiones TLS/HTTP2 calientes (30s keep-alive) para reutilizar sockets entre APIs.
+try {
+  const undici = require('undici');
+  if (undici && typeof undici.Agent === 'function' && typeof undici.setGlobalDispatcher === 'function') {
+    undici.setGlobalDispatcher(new undici.Agent({
+      keepAliveTimeout: 30_000,
+      keepAliveMaxTimeout: 60_000,
+      connections: 12,
+    }));
+  }
+} catch {
+  /* undici opcional en algunos builds de Electron */
+}
+
 const {
   buildSnapshot,
   buildExampleSnapshot,
@@ -34,7 +48,7 @@ const {
   hideLobbyCivs,
 } = require('./src/aoe');
 const { fetchCentralDashboard, mergeRecentMatches } = require('./src/central');
-const { detectProfile, getActiveSteamId, resolveSteamId } = require('./src/detect');
+const { detectProfile, getActiveSteamId, getActiveSteamIdAsync, resolveSteamId } = require('./src/detect');
 let lastActiveSteamId = null;
 let lastSteamCheckAt = 0;
 const { CIV_SLUGS, CIV_ALIASES, civSlug } = require('./src/civs');
@@ -53,7 +67,7 @@ const { buildRivalInsights, opponentsOf, needsRivalHistory, mergeRivalReport, re
 const { progressiveScout } = require('./src/scout');
 const { isPriorReplay } = require('./src/insights');
 const { fetchMyHistory, computeH2H } = require('./src/mine');
-const { initAutoUpdate } = require('./src/updater');
+// `./src/updater` (electron-updater) se carga en diferido 5s después de app.whenReady() para acelerar el arranque.
 const { ReplayCache } = require('./src/replay-cache');
 const {
   PerformanceStore,
@@ -769,15 +783,61 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+let logBuffer = [];
+let logFlushTimer = null;
+let logDirReady = false;
+let logFlushing = false;
+
+function flushLogsSync() {
+  clearTimeout(logFlushTimer);
+  logFlushTimer = null;
+  if (!logBuffer.length) return;
+  const chunk = logBuffer.join('');
+  logBuffer = [];
+  try {
+    if (!logDirReady) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      logDirReady = true;
+    }
+    fs.appendFileSync(LOG_PATH, chunk);
+  } catch {
+    /* el log a archivo es best-effort */
+  }
+}
+
+async function flushLogsAsync() {
+  logFlushTimer = null;
+  if (logFlushing || !logBuffer.length) return;
+  logFlushing = true;
+  const chunk = logBuffer.join('');
+  logBuffer = [];
+  try {
+    if (!logDirReady) {
+      await fs.promises.mkdir(DATA_DIR, { recursive: true });
+      logDirReady = true;
+    }
+    await fs.promises.appendFile(LOG_PATH, chunk);
+  } catch {
+    /* el log a archivo es best-effort */
+  } finally {
+    logFlushing = false;
+    if (logBuffer.length && !logFlushTimer) {
+      logFlushTimer = setTimeout(() => { flushLogsAsync().catch(() => {}); }, 250);
+      if (logFlushTimer.unref) logFlushTimer.unref();
+    }
+  }
+}
+
 function log(...args) {
   const stamp = new Date().toISOString().slice(11, 19);
   const line = `[${stamp}] ${args.join(' ')}`;
   console.log(line);
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.appendFileSync(LOG_PATH, `${line}\n`);
-  } catch {
-    /* el log a archivo es best-effort */
+  logBuffer.push(`${line}\n`);
+  if (logBuffer.length >= 25) {
+    flushLogsAsync().catch(() => {});
+  } else if (!logFlushTimer) {
+    logFlushTimer = setTimeout(() => { flushLogsAsync().catch(() => {}); }, 250);
+    if (logFlushTimer.unref) logFlushTimer.unref();
   }
 }
 
@@ -785,15 +845,18 @@ function log(...args) {
 // proceso en silencio (la app "se cierra sola" y el log no dice por qué).
 process.on('uncaughtException', (err) => {
   log(`CRASH · excepción no capturada: ${(err && (err.stack || err.message)) || err}`);
+  flushLogsSync();
 });
 process.on('unhandledRejection', (reason) => {
   log(`CRASH · promesa rechazada sin capturar: ${(reason && (reason.stack || reason.message)) || reason}`);
+  flushLogsSync();
 });
 
 // Marca el final REAL del proceso. Si en el log la última línea es un latido y
 // NO aparece esta, el proceso fue matado desde afuera (kill / reinstalación /
 // corte del launcher), no por un error de JS. Era la causa de "se cierra sola".
 process.on('exit', (code) => {
+  flushLogsSync();
   const line = `[${new Date().toISOString().slice(11, 19)}] proceso terminado · code=${code} · motivo=${quitReason} · uptime=${Math.round((Date.now() - bootedAt) / 1000)}s\n`;
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -1007,6 +1070,8 @@ async function refreshSmurfReports(state, options = {}) {
     clearSmurfReports();
     return;
   }
+  // Esperar a fase 2 (cuando ya llegó el ELO/pico/partidas RM 1v1) para no correr sin datos completos.
+  if (state.pending) return;
   const players = Array.isArray(state.players) ? state.players : [];
   const rivals = players.filter((p) => p && !p.isYou && Number(p.profileId) > 0);
   if (!rivals.length) {
@@ -2090,10 +2155,16 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       devTools: !app.isPackaged,
-      backgroundThrottling: false,
+      backgroundThrottling: true,
     },
   });
   hardenWebContents(win.webContents);
+  win.on('show', () => {
+    try { if (win && !win.isDestroyed()) win.webContents.setBackgroundThrottling(false); } catch { /* ignore */ }
+  });
+  win.on('hide', () => {
+    try { if (win && !win.isDestroyed()) win.webContents.setBackgroundThrottling(true); } catch { /* ignore */ }
+  });
   applyAdaptiveZoom(win, 'overlay');
   win.webContents.on('did-finish-load', () => applyAdaptiveZoom(win, 'overlay'));
   win.on('moved', () => {
@@ -2375,22 +2446,68 @@ function openSettings() {
   return settingsWin;
 }
 
-/** Guarda opciones en config.json y las aplica en memoria. */
-function persistConfig(patch) {
+let configSaveTimer = null;
+let configDirty = false;
+let configSaving = false;
+
+function serializeConfigForDisk() {
+  let current = {};
   try {
+    current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  } catch {
+    current = {};
+  }
+  return `${JSON.stringify({ ...DEFAULT_CONFIG, ...current, ...config }, null, 2)}\n`;
+}
+
+async function flushConfigAsync() {
+  configSaveTimer = null;
+  if (!configDirty || configSaving) return;
+  configSaving = true;
+  configDirty = false;
+  try {
+    await fs.promises.mkdir(DATA_DIR, { recursive: true });
     let current = {};
     try {
-      current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      current = JSON.parse(await fs.promises.readFile(CONFIG_PATH, 'utf8'));
     } catch {
       current = {};
     }
-    const next = { ...DEFAULT_CONFIG, ...current, ...patch };
+    const next = `${JSON.stringify({ ...DEFAULT_CONFIG, ...current, ...config }, null, 2)}\n`;
+    const tmp = `${CONFIG_PATH}.tmp`;
+    await fs.promises.writeFile(tmp, next);
+    await fs.promises.rename(tmp, CONFIG_PATH);
+  } catch (err) {
+    log(`no pude guardar la config: ${err.message}`);
+  } finally {
+    configSaving = false;
+    if (configDirty && !configSaveTimer) {
+      configSaveTimer = setTimeout(() => { flushConfigAsync().catch(() => {}); }, 250);
+      if (configSaveTimer.unref) configSaveTimer.unref();
+    }
+  }
+}
+
+function flushConfigSync() {
+  clearTimeout(configSaveTimer);
+  configSaveTimer = null;
+  if (!configDirty) return;
+  configDirty = false;
+  try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, `${JSON.stringify(next, null, 2)}\n`);
+    fs.writeFileSync(CONFIG_PATH, serializeConfigForDisk());
   } catch (err) {
     log(`no pude guardar la config: ${err.message}`);
   }
+}
+
+/** Guarda opciones en config.json (asíncrono con debounce) y las aplica en memoria al instante. */
+function persistConfig(patch) {
   Object.assign(config, patch);
+  configDirty = true;
+  clearTimeout(configSaveTimer);
+  configSaveTimer = setTimeout(() => { flushConfigAsync().catch(() => {}); }, 250);
+  if (configSaveTimer.unref) configSaveTimer.unref();
 }
 
 /** Guarda profileId en el config (null = volver a detección automática). */
@@ -2400,9 +2517,24 @@ function persistProfile(value) {
 
 /** Aplica un perfil nuevo en caliente, sin reiniciar la app. */
 function setRuntimeProfile(nextProfileId, alias) {
+  const prevPid = profileId;
   profileId = Number(nextProfileId);
   playerAlias = alias || null;
-  statsCache.clear();
+  // Limpieza selectiva: invalidar cachés dependientes del perfil propio SIN borrar
+  // el caché persistido de replays de rivales (`scout:rows:v2:...`).
+  for (const key of [...statsCache.keys()]) {
+    const k = String(key);
+    if (
+      k.startsWith('mine:') ||
+      k.startsWith('rival:') ||
+      k.startsWith('h2h:') ||
+      k.startsWith('central:') ||
+      k.startsWith('smurf:') ||
+      (prevPid != null && k === `elo1v1:${prevPid}`)
+    ) {
+      statsCache.delete(key);
+    }
+  }
   // El informe visible pertenece al perfil anterior; el historial local queda
   // separado por perfil y se puede volver a consultar.
   postMatchReport = null;
@@ -3537,21 +3669,76 @@ function registerIpc() {
     if (!postMatchReport && recentMatches.length > 0 && productState().featureAccess.postMatch) {
       const first = recentMatches[0];
       if (first && first.rawMatch) {
-        const storedRec = performanceStore.list(profileId).find((r) => String(r.match?.matchId) === String(first.matchId));
-        postMatchLastId = String(first.matchId);
-        postMatchMatch = first.rawMatch;
-        postMatchOverlayDismissed = true;
-        postMatchReport = buildPostMatchReport({
-          match: first.rawMatch,
-          profileId,
-          records: performanceStore.list(profileId),
-          telemetry: storedRec ? storedRec.telemetry : null,
-          historyRows: [],
-          historyPending: false,
-          analysis: storedRec && storedRec.telemetry
-            ? { status: 'ready', label: 'Análisis listo', detail: 'El replay ya estaba analizado.' }
-            : { status: 'idle', label: 'Tocá la partida para analizar el replay', detail: '' },
-        });
+        const storedRec = performanceStore.getByMatchId(profileId, first.matchId);
+        const isStaleAdapter = Boolean(
+          storedRec?.telemetry?.source?.id === 'aoe2rec-js' &&
+          storedRec.telemetry.source.version !== COMMAND_ADAPTER_VERSION,
+        );
+        if (isStaleAdapter && postMatchAccess().replay) {
+          // Re-analizar en segundo plano replays viejos con el motor v9 corregido
+          publishPostMatch(first.rawMatch, {
+            force: true,
+            refreshReplay: true,
+            persist: true,
+            profileId,
+            showOverlay: false,
+          }).catch((err) => log(`postmatch:get refresh: ${err.message}`));
+        } else {
+          const gen = ++postMatchGeneration;
+          const targetPid = Number(profileId);
+          postMatchLastId = String(first.matchId);
+          postMatchMatch = first.rawMatch;
+          postMatchOverlayDismissed = true;
+          const wantHistory = postMatchAccess().comparison;
+          let initHistory = { rows: [], pending: wantHistory };
+          if (wantHistory) {
+            // Intentar cargar historial autoritativo rápido (espera hasta 900ms; si tarda más, pinta y actualiza al volver)
+            const histPromise = fetchMyHistory({
+              profileId: targetPid,
+              leaderboardId: first.rawMatch.leaderboardId,
+              currentMatchId: first.rawMatch.matchId,
+              cache: statsCache,
+              cacheTtlMs: 30 * 1000,
+              log,
+            }).catch((err) => ({ rows: [], error: err.message, pending: false }));
+            const quick = await Promise.race([
+              histPromise,
+              new Promise((resolve) => setTimeout(() => resolve(null), 900)),
+            ]);
+            if (quick) {
+              initHistory = quick;
+            } else {
+              histPromise.then((res) => {
+                if (gen !== postMatchGeneration || Number(profileId) !== targetPid) return;
+                postMatchReport = buildPostMatchReport({
+                  match: first.rawMatch,
+                  profileId: targetPid,
+                  records: performanceStore.listReadOnly(targetPid),
+                  telemetry: storedRec ? storedRec.telemetry : null,
+                  historyRows: res.rows || [],
+                  historyError: res.error || null,
+                  historyPending: false,
+                  analysis: storedRec && storedRec.telemetry
+                    ? { status: 'ready', label: 'Análisis listo', detail: 'El replay ya estaba analizado.' }
+                    : { status: 'idle', label: 'Tocá la partida para analizar el replay', detail: '' },
+                });
+                broadcastPostMatch();
+              });
+            }
+          }
+          postMatchReport = buildPostMatchReport({
+            match: first.rawMatch,
+            profileId: targetPid,
+            records: performanceStore.listReadOnly(targetPid),
+            telemetry: storedRec ? storedRec.telemetry : null,
+            historyRows: initHistory.rows || [],
+            historyError: initHistory.error || null,
+            historyPending: Boolean(initHistory.pending),
+            analysis: storedRec && storedRec.telemetry
+              ? { status: 'ready', label: 'Análisis listo', detail: 'El replay ya estaba analizado.' }
+              : { status: 'idle', label: 'Tocá la partida para analizar el replay', detail: '' },
+          });
+        }
       }
     }
     const payload = postMatchPayload() || { report: null, access: postMatchAccess() };
@@ -3568,7 +3755,7 @@ function registerIpc() {
   async function hydrateRecentReplaysForCentral(targetPid, candidates = []) {
     const pid = Number(targetPid);
     if (!pid || hydratingCentralPid === pid) return;
-    const existingWithTelemetry = performanceStore.list(pid).filter((r) => r && r.telemetry);
+    const existingWithTelemetry = performanceStore.listReadOnly(pid).filter((r) => r && r.telemetry);
     if (existingWithTelemetry.length >= 2) return;
     const rm1v1Candidates = (Array.isArray(candidates) ? candidates : [])
       .filter((m) => m && m.is1v1 && !m.hasTelemetry && m.rawMatch)
@@ -3652,12 +3839,18 @@ function registerIpc() {
     return { ok: true, overlayVisible: false };
   });
 
+  let centralAbort = null;
   ipcMain.handle('central:get', async (_event, rawOptions) => {
     const opts = (rawOptions && typeof rawOptions === 'object')
       ? rawOptions
       : { force: Boolean(rawOptions) };
     const targetPid = Number(opts.profileId) > 0 ? Number(opts.profileId) : Number(profileId);
     const isOwn = Number.isFinite(targetPid) && targetPid === Number(profileId);
+    if (centralAbort) {
+      try { centralAbort.abort(); } catch { /* ignore */ }
+    }
+    const ctrl = new AbortController();
+    centralAbort = ctrl;
     const data = await fetchCentralDashboard({
       profileId: targetPid,
       alias: opts.alias || (isOwn ? playerAlias : null),
@@ -3667,11 +3860,22 @@ function registerIpc() {
       force: Boolean(opts.force),
       isOwnProfile: isOwn,
       ownProfileId: profileId ? Number(profileId) : null,
+      signal: ctrl.signal,
+      onUpdate: (updated) => {
+        if (ctrl.signal.aborted || centralAbort !== ctrl) return;
+        if (!updated || !updated.ok || !settingsWin || settingsWin.isDestroyed()) return;
+        const prod = productState();
+        const isUltra = prod.plan === 'promax' || prod.plan === 'beta';
+        settingsWin.webContents.send('central:update', { ...updated, isUltra, plan: prod.plan });
+        if (isOwn && Array.isArray(updated.recentMatches)) {
+          hydrateRecentReplaysForCentral(profileId, updated.recentMatches).catch(() => {});
+        }
+      },
       log,
     });
     const product = productState();
     const isUltra = product.plan === 'promax' || product.plan === 'beta';
-    if (isOwn && data && data.ok && Array.isArray(data.recentMatches)) {
+    if (isOwn && data && data.ok && !data.stale && Array.isArray(data.recentMatches)) {
       hydrateRecentReplaysForCentral(profileId, data.recentMatches).catch(() => {});
     }
     return data ? { ...data, isUltra, plan: product.plan } : data;
@@ -4126,6 +4330,7 @@ function registerIpc() {
   ipcMain.on('overlay:move-done', () => setMovable(false));
 }
 
+let lastAppliedBounds = null;
 function applyHeight(height) {
   if (!win) return;
   const display = screen.getDisplayMatching(win.getBounds());
@@ -4140,11 +4345,6 @@ function applyHeight(height) {
   );
   const reviewWidth = Math.max(320, Math.min(Math.round(1080 * overlayZoom), workArea.width - 40));
 
-  // Techo ADAPTATIVO al monitor, no un número fijo. El tope viejo (640 px)
-  // venía de cuando el panel era solo el roster: con el informe del rival,
-  // las recomendaciones y el balance, el contenido legítimo mide más y lo
-  // que pasaba del techo se RECORTABA e invisible (no hay scroll). Ahora el
-  // límite es el área de trabajo del monitor menos el margen superior.
   const offset = Math.max(0, Number(config.offsetY) || 0);
   const maxHeight = Math.max(200, workArea.height - offset - 16);
   const scaledHeight = Math.round(Number(height) * overlayZoom);
@@ -4155,30 +4355,46 @@ function applyHeight(height) {
         `deja ${maxHeight} (workArea ${workArea.height}, offset ${offset}, zoom ${overlayZoom})`,
     );
   }
-  const [currentWidth] = win.getContentSize();
+  const [currentWidth, currentHeight] = win.getContentSize();
   const width = moving ? currentWidth : reviewing ? reviewWidth : overlayWidth;
-  win.setContentSize(width, target);
 
+  let nextX = null;
+  let nextY = null;
   if (reviewing) {
-    const x = Math.round(workArea.x + (workArea.width - width) / 2);
-    win.setPosition(x, Math.round(workArea.y + Number(config.offsetY || 0)));
-    return;
-  }
-
-  // Si el usuario eligió el lugar, no se mueve solo nunca más.
-  if (moving) return;
-  if (config.position === 'custom') {
-    if (currentWidth !== width) {
-      const position = initialPosition(width, target);
-      win.setPosition(position.x, position.y);
+    nextX = Math.round(workArea.x + (workArea.width - width) / 2);
+    nextY = Math.round(workArea.y + Number(config.offsetY || 0));
+  } else if (!moving) {
+    if (config.position === 'custom') {
+      if (currentWidth !== width) {
+        const position = initialPosition(width, target);
+        nextX = position.x;
+        nextY = position.y;
+      }
+    } else {
+      nextX = Math.round(workArea.x + (workArea.width - width) / 2 + Number(config.offsetX || 0));
+      nextY = Math.round(workArea.y + Number(config.offsetY || 0));
     }
-    return;
   }
 
-  const x = Math.round(
-    workArea.x + (workArea.width - width) / 2 + Number(config.offsetX || 0),
-  );
-  win.setPosition(x, Math.round(workArea.y + Number(config.offsetY || 0)));
+  if (
+    lastAppliedBounds &&
+    lastAppliedBounds.width === width &&
+    lastAppliedBounds.height === target &&
+    lastAppliedBounds.x === nextX &&
+    lastAppliedBounds.y === nextY &&
+    currentWidth === width &&
+    currentHeight === target
+  ) {
+    return;
+  }
+  lastAppliedBounds = { width, height: target, x: nextX, y: nextY };
+
+  if (currentWidth !== width || currentHeight !== target) {
+    win.setContentSize(width, target);
+  }
+  if (nextX != null && nextY != null) {
+    win.setPosition(nextX, nextY);
+  }
 }
 
 /**
@@ -4251,6 +4467,8 @@ function visiblePostMatchReport() {
   if (!access.comparison) {
     if (report.openingReview) report.openingReview.comparison = null;
     if (report.engine) report.engine.evolution = null;
+    if (report.verdict) report.verdict.personal = null;
+    if (report.narrative) report.narrative = null;
     report.historyHighlights = [];
     report.improvements = [];
     report.executionRatings = null;
@@ -4426,7 +4644,7 @@ async function publishPostMatch(match, options = {}) {
     missingRichTelemetry ||
     (telemetry?.source?.id === 'aoe2rec-js' && telemetry.source.version !== COMMAND_ADAPTER_VERSION)
   ));
-  const fetchingReplay = replayAllowed && options.autoReplay !== false && (!telemetry || refreshLegacyReplay);
+  const fetchingReplay = replayAllowed && options.autoReplay !== false && (!telemetry || refreshLegacyReplay || options.refreshReplay === true);
   let analysis = fetchingReplay && !hadCachedTelemetry
     ? { status: 'downloading', label: 'Descargando partida', detail: 'Buscando la grabación de la partida.' }
     : telemetry
@@ -4439,7 +4657,7 @@ async function publishPostMatch(match, options = {}) {
     postMatchReport = buildPostMatchReport({
       match,
       profileId: targetProfileId,
-      records: performanceStore.list(targetProfileId),
+      records: performanceStore.listReadOnly(targetProfileId),
       telemetry,
       historyRows: history.rows,
       historyError: history.error,
@@ -4455,7 +4673,7 @@ async function publishPostMatch(match, options = {}) {
     leaderboardId: match.leaderboardId,
     currentMatchId: match.matchId,
     cache: statsCache,
-    cacheTtlMs: 30 * 60 * 1000,
+    cacheTtlMs: (options.force || options.refreshReplay) ? 0 : 15 * 1000,
     log,
   }).catch((err) => ({ rows: [], error: err.message })).then((result) => {
     history = result;
@@ -4881,7 +5099,7 @@ async function poll() {
     // con Relic abierto en segundo plano, cambiamos de perfil automáticamente.
     if (snapshot.status === 'idle' && !config.profileId && Date.now() - lastSteamCheckAt >= 12000) {
       lastSteamCheckAt = Date.now();
-      const activeSteam = getActiveSteamId();
+      const activeSteam = await getActiveSteamIdAsync();
       if (activeSteam && activeSteam.steamId && activeSteam.steamId !== lastActiveSteamId) {
         const previousSteam = lastActiveSteamId;
         lastActiveSteamId = activeSteam.steamId;
@@ -5021,23 +5239,12 @@ async function bootstrap() {
     return;
   }
 
+  const needsAutoDetect = !config.profileId;
   if (config.profileId) {
     profileId = Number(config.profileId);
     log(`profile_id desde config.json: ${profileId}`);
   } else {
-    log('config.json sin profileId: detectando la cuenta del juego…');
-    try {
-      const detected = await detectProfile(log);
-      if (detected) {
-        profileId = detected.profileId;
-        playerAlias = detected.alias;
-        log(`perfil detectado: ${detected.alias || 'sin alias'} (${profileId})`);
-      } else {
-        log('no pude detectar el perfil; abro la configuración para elegir la cuenta');
-      }
-    } catch (err) {
-      log(`detección falló: ${err.message}`);
-    }
+    log('config.json sin profileId: detectando la cuenta del juego en segundo plano…');
   }
   createWindow();
   screen.on('display-metrics-changed', () => {
@@ -5046,8 +5253,32 @@ async function bootstrap() {
     sendView(true);
   });
   initMinimizeWatcher();
-  startPolling();
-  startLive();
+  if (!needsAutoDetect) {
+    startPolling();
+    startLive();
+  } else {
+    // Abrir la ventana de inmediato sin bloquear el arranque por el registro/red.
+    detectProfile(log)
+      .then((detected) => {
+        if (detected && !profileId) {
+          log(`perfil detectado: ${detected.alias || 'sin alias'} (${detected.profileId})`);
+          setRuntimeProfile(detected.profileId, detected.alias);
+          if (settingsWin && !settingsWin.isDestroyed()) {
+            settingsWin.webContents.send('settings:profile-detected', {
+              profileId: detected.profileId,
+              alias: detected.alias || null,
+            });
+          }
+        } else if (!profileId) {
+          log('no pude detectar el perfil; abro la configuración para elegir la cuenta');
+          startPolling();
+        }
+      })
+      .catch((err) => {
+        log(`detección falló: ${err.message}`);
+        startPolling();
+      });
+  }
 
   if (FAKE_FOUND) {
     setTimeout(() => {
@@ -5107,23 +5338,30 @@ if (!gotLock) {
     // queda una forma de reabrir la config y de salir limpiamente.
     createTray();
 
-    // Actualizaciones: consulta al arranque y cada 6 h, nunca con partida en
-    // curso. electron-updater instala en silencio cuando el jugador sale.
-    updater = initAutoUpdate({
-      app,
-      log,
-      enabled: !DEV_SESSION,
-      isBusy: matchOngoing,
-      // Opción "Actualizaciones automáticas" de la pestaña Updater: consulta
-      // cada 30 min y aplica sola lo que encuentre (siempre fuera de partida).
-      isAuto: () => Boolean(config.autoUpdate),
-      onNotice: showUpdateNotice,
-      broadcast: (snapshot) => {
-        if (settingsWin && !settingsWin.isDestroyed()) {
-          settingsWin.webContents.send('updater:status', snapshot);
-        }
-      },
-    });
+    // Actualizaciones: diferido 5s para no frenar el arranque con require('electron-updater').
+    setTimeout(() => {
+      if (isQuitting) return;
+      try {
+        const { initAutoUpdate } = require('./src/updater');
+        updater = initAutoUpdate({
+          app,
+          log,
+          enabled: !DEV_SESSION,
+          isBusy: matchOngoing,
+          // Opción "Actualizaciones automáticas" de la pestaña Updater: consulta
+          // cada 30 min y aplica sola lo que encuentre (siempre fuera de partida).
+          isAuto: () => Boolean(config.autoUpdate),
+          onNotice: showUpdateNotice,
+          broadcast: (snapshot) => {
+            if (settingsWin && !settingsWin.isDestroyed()) {
+              settingsWin.webContents.send('updater:status', snapshot);
+            }
+          },
+        });
+      } catch (err) {
+        log(`updater diferido falló: ${err.message}`);
+      }
+    }, 5000);
 
     // Latido cada 2 minutos. Si en el log la última línea es un latido y NO
     // aparece "proceso terminado", el proceso fue matado desde afuera (launcher,
@@ -5205,8 +5443,10 @@ if (!gotLock) {
   });
 
   app.on('will-quit', () => {
+    flushConfigSync();
     statsCache.flush();
     performanceStore.flush();
+    flushLogsSync();
     globalShortcut.unregisterAll();
     clearInterval(timer);
     clearInterval(heartbeatTimer);

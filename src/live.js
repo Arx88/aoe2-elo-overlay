@@ -70,9 +70,9 @@ const PENDING_MATCH_TTL_MS = 30000; // si un lobby se cancela antes de llegar ro
 // Después de terminar una partida se sondea seguido 3 minutos: lo habitual es
 // volver a la cola enseguida.
 const HOT_IDLE_MS = 3 * 60 * 1000;
-// Mientras está pausado (partida en curso) se mira el ping filtrado cada 10 s:
-// si la partida terminó rápido o el aviso de fin se perdió, el carril se reactiva rápido.
-const PROBE_PAUSED_MS = 10000;
+// Mientras está pausado (partida en curso) se mira el ping filtrado cada 30 s:
+// si la partida terminó rápido o el aviso de fin se perdió, el carril se reactiva solo sin ruido.
+const PROBE_PAUSED_MS = 30000;
 
 /** URL de /listen para una query dada (misma forma para todos los sockets). */
 function socketUrl(query) {
@@ -425,12 +425,18 @@ class FastLane {
       this.log(`carril rápido: ${newMatched ? 'nueva partida apareada detectada en sonda' : 'hay cola otra vez'} · se reactiva solo`);
       this.resume();
       if (newMatched) {
-        const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
-        if (this.closed) return;
-        const chosen = full && full.length ? full : events;
-        if (chosen && chosen.length) {
+        const hasFullRoster = Array.isArray(newMatched.data?.players) && newMatched.data.players.length >= 2;
+        if (hasFullRoster) {
           this.polls += 1;
-          this.onSnapshot(chosen);
+          this.onSnapshot(events);
+        } else {
+          const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
+          if (this.closed) return;
+          const chosen = full && full.length ? full : events;
+          if (chosen && chosen.length) {
+            this.polls += 1;
+            this.onSnapshot(chosen);
+          }
         }
       }
       return;
@@ -504,9 +510,13 @@ class FastLane {
       );
       this.onQueue(true);
       if (!matched) return; // en cola: el próximo tick (1,5 s) trae el global
-      // Ya apareada: se pide el snapshot global AHORA, sin esperar el tick;
-      // si el global (~100 KB) expira en una red lenta, usamos `events` filtrado
-      // que ya incluye el `matched` con todos los jugadores.
+      // Si el snapshot filtrado ya trae el roster completo (>= 2 jugadores), se emite AL INSTANTE
+      // sin esperar un segundo handshake WebSocket global (~100 KB / hasta 4,5 s).
+      if (Array.isArray(matched.data?.players) && matched.data.players.length >= 2) {
+        this.onSnapshot(events);
+        return;
+      }
+      // Fallback: si el item filtrado vino sin roster, pedimos el snapshot global.
       const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
       if (this.closed || this.paused) return;
       const chosen = full && full.length ? full : events;

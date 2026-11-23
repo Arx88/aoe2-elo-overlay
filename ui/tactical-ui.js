@@ -996,7 +996,8 @@
     return `${m}m ${String(r).padStart(2, '0')}s`;
   }
   function fmtDelta(item, suffix = '', invertGood = false) {
-    if (!item || item.delta == null) return `<span class="pm-delta muted">${esc(tr('postmatch.initialBase', 'Base inicial'))}</span>`;
+    if (!item || item.snapshotOnly) return '';
+    if (item.delta == null) return `<span class="pm-delta muted">${esc(tr('postmatch.initialBase', 'Base inicial'))}</span>`;
     const d = item.delta;
     if (d === 0) return `<span class="pm-delta muted">${esc(tr('postmatch.eqAvg', '= Media'))}</span>`;
     const sign = d > 0 ? '+' : '−';
@@ -1039,8 +1040,11 @@
     const em = evo?.metrics || {};
     const mode = c.mode?.label;
     const dur = result.durationSeconds ? clock(result.durationSeconds) : '';
+    const isTeamGameHead = Boolean(eng.isTeamGame || c.mode?.size === 'team');
     const rivalLabel = eng.rivalName || 'Rival';
-    const vsCivs = eng.rivalCiv ? `${civLabel(c.civ)} <span class="pm-vs">vs</span> ${civLabel(eng.rivalCiv)}` : civLabel(c.civ);
+    const vsCivs = isTeamGameHead
+      ? `${civLabel(c.civ)} <span class="pm-vs">·</span> <span class="pm-tg-tag">Equipo</span>`
+      : (eng.rivalCiv ? `${civLabel(c.civ)} <span class="pm-vs">vs</span> ${civLabel(eng.rivalCiv)}` : civLabel(c.civ));
     const ratingChip = result.ratingDiff == null ? ''
       : `<strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}<small>ELO</small></strong>`;
     const modePill = compareOn
@@ -1289,36 +1293,39 @@
       .map((w) => `${number(w.count)} ${locBuilding(w)}`).join(' · ') || null;
 
     const evoGrid = `<div class="pm-kpi-grid">
-      ${evoCard({ label: tr('postmatch.kpiFeudal', 'Llegada a Feudal') }, kpiTm.feudalSeconds != null ? clock(kpiTm.feudalSeconds) : '—', '', false, feudalSub, { tab: 'duel', sel: '.pm-race-box, .pm-duel' })}
-      ${evoCard({ label: tr('postmatch.kpiEco', 'Expansión eco') }, `${number(self.townCenters || 1)} TC · ${number(kpiMb.farms || 0)} gr.`, '', false, ecoSub, { tab: 'tech', sel: '.pm-tech-box' })}
-      ${evoCard({ label: tr('postmatch.kpiBuildings', 'Edif. militares') }, `${number(self.workshopsCount || 0)} edif.`, '', false, bldSub, { tab: 'tech', sel: '.pm-queue-box' })}
+      ${evoCard({ label: tr('postmatch.kpiFeudal', 'Llegada a Feudal'), snapshotOnly: true }, kpiTm.feudalSeconds != null ? clock(kpiTm.feudalSeconds) : '—', '', false, feudalSub, { tab: 'duel', sel: '.pm-race-box, .pm-duel' })}
+      ${evoCard({ label: tr('postmatch.kpiEco', 'Expansión eco'), snapshotOnly: true }, `${number(self.townCenters || 1)} TC · ${number(kpiMb.farms || 0)} gr.`, '', false, ecoSub, { tab: 'tech', sel: '.pm-tech-box' })}
+      ${evoCard({ label: tr('postmatch.kpiBuildings', 'Edif. militares'), snapshotOnly: true }, `${number(self.workshopsCount || 0)} edif.`, '', false, bldSub, { tab: 'tech', sel: '.pm-queue-box' })}
       ${evoCard({ ...(em.eapm || {}), label: tr('postmatch.eapm', 'Ritmo eAPM') }, self.eapm != null ? dec(self.eapm, 1) : '—', '', false, null, { tab: 'evo', sel: '.pm-habits' })}
     </div>`;
 
     // 4. Duelo cara a cara con escudos + barras espejadas + carrera de edades
+    const isTeamGame = Boolean(eng.isTeamGame || c.mode?.size === 'team');
     const selfCrest = civBadge(c.civ);
     const rivalCrest = civBadge(eng.rivalCiv);
     const duelFaceHead = `<div class="pm-duel-face">
       <div class="pm-side is-self">${selfCrest}<div><b>${esc(tr('postmatch.you', 'Vos'))}</b><small>${esc(locCiv(c.civ) || c.civ || '')}</small></div></div>
       <span class="pm-vs-pill">VS</span>
-      <div class="pm-side is-rival"><div><b>${esc(rivalLabel)}</b><small>${esc(locCiv(eng.rivalCiv) || eng.rivalCiv || '')}</small></div>${rivalCrest}</div>
+      <div class="pm-side is-rival"><div><b>${esc(rivalLabel)}</b><small>${esc(locCiv(eng.rivalCiv) || eng.rivalCiv || '')}${isTeamGame ? ' · Rival TG' : ''}</small></div>${rivalCrest}</div>
     </div>`;
     const duelRow = (label, aVal, bVal, aTxt, bTxt, lowerWins = false) => {
-      const max = Math.max(1, Number(aVal) || 0, Number(bVal) || 0);
-      const aW = Math.max(6, Math.min(100, Math.round(((Number(aVal) || 0) / max) * 100)));
-      const bW = Math.max(6, Math.min(100, Math.round(((Number(bVal) || 0) / max) * 100)));
-      const aLead = bVal != null && (lowerWins ? aVal < bVal : aVal > bVal);
-      const bLead = bVal != null && (lowerWins ? bVal < aVal : bVal > aVal);
+      const aNum = aVal != null && Number.isFinite(Number(aVal)) ? Number(aVal) : null;
+      const bNum = bVal != null && Number.isFinite(Number(bVal)) ? Number(bVal) : null;
+      const max = Math.max(1, aNum || 0, bNum || 0);
+      const aW = aNum != null ? Math.max(6, Math.min(100, Math.round((aNum / max) * 100))) : 0;
+      const bW = bNum != null ? Math.max(6, Math.min(100, Math.round((bNum / max) * 100))) : 0;
+      const aLead = aNum != null && bNum != null && (lowerWins ? aNum < bNum : aNum > bNum);
+      const bLead = aNum != null && bNum != null && (lowerWins ? bNum < aNum : bNum > aNum);
       const splitTone = aLead ? ' is-lead-self' : bLead ? ' is-lead-rival' : '';
       return `<div class="pm-duel-split${splitTone}">
         <div class="pm-duel-nums">
           <b class="${aLead ? 'is-accent' : ''}">${aTxt}</b>
           <span>${esc(label)}</span>
-          <b class="is-r${bLead ? ' is-lead' : ''}">${bVal != null ? bTxt : '—'}</b>
+          <b class="is-r${bLead ? ' is-lead' : ''}">${bNum != null ? bTxt : '—'}</b>
         </div>
         <div class="pm-split-bars">
-          <div class="pm-half left"><i class="bar-self" data-w="${aW}"></i></div>
-          <div class="pm-half right">${bVal != null ? `<i class="bar-rival" data-w="${bW}"></i>` : ''}</div>
+          <div class="pm-half left">${aNum != null ? `<i class="bar-self" data-w="${aW}"></i>` : ''}</div>
+          <div class="pm-half right">${bNum != null ? `<i class="bar-rival" data-w="${bW}"></i>` : ''}</div>
         </div>
       </div>`;
     };
@@ -1331,19 +1338,18 @@
 
     const ageRaceRows = (selfTm && (selfTm.feudalSeconds || selfTm.castleSeconds || selfTm.imperialSeconds))
       ? [
-        selfTm.feudalSeconds || rivalTm?.feudalSeconds
-          ? { lbl: locAge('feudal', 'Feudal'), a: selfTm.feudalSeconds, b: rivalTm?.feudalSeconds }
+        (selfTm.feudalSeconds || (!isTeamGame && rivalTm?.feudalSeconds))
+          ? { lbl: locAge('feudal', 'Feudal'), a: selfTm.feudalSeconds, b: isTeamGame ? null : rivalTm?.feudalSeconds }
           : null,
-        selfTm.castleSeconds || rivalTm?.castleSeconds
-          ? { lbl: locAge('castle', 'Castillos'), a: selfTm.castleSeconds, b: rivalTm?.castleSeconds }
+        (selfTm.castleSeconds || (!isTeamGame && rivalTm?.castleSeconds))
+          ? { lbl: locAge('castle', 'Castillos'), a: selfTm.castleSeconds, b: isTeamGame ? null : rivalTm?.castleSeconds }
           : null,
-        selfTm.imperialSeconds || rivalTm?.imperialSeconds
-          ? { lbl: locAge('imperial', 'Imperial'), a: selfTm.imperialSeconds, b: rivalTm?.imperialSeconds }
+        (selfTm.imperialSeconds || (!isTeamGame && rivalTm?.imperialSeconds))
+          ? { lbl: locAge('imperial', 'Imperial'), a: selfTm.imperialSeconds, b: isTeamGame ? null : rivalTm?.imperialSeconds }
           : null,
       ].filter(Boolean)
       : [];
 
-    const isTeamGame = Boolean(eng.isTeamGame || c.mode?.size === 'team');
     const ageRaceBox = ageRaceRows.length
       ? `<div class="pm-race-box">
           <div class="pm-queue-head">
@@ -1359,7 +1365,7 @@
             return `<div class="pm-race-row${cls}">
               <b class="is-self">${row.a != null ? clock(row.a) : '—'}</b>
               <span>${esc(row.lbl)}${diffTxt}</span>
-              <b class="is-rival">${!isTeamGame && row.b != null ? clock(row.b) : '—'}</b>
+              <b class="is-rival">${!isTeamGame && row.b != null ? clock(row.b) : ''}</b>
             </div>`;
           }).join('')}</div>
         </div>`
@@ -1369,10 +1375,10 @@
     const rivalTechTotal = rival ? ((rivalTp?.ecoCount || 0) + (rivalTp?.blacksmithCount || 0) + (rivalTp?.combatKeyCount || 0)) : null;
     const duelBlock = `<div class="pm-duel">
       ${duelFaceHead}
-      ${duelRow(tr('postmatch.duelTcs', 'Centros Urbanos'), self.townCenters || 1, rival?.townCenters, `${number(self.townCenters || 1)} TC`, rival ? `${number(rival.townCenters || 1)} TC` : '')}
-      ${duelRow(tr('postmatch.duelBuildings', 'Edificios militares'), self.workshopsCount || 0, rival?.workshopsCount, `${number(self.workshopsCount || 0)}`, rival ? `${number(rival.workshopsCount || 0)}` : '')}
+      ${duelRow(tr('postmatch.duelTcs', 'Centros Urbanos'), self.townCenters || 1, rival ? (rival.townCenters || 1) : null, `${number(self.townCenters || 1)} TC`, rival ? `${number(rival.townCenters || 1)} TC` : '')}
+      ${duelRow(tr('postmatch.duelBuildings', 'Edificios militares'), self.workshopsCount || 0, rival ? (rival.workshopsCount || 0) : null, `${number(self.workshopsCount || 0)}`, rival ? `${number(rival.workshopsCount || 0)}` : '')}
       ${duelRow(tr('postmatch.duelTechs', 'Mejoras clave'), selfTechTotal, rivalTechTotal, `${number(selfTechTotal)} techs`, rivalTechTotal != null ? `${number(rivalTechTotal)} techs` : '')}
-      ${duelRow(tr('postmatch.duelEapm', 'Ritmo eAPM'), self.eapm || 0, rival?.eapm, self.eapm != null ? dec(self.eapm, 1) : '—', rival?.eapm != null ? dec(rival.eapm, 1) : '')}
+      ${duelRow(tr('postmatch.duelEapm', 'Ritmo eAPM'), self.eapm ?? null, rival?.eapm ?? null, self.eapm != null ? dec(self.eapm, 1) : '—', rival?.eapm != null ? dec(rival.eapm, 1) : '')}
     </div>`;
 
     // 5. Mejoras económicas, Herrería acorde a TU composición y Macro del replay
@@ -1432,8 +1438,12 @@
       ? `<div class="pm-coach-stack">${gapRow}${patRow}</div>` : '';
 
     const cm = self.combatMicro || {};
-    const microVal = cm.controlSharePct != null ? `${dec(cm.controlSharePct, 1)}%` : `${number((self.habits?.attackMove || 0) + (self.habits?.patrol || 0))}`;
-    const microSub = cm.moveOrders > 0 ? `<small>${number(cm.combatOrders || 0)}/${number(cm.moveOrders)}</small>` : '';
+    const amPatrol = (self.habits?.attackMove || 0) + (self.habits?.patrol || 0);
+    const formStance = (cm.formations || 0) + (cm.stances || 0);
+    const microVal = `${number(amPatrol)}`;
+    const microSub = formStance > 0
+      ? `<small>AM/Pat · ${number(formStance)} post.</small>`
+      : `<small>AM / Patrol</small>`;
     const tcCycleVal = cm.tcReturnSec != null ? `${number(cm.tcReturnSec)} s` : '—';
     const fourthHabit = self.eapmRetentionPct != null
       ? `<div><span>${esc(tr('postmatch.lateStamina', 'Ritmo Late'))}</span><b>${number(self.eapmRetentionPct)}% <small>${dec(self.eapmEarly, 0)}→${dec(self.eapmLate, 0)}</small></b></div>`
@@ -1492,7 +1502,7 @@
       ${narrativeGrid}
       ${focusShort}
       ${deepDive}
-      <footer class="pm-foot"><span>${esc(tr('postmatch.localReplay', report.data?.sourceLabel || 'Replay local'))}</span><span>${showPersonal && report.mapBenchmark?.games ? `${number(report.mapBenchmark.wins)} V · ${number(report.mapBenchmark.losses)} D · ${esc(locMap(c.mapName) || c.mapName)}` : ''}</span></footer>
+      <footer class="pm-foot"><span>${esc(tr('postmatch.localReplay', report.data?.sourceLabel || 'Replay local'))}</span><span>${showPersonal && report.mapBenchmark?.games ? `${number(report.mapBenchmark.wins)} V · ${number(report.mapBenchmark.losses)} D previas · ${esc(locMap(c.mapName) || c.mapName)}` : ''}</span></footer>
     </div>`;
   }
   function renderPostMatch(report, access = {}) {
@@ -1698,10 +1708,10 @@
     const net = lastPt.rating - firstPt.rating;
     const netPill = `<span class="cx-delta ${net > 0 ? 'win' : net < 0 ? 'loss' : 'neutral'}">${net > 0 ? '+' : ''}${net} ELO en el tramo</span>`;
     const rangePills = allPts.length > 30 ? `<div class="central-range-pills" role="group" aria-label="Rango de partidas">
-      <button type="button" class="central-range-btn${activeRange === '30' ? ' active' : ''}" aria-pressed="${activeRange === '30'}" data-elo-range="30">30 puntos</button>
-      ${allPts.length > 100 ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" aria-pressed="${activeRange === '100'}" data-elo-range="100">100 puntos</button>` : ''}
-      <button type="button" class="central-range-btn${activeRange === 'all' ? ' active' : ''}" aria-pressed="${activeRange === 'all'}" data-elo-range="all">${allPts.length} disponibles</button>
-    </div>` : `<span class="cx-meta-pill">${pts.length} registros</span>`;
+      <button type="button" class="central-range-btn${activeRange === '30' ? ' active' : ''}" aria-pressed="${activeRange === '30'}" data-elo-range="30">30 partidas</button>
+      ${allPts.length > 100 ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" aria-pressed="${activeRange === '100'}" data-elo-range="100">100 partidas</button>` : ''}
+      <button type="button" class="central-range-btn${activeRange === 'all' ? ' active' : ''}" aria-pressed="${activeRange === 'all'}" data-elo-range="all">${allPts.length} partidas</button>
+    </div>` : `<span class="cx-meta-pill">${pts.length} partidas</span>`;
 
     const formPips = (mode.recentForm || []).map((f) =>
       `<span class="cx-pip ${f.won ? 'win' : 'loss'}" title="${esc(`${f.won ? 'Victoria' : 'Derrota'}${f.rating ? ` · ${f.rating} ELO` : ''}${f.diff ? ` (${f.diff >= 0 ? '+' : ''}${f.diff})` : ''}`)}">${f.won ? 'V' : 'D'}</span>`
@@ -1723,7 +1733,7 @@
         </div>
         ${rangePills}
       </header>
-      <div class="cx-chart-stage" tabindex="0" aria-label="Curva de ELO. Usá las flechas para recorrer los registros." data-chart-points="${serializedPts}" data-chart-w="${w}" data-chart-h="${h}">
+      <div class="cx-chart-stage" tabindex="0" aria-label="Curva de ELO. Usá las flechas para recorrer las partidas." data-chart-points="${serializedPts}" data-chart-w="${w}" data-chart-h="${h}">
         <svg class="cx-chart-svg central-elo-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curva de evolución de ELO">
           <defs>
             <linearGradient id="cxEloFill" x1="0" y1="0" x2="0" y2="1">
@@ -1755,7 +1765,7 @@
           <small class="cx-tt-date">—</small>
         </div>
       </div>
-      <p class="cx-chart-coverage">${esc(ladderLabel)} · ${pts.length} puntos · ${esc(firstPt.date)} a ${esc(lastPt.date)} · Pico del tramo ${number(rawMax)}</p>
+      <p class="cx-chart-coverage">${esc(ladderLabel)} · ${pts.length} partidas · ${esc(firstPt.date)} a ${esc(lastPt.date)} · Pico del tramo ${number(rawMax)}</p>
       ${formPips ? `<footer class="cx-chart-foot">
         <span class="cx-foot-label">Forma reciente</span>
         <div class="cx-pips">${formPips}</div>
@@ -2083,6 +2093,7 @@
               <span class="mono">#${esc(data.profileId)}</span>
               ${data.totalProfileGames ? `<span>· <b>${number(data.totalProfileGames)}</b> partidas totales</span>` : ''}
               ${data.dropRate != null ? `<span>· ${dec(data.dropRate, 1)}% drops</span>` : ''}
+              ${data.insightsPending ? `<span class="cx-sync-pill">Analizando replays…</span>` : (data.stale ? `<span class="cx-sync-pill">Actualizando…</span>` : '')}
             </div>
           </div>
         </div>
@@ -2347,6 +2358,54 @@
     </div>`;
   }
 
+  function renderCentralSkeleton({ profileId = null, alias = null, isExternal = false } = {}) {
+    const displayName = alias || (profileId ? `#${profileId}` : 'Tu perfil');
+    const cleanWords = String(displayName).replace(/[^A-Za-zÀ-ÿ0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const initials = cleanWords.length >= 2
+      ? (cleanWords[0][0] + cleanWords[cleanWords.length - 1][0]).toUpperCase()
+      : String(displayName).replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2).toUpperCase() || 'AO';
+    return `<div class="central-dashboard cx-v4 cx-skeleton-wrap${isExternal ? ' is-external-profile' : ''}">
+      <section class="cx-hero${isExternal ? ' is-external' : ''}">
+        <div class="cx-hero-top">
+          <div class="cx-hero-id">
+            <div class="cx-avatar" aria-hidden="true">${esc(initials)}</div>
+            <div class="cx-id-copy">
+              <div class="cx-name-row">
+                <h2>${esc(displayName)}</h2>
+                <span class="cx-sync-pill">Cargando datos…</span>
+              </div>
+              <div class="cx-id-meta">
+                ${profileId ? `<span class="mono">#${esc(profileId)}</span><span>·</span>` : ''}
+                <span>Consultando historial y ladders oficiales</span>
+              </div>
+            </div>
+          </div>
+          <div class="cx-kpi-row">
+            <div class="cx-kpi is-gold"><span>ELO RM 1V1</span><i class="cx-skel cx-skel-lg"></i><i class="cx-skel cx-skel-sm"></i></div>
+            <div class="cx-kpi"><span>VICTORIAS</span><i class="cx-skel cx-skel-lg"></i><i class="cx-skel cx-skel-sm"></i></div>
+            <div class="cx-kpi"><span>RANKING DEL MODO</span><i class="cx-skel cx-skel-lg"></i><i class="cx-skel cx-skel-sm"></i></div>
+            <div class="cx-kpi"><span>EAPM MEDIO</span><i class="cx-skel cx-skel-lg"></i><i class="cx-skel cx-skel-sm"></i></div>
+          </div>
+        </div>
+        <div class="cx-mode-bar">
+          <span class="cx-skel cx-skel-pill"></span>
+          <span class="cx-skel cx-skel-pill"></span>
+          <span class="cx-skel cx-skel-pill"></span>
+          <span class="cx-skel cx-skel-pill"></span>
+        </div>
+      </section>
+      <section class="cx-card cx-chart-card">
+        <header class="cx-chart-head">
+          <div class="cx-chart-title">
+            <h3>Evolución de ELO</h3>
+            <i class="cx-skel cx-skel-md"></i>
+          </div>
+        </header>
+        <div class="cx-skel cx-skel-chart"></div>
+      </section>
+    </div>`;
+  }
+
   const api = {
     renderRival,
     renderPostMatch,
@@ -2354,6 +2413,7 @@
     renderSmartBuildOrder,
     renderRecentMatchesList,
     renderCentralDashboard,
+    renderCentralSkeleton,
     configure,
     civLabel,
     civRelation,

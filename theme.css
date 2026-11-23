@@ -231,6 +231,7 @@ body[data-theme='claro'] {
   --panel-border: rgba(15, 23, 42, 0.12);
   --panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.24);
   --panel-blur: none;
+  --text-halo: none;
   --radius: 14px;
   --panel-pad: 0.7rem 0.8rem 0.6rem;
   --rows-pad: 0.25rem;
@@ -608,6 +609,8 @@ body[data-theme='pergamino'] {
   --muted: #7a6440;
   --accent: #8a5a1f;
   --accent-dim: #a08048;
+  --good: #157f4a;
+  --bad: #b3261e;
   --panel-bg: linear-gradient(180deg, rgba(228, 201, 150, 0.96), rgba(203, 172, 120, 0.94));
   --panel-border: rgba(84, 58, 26, 0.62);
   --panel-shadow: 0 10px 26px rgba(30, 20, 8, 0.5), inset 0 0 42px rgba(120, 85, 35, 0.22), inset 0 1px 0 rgba(255, 244, 214, 0.6);

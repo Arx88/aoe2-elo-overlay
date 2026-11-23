@@ -14,7 +14,7 @@
  *  6. Tasa alta de abandonos (`drops`) combinada con caída desde pico.
  */
 
-const { getJson, fetchPersonalStats } = require('./aoe');
+const { fetchExtendedProfile, fetchPersonalStats } = require('./aoe');
 const { fetchOpeningRows } = require('./insights');
 const { resolveMode } = require('./rival');
 const { parseScoutRows } = require('./scout');
@@ -214,9 +214,15 @@ async function detectSmurfsForPlayers(players = [], { cache = null, log = () => 
 
   await Promise.all(toFetch.map(async (rival) => {
     const pid = Number(rival.profileId);
+    const scoutCached = cache && cache.get(`scout:rows:v2:${pid}:3:500`);
+    const cachedInsightsRows = (scoutCached && Array.isArray(scoutCached.rows) && Date.now() - scoutCached.ts < 4 * 60 * 60 * 1000)
+      ? scoutCached.rows.slice(0, 25)
+      : null;
     const [profRes, insRes] = await Promise.allSettled([
-      getJson(`https://data.aoe2companion.com/api/profiles/${encodeURIComponent(pid)}?use_enums=true`, 7500),
-      fetchOpeningRows(pid, { mode: resolveMode(3), limit: 25 }),
+      fetchExtendedProfile(pid, { timeoutMs: 7500 }),
+      cachedInsightsRows
+        ? Promise.resolve(null)
+        : fetchOpeningRows(pid, { mode: resolveMode(3), limit: 25 }),
     ]);
     if (profRes.status === 'fulfilled' && profRes.value) {
       const pdata = profRes.value;
@@ -226,7 +232,9 @@ async function detectSmurfsForPlayers(players = [], { cache = null, log = () => 
         if (lpid > 0 && lpid !== pid) allLinkedIds.add(lpid);
       }
     }
-    if (insRes.status === 'fulfilled' && insRes.value) {
+    if (cachedInsightsRows) {
+      insightsByPid.set(pid, cachedInsightsRows);
+    } else if (insRes.status === 'fulfilled' && insRes.value) {
       insightsByPid.set(pid, parseScoutRows(insRes.value));
     }
   }));
