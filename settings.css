@@ -7943,6 +7943,33 @@ select.field,
   opacity: 0.55;
   cursor: default;
 }
+.plan-trial-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 36px;
+  font-size: 12px;
+  font-weight: 650;
+  border-color: rgba(214, 184, 117, 0.34);
+  color: #ebd39b;
+  background: rgba(214, 184, 117, 0.08);
+}
+.plan-trial-btn:hover:not(:disabled) {
+  border-color: rgba(235, 211, 155, 0.62);
+  background: rgba(214, 184, 117, 0.16);
+}
+.plan-trial-status {
+  display: block;
+  text-align: center;
+  font-size: 11.5px;
+  color: #9ba8b6;
+  line-height: 1.35;
+}
+.plan-trial-status.is-ok {
+  color: #6ee29f;
+}
+.plan-trial-status.is-err {
+  color: #f0958d;
+}
 .plan-cta-muted {
   display: block;
   text-align: center;

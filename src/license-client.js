@@ -391,6 +391,15 @@ async function getCheckoutOrderStatus({ orderId, ...opts }) {
   });
 }
 
+async function claimUltraTrial(opts) {
+  return authedJsonRequest({
+    ...opts,
+    path: '/v1/trial/claim',
+    method: 'POST',
+    body: {},
+  });
+}
+
 module.exports = {
   DEFAULT_API_URL,
   RELEASE_PUBLIC_KEYS,
@@ -408,5 +417,6 @@ module.exports = {
   redeemLicenseKey,
   createCheckoutOrder,
   getCheckoutOrderStatus,
+  claimUltraTrial,
   submitRemoteFeedback,
 };

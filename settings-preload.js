@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('settings', {
   authRedeemKey: (code) => ipcRenderer.invoke('auth:redeemKey', code),
   checkoutCreate: (payload) => ipcRenderer.invoke('checkout:create', payload),
   checkoutStatus: (orderId) => ipcRenderer.invoke('checkout:status', orderId),
+  claimUltraTrial: () => ipcRenderer.invoke('trial:claim'),
   onAuth: (callback) => ipcRenderer.on('auth:update', (_event, payload) => callback(payload)),
   openCommerce: (kind) => ipcRenderer.invoke('settings:open-commerce', kind),
   setLanguage: (lang) => ipcRenderer.invoke('settings:language', lang),

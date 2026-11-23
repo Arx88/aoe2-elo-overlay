@@ -3100,6 +3100,11 @@ function syncPlanPricingUi() {
   if (uSave) uSave.hidden = !isAnnual;
 
   const curPlan = currentProduct?.plan === 'beta' ? 'promax' : (currentProduct?.plan || 'free');
+  const trialBtn = el('claimUltraTrialBtn');
+  if (trialBtn) {
+    const alreadyClaimed = Boolean(lastAuthState?.user?.trialClaimed);
+    trialBtn.hidden = curPlan !== 'free' || alreadyClaimed;
+  }
   document.querySelectorAll('[data-plan-checkout]').forEach((btn) => {
     const target = btn.dataset.planCheckout;
     const isCurrent = target === curPlan;
@@ -3382,6 +3387,50 @@ el('checkoutUseKeyBtn')?.addEventListener('click', () => {
   const card = el('planRedeemCard');
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   if (input && !input.closest('[hidden]')) input.focus();
+});
+
+el('claimUltraTrialBtn')?.addEventListener('click', async () => {
+  const btn = el('claimUltraTrialBtn');
+  const statusEl = el('claimUltraTrialStatus');
+  if (typeof window.settings?.claimUltraTrial !== 'function') return;
+  const setStatus = (msg, cls = '') => {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.className = `plan-trial-status${cls ? ` ${cls}` : ''}`;
+    statusEl.hidden = !msg;
+  };
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Activando 24 h de Ultra...';
+  }
+  setStatus('');
+  try {
+    const res = await window.settings.claimUltraTrial();
+    if (!res?.ok) {
+      if (res?.authRequired || res?.unauthorized) {
+        setStatus('Iniciá sesión con Google para activar tus 24 h gratis de Ultra.');
+        if (typeof window.settings?.authGoogleLogin === 'function') {
+          await window.settings.authGoogleLogin();
+        }
+      } else {
+        setStatus(res?.error || 'No se pudo activar la prueba de 24 h.', 'is-err');
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Probar Ultra 24 h gratis';
+      }
+      return;
+    }
+    if (res.product) renderProduct(res.product);
+    if (btn) btn.hidden = true;
+    setStatus('¡Prueba Ultra de 24 h activada! Disfrutá la experiencia completa.', 'is-ok');
+  } catch (_) {
+    setStatus('Error de conexión al activar la prueba.', 'is-err');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Probar Ultra 24 h gratis';
+    }
+  }
 });
 
 window.addEventListener('keydown', (e) => {

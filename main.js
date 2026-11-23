@@ -4125,6 +4125,29 @@ function registerIpc() {
     return { ok: true, order: data };
   });
 
+  ipcMain.handle('trial:claim', async () => {
+    const apiUrl = licenseApiUrl();
+    const sessionToken = String(config.authSessionToken || '').trim();
+    if (!apiUrl) return { ok: false, error: 'Servidor de licencias no configurado.' };
+    if (!sessionToken) return { ok: false, authRequired: true, error: 'Iniciá sesión con Google para activar tus 24 h gratis de Ultra.' };
+    const res = await licenseClient.claimUltraTrial({ apiUrl, sessionToken });
+    if (!res.ok) {
+      const code = res.error;
+      const msg = code === 'trial-already-claimed'
+        ? 'Esta cuenta ya utilizó su prueba gratuita de 24 horas.'
+        : code === 'trial-device-already-used'
+          ? 'Esta PC ya utilizó la prueba gratuita de 24 horas.'
+          : code === 'already-has-active-plan'
+            ? 'Tu cuenta ya tiene un plan pago activo.'
+            : (res.error || 'No se pudo activar la prueba de 24 horas.');
+      return { ok: false, unauthorized: Boolean(res.unauthorized), code, error: msg };
+    }
+    await syncRemoteLicense('trial-claimed').catch(() => {});
+    const auth = await fetchCurrentAuthState().catch(() => null);
+    if (auth) broadcastAuthState(auth);
+    return { ok: true, trial: res.data, product: productState(), auth };
+  });
+
   ipcMain.handle('settings:language', (_event, rawLang) => {
     const next = i18n.normalizeLocale(rawLang);
     if (!next) return { ok: false, language: i18n.getLocale(config.language) };

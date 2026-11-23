@@ -408,8 +408,8 @@
           </section>
 
           <section class="page" data-page="tactics">
-            <details class="pm-config-details ux-panel" open>
-              <summary><span data-i18n="tactics.guideGroup">Guía de apertura</span><em class="ux-panel-count">2</em></summary>
+            <section class="pm-config-details ux-panel ux-panel-static">
+              <div class="ux-panel-head"><span data-i18n="tactics.guideGroup">Guía de apertura</span><em class="ux-panel-count">2</em></div>
               <div class="block pm-config-block ux-rows-2col">
                 <label class="row tog" for="civHelp">
                   <span class="ric"><img class="product-icon" src="assets/icons/shield.png" alt="" draggable="false"></span>
@@ -422,7 +422,7 @@
                 </label>
                 <label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · Ultra</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
               </div>
-            </details>
+            </section>
           </section>
 
           <!-- ============ POSTMATCH ============ -->
@@ -578,6 +578,8 @@
                 <div class="plan-card-foot">
                   <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Durante, Postmatch y Central ampliado.</span>
                   <button type="button" class="btn gold plan-cta-btn is-ultra" data-plan-checkout="promax">Elegir Ultra →</button>
+                  <button type="button" id="claimUltraTrialBtn" class="btn plan-trial-btn">Probar Ultra 24 h gratis</button>
+                  <span id="claimUltraTrialStatus" class="plan-trial-status" role="status" aria-live="polite" hidden></span>
                 </div>
               </article>
             </div>
@@ -635,8 +637,8 @@
             </details>
 
             <div class="ux-grid-2">
-              <details class="pm-config-details ux-panel" open>
-                <summary><span data-i18n="skins.opacityGroup">Opacidad</span></summary>
+              <section class="pm-config-details ux-panel ux-panel-static">
+                <div class="ux-panel-head"><span data-i18n="skins.opacityGroup">Opacidad</span></div>
                 <div class="block pm-config-block">
                   <div class="slider-row">
                     <label for="opacity" data-i18n="skins.opacityLabel">Panel</label>
@@ -644,10 +646,10 @@
                     <output id="opacityValue" for="opacity">95%</output>
                   </div>
                 </div>
-              </details>
+              </section>
 
-              <details class="pm-config-details ux-panel" open>
-                <summary><span data-i18n="skins.positionGroup">Posición</span></summary>
+              <section class="pm-config-details ux-panel ux-panel-static">
+                <div class="ux-panel-head"><span data-i18n="skins.positionGroup">Posición</span></div>
                 <div class="block pm-config-block">
                   <div class="position-row">
                     <span class="ric"><img class="product-icon" src="assets/icons/move.png" alt="" draggable="false"></span>
@@ -658,11 +660,11 @@
                     <button id="moveBtn" class="btn" type="button" data-i18n="skins.moveBtn">Mover</button>
                   </div>
                 </div>
-              </details>
+              </section>
             </div>
 
-            <details class="pm-config-details ux-panel" open>
-              <summary><span data-i18n="skins.visibilityGroup">Visibilidad automática</span></summary>
+            <section class="pm-config-details ux-panel ux-panel-static">
+              <div class="ux-panel-head"><span data-i18n="skins.visibilityGroup">Visibilidad automática</span></div>
               <div class="block pm-config-block">
                 <label class="row tog" for="hideWhenMinimized">
                   <span class="ric"><img class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
@@ -674,7 +676,7 @@
                   <span class="sw" aria-hidden="true"></span>
                 </label>
               </div>
-            </details>
+            </section>
           </section>
 
           <!-- ============ UPDATER ============ -->
