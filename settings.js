@@ -2888,6 +2888,7 @@ loadCurrent();
       }
       if (railUserName) railUserName.textContent = lastAccountInfo.alias || t('account.signInRail', 'Iniciar sesión');
       if (railUserSub) railUserSub.textContent = lastAccountInfo.alias ? 'Sin sincronizar' : 'Cuenta';
+      if (typeof syncPlanPricingUi === 'function') syncPlanPricingUi();
       renderWizardStep();
       return;
     }
@@ -2927,6 +2928,7 @@ loadCurrent();
     if (wizAuthAvatar) wizAuthAvatar.textContent = initial;
     if (wizAuthName) wizAuthName.textContent = displayName;
     if (wizAuthEmail) wizAuthEmail.textContent = email;
+    if (typeof syncPlanPricingUi === 'function') syncPlanPricingUi();
     renderWizardStep();
 
     if (devicesListEl) {
@@ -3100,6 +3102,8 @@ function syncPlanPricingUi() {
   if (uSave) uSave.hidden = !isAnnual;
 
   const curPlan = currentProduct?.plan === 'beta' ? 'promax' : (currentProduct?.plan || 'free');
+  const PLAN_RANK = { free: 0, pro: 1, promax: 2 };
+  const curRank = PLAN_RANK[curPlan] ?? 0;
   const trialBtn = el('claimUltraTrialBtn');
   if (trialBtn) {
     const alreadyClaimed = Boolean(lastAuthState?.user?.trialClaimed);
@@ -3107,12 +3111,18 @@ function syncPlanPricingUi() {
   }
   document.querySelectorAll('[data-plan-checkout]').forEach((btn) => {
     const target = btn.dataset.planCheckout;
+    const targetRank = PLAN_RANK[target] ?? 0;
     const isCurrent = target === curPlan;
-    btn.disabled = isCurrent;
-    if (target === 'pro') {
-      btn.textContent = isCurrent ? 'Tu plan actual' : (isAnnual ? 'Continuar con Pro · $18.99/año' : 'Continuar con Pro · $1.99/mes');
+    const isIncludedInHigher = targetRank < curRank;
+    btn.disabled = isCurrent || isIncludedInHigher;
+    if (isCurrent) {
+      btn.textContent = 'Tu plan actual';
+    } else if (isIncludedInHigher) {
+      btn.textContent = 'Incluido en tu plan Ultra';
+    } else if (target === 'pro') {
+      btn.textContent = isAnnual ? 'Continuar con Pro · $18.99/año' : 'Continuar con Pro · $1.99/mes';
     } else {
-      btn.textContent = isCurrent ? 'Tu plan actual' : (isAnnual ? 'Elegir Ultra · $28.99/año →' : 'Elegir Ultra · $2.99/mes →');
+      btn.textContent = isAnnual ? 'Elegir Ultra · $28.99/año →' : 'Elegir Ultra · $2.99/mes →';
     }
   });
 }
@@ -3342,6 +3352,8 @@ el('checkoutConfirmBtn')?.addEventListener('click', async () => {
       coin: activeCheckoutCoin,
     });
     if (!res?.ok) {
+      if (btn) btn.disabled = false;
+      paintCheckoutModal();
       if (res?.authRequired || res?.unauthorized) {
         if (noteEl) noteEl.textContent = 'Iniciá sesión con Google primero para vincular tu plan automáticamente.';
         if (typeof window.settings?.authGoogleLogin === 'function') {
@@ -3350,8 +3362,6 @@ el('checkoutConfirmBtn')?.addEventListener('click', async () => {
       } else if (noteEl) {
         noteEl.textContent = res?.error || 'No se pudo generar la orden de pago. Intentá de nuevo.';
       }
-      if (btn) btn.disabled = false;
-      paintCheckoutModal();
       return;
     }
     const order = res.order || {};
@@ -3375,9 +3385,9 @@ el('checkoutConfirmBtn')?.addEventListener('click', async () => {
     }
     if (order.orderId) startCheckoutPolling(order.orderId);
   } catch (_) {
-    if (noteEl) noteEl.textContent = 'Error de conexión al crear la orden.';
     if (btn) btn.disabled = false;
     paintCheckoutModal();
+    if (noteEl) noteEl.textContent = 'Error de conexión al crear la orden.';
   }
 });
 

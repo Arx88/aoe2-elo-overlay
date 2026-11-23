@@ -4083,7 +4083,7 @@ function registerIpc() {
 
   ipcMain.handle('checkout:create', async (_event, payload = {}) => {
     const apiUrl = licenseApiUrl();
-    const sessionToken = String(config.authSessionToken || '').trim();
+    const sessionToken = loadSessionToken();
     if (!apiUrl) return { ok: false, error: 'Servidor de licencias no configurado.' };
     if (!sessionToken) return { ok: false, authRequired: true, error: 'Iniciá sesión con Google para vincular el plan a tu cuenta.' };
     const res = await licenseClient.createCheckoutOrder({
@@ -4111,7 +4111,7 @@ function registerIpc() {
 
   ipcMain.handle('checkout:status', async (_event, orderId) => {
     const apiUrl = licenseApiUrl();
-    const sessionToken = String(config.authSessionToken || '').trim();
+    const sessionToken = loadSessionToken();
     if (!apiUrl || !sessionToken || !orderId) return { ok: false, error: 'missing-context' };
     const res = await licenseClient.getCheckoutOrderStatus({ apiUrl, sessionToken, orderId });
     if (!res.ok) return { ok: false, error: res.error };
@@ -4127,7 +4127,7 @@ function registerIpc() {
 
   ipcMain.handle('trial:claim', async () => {
     const apiUrl = licenseApiUrl();
-    const sessionToken = String(config.authSessionToken || '').trim();
+    const sessionToken = loadSessionToken();
     if (!apiUrl) return { ok: false, error: 'Servidor de licencias no configurado.' };
     if (!sessionToken) return { ok: false, authRequired: true, error: 'Iniciá sesión con Google para activar tus 24 h gratis de Ultra.' };
     const res = await licenseClient.claimUltraTrial({ apiUrl, sessionToken });

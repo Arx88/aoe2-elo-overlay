@@ -7,8 +7,11 @@ body {
   position: relative;
   isolation: isolate;
 }
-body[data-page="central"] { --launcher-art-opacity: 0; }
-body[data-page="central"]::before { display: none; }
+body[data-page="central"] {
+  --launcher-heading-art: url("assets/art/central-hero.jpg");
+  --launcher-heading-position: right 48%;
+  --launcher-art-opacity: .84;
+}
 body[data-page="overlay"] {
   --launcher-heading-art: url("assets/art/prematch-estandartes.webp");
   --launcher-heading-position: right 8%;
