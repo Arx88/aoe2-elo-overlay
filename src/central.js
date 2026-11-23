@@ -21,11 +21,14 @@
  */
 
 const fs = require('fs');
-const { getJson, fetchMatches, fetchPersonalStats } = require('./aoe');
+const { fetchMatches, fetchPersonalStats, fetchExtendedProfile } = require('./aoe');
 const { civSlug } = require('./civs');
 const { resolveMode, mapKey } = require('./rival');
 const { fetchOpeningRows } = require('./insights');
 const { parseScoutRows } = require('./scout');
+const { buildUnifiedModeMatches, buildModeCivDiagnostics } = require('./civ-diagnostic');
+
+const centralInflight = new Map();
 
 const MODE_ORDER = ['rm_1v1', 'rm_team', 'ew_1v1', 'ew_team'];
 const MODE_LABELS = {
@@ -602,6 +605,7 @@ function parseAllTimeStatsBlock(statsBlocks = [], fallbackMatches = []) {
     totalMapGames,
     totalDistinctCivs: allCivs.length,
     totalDistinctMaps: allMaps.length,
+    allCivs,
     topCivs: allCivs.slice(0, 7),
     topCivsByWr,
     bestCiv,
@@ -614,6 +618,92 @@ function parseAllTimeStatsBlock(statsBlocks = [], fallbackMatches = []) {
     minMapGames,
     allies,
     opponents,
+  };
+}
+
+/**
+ * Calcula promedio real de eAPM (y APM local cuando hay replay) por mapa
+ * combinando AoE2Insights + replays locales del modo. Nunca inventa valores.
+ */
+function computeMapEapmStats(unifiedMatches = []) {
+  const byMap = new Map();
+  const allEapms = [];
+  for (const m of (Array.isArray(unifiedMatches) ? unifiedMatches : [])) {
+    if (!m || !m.mapName) continue;
+    const eapm = Number(m.myEapm);
+    const apm = Number(m.replay?.apm);
+    const hasEapm = Number.isFinite(eapm) && eapm > 5 && eapm < 250;
+    const hasApm = Number.isFinite(apm) && apm > 5 && apm < 600;
+    if (!hasEapm && !hasApm) continue;
+    const k = m.mapKey || mapKey(m.mapName);
+    const cur = byMap.get(k) || { mapKey: k, mapName: m.mapName, eapms: [], apms: [], wins: 0, losses: 0, games: 0 };
+    cur.games += 1;
+    if (m.won === true) cur.wins += 1;
+    else if (m.won === false) cur.losses += 1;
+    if (hasEapm) {
+      cur.eapms.push(eapm);
+      allEapms.push(eapm);
+    }
+    if (hasApm) cur.apms.push(apm);
+    byMap.set(k, cur);
+  }
+
+  const modeAvgEapm = avg(allEapms, 1);
+  const perMap = new Map();
+  const ranked = [];
+  for (const [k, row] of byMap.entries()) {
+    const avgEapm = avg(row.eapms, 1);
+    const avgApm = avg(row.apms, 1);
+    const eapmDelta = avgEapm != null && modeAvgEapm != null
+      ? Math.round((avgEapm - modeAvgEapm) * 10) / 10
+      : null;
+    const item = {
+      mapKey: k,
+      mapName: row.mapName,
+      games: row.games,
+      wins: row.wins,
+      losses: row.losses,
+      knownGames: row.wins + row.losses,
+      winRate: pct(row.wins, row.wins + row.losses),
+      avgEapm,
+      avgApm,
+      eapmSample: row.eapms.length,
+      eapmDelta,
+    };
+    perMap.set(k, item);
+    if (avgEapm != null && row.eapms.length >= 2) ranked.push(item);
+  }
+
+  ranked.sort((a, b) => b.avgEapm - a.avgEapm || b.eapmSample - a.eapmSample);
+  return {
+    modeAvgEapm,
+    totalSample: allEapms.length,
+    perMap,
+    topMapsByEapm: ranked.slice(0, 7),
+  };
+}
+
+function attachMapEapmToStats(stats, mapEapm) {
+  if (!stats || !mapEapm) return stats;
+  const enrich = (list) => (Array.isArray(list) ? list : []).map((m) => {
+    const k = mapKey(m.mapName);
+    const hit = mapEapm.perMap.get(k);
+    if (!hit) return m;
+    return {
+      ...m,
+      avgEapm: hit.avgEapm,
+      avgApm: hit.avgApm,
+      eapmSample: hit.eapmSample,
+      eapmDelta: hit.eapmDelta,
+    };
+  });
+  return {
+    ...stats,
+    topMaps: enrich(stats.topMaps),
+    topMapsByWr: enrich(stats.topMapsByWr),
+    topMapsByEapm: mapEapm.topMapsByEapm,
+    modeAvgEapm: mapEapm.modeAvgEapm,
+    mapEapmSample: mapEapm.totalSample,
   };
 }
 
@@ -1267,6 +1357,25 @@ function computeCentralAnalytics({
     });
 
     const modeInsRows = modeId === 'rm_1v1' ? parsedRows1v1 : modeId === 'rm_team' ? parsedRowsTeam : [];
+    const modeStoredRecords = modeId === 'rm_1v1'
+      ? validRecords.filter((r) => isRm1v1Match(r?.match))
+      : modeId === 'rm_team'
+        ? validRecords.filter((r) => isRmTeamMatch(r?.match))
+        : [];
+    const unifiedModeMatches = buildUnifiedModeMatches({
+      insightsRows: modeInsRows,
+      companionMatches: fallbackMatches,
+      storedRecords: modeStoredRecords,
+      profileId: pid,
+    });
+    const mapEapm = computeMapEapmStats(unifiedModeMatches);
+    const enrichedStats = attachMapEapmToStats(stats, mapEapm);
+    const civDiagnostics = buildModeCivDiagnostics({
+      modeId,
+      matches: unifiedModeMatches,
+      allTimeCivs: enrichedStats.allCivs || enrichedStats.topCivs || [],
+    });
+
     const lastMatchVsAvg = computeLastMatchVsAvg({
       modeMatches: fallbackMatches,
       eloSeries,
@@ -1280,7 +1389,9 @@ function computeCentralAnalytics({
       id: modeId,
       label: MODE_LABELS[modeId],
       ladder,
-      stats,
+      stats: enrichedStats,
+      civDiagnostics,
+      unifiedMatchCount: unifiedModeMatches.length,
       eloSeries,
       eloStats: {
         min: eloValues.length ? Math.min(...eloValues) : null,
@@ -1332,7 +1443,19 @@ function computeCentralAnalytics({
     dropRate: globalDropRate,
     streak: null,
   };
-  const globalStats = parseAllTimeStatsBlock(companionStats, allSummaries);
+  const globalStatsRaw = parseAllTimeStatsBlock(companionStats, allSummaries);
+  const globalUnifiedMatches = buildUnifiedModeMatches({
+    insightsRows: [...parsedRows1v1, ...parsedRowsTeam],
+    companionMatches: allSummaries,
+    storedRecords: validRecords,
+    profileId: pid,
+  });
+  const globalStats = attachMapEapmToStats(globalStatsRaw, computeMapEapmStats(globalUnifiedMatches));
+  const globalCivDiagnostics = buildModeCivDiagnostics({
+    modeId: 'global',
+    matches: globalUnifiedMatches,
+    allTimeCivs: globalStats.allCivs || globalStats.topCivs || [],
+  });
   const globalIns = insightsByMode.global;
   const globalDuration = globalIns?.durationAnalysis?.total >= 4
     ? { ...globalIns.durationAnalysis, sourceLabel: `AoE2Insights · ${globalIns.durationAnalysis.total} partidas` }
@@ -1348,6 +1471,8 @@ function computeCentralAnalytics({
     label: 'Global',
     ladder: globalLadder,
     stats: globalStats,
+    civDiagnostics: globalCivDiagnostics,
+    unifiedMatchCount: globalUnifiedMatches.length,
     eloSeries: [],
     eloStats: { min: null, max: null, start: null, latest: globalLadder.rating, peak: globalLadder.peak, netDelta: null, totalPoints: 0 },
     recentForm: allSummaries.slice(0, 15).filter((m) => typeof m.won === 'boolean').reverse().map((m) => ({
@@ -1474,7 +1599,7 @@ async function fetchCentralDashboard({
   }
 
   const storedRecords = (isOwnProfile && performanceStore) ? performanceStore.list(pid) : [];
-  const cacheKey = `central:v3:${pid}`;
+  const cacheKey = `central:v4:${pid}`;
 
   if (!force && cache && cache.get(cacheKey)) {
     const cached = cache.get(cacheKey);
@@ -1489,28 +1614,52 @@ async function fetchCentralDashboard({
     }
   }
 
-  const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesTeamRes, matchesAllRes, insights1v1Res, insightsTeamRes] = await Promise.allSettled([
-    fetchPersonalStats([pid], 3, 7000),
-    fetchPersonalStats([pid], 4, 7000),
-    getJson(`https://data.aoe2companion.com/api/profiles/${encodeURIComponent(pid)}?use_enums=true&extend=stats`, 10000),
-    fetchMatches(pid, 40, 1, 'rm_1v1', { priority: 'own' }),
-    fetchMatches(pid, 40, 1, 'rm_team', { priority: 'own' }),
-    fetchMatches(pid, 30, 1, null, { priority: 'own' }),
-    fetchOpeningRows(pid, { mode: resolveMode(3), limit: 100 }),
-    fetchOpeningRows(pid, { mode: resolveMode(4), limit: 100 }),
-  ]);
+  const inflightKey = `${pid}:${force ? 'force' : 'norm'}`;
+  let rawPromise = centralInflight.get(inflightKey);
+  if (!rawPromise) {
+    rawPromise = (async () => {
+      const [stats1v1Res, statsTeamRes, profileDataRes, matches1v1Res, matchesTeamRes, matchesAllRes, insights1v1Res, insightsTeamRes] = await Promise.allSettled([
+        fetchPersonalStats([pid], 3, 7000),
+        fetchPersonalStats([pid], 4, 7000),
+        fetchExtendedProfile(pid, { bypassCache: Boolean(force), timeoutMs: 10000 }),
+        fetchMatches(pid, 40, 1, 'rm_1v1', { priority: 'own', bypassCache: Boolean(force) }),
+        fetchMatches(pid, 40, 1, 'rm_team', { priority: 'own', bypassCache: Boolean(force) }),
+        fetchMatches(pid, 30, 1, null, { priority: 'own', bypassCache: Boolean(force) }),
+        fetchOpeningRows(pid, { mode: resolveMode(3), limit: 250 }),
+        fetchOpeningRows(pid, { mode: resolveMode(4), limit: 250 }),
+      ]);
 
-  let ladder1v1 = stats1v1Res.status === 'fulfilled' ? (stats1v1Res.value.get(pid) || null) : null;
-  let ladderTeam = statsTeamRes.status === 'fulfilled' ? (statsTeamRes.value.get(pid) || null) : null;
-  let profileData = profileDataRes.status === 'fulfilled' ? profileDataRes.value : null;
-  let matches1v1 = matches1v1Res.status === 'fulfilled' ? matches1v1Res.value : [];
-  let matchesTeam = matchesTeamRes.status === 'fulfilled' ? matchesTeamRes.value : [];
-  let matchesAll = matchesAllRes.status === 'fulfilled' ? matchesAllRes.value : [];
-  let insights1v1 = insights1v1Res.status === 'fulfilled' ? insights1v1Res.value : null;
-  let insightsTeam = insightsTeamRes.status === 'fulfilled' ? insightsTeamRes.value : null;
+      const ladder1v1 = stats1v1Res.status === 'fulfilled' ? (stats1v1Res.value.get(pid) || null) : null;
+      const ladderTeam = statsTeamRes.status === 'fulfilled' ? (statsTeamRes.value.get(pid) || null) : null;
+      const profileData = profileDataRes.status === 'fulfilled' ? profileDataRes.value : null;
+      const matches1v1 = matches1v1Res.status === 'fulfilled' ? matches1v1Res.value : [];
+      const matchesTeam = matchesTeamRes.status === 'fulfilled' ? matchesTeamRes.value : [];
+      const matchesAll = matchesAllRes.status === 'fulfilled' ? matchesAllRes.value : [];
+      const insights1v1 = insights1v1Res.status === 'fulfilled' ? insights1v1Res.value : null;
+      const insightsTeam = insightsTeamRes.status === 'fulfilled' ? insightsTeamRes.value : null;
+
+      return {
+        profileId: pid,
+        alias: alias || profileData?.name || null,
+        ladder1v1,
+        ladderTeam,
+        profileData,
+        matches1v1,
+        matchesTeam,
+        matchesAll,
+        insights1v1,
+        insightsTeam,
+      };
+    })().finally(() => {
+      if (centralInflight.get(inflightKey) === rawPromise) centralInflight.delete(inflightKey);
+    });
+    centralInflight.set(inflightKey, rawPromise);
+  }
+
+  const raw = await rawPromise;
 
   // Si la red falló por completo y existe caché en disco del perfil propio, lo usamos
-  if (!profileData && !matchesAll.length && isOwnProfile && diskCachePath) {
+  if (!raw.profileData && !raw.matchesAll.length && isOwnProfile && diskCachePath) {
     const disk = readDiskCache(diskCachePath, pid);
     if (disk && disk.raw) {
       log(`central: usando caché en disco para #${pid}`);
@@ -1524,26 +1673,14 @@ async function fetchCentralDashboard({
     }
   }
 
-  const raw = {
-    profileId: pid,
-    alias: alias || profileData?.name || null,
-    ladder1v1,
-    ladderTeam,
-    profileData,
-    matches1v1,
-    matchesTeam,
-    matchesAll,
-    insights1v1,
-    insightsTeam,
-  };
-
-  if (profileData || matchesAll.length || matches1v1.length) {
+  if (raw.profileData || raw.matchesAll.length || raw.matches1v1.length) {
     if (cache) cache.set(cacheKey, { ts: Date.now(), raw });
     if (isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, raw);
   }
 
   return computeCentralAnalytics({
     ...raw,
+    alias: alias || raw.alias,
     storedRecords,
     isOwnProfile,
     ownProfileId,
@@ -1559,6 +1696,7 @@ module.exports = {
   analyzeInsightsRows,
   buildPureEloSeries,
   parseAllTimeStatsBlock,
+  computeMapEapmStats,
   computeBeforeVsNow,
   buildHonestRadar,
   computeCentralAnalytics,

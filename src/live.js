@@ -61,18 +61,18 @@ const WATCHDOG_MS = 45000;
  * El snapshot global se le entrega a QueueWatcher.handleEvents(..., true), así
  * la detección, el dedupe y los avisos siguen viviendo en un solo lugar.
  */
-const FAST_IDLE_MS = 15000; // sin cola: ping filtrado liviano (300 B) sin saturar sockets
-const FAST_QUEUE_MS = 2500; // en cola: snapshot global con el roster
+const FAST_IDLE_MS = 5000; // sin cola: ping filtrado liviano (300 B) para detección rápida sin saturar
+const FAST_QUEUE_MS = 1500; // en cola: snapshot global rápido con el roster
 const FAST_TIMEOUT_MS = 4500;
 const QUIET_WATCHDOG_MS = 180000; // sockets filtrados sin tráfico (lobbies) no se cortan cada 45s
 const KEEPALIVE_PING_MS = 30000; // mantiene viva la conexión a través de NAT/firewall
-const PENDING_MATCH_TTL_MS = 35000; // si un lobby se cancela antes de llegar roster, expira solo
+const PENDING_MATCH_TTL_MS = 30000; // si un lobby se cancela antes de llegar roster, expira solo
 // Después de terminar una partida se sondea seguido 3 minutos: lo habitual es
 // volver a la cola enseguida.
 const HOT_IDLE_MS = 3 * 60 * 1000;
-// Mientras está pausado (partida en curso) se mira el ping filtrado cada 20 s:
-// si el aviso de "terminó" se pierde, el carril se reactiva solo.
-const PROBE_PAUSED_MS = 20000;
+// Mientras está pausado (partida en curso) se mira el ping filtrado cada 10 s:
+// si la partida terminó rápido o el aviso de fin se perdió, el carril se reactiva rápido.
+const PROBE_PAUSED_MS = 10000;
 
 /** URL de /listen para una query dada (misma forma para todos los sockets). */
 function socketUrl(query) {
@@ -356,6 +356,7 @@ class FastLane {
     this.timer = null;
     this.closed = false;
     this.paused = false;
+    this.pausedMatchId = null;
     this.inQueue = false;
     this.busy = false;
     this.polls = 0;
@@ -379,8 +380,10 @@ class FastLane {
   }
 
   /** Hay partida apareada: no se sondea hasta que termine. */
-  pause() {
+  pause(matchId = null) {
     this.paused = true;
+    const parsed = Number(matchId);
+    this.pausedMatchId = matchId != null && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     this.inQueue = false;
     this.clear();
     this.probeAfterPause();
@@ -390,8 +393,8 @@ class FastLane {
    * Una pausa NO puede dejar el carril muerto para siempre: si el aviso de
    * "terminó la partida" no llega (socket caído, item que no desaparece) la
    * app volvía a detectar solo por el feed empujado, que manda lotes cada
-   * ~15 s. Cada 20 s se mira el ping filtrado (300 B) y, si hay cola otra vez,
-   * se reactiva solo.
+   * ~15 s. Cada 10 s se mira el ping filtrado (300 B) y, si hay cola otra vez
+   * o una partida distinta, se reactiva solo.
    */
   probeAfterPause() {
     clearTimeout(this.pauseTimer);
@@ -409,10 +412,19 @@ class FastLane {
     );
     if (this.closed) return;
     const matched = events ? findMyMatch(events, this.profileId) : null;
-    if (events && (hasMyQueue(events, this.profileId) || matched)) {
-      this.log(`carril rápido: ${matched ? 'partida apareada detectada en sonda' : 'hay cola otra vez'} · se reactiva solo`);
+    const matchedId = matched
+      ? Number(matched.data?.matchId ?? String(matched.data?.id ?? '').replace(/^m_/, ''))
+      : null;
+    const isSamePausedMatch =
+      matched != null &&
+      this.pausedMatchId != null &&
+      Number.isFinite(matchedId) &&
+      matchedId === this.pausedMatchId;
+    const newMatched = isSamePausedMatch ? null : matched;
+    if (events && (hasMyQueue(events, this.profileId) || newMatched)) {
+      this.log(`carril rápido: ${newMatched ? 'nueva partida apareada detectada en sonda' : 'hay cola otra vez'} · se reactiva solo`);
       this.resume();
-      if (matched) {
+      if (newMatched) {
         const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
         if (this.closed) return;
         const chosen = full && full.length ? full : events;
@@ -431,6 +443,7 @@ class FastLane {
     this.pauseTimer = null;
     if (!this.paused) return;
     this.paused = false;
+    this.pausedMatchId = null;
     this.inQueue = false;
     this.hotUntil = Date.now() + HOT_IDLE_MS;
     this.schedule(400);
@@ -706,6 +719,7 @@ class QueueWatcher {
   }
 
   handleEvents(events, isSnapshot = false, options = {}) {
+    const prevMatchedItem = this.matchedId ? this.items.get(this.matchedId) || null : null;
     // Cada conexión nueva trae el estado completo: se recalcula desde cero.
     if (isSnapshot) {
       this.items.clear();
@@ -822,6 +836,9 @@ class QueueWatcher {
     // que el socket principal ya vio la partida apareada, no borramos la sala
     // por una pequeña diferencia de replicación entre nodos.
     const recentMatchGuard = Boolean(options.quiet && this.matchedAtLocal && Date.now() - this.matchedAtLocal < 15000);
+    if (this.matchedId && recentMatchGuard && prevMatchedItem && !this.items.has(this.matchedId)) {
+      this.items.set(this.matchedId, prevMatchedItem);
+    }
     // Solo se da por terminada con evidencia: snapshot sin la sala, o un
     // queueingRemoved explícito. Un mensaje de otros jugadores no la borra.
     if (this.matchedId && !recentMatchGuard && (isSnapshot || removedMatched)) {
@@ -858,9 +875,27 @@ class QueueWatcher {
     return true;
   }
 
+  /** Limpia una sala apareada obsoleta (p. ej. si el REST ya confirmó que la partida terminó). */
+  clearMatch(matchId = null) {
+    if (matchId != null && this.matchedId) {
+      const current = this.items.get(this.matchedId);
+      const same = current && Number(current.matchId) === Number(matchId);
+      if (!same && this.matchedId !== `m_${matchId}` && this.matchedId !== String(matchId)) return false;
+    }
+    if (this.matchedId) this.items.delete(this.matchedId);
+    this.matchedId = null;
+    this.matchedAtLocal = 0;
+    this.lastMatchedJson = '';
+    if (matchId == null || Number(this.pendingMatchId) === Number(matchId)) {
+      this.pendingMatchId = null;
+      this.pendingMatchAt = 0;
+    }
+    return true;
+  }
+
   /**
    * Ya avisamos "encontré rival" (reason:'matched') pero el roster todavía no
-   * llegó. Expira a los 35 s si el lobby fue cancelado sin publicar roster.
+   * llegó. Expira a los 30 s si el lobby fue cancelado sin publicar roster.
    */
   get awaitingRoster() {
     if (this.pendingMatchId == null) return false;

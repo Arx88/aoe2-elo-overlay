@@ -55,44 +55,44 @@
   },
   "pages": {
     "player": {
-      "index": "01 / CUENTA",
-      "title": "Cuenta de jugador",
-      "sub": "Tu cuenta en el juego y tus últimas partidas."
+      "index": "CUENTA",
+      "title": "Mi cuenta y perfil",
+      "sub": "Tu sesión de Relic, PCs activos y perfil de Age of Empires II: DE."
     },
     "overlay": {
-      "index": "03 / PREMATCH",
-      "title": "Prepara la partida.",
-      "sub": "Qué se ve en cola y al entrar a la partida · vista previa en vivo."
+      "index": "02 / PREMATCH",
+      "title": "Prematch",
+      "sub": "Qué muestra el overlay al encontrar partida."
     },
     "tactics": {
-      "index": "04 / DURANTE",
-      "title": "Elige cómo responder.",
-      "sub": "Oportunidades por civilización, historial y composición observada."
+      "index": "03 / DURANTE",
+      "title": "Durante la partida",
+      "sub": "Guía de civilización, build order y oportunidades."
     },
     "postmatch": {
-      "index": "05 / POSTMATCH",
-      "title": "Aprende de cada partida.",
-      "sub": "Tus últimas 10 partidas, resultado y evolución detallada."
+      "index": "04 / POSTMATCH",
+      "title": "Postmatch",
+      "sub": "Resumen automático y análisis de la repetición local."
     },
     "skins": {
-      "index": "06 / APARIENCIA",
-      "title": "Tu panel, a tu manera.",
-      "sub": "Cómo se ve el overlay sobre el juego."
+      "index": "05 / APARIENCIA",
+      "title": "Apariencia",
+      "sub": "Tema, opacidad y posición del overlay sobre el juego."
     },
     "plans": {
-      "index": "07 / PLAN Y ACCESO",
-      "title": "Elige cuánto ver.",
-      "sub": "Free para competir; Pro para el Prematch; Ultra para la experiencia completa."
+      "index": "PLAN Y ACCESO",
+      "title": "Plan y acceso",
+      "sub": "Compara Free, Pro y Ultra o canjea una clave prepaga."
     },
     "updater": {
-      "index": "08 / ACTUALIZACIONES",
-      "title": "Mantén la app al día.",
-      "sub": "Actualizaciones seguras, también en plena temporada."
+      "index": "06 / ACTUALIZACIONES",
+      "title": "Actualizaciones",
+      "sub": "Versión instalada y actualizaciones automáticas."
     },
     "central": {
-      "index": "02 / CENTRAL",
+      "index": "01 / CENTRAL",
       "title": "Central de estadísticas",
-      "sub": "Tu evolución y el historial de cada modo."
+      "sub": "Tu evolución, diagnóstico por civilización e historial por modo."
     }
   },
   "account": {
@@ -153,7 +153,10 @@
     "activePcsTitle": "Mis PCs activas",
     "encryptedSession": "Sesión cifrada en Windows",
     "tabProfile": "Mi cuenta y perfil",
-    "tabPlan": "Plan y clave"
+    "tabPlan": "Plan y clave",
+    "signInRail": "Iniciar sesión",
+    "signInRailSub": "Google · sincroniza tu plan",
+    "authDesc": "Sincroniza tu plan, gestiona tus PCs activos y canjea claves prepagas."
   },
   "overlay": {
     "wf1Title": "Lee al rival",
@@ -197,11 +200,17 @@
     "civHelpExtended": "Ayuda de civ: visible hasta 0:40",
     "hideAtSaved": "Ocultar Overlay y ayuda a los {seconds} segundos",
     "smurfTitle": "Detector de smurfs",
-    "smurfDesc": "Señala posibles cuentas secundarias junto al ELO del rival."
+    "smurfDesc": "Señala posibles cuentas secundarias junto al ELO del rival.",
+    "phaseTitle": "En cola y antes de entrar al mapa",
+    "phaseDesc": "Aparece al encontrar rival para leer ELO, historial y aperturas; se oculta solo al empezar la partida.",
+    "phasePill1": "ELO RM 1v1",
+    "phasePill2": "Scouting rival",
+    "phasePill3": "Auto-oculto",
+    "hideEloName": "Ocultar Overlay"
   },
   "tactics": {
-    "bannerTitle": "Referencias por civilización",
-    "bannerDesc": "Rutas recomendadas y fortalezas para el cruce actual.",
+    "bannerTitle": "Referencias durante la partida",
+    "bannerDesc": "Consulta bonos de ambas civs, tu guía de apertura y rutas sugeridas mientras juegas.",
     "intro": "Las rutas de Feudal, Castillos e Imperial se consultan aquí. Representan opciones, no el estado actual de tu partida.",
     "guideGroup": "Guía de apertura",
     "sboTitle": "Smart Build Order",
@@ -221,14 +230,23 @@
     "routesEmptyTitle": "Rutas de partida",
     "routesNote": "Referencia de civilizaciones para este cruce.",
     "optionOf": "Opción de {age}",
-    "sampleResults": "{n} resultados de la muestra"
+    "sampleResults": "{n} resultados de la muestra",
+    "phasePill1": "Ayuda de civ",
+    "phasePill2": "Build Order",
+    "phasePill3": "Oportunidades"
   },
   "postmatchPage": {
-    "bannerTitle": "Revisa tu partida",
-    "bannerDesc": "Resumen automático de tus últimas 10 partidas.",
+    "bannerTitle": "Resumen al terminar la partida",
+    "bannerDesc": "Resultado confirmado, análisis automático de la repetición local y comparativa de tus últimas 10 partidas.",
     "afterGroup": "Al terminar la partida",
     "summaryTitle": "Resumen postmatch",
-    "summaryDesc": "El overlay vuelve con el resultado confirmado y el resumen de la partida",
+    "summaryDesc": "Genera el resultado confirmado y el informe al terminar la partida",
+    "popupTitle": "Mostrar popup sobre el juego",
+    "popupDesc": "Muestra el resumen flotante al terminar; desactivado solo queda en Relic",
+    "hideAtLabel": "Ocultar popup a los",
+    "hideManual": "Manual",
+    "hideSaved": "Popup postmatch: se oculta a los {s}s",
+    "hideManualSaved": "Popup postmatch: visible hasta la próxima partida",
     "compareTitle": "Comparar mi evolución",
     "compareDesc": "Habilita comparativas históricas y referencias por banda de ELO",
     "modeTitle": "Referencia del Postmatch",
@@ -249,7 +267,10 @@
     "drawError": "No se pudo dibujar el informe.",
     "last10Group": "Tus últimas 10 partidas · selecciona una para cargar su informe",
     "loadingMatchStatus": "Cargando informe de la partida #{id}…",
-    "configSummary": "Configurar Postmatch"
+    "configSummary": "Configurar Postmatch",
+    "phasePill1": "Repetición local",
+    "phasePill2": "Evolución",
+    "phasePill3": "Popup opcional"
   },
   "plansPage": {
     "eyebrow": "TU ACCESO ACTUAL",
@@ -432,7 +453,8 @@
     "anaTips": "Analizando repeticiones del rival…",
     "updateReady": "Actualización v{ver} lista · se instala al salir",
     "updateAvail": "Actualización v{ver} disponible · abre Actualizaciones en Ajustes",
-    "previewHighlightPrefix": "Vista previa · Activado"
+    "previewHighlightPrefix": "Vista previa · Activado",
+    "civPendingShort": "Civ pendiente"
   },
   "plans": {
     "badgeConfig": "CONFIGURACIÓN",
@@ -444,7 +466,9 @@
     "revoked": "Acceso de pago desactivado por el administrador",
     "checking": "Verificando licencia…",
     "refreshBtn": "Comprobar acceso ahora",
-    "offlineGrace": "Verificado (margen sin conexión)"
+    "offlineGrace": "Verificado (margen sin conexión)",
+    "kickerFree": "Plan actual",
+    "kickerActive": "Plan activo"
   },
   "postmatch": {
     "win": "Victoria",
@@ -535,7 +559,25 @@
     "duelBuildings": "Edificios militares",
     "duelTechs": "Mejoras clave",
     "duelEapm": "Ritmo eAPM",
-    "tabTech": "Mejoras y Producción"
+    "tabTech": "Mejoras y Producción",
+    "medalsBaseline": "Suma más minutos o partidas para desbloquear destacados y récords personales.",
+    "noCriticalIssues": "Sin cuellos de botella críticos detectados en esta partida.",
+    "zoneGoodTitle": "Lo que hiciste bien y mejoraste",
+    "zoneBadTitle": "Lo que te costó",
+    "houses": "casas",
+    "farms": "granjas",
+    "castles": "castillos",
+    "yourAgesTitle": "Tus llegadas de edad",
+    "ageRaceTitle": "Carrera de edades",
+    "bsTechs": "Herrería y Combate",
+    "noneDetected": "Sin mejoras detectadas",
+    "techsTitle": "Mejoras clave y macro",
+    "ecoTechs": "Economía",
+    "lateStamina": "Ritmo Late",
+    "tabEvo": "Evolución y Curva",
+    "tabDuel": "Duelo vs Rival",
+    "techPanelTitle": "Tecnologías y producción",
+    "overlayDeepHint": "Curva, duelo vs rival y mejoras completas en Relic → Postmatch"
   },
   "prematch": {
     "title": "Prematch",
@@ -628,7 +670,8 @@
     "tgCivInGame": "Civ en partida",
     "tgRecentLeft": "Más reciente a la izq.",
     "tgSuffersVs": "Sufre vs",
-    "tgYouPct": "Vos {p}%"
+    "tgYouPct": "Vos {p}%",
+    "civOnMap": "{civ} en {map}"
   },
   "openings": {
     "Scout Rush": "Rush de caballería de exploración",
@@ -709,6 +752,14 @@
     "smartBuildOrder": {
       "title": "Smart Build Order",
       "desc": "Guía visual sugerida para tu civilización, mapa y cruce."
+    },
+    "civCounterPick": {
+      "title": "Recomendador de civilización",
+      "desc": "Sugiere qué civ elegir cruzando mapa, tu winrate y debilidades del rival."
+    },
+    "smurfDetector": {
+      "title": "Smurf Detector",
+      "desc": "Señala posibles cuentas secundarias cruzando cuentas vinculadas, winrate extremo, pico y eAPM."
     }
   },
   "central": {
@@ -757,7 +808,48 @@
     "mapsTitle": "Rendimiento por mapa",
     "noDataYet": "Sin datos suficientes.",
     "recentEyebrow": "HISTORIAL INTERACTIVO",
-    "recentTitle": "Tus últimas partidas · clic para abrir Postmatch"
+    "recentTitle": "Tus últimas partidas · clic para abrir Postmatch",
+    "diagSelectCiv": "Elige una civilización de la lista para ver tu diagnóstico.",
+    "bvnElo": "ELO del modo",
+    "bvnWinrate": "Winrate reciente",
+    "bvnEapm": "Ritmo eAPM",
+    "bvnTcUtil": "Uso de TC",
+    "searchPlaceholder": "Buscar jugador de AoE2 (ej. Hera, TheViper o #ID)…",
+    "searchBtn": "Buscar",
+    "viewingBadge": "EXPLORANDO OTRO PERFIL",
+    "viewingMeta": "Perfil externo · tus datos propios siguen intactos",
+    "backToOwn": "← Volver a mi perfil",
+    "civDiagTitle": "Civilizaciones · ¿Cómo me va con esta civ?",
+    "civDiagHint": "pulsa cualquier civ para diagnosticar patrones",
+    "civFilterPlaceholder": "Buscar civ…",
+    "mapsEapmTitle": "Mapas y eAPM promedio",
+    "modeAvgEapm": "Media del modo",
+    "sortGames": "Más jugadas",
+    "sortMapsGames": "Más jugados",
+    "sortWr": "Mejor %",
+    "ultraUnlockDiag": "Desbloquea patrones por civ, fase y mapa",
+    "ultraUnlockMapEapm": "Desbloquea eAPM promedio por mapa",
+    "ultraUnlockInsights": "Desbloquea aperturas, estilo y evolución",
+    "ultraUnlockScoutInsights": "Desbloquea scouting de aperturas y ritmo",
+    "ultraUnlockScoutDuration": "Desbloquea fases de duración en scouting",
+    "ultraUnlockScoutRecent": "Desbloquea telemetría reciente del jugador",
+    "tabMaps": "Mapas",
+    "tabPhases": "Fases",
+    "tabOpenings": "Aperturas",
+    "tabPace": "Ritmo",
+    "ownDataIntact": "Tus datos propios siguen intactos",
+    "matchesUnit": "partidas",
+    "scopeAllTime": "Historial disponible",
+    "scopeRecent": "Muestra reciente",
+    "mostPlayedMaps": "Más jugados",
+    "bestWr": "Mejor %",
+    "ultraUnlockDefault": "Ver análisis completo",
+    "ultraUnlockCivDiag": "Desbloquea patrones por civ, fase y mapa",
+    "diagTabsLabel": "Desglose de civilización",
+    "diagTabMaps": "Mapas",
+    "diagTabPhases": "Fases",
+    "diagTabOpenings": "Aperturas",
+    "diagTabPace": "Ritmo"
   },
   "feedback": {
     "openBtn": "Enviar feedback",
@@ -778,6 +870,7 @@
     "tooShort": "Escribe al menos 5 caracteres.",
     "sending": "Enviando feedback…",
     "sent": "¡Gracias! Tu feedback se ha enviado correctamente.",
-    "error": "No se pudo enviar el feedback ahora mismo."
+    "error": "No se pudo enviar el feedback ahora mismo.",
+    "desc": "Reporta errores o propón mejoras para Relic."
   }
 }

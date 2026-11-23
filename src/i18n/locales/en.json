@@ -55,44 +55,44 @@
   },
   "pages": {
     "player": {
-      "index": "01 / ACCOUNT",
-      "title": "Player account",
-      "sub": "Your in-game profile and latest matches."
+      "index": "ACCOUNT",
+      "title": "Account & Profile",
+      "sub": "Your Relic session, active PCs, and Age of Empires II: DE profile."
     },
     "overlay": {
-      "index": "03 / PREMATCH",
-      "title": "Prepare the match.",
-      "sub": "What appears in queue and at match start · live overlay preview."
+      "index": "02 / PREMATCH",
+      "title": "Prematch",
+      "sub": "What the overlay shows when a match is found."
     },
     "tactics": {
-      "index": "04 / IN-GAME",
-      "title": "Choose your response.",
-      "sub": "Opportunities by civilization, history, and observed composition."
+      "index": "03 / IN-GAME",
+      "title": "In-Game",
+      "sub": "Civilization help, build order guide, and matchup opportunities."
     },
     "postmatch": {
-      "index": "05 / POSTMATCH",
-      "title": "Learn from every match.",
-      "sub": "Your last 10 matches, confirmed outcome, and measured evolution."
+      "index": "04 / POSTMATCH",
+      "title": "Postmatch",
+      "sub": "Automatic summary and local replay analysis."
     },
     "skins": {
-      "index": "06 / APPEARANCE",
-      "title": "Your panel, your way.",
-      "sub": "How the overlay looks over the game."
+      "index": "05 / APPEARANCE",
+      "title": "Appearance",
+      "sub": "Theme, opacity, and overlay placement over the game."
     },
     "plans": {
-      "index": "07 / PLAN & ACCESS",
-      "title": "Choose your depth.",
-      "sub": "Free to compete; Pro for Prematch; Ultra for the complete arsenal."
+      "index": "PLAN & ACCESS",
+      "title": "Plan & Access",
+      "sub": "Compare Free, Pro, and Ultra or redeem a prepaid key."
     },
     "updater": {
-      "index": "08 / UPDATES",
-      "title": "Stay up to date.",
-      "sub": "Safe automatic updates, never interrupting a live game."
+      "index": "06 / UPDATES",
+      "title": "Updates",
+      "sub": "Installed version and automatic background updates."
     },
     "central": {
-      "index": "02 / CENTRAL",
-      "title": "Intelligence Central",
-      "sub": "Your rating and match history by mode."
+      "index": "01 / CENTRAL",
+      "title": "Stats Hub",
+      "sub": "Your evolution, civilization diagnostics, and match history by mode."
     }
   },
   "account": {
@@ -153,7 +153,10 @@
     "activePcsTitle": "My active PCs",
     "encryptedSession": "Encrypted Windows session",
     "tabProfile": "Account & profile",
-    "tabPlan": "Plan & key"
+    "tabPlan": "Plan & key",
+    "signInRail": "Sign in",
+    "signInRailSub": "Google · sync your plan",
+    "authDesc": "Sync your plan, manage active PCs, and redeem prepaid keys."
   },
   "overlay": {
     "wf1Title": "Read your rival",
@@ -197,10 +200,16 @@
     "civHelpExtended": "Civ guide: visible until 0:40",
     "hideAtSaved": "Hide Overlay and civ guide after {seconds}s",
     "smurfTitle": "Smurf detector",
-    "smurfDesc": "Flags suspected alternate accounts next to rival ELO."
+    "smurfDesc": "Flags suspected alternate accounts next to rival ELO.",
+    "phaseTitle": "In queue and before entering the map",
+    "phaseDesc": "Shows as soon as a match is found to read ELO, history, and openings; hides automatically when the game starts.",
+    "phasePill1": "RM 1v1 ELO",
+    "phasePill2": "Rival scouting",
+    "phasePill3": "Auto-hide",
+    "hideEloName": "Hide Overlay"
   },
   "tactics": {
-    "bannerTitle": "Civilization references",
+    "bannerTitle": "In-game tactical references",
     "bannerDesc": "Recommended routes and strengths for the current matchup.",
     "intro": "Feudal, Castle, and Imperial routes are shown here as options, not live match state.",
     "guideGroup": "Opening guide",
@@ -221,14 +230,23 @@
     "routesEmptyTitle": "Match routes",
     "routesNote": "Civilization reference for this matchup.",
     "optionOf": "{age} option",
-    "sampleResults": "{n} sample results"
+    "sampleResults": "{n} sample results",
+    "phasePill1": "Civ help",
+    "phasePill2": "Build Order",
+    "phasePill3": "Opportunities"
   },
   "postmatchPage": {
-    "bannerTitle": "Review your match",
+    "bannerTitle": "Summary after the match",
     "bannerDesc": "Automatic summary of your last 10 matches.",
     "afterGroup": "After the match",
     "summaryTitle": "Postmatch summary",
-    "summaryDesc": "Overlay returns with confirmed outcome and match summary",
+    "summaryDesc": "Generates the confirmed outcome and report after each match",
+    "popupTitle": "Show overlay popup",
+    "popupDesc": "Shows the floating summary after the match; when off, reports remain in Relic",
+    "hideAtLabel": "Auto-hide popup after",
+    "hideManual": "Manual",
+    "hideSaved": "Postmatch popup: hides after {s}s",
+    "hideManualSaved": "Postmatch popup: stays until next match",
     "compareTitle": "Compare my evolution",
     "compareDesc": "Enables personal history comparisons and ELO band benchmarks",
     "modeTitle": "Postmatch reference",
@@ -249,7 +267,10 @@
     "drawError": "Could not render report.",
     "last10Group": "Your last 10 matches · click any match to load its report",
     "loadingMatchStatus": "Loading report for match #{id}…",
-    "configSummary": "Postmatch settings"
+    "configSummary": "Postmatch settings",
+    "phasePill1": "Local replay",
+    "phasePill2": "Evolution",
+    "phasePill3": "Optional popup"
   },
   "plansPage": {
     "eyebrow": "YOUR CURRENT ACCESS",
@@ -432,7 +453,8 @@
     "anaTips": "Analyzing rival replays…",
     "updateReady": "Update v{ver} ready · installs on exit",
     "updateAvail": "Update v{ver} available · open Updates in Settings",
-    "previewHighlightPrefix": "Preview · Enabled"
+    "previewHighlightPrefix": "Preview · Enabled",
+    "civPendingShort": "Civ pending"
   },
   "plans": {
     "badgeConfig": "SETTINGS",
@@ -444,7 +466,9 @@
     "revoked": "Paid access disabled by administrator",
     "checking": "Verifying license…",
     "refreshBtn": "Verify access now",
-    "offlineGrace": "Verified (offline grace active)"
+    "offlineGrace": "Verified (offline grace active)",
+    "kickerFree": "Current plan",
+    "kickerActive": "Active plan"
   },
   "postmatch": {
     "win": "Victory",
@@ -535,7 +559,25 @@
     "duelBuildings": "Military buildings",
     "duelTechs": "Key upgrades",
     "duelEapm": "eAPM pace",
-    "tabTech": "Upgrades & Production"
+    "tabTech": "Upgrades & Production",
+    "medalsBaseline": "Play more matches to unlock highlights and personal records.",
+    "noCriticalIssues": "No critical bottlenecks detected in this match.",
+    "zoneGoodTitle": "What went well",
+    "zoneBadTitle": "What held you back",
+    "houses": "houses",
+    "farms": "farms",
+    "castles": "castles",
+    "yourAgesTitle": "Your age timings",
+    "ageRaceTitle": "Age race",
+    "bsTechs": "Blacksmith & Combat",
+    "noneDetected": "No upgrades detected",
+    "techsTitle": "Key upgrades & macro",
+    "ecoTechs": "Economy",
+    "lateStamina": "Late pace",
+    "tabEvo": "Evolution & Curve",
+    "tabDuel": "Head-to-Head",
+    "techPanelTitle": "Upgrades & production",
+    "overlayDeepHint": "Full curve, duel, and upgrades in Relic → Postmatch"
   },
   "prematch": {
     "title": "Prematch",
@@ -628,7 +670,8 @@
     "tgCivInGame": "Civ in match",
     "tgRecentLeft": "Most recent on left",
     "tgSuffersVs": "Struggles vs",
-    "tgYouPct": "You {p}%"
+    "tgYouPct": "You {p}%",
+    "civOnMap": "{civ} on {map}"
   },
   "openings": {
     "Scout Rush": "Scout Rush",
@@ -709,6 +752,14 @@
     "smartBuildOrder": {
       "title": "Smart Build Order",
       "desc": "Visual guide tailored to your civ, map, and matchup opportunities."
+    },
+    "civCounterPick": {
+      "title": "Civilization recommender",
+      "desc": "Suggests your best pick using map, personal win rate, and rival weaknesses."
+    },
+    "smurfDetector": {
+      "title": "Smurf Detector",
+      "desc": "Flags potential smurfs using linked accounts, extreme win rate, peak drop, and eAPM."
     }
   },
   "central": {
@@ -757,7 +808,48 @@
     "mapsTitle": "Performance by map",
     "noDataYet": "Not enough data yet.",
     "recentEyebrow": "INTERACTIVE HISTORY",
-    "recentTitle": "Your latest matches · click to open Postmatch"
+    "recentTitle": "Your latest matches · click to open Postmatch",
+    "diagSelectCiv": "Pick a civilization from the list to inspect your diagnostic.",
+    "bvnElo": "Mode ELO",
+    "bvnWinrate": "Recent win rate",
+    "bvnEapm": "eAPM pace",
+    "bvnTcUtil": "TC usage",
+    "searchPlaceholder": "Search AoE2 player (e.g. Hera, TheViper or #ID)…",
+    "searchBtn": "Search",
+    "viewingBadge": "SCOUTING ANOTHER PROFILE",
+    "viewingMeta": "External profile · your own stats remain intact",
+    "backToOwn": "← Back to my profile",
+    "civDiagTitle": "Civilizations · How do I perform with this civ?",
+    "civDiagHint": "click any civ to diagnose repeating patterns",
+    "civFilterPlaceholder": "Filter civ…",
+    "mapsEapmTitle": "Maps & average eAPM",
+    "modeAvgEapm": "Mode avg",
+    "sortGames": "Most played",
+    "sortMapsGames": "Most played",
+    "sortWr": "Best %",
+    "ultraUnlockDiag": "Unlock patterns by civ, phase, and map",
+    "ultraUnlockMapEapm": "Unlock average eAPM per map",
+    "ultraUnlockInsights": "Unlock openings, playstyle, and evolution",
+    "ultraUnlockScoutInsights": "Unlock rival openings and pace scouting",
+    "ultraUnlockScoutDuration": "Unlock match duration phases in scouting",
+    "ultraUnlockScoutRecent": "Unlock recent player telemetry",
+    "tabMaps": "Maps",
+    "tabPhases": "Phases",
+    "tabOpenings": "Openings",
+    "tabPace": "Pace",
+    "ownDataIntact": "Your own stats remain intact",
+    "matchesUnit": "matches",
+    "scopeAllTime": "Available history",
+    "scopeRecent": "Recent sample",
+    "mostPlayedMaps": "Most played",
+    "bestWr": "Best %",
+    "ultraUnlockDefault": "See full analysis",
+    "ultraUnlockCivDiag": "Unlock patterns by civ, phase, and map",
+    "diagTabsLabel": "Civilization breakdown",
+    "diagTabMaps": "Maps",
+    "diagTabPhases": "Phases",
+    "diagTabOpenings": "Openings",
+    "diagTabPace": "Pace"
   },
   "feedback": {
     "openBtn": "Send feedback",
@@ -778,6 +870,7 @@
     "tooShort": "Please write at least 5 characters.",
     "sending": "Sending feedback…",
     "sent": "Thanks! Your feedback was sent.",
-    "error": "Could not send feedback right now."
+    "error": "Could not send feedback right now.",
+    "desc": "Report bugs or suggest improvements for Relic."
   }
 }

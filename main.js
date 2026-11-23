@@ -166,6 +166,8 @@ const DEFAULT_CONFIG = {
   autoUpdate: false,
   // Postmatch: resumen de resultados Pro; comparación y replay ProMax.
   postMatch: true,
+  postMatchPopup: true,
+  postMatchHideSeconds: 60,
   postMatchComparison: false,
   postMatchCompareMode: 'both',
   postMatchReplay: false,
@@ -448,6 +450,7 @@ let liveLobbyAt = 0;
 let liveMatchAt = 0;
 let searching = false; // en cola: el REST se consulta más seguido
 let preMatchGraceUntil = 0; // no parpadear a "Sin partida" durante la carga
+let lobbyGoneAt = 0; // instante en que cerró la sala: acelera el REST durante 30 s
 let windowCrashes = 0;
 let windowCrashReset = null;
 // Reloj de partida y vista actual (ELO oculto / tarjeta de civ visible).
@@ -460,10 +463,10 @@ let lastClockSent = null;
 let rivalReports = null;
 // Última partida publicada: sirve para descartar el informe de la anterior.
 let lastOngoingMatchId = null;
-// Última vez que hubo una partida en pantalla. Con esto un `idle` del REST no
-// borra el panel si esa partida todavía no figura como terminada.
+// Última vez que hubo una partida en pantalla. Gracia acotada (25 s) solo para
+// absorber la pantalla de carga entre pre-partida y REST; jamás traba 3 min.
 let lastOngoingAt = 0;
-const ONGOING_HOLD_MS = 3 * 60 * 1000;
+const ONGOING_HOLD_MS = 25 * 1000;
 // Recomendaciones inteligentes (pre-partida): payload actual del consejo.
 let scoutPayload = null;
 let scoutSig = '';
@@ -564,13 +567,26 @@ let postMatchReport = null;
 let postMatchGeneration = 0;
 let postMatchMatch = null;
 let postMatchLastId = null;
-// El informe postmatch tiene cierre explícito y auto-cierre: no puede quedar
-// fijo sobre el juego. Mientras está abierto recibe mouse (para la X); al
-// cerrarse vuelve el click-through normal del overlay.
+// El informe postmatch tiene cierre explícito y auto-cierre configurable desde
+// Postmatch (`postMatchHideSeconds`: 10–180 s, o 0 = sin auto-cierre hasta la
+// próxima partida). `postMatchPopup` activa/desactiva el popup sobre el juego
+// sin deshabilitar los informes dentro de Relic.
 const POSTMATCH_AUTO_HIDE_MS = 60 * 1000;
 const POSTMATCH_LOADING_MAX_MS = 3 * 60 * 1000;
 let postMatchOverlayDismissed = false;
 let postMatchHideTimer = null;
+
+function postMatchHideSecondsValue() {
+  const raw = Number(config.postMatchHideSeconds);
+  if (!Number.isFinite(raw)) return 60;
+  if (raw <= 0) return 0;
+  return Math.round(clamp(raw, 10, 180));
+}
+
+function postMatchHideMs() {
+  const secs = postMatchHideSecondsValue();
+  return secs > 0 ? secs * 1000 : 0;
+}
 
 /** Claves públicas de licencia, si esta distribución las incluye. */
 function loadProductPublicKeys() {
@@ -1353,7 +1369,7 @@ function scoutSignature(state) {
 
 function tacticalPayload() {
   const product = productState();
-  if (!product.featureAccess.smartBuildOrder) return { status: 'locked', tips: [], message: 'El análisis de oportunidades durante la partida está incluido en ProMax.' };
+  if (!product.featureAccess.smartBuildOrder) return { status: 'locked', tips: [], message: 'El análisis de oportunidades durante la partida está incluido en Ultra.' };
   if (!viewConfig().smartTips) return { status: 'disabled', tips: [], message: 'Activá Lectura de apertura en Prematch para analizar las oportunidades.' };
   if (!lastGood || lastGood.status !== 'ongoing' || !scoutPayload || String(scoutPayload.matchId) !== String(lastGood.match?.matchId)) {
     return { status: 'pending', tips: [], message: 'El análisis aparecerá cuando se confirme una partida.' };
@@ -1364,7 +1380,7 @@ function tacticalPayload() {
 
 function buildOrderPayload() {
   if (!productState().featureAccess.smartBuildOrder) return { status: 'locked', enabled: false,
-    message: 'Smart Build Order está incluido en ProMax.', guides: [], selected: null };
+    message: 'Smart Build Order está incluido en Ultra.', guides: [], selected: null };
   const ongoing = lastGood?.status === 'ongoing';
   const own = ongoing ? (lastGood.players || []).find((player) => player.isYou ||
     Number(player.profileId) === Number(runtimeProfileId())) : null;
@@ -1997,16 +2013,20 @@ function hardenWebContents(wc) {
 function computeAdaptiveZoom(display, kind = 'settings') {
   const sf = Number(display && display.scaleFactor) || 1;
   const wa = (display && display.workArea) || { width: 1920, height: 1080 };
+  if (kind === 'settings') {
+    // El Centro de Mando es una ventana de escritorio estándar: Chromium ya
+    // aplica el escalado DPI nativo de Windows (125%–200%). Reducirlo a 0.76x
+    // en monitores 1440p/4K dejaba el texto minúsculo y la barra lateral
+    // desproporcionada. Solo se reduce si el área lógica real es muy chica
+    // (notebooks 1366×768 con zoom alto).
+    if (wa.width >= 1180 && wa.height >= 700) return 1;
+    const fitH = wa.height / 760;
+    const fitW = wa.width / 1200;
+    return Math.round(clamp(Math.min(fitH, fitW), 0.78, 1) * 100) / 100;
+  }
   let zoom = 1;
   if (sf > 1.02) {
-    const exp = kind === 'overlay' ? 0.62 : 0.55;
-    const floor = kind === 'overlay' ? 0.74 : 0.76;
-    zoom = Math.max(floor, 1 / Math.pow(sf, exp));
-  }
-  if (kind === 'settings' && (wa.height < 640 || wa.width < 1020)) {
-    const fitH = wa.height / 720;
-    const fitW = wa.width / 1060;
-    zoom = Math.min(zoom, Math.max(0.75, Math.min(fitH, fitW)));
+    zoom = Math.max(0.74, 1 / Math.pow(sf, 0.62));
   }
   return Math.round(clamp(zoom, 0.72, 1) * 100) / 100;
 }
@@ -2189,10 +2209,10 @@ function openSettings() {
   }
 
   const wa = screen.getPrimaryDisplay().workArea;
-  const initWidth = Math.min(1040, Math.max(720, wa.width - 44));
-  const initHeight = Math.min(720, Math.max(500, wa.height - 44));
-  const minW = Math.min(740, Math.max(600, wa.width - 24));
-  const minH = Math.min(480, Math.max(400, wa.height - 24));
+  const initWidth = Math.min(1480, Math.max(980, wa.width - 48));
+  const initHeight = Math.min(940, Math.max(660, wa.height - 48));
+  const minW = Math.min(920, Math.max(760, wa.width - 24));
+  const minH = Math.min(600, Math.max(480, wa.height - 24));
 
   settingsWin = new BrowserWindow({
     width: initWidth,
@@ -2201,7 +2221,7 @@ function openSettings() {
     minHeight: minH,
     title: 'Relic',
     icon: WINDOW_ICON,
-    backgroundColor: '#121211',
+    backgroundColor: '#0c1014',
     autoHideMenuBar: true,
     show: false,
     // Sin barra nativa de Windows: la ventana dibuja su propia barra oscura
@@ -2468,13 +2488,16 @@ function startLive() {
         win.setAlwaysOnTop(true, 'screen-saver');
         if (!win.isVisible()) win.showInactive();
       }
-      if (fastLane) fastLane.pause();
+      if (fastLane) fastLane.pause(item && item.matchId);
       showMatchFound(item);
     },
     onGone: (id) => {
       log(`partida apareada ${id} terminó/canceló: toma el control el REST`);
       liveMatchAt = 0;
+      lobbyGoneAt = Date.now();
+      preMatchGraceUntil = lobbyGoneAt + 22000;
       if (fastLane) fastLane.resume();
+      scheduleNext('idle');
       poll();
     },
     onSearching: (active, queueItem) => {
@@ -3001,7 +3024,9 @@ const PREVIEW_AUTO_HIDE_MS = 20 * 1000;
 const PREVIEW_LOADING_CAP_MS = 60 * 1000;
 let previewAutoHideTimer = null;
 let previewWaitingForData = false;
+let postMatchPreviewActive = false;
 let previewCycleToken = 0;
+let lastReportedCssHeight = 110;
 
 function clearPreviewAutoHide() {
   if (previewAutoHideTimer) {
@@ -3009,6 +3034,7 @@ function clearPreviewAutoHide() {
     previewAutoHideTimer = null;
   }
   previewWaitingForData = false;
+  postMatchPreviewActive = false;
 }
 
 function schedulePreviewAutoHide(delayMs = PREVIEW_AUTO_HIDE_MS) {
@@ -3034,27 +3060,6 @@ let introAnchoredAfterLoadMatchId = null;
 
 function maybeArmPreviewAutoHide() {
   if (rivalFetching || scoutFetching || h2hFetching || smurfFetching) return;
-  // En partida real, cuando terminan de cargar todos los datos, re-anclamos el
-  // reloj de 20s una sola vez para que el tiempo de carga no le robe segundos de
-  // lectura al jugador (especialmente en TG al rotar Rivales 1–2 y 3–4).
-  if (
-    !exampleActive &&
-    !DEMO &&
-    intro &&
-    intro.engaged &&
-    lastGood &&
-    lastGood.status === 'ongoing' &&
-    lastGood.phase !== 'lobby' &&
-    introAnchoredAfterLoadMatchId !== intro.matchId
-  ) {
-    const now = clockNow();
-    if (now - intro.startedAt < 45 * 1000) {
-      introAnchoredAfterLoadMatchId = intro.matchId;
-      intro.startedAt = now - 1000;
-      sendView(true);
-      armIntroTimer();
-    }
-  }
   if (!previewWaitingForData) return;
   const isMultiPageTg = Boolean(lastGood && Array.isArray(lastGood.players) && lastGood.players.length > 4);
   const holdMs = isMultiPageTg ? 25 * 1000 : PREVIEW_AUTO_HIDE_MS;
@@ -3092,12 +3097,14 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
     }
     if (cycle !== previewCycleToken) return;
     if (targetMatch) {
+      postMatchPreviewActive = true;
       if (!postMatchReport || String(postMatchLastId) !== String(targetMatch.matchId)) {
         await publishPostMatch(targetMatch, {
           force: true,
           persist: true,
           profileId,
           showOverlay: true,
+          forceOverlay: true,
           autoHide: false,
         });
       } else {
@@ -3123,6 +3130,7 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
   const currentIsTeam = Boolean(lastGood && Array.isArray(lastGood.players) && lastGood.players.length > 2);
   const needStart = !exampleActive || !exampleUseRealConfig || Number(exampleProfileId) !== Number(profileId) ||
     (preferTeamGame !== currentIsTeam);
+  const prevPreviewPhase = examplePreviewPhase;
   exampleUseRealConfig = true;
   examplePreviewPhase = phase;
   previewWaitingForData = true;
@@ -3135,7 +3143,7 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
 
   if (needStart) {
     await startExample(String(profileId), clockMode, { useRealConfig: true, previewPhase: phase, preferTeamGame });
-  } else if (exampleClockMode !== clockMode || examplePreviewPhase !== phase) {
+  } else if (exampleClockMode !== clockMode || prevPreviewPhase !== phase) {
     await setExampleClock(clockMode, { previewPhase: phase });
   } else {
     send('overlay:config', overlayConfig());
@@ -3168,6 +3176,10 @@ function registerIpc() {
   ipcMain.on('postmatch:dismiss', () => dismissPostMatch('cerrado desde el overlay'));
 
   ipcMain.on('overlay:height', (_event, height) => {
+    const parsedHeight = Number(height);
+    if (Number.isFinite(parsedHeight) && parsedHeight > 0) {
+      lastReportedCssHeight = parsedHeight;
+    }
     if (config.debug) log(`altura medida del panel: ${Math.round(height)}px`);
     else if (!heightLogged) {
       heightLogged = true;
@@ -3203,6 +3215,8 @@ function registerIpc() {
     hideWhenMinimized: Boolean(config.hideWhenMinimized),
     autoUpdate: Boolean(config.autoUpdate),
     postMatch: config.postMatch !== false,
+    postMatchPopup: config.postMatchPopup !== false,
+    postMatchHideSeconds: postMatchHideSecondsValue(),
     postMatchComparison: Boolean(config.postMatchComparison),
     postMatchCompareMode: ['both', 'personal', 'community'].includes(config.postMatchCompareMode) ? config.postMatchCompareMode : 'both',
     postMatchReplay: Boolean(config.postMatchReplay),
@@ -3469,6 +3483,31 @@ function registerIpc() {
       log(`postmatch · modo de comparación: ${mode}`);
       return { ok: true, key, value: mode };
     }
+    if (key === 'postMatchPopup') {
+      if (!productState().featureAccess.postMatch) {
+        return { ok: false, error: 'Disponible con Ultra.' };
+      }
+      const enabled = Boolean(rawValue);
+      persistConfig({ postMatchPopup: enabled });
+      send('overlay:config', overlayConfig());
+      if (!enabled) dismissPostMatch('popup postmatch desactivado', { force: true });
+      else broadcastPostMatch();
+      log(`postmatch · popup en overlay: ${enabled ? 'activado' : 'desactivado'}`);
+      return { ok: true, key, enabled };
+    }
+    if (key === 'postMatchHideSeconds') {
+      if (!productState().featureAccess.postMatch) {
+        return { ok: false, error: 'Disponible con Ultra.' };
+      }
+      const parsed = Number(rawValue);
+      if (!Number.isFinite(parsed)) return { ok: false, error: 'Tiempo de ocultado inválido.' };
+      const seconds = parsed <= 0 ? 0 : Math.round(clamp(parsed, 10, 180));
+      persistConfig({ postMatchHideSeconds: seconds });
+      send('overlay:config', overlayConfig());
+      if (reviewVisible()) schedulePostMatchHide();
+      log(`postmatch · auto-ocultar popup: ${seconds > 0 ? `${seconds}s` : 'manual (hasta próxima partida)'}`);
+      return { ok: true, key, value: seconds };
+    }
     if (!['postMatch', 'postMatchComparison', 'postMatchReplay'].includes(key)) {
       return { ok: false, error: 'Esa opción de postmatch no existe.' };
     }
@@ -3478,8 +3517,17 @@ function registerIpc() {
     }
     persistConfig({ [key]: enabled });
     send('overlay:config', overlayConfig());
-    broadcastPostMatch();
-    triggerTogglePreview('postmatch', enabled ? key : null).catch(() => {});
+    if (key === 'postMatch' && !enabled) {
+      dismissPostMatch('postmatch desactivado', { force: true });
+      if (settingsWin && !settingsWin.isDestroyed()) {
+        settingsWin.webContents.send('postmatch:update', postMatchPayload());
+      }
+    } else {
+      broadcastPostMatch();
+      if (viewConfig().postMatch) {
+        triggerTogglePreview('postmatch', enabled ? key : null).catch(() => {});
+      }
+    }
     log(`postmatch · ${key}: ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, key, enabled };
   });
@@ -3544,13 +3592,20 @@ function registerIpc() {
       if (added > 0 && settingsWin && !settingsWin.isDestroyed() && Number(profileId) === pid) {
         const fresh = await fetchCentralDashboard({
           profileId: pid,
+          ownProfileId: pid,
           alias: playerAlias,
           cache: statsCache,
           performanceStore,
+          diskCachePath: CENTRAL_CACHE_PATH,
           force: false,
           log,
         });
-        settingsWin.webContents.send('central:update', fresh);
+        const prod = productState();
+        settingsWin.webContents.send('central:update', {
+          ...fresh,
+          isUltra: prod.plan === 'promax' || prod.plan === 'beta',
+          plan: prod.plan,
+        });
       }
     } finally {
       if (hydratingCentralPid === pid) hydratingCentralPid = null;
@@ -3614,10 +3669,12 @@ function registerIpc() {
       ownProfileId: profileId ? Number(profileId) : null,
       log,
     });
+    const product = productState();
+    const isUltra = product.plan === 'promax' || product.plan === 'beta';
     if (isOwn && data && data.ok && Array.isArray(data.recentMatches)) {
       hydrateRecentReplaysForCentral(profileId, data.recentMatches).catch(() => {});
     }
-    return data;
+    return data ? { ...data, isUltra, plan: product.plan } : data;
   });
 
   ipcMain.handle('settings:tactics-get', () => {
@@ -3665,7 +3722,7 @@ function registerIpc() {
   // automático de comandos no produce economía ni eventos de combate.
   ipcMain.handle('postmatch:import', async () => {
     if (!postMatchAccess().replay) {
-      return { ok: false, error: 'Activá el análisis del replay con acceso ProMax para importar métricas.' };
+      return { ok: false, error: 'Activá el análisis del replay con acceso Ultra para importar métricas.' };
     }
     const match = latestStoredMatch();
     if (!match) {
@@ -4211,7 +4268,7 @@ function visiblePostMatchReport() {
     report.mapBenchmark = {
       status: 'locked', games: 0, wins: 0, losses: 0, unknownResults: 0,
       winRate: null, afterWinRate: null, recent: [], sampleSize: 0,
-      summary: 'La comparación con tu historial está incluida en ProMax.',
+      summary: 'La comparación con tu historial está incluida en Ultra.',
     };
   }
   if (!access.replay) {
@@ -4228,7 +4285,7 @@ function visiblePostMatchReport() {
     report.result.durationSeconds = null;
     report.analysis = {
       status: 'locked', label: 'Análisis de replay',
-      detail: 'La descarga y el análisis del replay están incluidos en ProMax.',
+      detail: 'La descarga y el análisis del replay están incluidos en Ultra.',
     };
     report.data = {
       ...(report.data || {}),
@@ -4236,7 +4293,7 @@ function visiblePostMatchReport() {
       telemetryStatus: 'locked',
       sourceLabel: 'AoE2 Companion · resultados',
       warnings: [],
-      telemetryNote: 'APM y ejecución por etapas están incluidos en ProMax.',
+      telemetryNote: 'APM y ejecución por etapas están incluidos en Ultra.',
     };
   }
   return report;
@@ -4251,6 +4308,7 @@ function postMatchPayload() {
 function reviewVisible() {
   if (!postMatchReport || postMatchOverlayDismissed) return false;
   if (!viewConfig().postMatch) return false;
+  if (config.postMatchPopup === false && !exampleActive && !previewAutoHideTimer && !postMatchPreviewActive) return false;
   // Durante una partida el panel normal manda; el informe de la anterior no.
   return !(lastGood && lastGood.status === 'ongoing');
 }
@@ -4275,24 +4333,30 @@ function overlayPostMatchPayload() {
   return reviewVisible() ? postMatchPayload() : null;
 }
 
-function schedulePostMatchHide(delayMs = POSTMATCH_AUTO_HIDE_MS) {
+function schedulePostMatchHide(delayMs = null) {
   clearPostMatchHide();
   if (!reviewVisible()) return;
+  const effectiveMs = delayMs != null ? Number(delayMs) : postMatchHideMs();
+  // 0 = sin auto-cierre por tiempo (se cierra manualmente o al arrancar la próxima partida).
+  if (!Number.isFinite(effectiveMs) || effectiveMs <= 0) return;
   postMatchHideTimer = setTimeout(() => {
     postMatchHideTimer = null;
     dismissPostMatch('tiempo de lectura terminado');
-  }, delayMs);
+  }, effectiveMs);
 }
 
 /** Cierra el informe sin borrar el último resultado del historial. */
-function dismissPostMatch(reason = 'cerrado') {
-  if (!postMatchReport || postMatchOverlayDismissed) return false;
+function dismissPostMatch(reason = 'cerrado', options = {}) {
+  const force = Boolean(options && options.force);
+  const wasVisible = Boolean(postMatchReport && !postMatchOverlayDismissed);
+  if (!force && !wasVisible) return false;
   postMatchOverlayDismissed = true;
+  postMatchPreviewActive = false;
   clearPostMatchHide();
   send('postmatch:update', null);
-  if (win && !win.isDestroyed()) applyHeight(win.getContentSize()[1]);
+  if (win && !win.isDestroyed()) applyHeight(lastReportedCssHeight);
   syncReviewInteraction();
-  log(`postmatch: informe cerrado (${reason})`);
+  if (wasVisible || force) log(`postmatch: informe cerrado (${reason})`);
   return true;
 }
 
@@ -4300,7 +4364,7 @@ function broadcastPostMatch() {
   // El panel recibe null cuando el informe ya se cerró; Ajustes conserva el
   // último informe para poder consultarlo o actualizarlo por separado.
   send('postmatch:update', overlayPostMatchPayload());
-  if (win && !win.isDestroyed()) applyHeight(win.getContentSize()[1]);
+  if (win && !win.isDestroyed()) applyHeight(lastReportedCssHeight);
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.webContents.send('postmatch:update', postMatchPayload());
   }
@@ -4344,9 +4408,12 @@ async function publishPostMatch(match, options = {}) {
     (example ? Number(exampleProfileId) === targetProfileId : Number(profileId) === targetProfileId);
   postMatchLastId = id;
   postMatchMatch = match;
-  // Por defecto (partida terminada en vivo) se abre en el overlay. Al revisar
-  // partidas pasadas desde Ajustes (`showOverlay: false`), permanece inline.
-  const showOverlay = options.showOverlay !== false;
+  // Por defecto (partida terminada en vivo) se abre en el overlay si el usuario
+  // tiene el popup activado y NO hay ya otra partida en curso (p. ej. tras
+  // resign rápido + re-cola inmediata). Al revisar partidas pasadas desde Ajustes
+  // (`showOverlay: false`), permanece inline.
+  const popupAllowed = options.forceOverlay === true || config.postMatchPopup !== false;
+  const showOverlay = options.showOverlay !== false && popupAllowed && !matchOngoing();
   const allowAutoHide = showOverlay && options.autoHide !== false;
   postMatchOverlayDismissed = !showOverlay;
   clearPostMatchHide();
@@ -4396,7 +4463,12 @@ async function publishPostMatch(match, options = {}) {
   }) : Promise.resolve();
   paint();
   if (allowAutoHide) {
-    schedulePostMatchHide(fetchingReplay ? POSTMATCH_LOADING_MAX_MS : POSTMATCH_AUTO_HIDE_MS);
+    const customMs = postMatchHideMs();
+    if (fetchingReplay) {
+      schedulePostMatchHide(customMs > 0 ? Math.max(customMs, POSTMATCH_LOADING_MAX_MS) : POSTMATCH_LOADING_MAX_MS);
+    } else if (customMs > 0) {
+      schedulePostMatchHide(customMs);
+    }
   }
 
   let error = null;
@@ -4456,11 +4528,17 @@ function emit(state) {
   // confirmado por la fuente puede generar un postmatch.
   const finished = completedMatchTransition(previous, state, profileId);
   if (finished) {
+    preMatchGraceUntil = 0;
+    lobbyGoneAt = 0;
+    liveMatchAt = 0;
+    if (queueWatcher) queueWatcher.clearMatch(finished.matchId);
     publishPostMatch(finished).catch((err) => log(`postmatch falló: ${err.message}`));
   }
-  // Al empezar otra partida, el informe anterior no puede quedar encima.
-  if (state && state.status === 'ongoing' && postMatchReport) {
-    dismissPostMatch('partida en curso');
+  // Al empezar otra partida (incluida pre-partida rápida tras resign instantáneo),
+  // se cierra incondicionalmente el popup anterior (aunque aún esté cargando).
+  if (state && state.status === 'ongoing') {
+    dismissPostMatch('partida en curso', { force: true });
+    if (state.phase !== 'lobby') lobbyGoneAt = 0;
   }
 
   // Partida nueva ⇒ el informe del rival y el consejo son los de la ANTERIOR.
@@ -4624,13 +4702,17 @@ function syncIntro(state, options = {}) {
     const matchId = String(state.match.matchId ?? 'sin-id');
     const isNewMatchIntro = !intro || intro.matchId !== matchId;
     const rawElapsed = now - state.match.startedAt;
-    // La pantalla de carga de AoE2 DE + indexación de Companion suele tardar 15–35 s
-    // desde `raw.started`. Anclar al primer avistamiento garantiza que los 20 s de
-    // visibilidad del Overlay y Ayuda de civ nunca nazcan ya vencidos.
-    if (isNewMatchIntro && rawElapsed > 1000 && rawElapsed <= 90 * 1000) {
+    // Anclar el reloj UNA sola vez al instante local exacto (`now`) en que la
+    // partida entra en vivo (descartando el desfase de pantalla de carga,
+    // indexación de Companion o reloj de servidor). Así el tiempo configurado
+    // en Ajustes (`hideAtSeconds`) se cumple con fidelidad al segundo exacto,
+    // sin robos ni reinicios a mitad de cuenta regresiva. Si la app se abrió
+    // en medio de una partida vieja (> 2.5 min), se conserva `startedAt` real
+    // para que `engaged` quede en false y no se oculte el overlay de golpe.
+    if (isNewMatchIntro && rawElapsed <= 150 * 1000) {
       effectiveState = {
         ...state,
-        match: { ...state.match, startedAt: now - 1000 },
+        match: { ...state.match, startedAt: now },
       };
     }
   }
@@ -4704,6 +4786,19 @@ async function poll() {
       }
     }
 
+    // Si el jugador abandonó rápido una partida y ya se apareó en la siguiente
+    // por WebSocket, el REST puede reportar todavía la partida vieja como
+    // `ongoing` por 15-45 s. Nunca dejamos que esa partida vieja pise el lobby
+    // nuevo ni borre su scouting.
+    const isStaleRestOngoing = (state) => {
+      if (!state || state.status !== 'ongoing' || !matchFoundActive()) return false;
+      const activeId = queueWatcher?.matched?.matchId ?? queueWatcher?.pendingMatchId ?? null;
+      const restId = state.match?.matchId ?? null;
+      if (activeId == null || restId == null || String(restId) === String(activeId)) return false;
+      const restStarted = Number(state.match?.startedAt || 0);
+      return !restStarted || restStarted < liveMatchAt - 5000;
+    };
+
     const snapshot = await buildSnapshot({
       profileId,
       cache: statsCache,
@@ -4712,12 +4807,22 @@ async function poll() {
       // Primera fase: roster en pantalla sin esperar al backend. El ELO se
       // muestra como `…` hasta que llega RM 1v1; nunca se usa el ELO del modo.
       onPartial: (partial) => {
+        if (isStaleRestOngoing(partial)) return;
         if (!emit(partial)) return;
         if (partial.status === 'ongoing') {
           log(`partida detectada en ${Date.now() - startedAt}ms · roster en pantalla, pidiendo ELO RM 1v1`);
         }
       },
     });
+
+    if (isStaleRestOngoing(snapshot)) {
+      log(
+        `REST ignorado: reportó partida previa #${snapshot.match?.matchId} como ongoing mientras ya hay sala nueva #${queueWatcher?.matched?.matchId ?? queueWatcher?.pendingMatchId}`,
+      );
+      lastPollAt = Date.now();
+      lastPollStatus = 'lobby';
+      return 'lobby';
+    }
 
     // Mientras hay sala abierta el REST todavía no lista la partida (no
     // empezó): el panel se queda con la sala y no parpadea a "sin partida".
@@ -4739,15 +4844,30 @@ async function poll() {
         snapshot.lastMatch &&
         String(snapshot.lastMatch.matchId ?? '') === String(lastGood.match.matchId ?? ''),
     );
+    if (matchFinished) {
+      preMatchGraceUntil = 0;
+      lobbyGoneAt = 0;
+      liveMatchAt = 0;
+      liveLobbyAt = 0;
+      if (queueWatcher) queueWatcher.clearMatch(lastGood.match.matchId);
+    }
+    // Si el REST dice idle y ya no hay sala activa, reactivar el carril rápido
+    // SIEMPRE antes de cualquier gracia: si hubo dodge o resign rápido y el
+    // jugador vuelve a buscar partida enseguida, la detecta en ~1,5 s.
+    if (snapshot.status === 'idle' && fastLane && !lobbyActive()) {
+      fastLane.resume();
+    }
     const holdingOngoing = Boolean(
       lastGood &&
         lastGood.status === 'ongoing' &&
+        lastGood.phase === 'lobby' &&
         !matchFinished &&
         Date.now() - lastOngoingAt < ONGOING_HOLD_MS,
     );
     if (
       snapshot.status === 'idle' &&
       !showingLive &&
+      !matchFinished &&
       (lobbyActive() || Date.now() < preMatchGraceUntil || holdingOngoing)
     ) {
       // Todavía en la pantalla de carga: el REST no la lista pero el panel ya
@@ -4756,10 +4876,6 @@ async function poll() {
       lastPollStatus = 'lobby';
       return 'idle';
     }
-
-    // Partida terminada (o nunca empezó): el carril rápido vuelve a sondear,
-    // por si el jugador se pone en cola otra vez. Es idempotente.
-    if (snapshot.status === 'idle' && fastLane) fastLane.resume();
 
     // Si el perfil está en modo automático y el usuario cambió de cuenta en Steam
     // con Relic abierto en segundo plano, cambiamos de perfil automáticamente.
@@ -4861,9 +4977,12 @@ function scheduleNext(status) {
   const ongoingMs = hidden ? Math.min(slowMs(), 6000) : slowMs();
   // Si el WebSocket de matchmaking está sano y recibiendo eventos en vivo, no
   // martillamos /api/matches cada 3 s (evita bloqueos HTTP 429 de Companion).
+  // Pero justo al cerrar el lobby (transición a partida en vivo) consultamos
+  // cada 2,5 s durante 30 s para levantar civs y reloj sin demora.
   const wsHealthy = Boolean(queueWatcher && queueWatcher.isHealthy);
-  const idleDelay = wsHealthy ? Math.max(fastMs(), 12000) : Math.max(fastMs(), 4000);
-  const queueDelay = wsHealthy ? Math.max(fastMs(), 5000) : Math.max(fastMs(), 2500);
+  const inLobbyTransition = Boolean(lobbyGoneAt && now - lobbyGoneAt < 30000);
+  const idleDelay = inLobbyTransition ? 2500 : (wsHealthy ? Math.max(fastMs(), 10000) : Math.max(fastMs(), 4000));
+  const queueDelay = inLobbyTransition ? 2500 : (wsHealthy ? Math.max(fastMs(), 4000) : Math.max(fastMs(), 2500));
   const delay = status === 'ongoing' ? ongoingMs : searching ? queueDelay : idleDelay;
   timer = setTimeout(async () => {
     const next = await poll();

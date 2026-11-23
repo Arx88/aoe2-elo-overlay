@@ -1,10 +1,13 @@
 /* Command desk: one dossier per opponent, evidence next to the action. */
 body[data-theme='clasico'], body:not([data-theme]) {
   --font: var(--interface-font);
-  --text: #f0eee8; --muted: #b4b8bf; --accent: #d6b875; --accent-dim: #a99463;
-  --panel-bg: #171b21; --panel-border: #2e353f; --head-border: #2b323b;
+  --text: #edf2f5; --muted: #96a4ad; --accent: #d6b875; --accent-dim: #93815b;
+  --panel-bg: linear-gradient(180deg, rgba(22, 28, 34, 0.96) 0%, rgba(14, 18, 23, 0.96) 100%);
+  --panel-border: rgba(214, 184, 117, 0.28);
+  --panel-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --head-border: rgba(214, 184, 117, 0.16);
   --radius: 12px; --head-transform: none; --foot-transform: none; --foot-spacing: 0;
-  --head-spacing: 0; --foot-color: #a4aaa4;
+  --head-spacing: 0; --foot-color: #8b9aa3;
 }
 #stage { gap: var(--space-2); --fs-micro: .75rem; }
 body { -webkit-font-smoothing: antialiased; }
@@ -19,7 +22,7 @@ body { -webkit-font-smoothing: antialiased; }
 .row .elo { font-size: 19px; font-weight: 650; }
 .row .peak { font-size: 12px; color: var(--muted); }
 #foot { font-size: 11px; letter-spacing: 0; text-transform: none; padding-top: 6px; }
-#scouting { border: 1px solid var(--panel-border); border-radius: var(--radius-surface); padding: 0; background: var(--panel-bg); box-shadow: 0 8px 28px #0004; text-shadow: none; overflow: hidden; }
+#scouting { border: 1px solid var(--panel-border); border-radius: var(--radius-surface); padding: 0; background: var(--panel-bg); box-shadow: var(--panel-shadow); text-shadow: none; overflow: hidden; }
 .scout-head { padding: var(--space-3) var(--space-4) var(--space-2); margin: 0; gap: var(--space-2); }
 .scout-title { display: flex; align-items: center; gap: 8px; font: 600 12px var(--interface-font); letter-spacing: .03em; text-transform: none; }
 .scout-title img { object-fit: contain; }

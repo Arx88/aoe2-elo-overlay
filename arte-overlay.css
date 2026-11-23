@@ -240,3 +240,108 @@ body:is([data-theme="claro"], [data-theme="pergamino"])
   }
   .pm-v2 .pm-medal-stat { grid-column: 2; justify-self: start; text-align: left; align-items: start; }
 }
+
+/* ============ LAUNCHER POSTMATCH REPORT · UNIFIED OBSIDIAN-GOLD SYSTEM (ZERO SHADOW ABUSE) ============ */
+#postMatchReport {
+  border-radius: 12px;
+  border: 1px solid var(--ui-border-gold, rgba(199, 173, 118, 0.2));
+  background: var(--ui-surface, linear-gradient(180deg, #161c22 0%, #0f1318 100%));
+  box-shadow: var(--ui-bevel, inset 0 1px 0 rgba(255, 255, 255, 0.04));
+  padding: 22px 24px;
+}
+#postMatchReport:empty {
+  display: none;
+}
+#postMatchReport .pm-v2 {
+  gap: 16px;
+}
+#postMatchReport .pm-v2 .pm-head,
+#postMatchReport .pm-v2 .pm-opening-bar,
+#postMatchReport .pm-v2 .pm-stage-card,
+#postMatchReport .pm-v2 .pm-verdict-bar,
+#postMatchReport .pm-v2 .pm-chart-card,
+#postMatchReport .pm-v2 .pm-curve-card,
+#postMatchReport .pm-v2 .pm-duel-card,
+#postMatchReport .pm-v2 .pm-duel-face,
+#postMatchReport .pm-v2 .pm-tech-card,
+#postMatchReport .pm-v2 .pm-ages-card,
+#postMatchReport .pm-v2 .pm-workshops-card,
+#postMatchReport .pm-v2 .pm-macro-card,
+#postMatchReport .pm-v2 .pm-focus,
+#postMatchReport .pm-v2 .pm-trophy-banner,
+#postMatchReport .review-combat,
+#postMatchReport .review-execution,
+#postMatchReport .review-arrivals,
+#postMatchReport .review-insights {
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: var(--ui-surface-deep, linear-gradient(180deg, #12171d 0%, #0b0f14 100%)) !important;
+  box-shadow: none !important;
+}
+#postMatchReport .pm-v2 .pm-opening-bar,
+#postMatchReport .pm-v2 .pm-stage-card.grade-S,
+#postMatchReport .pm-v2 .pm-trophy-banner {
+  border-color: rgba(199, 173, 118, 0.28) !important;
+}
+#postMatchReport .pm-v2 .pm-zone {
+  padding: 14px 16px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.075) !important;
+  background: var(--ui-surface-deep, linear-gradient(180deg, #12171d 0%, #0b0f14 100%)) !important;
+  gap: 10px;
+}
+#postMatchReport .pm-v2 .pm-zone-head {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 6px;
+}
+#postMatchReport .pm-v2 :is(.pm-medal-card, .pm-issue-card) {
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: linear-gradient(180deg, rgba(22, 28, 34, 0.72) 0%, rgba(12, 16, 21, 0.88) 100%) !important;
+  box-shadow: none !important;
+}
+#postMatchReport .pm-v2 .pm-medal-card.is-gold {
+  border-color: rgba(214, 184, 117, 0.32) !important;
+  background: linear-gradient(110deg, rgba(199, 173, 118, 0.12) 0%, rgba(15, 19, 24, 0.92) 70%) !important;
+}
+#postMatchReport .pm-v2 .pm-issue-card {
+  border-color: rgba(216, 162, 152, 0.24) !important;
+  background: linear-gradient(110deg, rgba(216, 162, 152, 0.09) 0%, rgba(15, 19, 24, 0.92) 70%) !important;
+}
+#postMatchReport .pm-v2 .pm-tabs {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--ui-surface-deep, #0d1116);
+}
+#postMatchReport .pm-v2 .pm-tab-btn,
+#postMatchReport .pm-v2 [data-pm-tab] {
+  border-radius: 7px;
+  padding: 7px 14px;
+}
+#postMatchReport .pm-v2 [data-pm-tab].active,
+#postMatchReport .pm-v2 .pm-tab-btn.active {
+  background: linear-gradient(180deg, rgba(199, 173, 118, 0.2), rgba(145, 121, 74, 0.12)) !important;
+  border-color: rgba(214, 184, 117, 0.45) !important;
+  color: #f3dfb1 !important;
+}
+#postMatchReport .review-stages {
+  gap: 12px;
+  margin: 16px 0;
+}
+#postMatchReport .review-stage {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--ui-surface-deep, linear-gradient(180deg, #12171d 0%, #0b0f14 100%));
+}
+#postMatchReport .review-skill {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--ui-surface-deep, linear-gradient(180deg, #12171d 0%, #0b0f14 100%));
+  padding: 12px 14px;
+}

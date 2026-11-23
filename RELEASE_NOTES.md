@@ -1,3 +1,13 @@
+## v2.8.0 · Sistema visual Obsidian Gold, Diagnóstico por Civilización, eAPM por Mapa y Detección Blindada
+
+- **Identidad visual Obsidian Gold unificada (Launcher + Overlay default + Postmatch):** gradiente obsidiana oscuro con bordes dorados finos en toda la aplicación, barra superior integrada sin cortes, encabezados limpios en cada sección, sin abuso de sombras y piel predeterminada del overlay (`Clásico`) alineada al mismo lenguaje visual.
+- **Resolución nativa 100 % en monitores 4K / alto DPI:** ventana de Centro de mando ampliada (`1480×940`), barra lateral fija (`248 px`) y grilla fluida con espaciado universal de 8 px.
+- **Central de estadísticas con Diagnóstico por Civilización, eAPM por Mapa y Velo ULTRA:** diagnóstico estadístico bayesiano por civilización (filtro anti-Simpson, control por ELO rival y divergencia reciente vs histórica), promedio de eAPM real por mapa, buscador rediseñado y vista previa con velo elegante para usuarios Free/Pro.
+- **Durante la partida simplificado y Postmatch renovado:** sección Durante enfocada en *Ficha de civilizaciones* y *Smart Build Order*, configuración Postmatch reorganizada en dos columnas e informe completo del motor Postmatch unificado en Obsidian Gold.
+- **Detección de partidas en vivo y rendimiento:** resolución inmediata de partidas rápidas, temporizador exacto de auto-ocultado (`hideAtSeconds`), caché de API con deduplicación en vuelo y reducción de tamaño del instalador.
+
+---
+
 ## v2.7.5 · Estandartes de Relic
 
 - Nuevo arte de la barra lateral y fortaleza con estandartes en la cabecera de Prematch.

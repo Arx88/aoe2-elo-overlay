@@ -74,6 +74,11 @@ const hideWhenMinimizedInput = el('hideWhenMinimized');
 // informe se ve completo.
 const scoutF2Input = el('scoutF2');
 const postMatchInput = el('postMatch');
+const postMatchPopupInput = el('postMatchPopup');
+const postMatchHideInput = el('postMatchHideSeconds');
+const postMatchHideValue = el('postMatchHideSecondsValue');
+const postMatchHideRow = el('postMatchHideRow');
+let postMatchHideTimer = null;
 const postMatchComparisonInput = el('postMatchComparison');
 const postMatchCompareModeInput = el('postMatchCompareMode');
 const postMatchCompareHelp = el('postMatchCompareHelp');
@@ -83,11 +88,13 @@ const postMatchReportEl = el('postMatchReport');
 const postMatchRecentStripEl = el('postMatchRecentStrip');
 const refreshPostMatchBtn = el('refreshPostMatch');
 const centralDashboardEl = el('centralDashboard');
+const centralSearchShellEl = el('centralSearchShell');
 const centralSearchInput = el('centralSearch');
 const centralSearchStateEl = el('centralSearchState');
 const centralSearchClearBtn = el('centralSearchClear');
 const centralSearchBtn = el('centralSearchBtn');
 const centralSearchResultsEl = el('centralSearchResults');
+const accountSearchBoxEl = el('accountSearchBox');
 const centralViewingBarEl = el('centralViewingBar');
 const centralViewingNameEl = el('centralViewingName');
 const centralViewingMetaEl = el('centralViewingMeta');
@@ -183,6 +190,10 @@ function paintHideAt(seconds) {
   hideAtInput.value = String(value);
   hideAtValue.textContent = clock;
   hideAtInput.style.setProperty('--fill', `${((value - 10) / 50) * 100}%`);
+  const hideRow = hideAtInput.closest('.slider-row');
+  const enabled = Boolean(hideEloInput && hideEloInput.checked);
+  if (hideRow) hideRow.classList.toggle('is-disabled', !enabled);
+  hideAtInput.disabled = !enabled;
   enterWindowLabel.textContent = t('overlay.enterWindow', `Al entrar · 0:01 – ${clock}`, { time: clock, seconds: value });
   civHelpDesc.textContent = t('overlay.civHelpDesc', `Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – ${clock}`, { time: clock, seconds: value });
   hideEloName.textContent = t('overlay.hideEloTitle', `Ocultar Overlay ${value} segundos`, { time: clock, seconds: value });
@@ -190,9 +201,10 @@ function paintHideAt(seconds) {
 }
 
 function paintOpacity(value) {
-  const percent = Math.round(value * 100);
+  const percent = Math.min(100, Math.max(15, Math.round(Number(value) * 100) || 95));
+  opacityInput.value = String(percent);
   opacityValue.textContent = `${percent}%`;
-  opacityInput.style.setProperty('--fill', `${percent}%`);
+  opacityInput.style.setProperty('--fill', `${((percent - 15) / 85) * 100}%`);
 }
 
 /* ---------- plan y postmatch ---------- */
@@ -273,16 +285,23 @@ function renderProduct(product) {
     planDescription.textContent = t('plansPage.descFree', 'Las funciones esenciales para conocer la partida y a sus jugadores.');
   }
   const intlLoc = typeof AppI18n === 'object' ? AppI18n.getIntlLocale() : 'es-AR';
-  if (product.subscriptionVerified && product.entitlement && product.entitlement.expiresAt) {
-    const expires = new Date(product.entitlement.expiresAt);
-    const fmtDate = expires.toLocaleDateString(intlLoc, { day: '2-digit', month: 'short', year: 'numeric' });
-    planExpiry.textContent = t('plansPage.expDate', `Vence el ${fmtDate}`, { date: fmtDate });
-  } else if (product.accessSource === 'access-key') {
-    planExpiry.textContent = t('plansPage.expKey', 'Acceso por clave · sin suscripción');
-  } else if (product.plan === 'beta') {
-    planExpiry.textContent = t('plansPage.expBeta', 'Acceso beta · sin suscripción verificada');
-  } else {
-    planExpiry.textContent = t('plansPage.expNone', 'Sin suscripción verificada');
+  const expTs = product.entitlement?.expiresAt || product.expiresAt || null;
+  if (planExpiry) {
+    planExpiry.hidden = false;
+    if ((product.subscriptionVerified || product.plan === 'pro' || product.plan === 'promax') && expTs) {
+      const expires = new Date(expTs);
+      const fmtDate = expires.toLocaleDateString(intlLoc, { day: '2-digit', month: 'short', year: 'numeric' });
+      planExpiry.textContent = t('plansPage.expDate', `Vence el ${fmtDate}`, { date: fmtDate });
+    } else if (product.accessSource === 'access-key') {
+      planExpiry.textContent = t('plansPage.expKey', 'Acceso por clave · sin suscripción');
+    } else if (product.plan === 'beta') {
+      planExpiry.textContent = t('plansPage.expBeta', 'Acceso beta · sin suscripción verificada');
+    } else if (product.plan === 'pro' || product.plan === 'promax') {
+      planExpiry.textContent = '';
+      planExpiry.hidden = true;
+    } else {
+      planExpiry.textContent = t('plansPage.expNone', 'Sin suscripción verificada');
+    }
   }
 
   const activeTierKey = product.plan === 'beta' ? 'promax' : (product.plan || 'free');
@@ -317,6 +336,7 @@ function renderProduct(product) {
     ['smurfDetector', smurfDetectorInput],
     ['smartBuildOrder', smartBuildOrderInput],
     ['postMatch', postMatchInput],
+    ['postMatch', postMatchPopupInput],
     ['postMatchComparison', postMatchComparisonInput],
     ['postMatchReplay', postMatchReplayInput],
   ];
@@ -333,6 +353,7 @@ function renderProduct(product) {
       row.dataset.tier = tierName.toUpperCase();
     }
   }
+  paintPostMatchPopupHide(Number(postMatchHideInput?.value ?? 60));
 
   const commerce = product.commerce || {};
   if (commerceStatus) {
@@ -460,24 +481,48 @@ function paintPostMatch(payload) {
   bindPostMatchTabs(postMatchReportEl);
 }
 
+function smartScrollAndPulse(targetEl, { alwaysScroll = false } = {}) {
+  if (!targetEl) return;
+  const rect = targetEl.getBoundingClientRect();
+  const inView = rect.top >= 72 && rect.bottom <= (window.innerHeight - 24);
+  if (alwaysScroll || !inView) {
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  targetEl.classList.remove('cx-pulse-highlight');
+  void targetEl.offsetWidth;
+  targetEl.classList.add('cx-pulse-highlight');
+  setTimeout(() => targetEl.classList.remove('cx-pulse-highlight'), 1200);
+}
+
 function bindPostMatchTabs(container) {
   if (!container) return;
   const tabs = [...container.querySelectorAll('[data-pm-tab]')];
   const panes = [...container.querySelectorAll('[data-pm-pane]')];
-  if (!tabs.length || !panes.length) return;
+  const activateTab = (target) => {
+    if (!target || !tabs.length || !panes.length) return;
+    tabs.forEach((b) => {
+      const on = b.dataset.pmTab === target;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+    panes.forEach((pane) => {
+      pane.classList.toggle('is-active', pane.dataset.pmPane === target);
+    });
+    applyDataWidths(container);
+  };
   tabs.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.pmTab;
-      if (!target) return;
-      tabs.forEach((b) => {
-        const on = b.dataset.pmTab === target;
-        b.classList.toggle('is-active', on);
-        b.setAttribute('aria-selected', String(on));
-      });
-      panes.forEach((pane) => {
-        pane.classList.toggle('is-active', pane.dataset.pmPane === target);
-      });
-      applyDataWidths(container);
+    btn.addEventListener('click', () => activateTab(btn.dataset.pmTab));
+  });
+
+  // Smart Auto-Scroll en Postmatch: tocar etapa, hallazgo o KPI lleva directo al detalle y pestaña correspondiente
+  container.querySelectorAll('[data-pm-jump-tab], [data-scroll-target]').forEach((card) => {
+    card.addEventListener('click', (event) => {
+      if (event.target.closest('button, a, input, select')) return;
+      const tab = card.dataset.pmJumpTab;
+      if (tab) activateTab(tab);
+      const sel = card.dataset.scrollTarget;
+      const dest = sel ? container.querySelector(sel) : container.querySelector('.pm-deep-dive');
+      if (dest) smartScrollAndPulse(dest);
     });
   });
 }
@@ -498,28 +543,34 @@ let centralEloRange = '30';
 let centralCivSort = 'games';
 let centralMapSort = 'games';
 let centralLmWindow = 10;
+let centralSelectedCivSlug = null;
+let centralCivFilter = '';
+let centralDiagTab = 'maps';
 let centralViewedProfile = null; // null => perfil propio; { profileId, alias } => perfil buscado
 let centralSearchTimer = null;
 let centralSearchToken = 0;
 let centralSearchHits = [];
+let centralSearchActiveIdx = -1;
 
 function syncCentralViewingBanner(payload) {
   if (!centralViewingBarEl) return;
-  const viewingOther = Boolean(payload && payload.ok && payload.isOwnProfile === false);
+  const viewingOther = Boolean(centralViewedProfile) || Boolean(payload && payload.ok && payload.isOwnProfile === false);
   centralViewingBarEl.hidden = !viewingOther;
   if (viewingOther) {
+    const shownId = payload?.profileId || centralViewedProfile?.profileId || '';
+    const shownAlias = payload?.alias || centralViewedProfile?.alias || (shownId ? `Perfil #${shownId}` : 'Perfil');
     if (centralViewingNameEl) {
-      centralViewingNameEl.textContent = payload.alias || `Perfil #${payload.profileId}`;
+      centralViewingNameEl.textContent = shownAlias;
     }
     if (centralViewingMetaEl) {
-      const bits = [`#${payload.profileId}`];
-      if (payload.totalProfileGames) bits.push(`${payload.totalProfileGames} partidas`);
-      bits.push('Tus datos propios siguen intactos');
+      const bits = shownId ? [`#${shownId}`] : [];
+      if (payload?.totalProfileGames) bits.push(`${payload.totalProfileGames} ${t('central.matchesUnit', 'partidas')}`);
+      bits.push(t('central.ownDataIntact', 'Tus datos propios siguen intactos'));
       centralViewingMetaEl.textContent = bits.join(' · ');
     }
     if (centralBackBtn) {
       const ownLabel = lastLoadedInfo?.alias ? ` (${lastLoadedInfo.alias})` : '';
-      centralBackBtn.textContent = `← Volver a mi perfil${ownLabel}`;
+      centralBackBtn.textContent = `${t('central.backToOwn', '← Volver a mi perfil')}${ownLabel}`;
     }
   }
 }
@@ -666,6 +717,65 @@ function bindCentralInteractions() {
     });
   });
 
+  centralDashboardEl.querySelectorAll('[data-diag-civ]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const slug = btn.dataset.diagCiv;
+      if (!slug) return;
+      centralSelectedCivSlug = slug;
+      if (lastCentralPayload) {
+        paintCentral(lastCentralPayload, { preserveMode: true });
+        const panel = centralDashboardEl.querySelector('#cxCivDiagPanel');
+        if (panel) smartScrollAndPulse(panel);
+      }
+    });
+  });
+
+  centralDashboardEl.querySelectorAll('[data-diag-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextTab = btn.dataset.diagTab;
+      if (!nextTab || nextTab === centralDiagTab) return;
+      centralDiagTab = nextTab;
+      if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+    });
+  });
+
+  const civFilterInput = centralDashboardEl.querySelector('#cxCivFilterInput');
+  if (civFilterInput) {
+    const applyCivFilter = () => {
+      const pos = civFilterInput.selectionStart;
+      centralCivFilter = civFilterInput.value;
+      if (lastCentralPayload) {
+        paintCentral(lastCentralPayload, { preserveMode: true });
+        const fresh = centralDashboardEl.querySelector('#cxCivFilterInput');
+        if (fresh) {
+          fresh.focus({ preventScroll: true });
+          if (pos != null) fresh.setSelectionRange(pos, pos);
+        }
+      }
+    };
+    civFilterInput.addEventListener('input', (event) => {
+      if (event.isComposing) return;
+      applyCivFilter();
+    });
+    civFilterInput.addEventListener('compositionend', applyCivFilter);
+  }
+
+  centralDashboardEl.querySelectorAll('[data-goto-plan]').forEach((btn) => {
+    btn.addEventListener('click', () => goTo('plans'));
+  });
+
+  centralDashboardEl.querySelectorAll('[data-scroll-target]').forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      if (trigger.dataset.scrollMapEapm === '1' && centralMapSort !== 'eapm') {
+        centralMapSort = 'eapm';
+        if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+      }
+      const sel = trigger.dataset.scrollTarget;
+      const dest = sel ? centralDashboardEl.querySelector(sel) : null;
+      if (dest) smartScrollAndPulse(dest);
+    });
+  });
+
   centralDashboardEl.querySelectorAll('[data-scout-profile]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const pid = Number(btn.dataset.scoutProfile);
@@ -689,20 +799,30 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
     centralEloRange = '30';
     centralCivSort = 'games';
     centralMapSort = 'games';
+    centralSelectedCivSlug = null;
+    centralCivFilter = '';
+    centralDiagTab = 'maps';
   }
   syncCentralViewingBanner(payload);
   if (!centralDashboardEl || typeof TacticalUI !== 'object' || !TacticalUI.renderCentralDashboard) return;
-  const selectorNames = ['data-central-mode', 'data-elo-range', 'data-civ-sort', 'data-map-sort', 'data-lm-window'];
+  const selectorNames = ['data-central-mode', 'data-elo-range', 'data-civ-sort', 'data-map-sort', 'data-lm-window', 'data-diag-tab'];
   const active = document.activeElement;
   const focusAttribute = preserveMode && centralDashboardEl.contains(active)
-    ? selectorNames.find(name => active.hasAttribute(name)) : null;
+    ? selectorNames.find((name) => active.hasAttribute(name)) : null;
   const focusValue = focusAttribute ? active.getAttribute(focusAttribute) : null;
+  const currentIsUltra = currentProduct
+    ? (currentProduct.plan === 'promax' || currentProduct.plan === 'beta')
+    : (payload?.isUltra === true);
   centralDashboardEl.innerHTML = TacticalUI.renderCentralDashboard(payload, {
     activeModeId: centralActiveModeId,
     eloRange: centralEloRange,
     civSort: centralCivSort,
     mapSort: centralMapSort,
     lmWindow: centralLmWindow,
+    selectedCivSlug: centralSelectedCivSlug,
+    civFilter: centralCivFilter,
+    diagTab: centralDiagTab,
+    isUltra: currentIsUltra,
   });
   if (animateSwap || Number(prevPid) !== Number(payload?.profileId)) {
     centralDashboardEl.classList.remove('cx-swap');
@@ -717,12 +837,44 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   bindRecentMatchClicks(centralDashboardEl, { jumpToPostmatch: true });
 }
 
+function setCentralSearchLoading(on, { disableButton = false } = {}) {
+  centralSearchShellEl?.classList.toggle('is-searching', Boolean(on));
+  if (centralSearchBtn) centralSearchBtn.disabled = Boolean(on && disableButton);
+}
+
 function closeCentralSearchDropdown() {
+  clearTimeout(centralSearchTimer);
+  centralSearchToken += 1;
+  setCentralSearchLoading(false);
   if (centralSearchResultsEl) {
     centralSearchResultsEl.replaceChildren();
     centralSearchResultsEl.hidden = true;
   }
   centralSearchHits = [];
+  centralSearchActiveIdx = -1;
+}
+
+function renderCentralSearchFeedback({ kind = 'loading', text = '', query = '' } = {}) {
+  if (!centralSearchResultsEl) return;
+  centralSearchResultsEl.replaceChildren();
+  centralSearchResultsEl.hidden = false;
+  const row = document.createElement('div');
+  row.className = `central-search-feedback is-${kind}`;
+  if (kind === 'loading') {
+    row.innerHTML = `<span class="search-spinner is-inline" aria-hidden="true"></span><span>${escapeHtml(text || `Buscando "${query}"…`)}</span>`;
+  } else if (kind === 'error') {
+    const msg = document.createElement('span');
+    msg.textContent = text || 'No se pudo consultar AoE2 Companion.';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'link-btn';
+    retry.textContent = 'Reintentar';
+    retry.addEventListener('click', () => executeCentralSearch(query));
+    row.append(msg, retry);
+  } else {
+    row.textContent = text || `Sin resultados para "${query}". Probá otro nombre o pegá el #ID.`;
+  }
+  centralSearchResultsEl.append(row);
 }
 
 function renderCentralSearchResults() {
@@ -733,11 +885,12 @@ function renderCentralSearchResults() {
     return;
   }
   centralSearchResultsEl.hidden = false;
-  centralSearchHits.forEach((profile) => {
+  centralSearchHits.forEach((profile, idx) => {
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'result central-search-row';
+    row.className = `result central-search-row${idx === centralSearchActiveIdx ? ' active' : ''}`;
     row.setAttribute('role', 'option');
+    row.setAttribute('aria-selected', String(idx === centralSearchActiveIdx));
 
     const avatar = document.createElement('span');
     avatar.className = 'result-avatar';
@@ -769,9 +922,50 @@ function renderCentralSearchResults() {
   });
 }
 
+async function executeCentralSearch(rawQuery) {
+  const query = String(rawQuery || '').trim();
+  if (query.length < 2) return;
+  const token = ++centralSearchToken;
+  setCentralSearchLoading(true, { disableButton: true });
+  if (centralSearchStateEl) centralSearchStateEl.textContent = 'Buscando…';
+  renderCentralSearchFeedback({ kind: 'loading', query });
+  try {
+    const response = await window.settings.search(query);
+    if (token !== centralSearchToken) return;
+    setCentralSearchLoading(false);
+    if (!response?.ok) {
+      centralSearchHits = [];
+      centralSearchActiveIdx = -1;
+      if (centralSearchStateEl) centralSearchStateEl.textContent = 'Error';
+      renderCentralSearchFeedback({ kind: 'error', text: response?.error || 'Error de red al buscar.', query });
+      return;
+    }
+    const list = Array.isArray(response.results) ? response.results.slice(0, 8) : [];
+    if (!list.length) {
+      centralSearchHits = [];
+      centralSearchActiveIdx = -1;
+      if (centralSearchStateEl) centralSearchStateEl.textContent = '0 resultados';
+      renderCentralSearchFeedback({ kind: 'empty', query });
+      return;
+    }
+    centralSearchHits = list;
+    centralSearchActiveIdx = 0;
+    if (centralSearchStateEl) centralSearchStateEl.textContent = `${centralSearchHits.length} ${centralSearchHits.length === 1 ? 'jugador' : 'jugadores'}`;
+    renderCentralSearchResults();
+  } catch (err) {
+    if (token !== centralSearchToken) return;
+    setCentralSearchLoading(false);
+    centralSearchHits = [];
+    centralSearchActiveIdx = -1;
+    if (centralSearchStateEl) centralSearchStateEl.textContent = 'Error';
+    renderCentralSearchFeedback({ kind: 'error', text: err?.message || 'Error de conexión.', query });
+  }
+}
+
 async function openCentralProfile(target) {
   clearTimeout(centralSearchTimer);
   centralSearchToken += 1;
+  setCentralSearchLoading(false);
   closeCentralSearchDropdown();
   if (centralSearchInput) centralSearchInput.value = '';
   if (centralSearchStateEl) centralSearchStateEl.textContent = '';
@@ -789,6 +983,7 @@ async function openCentralProfile(target) {
 
 async function runCentralSearchNow() {
   if (!centralSearchInput) return;
+  clearTimeout(centralSearchTimer);
   const query = centralSearchInput.value.trim();
   if (!query) return;
   const numeric = parseNumeric(query);
@@ -796,25 +991,14 @@ async function runCentralSearchNow() {
     openCentralProfile({ profileId: Number(numeric), alias: null });
     return;
   }
-  if (centralSearchHits.length) {
-    const first = centralSearchHits[0];
-    const displayName = first.clan ? `${first.clan} | ${first.name}` : first.name;
-    openCentralProfile({ profileId: first.profileId, alias: displayName });
+  if (centralSearchHits.length && centralSearchActiveIdx >= 0 && centralSearchHits[centralSearchActiveIdx]) {
+    const picked = centralSearchHits[centralSearchActiveIdx];
+    const displayName = picked.clan ? `${picked.clan} | ${picked.name}` : picked.name;
+    openCentralProfile({ profileId: picked.profileId, alias: displayName });
     return;
   }
   if (query.length < 2) return;
-  const token = ++centralSearchToken;
-  if (centralSearchStateEl) centralSearchStateEl.textContent = 'Buscando…';
-  const response = await window.settings.search(query);
-  if (token !== centralSearchToken) return;
-  if (!response?.ok || !Array.isArray(response.results) || !response.results.length) {
-    if (centralSearchStateEl) centralSearchStateEl.textContent = 'Sin resultados';
-    closeCentralSearchDropdown();
-    return;
-  }
-  centralSearchHits = response.results.slice(0, 8);
-  if (centralSearchStateEl) centralSearchStateEl.textContent = `${centralSearchHits.length}`;
-  renderCentralSearchResults();
+  await executeCentralSearch(query);
 }
 
 async function loadCentral(force = false, { animateSwap = false } = {}) {
@@ -855,6 +1039,9 @@ centralBackBtn?.addEventListener('click', () => openCentralProfile(null));
 centralSearchBtn?.addEventListener('click', () => runCentralSearchNow());
 
 centralSearchClearBtn?.addEventListener('click', () => {
+  clearTimeout(centralSearchTimer);
+  centralSearchToken += 1;
+  setCentralSearchLoading(false);
   if (centralSearchInput) centralSearchInput.value = '';
   if (centralSearchStateEl) centralSearchStateEl.textContent = '';
   centralSearchClearBtn.hidden = true;
@@ -866,49 +1053,55 @@ centralSearchInput?.addEventListener('input', () => {
   clearTimeout(centralSearchTimer);
   if (centralSearchClearBtn) centralSearchClearBtn.hidden = !query;
   if (query.length < 2) {
+    centralSearchToken += 1;
+    setCentralSearchLoading(false);
     if (centralSearchStateEl) centralSearchStateEl.textContent = '';
     closeCentralSearchDropdown();
     return;
   }
   const numeric = parseNumeric(query);
   if (numeric) {
+    centralSearchToken += 1;
+    setCentralSearchLoading(false);
     if (centralSearchStateEl) centralSearchStateEl.textContent = 'Enter para abrir ID';
     closeCentralSearchDropdown();
     return;
   }
-  const token = ++centralSearchToken;
+  centralSearchHits = [];
+  centralSearchActiveIdx = -1;
   if (centralSearchStateEl) centralSearchStateEl.textContent = 'Buscando…';
-  centralSearchTimer = setTimeout(async () => {
-    const response = await window.settings.search(query);
-    if (token !== centralSearchToken) return;
-    if (!response?.ok || !Array.isArray(response.results) || !response.results.length) {
-      if (centralSearchStateEl) centralSearchStateEl.textContent = 'Sin resultados';
-      closeCentralSearchDropdown();
-      return;
-    }
-    centralSearchHits = response.results.slice(0, 8);
-    if (centralSearchStateEl) centralSearchStateEl.textContent = `${centralSearchHits.length} resultados`;
-    renderCentralSearchResults();
-  }, 260);
+  setCentralSearchLoading(true);
+  renderCentralSearchFeedback({ kind: 'loading', query });
+  centralSearchTimer = setTimeout(() => executeCentralSearch(query), 240);
 });
 
 centralSearchInput?.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
-    closeCentralSearchDropdown();
+    if (centralSearchResultsEl && !centralSearchResultsEl.hidden) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeCentralSearchDropdown();
+      if (centralSearchStateEl) centralSearchStateEl.textContent = '';
+    }
+    return;
+  }
+  if (event.key === 'ArrowDown') {
+    if (!centralSearchHits.length) return;
+    event.preventDefault();
+    centralSearchActiveIdx = (centralSearchActiveIdx + 1) % centralSearchHits.length;
+    renderCentralSearchResults();
+    return;
+  }
+  if (event.key === 'ArrowUp') {
+    if (!centralSearchHits.length) return;
+    event.preventDefault();
+    centralSearchActiveIdx = (centralSearchActiveIdx - 1 + centralSearchHits.length) % centralSearchHits.length;
+    renderCentralSearchResults();
     return;
   }
   if (event.key === 'Enter') {
     event.preventDefault();
-    const numeric = parseNumeric(centralSearchInput.value.trim());
-    if (numeric) {
-      openCentralProfile({ profileId: Number(numeric), alias: null });
-      return;
-    }
-    if (centralSearchHits.length) {
-      const first = centralSearchHits[0];
-      const displayName = first.clan ? `${first.clan} | ${first.name}` : first.name;
-      openCentralProfile({ profileId: first.profileId, alias: displayName });
-    }
+    runCentralSearchNow();
   }
 });
 
@@ -1068,9 +1261,10 @@ civHelpTipYes.addEventListener('click', async () => {
   paintHideAt(response.hideAtSeconds);
   setStatus('Ayuda de civ: visible hasta 0:40');
 });
-hideEloInput.addEventListener('change', () =>
-  applyToggle(hideEloInput, (on) => window.settings.hideEloAt20(on), hideEloName.textContent || 'Ocultar Overlay'),
-);
+hideEloInput.addEventListener('change', async () => {
+  await applyToggle(hideEloInput, (on) => window.settings.hideEloAt20(on), hideEloName.textContent || 'Ocultar Overlay');
+  paintHideAt(Number(hideAtInput.value) || 20);
+});
 
 hideAtInput.addEventListener('input', () => {
   const value = Number(hideAtInput.value);
@@ -1116,12 +1310,40 @@ scoutF2Input.addEventListener('change', () =>
   applyToggle(scoutF2Input, (on) => window.settings.scoutF2(on), 'Resumen con F2'),
 );
 
+function paintPostMatchPopupHide(seconds) {
+  const secs = Number(seconds);
+  const clean = Number.isFinite(secs) ? (secs <= 0 ? 0 : Math.min(180, Math.max(10, Math.round(secs)))) : 60;
+  if (postMatchHideInput) {
+    postMatchHideInput.value = String(clean);
+    postMatchHideInput.style.setProperty('--fill', `${(clean / 180) * 100}%`);
+  }
+  if (postMatchHideValue) {
+    postMatchHideValue.textContent = clean <= 0
+      ? t('postmatchPage.hideManual', 'Manual')
+      : clockShort(clean);
+  }
+  const allowed = !currentProduct || Boolean(currentProduct.featureAccess?.postMatch);
+  const masterOn = !postMatchInput || Boolean(postMatchInput.checked);
+  if (postMatchPopupInput) {
+    postMatchPopupInput.disabled = !(allowed && masterOn);
+    const popupRow = postMatchPopupInput.closest('.row');
+    if (popupRow) popupRow.classList.toggle('is-disabled', allowed && !masterOn);
+  }
+  if (postMatchHideRow && postMatchPopupInput) {
+    const enabled = allowed && masterOn && Boolean(postMatchPopupInput.checked);
+    postMatchHideRow.classList.toggle('is-disabled', !enabled);
+    if (postMatchHideInput) postMatchHideInput.disabled = !enabled;
+  }
+}
+
 // Postmatch: resultado Free; comparación y replay se validan en main.
 for (const [key, input, label] of [
   ['postMatch', postMatchInput, 'Resumen postmatch'],
+  ['postMatchPopup', postMatchPopupInput, 'Popup postmatch'],
   ['postMatchComparison', postMatchComparisonInput, 'Comparar mi evolución'],
   ['postMatchReplay', postMatchReplayInput, 'Análisis del replay y APM'],
 ]) {
+  if (!input) continue;
   input.addEventListener('change', async () => {
     try {
       await applyToggle(input, (on) => window.settings.postMatchOption(key, on), label);
@@ -1130,6 +1352,27 @@ for (const [key, input, label] of [
       setStatus(error.message || 'No se pudo actualizar la opción.', true);
     }
     if (input === postMatchComparisonInput) paintPostmatchReference();
+    if (input === postMatchPopupInput || input === postMatchInput) {
+      paintPostMatchPopupHide(Number(postMatchHideInput?.value ?? 60));
+    }
+  });
+}
+if (postMatchHideInput) {
+  postMatchHideInput.addEventListener('input', () => {
+    const value = Number(postMatchHideInput.value);
+    paintPostMatchPopupHide(value);
+    clearTimeout(postMatchHideTimer);
+    postMatchHideTimer = setTimeout(async () => {
+      const result = await window.settings.postMatchOption('postMatchHideSeconds', value);
+      if (!result?.ok) {
+        setStatus(result?.error || 'No se pudo guardar el tiempo del popup.', true);
+        return;
+      }
+      paintPostMatchPopupHide(result.value);
+      setStatus(result.value > 0
+        ? t('postmatchPage.hideSaved', `Popup postmatch: se oculta a los ${result.value}s`, { s: result.value })
+        : t('postmatchPage.hideManualSaved', 'Popup postmatch: visible hasta la próxima partida'));
+    }, 120);
   });
 }
 if (postMatchCompareModeInput) {
@@ -1172,7 +1415,11 @@ window.settings.onCentral?.((payload) => {
   if (visibleId ? Number(payload.profileId) !== Number(visibleId) : payload.isOwnProfile === false) return;
   paintCentral(payload, { preserveMode: true });
 });
-window.settings.onProduct((product) => { renderProduct(product); loadTactics(); });
+window.settings.onProduct((product) => {
+  renderProduct(product);
+  loadTactics();
+  if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
+});
 window.settings.onTactics((payload) => paintTactics(payload));
 window.settings.onBuildOrder((payload) => paintBuildOrder(payload));
 
@@ -1322,9 +1569,13 @@ function paintAccountHeader(info) {
   if (!info) return;
   currentProfileId = info.profileId || null;
   el('accountProfile').classList.toggle('has-profile', Boolean(currentProfileId));
-  el('accountHint').textContent = currentProfileId
-    ? t('account.hintLinked', 'El overlay usa tu perfil para reconocerte en la partida y mostrar tu ELO de RM 1v1.')
-    : t('account.hintEmpty', 'Detectá tu perfil del juego o buscá tu nombre abajo para activar el overlay.');
+  const hintEl = el('accountHint');
+  if (hintEl) {
+    hintEl.hidden = false;
+    hintEl.textContent = currentProfileId
+      ? t('account.hintLinked', 'El overlay usa tu perfil para reconocerte en la partida y mostrar tu ELO de RM 1v1.')
+      : t('account.hintEmpty', 'Detecta tu perfil del juego o busca tu nombre abajo para activar el overlay.');
+  }
   if (info.profileId) {
     currentName.textContent = info.alias || `${t('account.profilePrefix', 'Perfil')} ${info.profileId}`;
     currentId.textContent = `#${info.profileId}`;
@@ -1369,6 +1620,8 @@ async function loadCurrent() {
   if (smurfDetectorInput) smurfDetectorInput.checked = Boolean(info.smurfDetector);
   if (hideWhenMinimizedInput) hideWhenMinimizedInput.checked = Boolean(info.hideWhenMinimized);
   postMatchInput.checked = info.postMatch !== false;
+  if (postMatchPopupInput) postMatchPopupInput.checked = info.postMatchPopup !== false;
+  paintPostMatchPopupHide(info.postMatchHideSeconds != null ? Number(info.postMatchHideSeconds) : 60);
   postMatchComparisonInput.checked = Boolean(info.postMatchComparison);
   if (postMatchCompareModeInput) {
     savedPostMatchCompareMode = [...postMatchCompareModeInput.options].some((option) => option.value === info.postMatchCompareMode)
@@ -1483,6 +1736,8 @@ searchInput.addEventListener('input', () => {
   activeIndex = -1;
 
   if (query.length < 2) {
+    searchToken += 1;
+    accountSearchBoxEl?.classList.remove('is-searching');
     results = [];
     renderResults();
     paintSearchState('');
@@ -1493,6 +1748,8 @@ searchInput.addEventListener('input', () => {
 
   // Un ID numérico se usa directo: no se busca por nombre.
   if (parseNumeric(query)) {
+    searchToken += 1;
+    accountSearchBoxEl?.classList.remove('is-searching');
     results = [];
     renderResults();
     paintSearchState('ID listo');
@@ -1502,26 +1759,37 @@ searchInput.addEventListener('input', () => {
   }
 
   const token = ++searchToken;
+  accountSearchBoxEl?.classList.add('is-searching');
   paintSearchState('Buscando…');
   searchTimer = setTimeout(async () => {
-    const response = await window.settings.search(query);
-    if (token !== searchToken) return;
-    if (!response.ok) {
+    try {
+      const response = await window.settings.search(query);
+      if (token !== searchToken) return;
+      if (!response?.ok) {
+        results = [];
+        renderResults();
+        paintSearchState('Error al buscar');
+        setStatus(response?.error || 'No se pudo buscar', true);
+        return;
+      }
+      results = response.results || [];
+      activeIndex = results.length ? 0 : -1;
+      renderResults();
+      paintSearchState(
+        results.length ? `${results.length} resultado${results.length === 1 ? '' : 's'}` : 'Sin resultados',
+      );
+      paintSearchHelp(Boolean(results.length));
+      setStatus('');
+    } catch (err) {
+      if (token !== searchToken) return;
       results = [];
       renderResults();
-      paintSearchState('Sin resultados');
-      setStatus(response.error || 'No se pudo buscar', true);
-      return;
+      paintSearchState('Error al buscar');
+      setStatus(err?.message || 'Error de conexión al buscar', true);
+    } finally {
+      if (token === searchToken) accountSearchBoxEl?.classList.remove('is-searching');
     }
-    results = response.results;
-    activeIndex = results.length ? 0 : -1;
-    renderResults();
-    paintSearchState(
-      results.length ? `${results.length} resultado${results.length === 1 ? '' : 's'}` : 'Sin resultados',
-    );
-    paintSearchHelp(Boolean(results.length));
-    setStatus('');
-  }, 320);
+  }, 260);
 });
 
 searchInput.addEventListener('keydown', (event) => {
@@ -1569,6 +1837,25 @@ autoBtn.addEventListener('click', async () => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  const feedbackModal = el('feedbackModal');
+  if (feedbackModal && !feedbackModal.hidden) {
+    closeFeedbackModal();
+    return;
+  }
+  const prefsPop = el('appPrefsPopover');
+  if (prefsPop && !prefsPop.hidden) {
+    setPrefsPopover(false);
+    return;
+  }
+  const wizardOverlay = el('setupWizard');
+  if (wizardOverlay && !wizardOverlay.hidden) {
+    return;
+  }
+  if (centralSearchResultsEl && !centralSearchResultsEl.hidden) {
+    closeCentralSearchDropdown();
+    if (centralSearchStateEl) centralSearchStateEl.textContent = '';
+    return;
+  }
   if (!civHelpTip.hidden) {
     closeCivHelpTip();
     return;
@@ -1607,8 +1894,9 @@ function goTo(page) {
     else button.removeAttribute('aria-current');
   }
   const railProfile = el('railUser');
+  const navPlansBtn = el('navPlans');
   if (railProfile) {
-    const isAcct = page === 'player' || page === 'plans';
+    const isAcct = page === 'player' || (page === 'plans' && Boolean(navPlansBtn && navPlansBtn.hidden));
     railProfile.classList.toggle('active', isAcct);
     if (isAcct) railProfile.setAttribute('aria-current', 'page');
     else railProfile.removeAttribute('aria-current');
@@ -2041,12 +2329,6 @@ document.addEventListener('click', (event) => {
     setPrefsPopover(false);
   }
 });
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') {
-    setPrefsPopover(false);
-    closeFeedbackModal();
-  }
-});
 
 function syncWizardAccount(info) {
   lastAccountInfo = { profileId: info?.profileId || null, alias: info?.alias || null };
@@ -2185,17 +2467,26 @@ el('wizDetectBtn')?.addEventListener('click', async () => {
 });
 
 let wizSearchTimer = null;
+let wizSearchToken = 0;
 el('wizSearch')?.addEventListener('input', () => {
   clearTimeout(wizSearchTimer);
   const q = el('wizSearch').value.trim();
   const box = el('wizResults');
   if (!box) return;
-  if (q.length < 2) { box.replaceChildren(); return; }
+  if (q.length < 2) { wizSearchToken += 1; box.replaceChildren(); return; }
+  const token = ++wizSearchToken;
+  box.innerHTML = `<div class="central-search-feedback is-loading"><span class="search-spinner is-inline" aria-hidden="true"></span><span>Buscando "${escapeHtml(q)}"…</span></div>`;
   wizSearchTimer = setTimeout(async () => {
     try {
-      const list = await window.settings.search(q);
+      const response = await window.settings.search(q);
+      if (token !== wizSearchToken) return;
+      const list = Array.isArray(response) ? response : (Array.isArray(response?.results) ? response.results : []);
       box.replaceChildren();
-      for (const p of (list || []).slice(0, 5)) {
+      if (!list.length) {
+        box.innerHTML = `<div class="central-search-feedback is-empty">Sin resultados para "${escapeHtml(q)}".</div>`;
+        return;
+      }
+      for (const p of list.slice(0, 5)) {
         const row = document.createElement('div');
         row.className = 'result';
         row.innerHTML = `<span class="result-avatar">${escapeHtml(initialsOf(p.name))}</span>
@@ -2203,14 +2494,20 @@ el('wizSearch')?.addEventListener('input', () => {
           <span class="tag">#${escapeHtml(p.profileId)}</span></span>`;
         row.addEventListener('click', async () => {
           const picked = await window.settings.pick(p.profileId);
-          syncWizardAccount(picked || { profileId: p.profileId, alias: p.name });
+          if (!picked?.ok) {
+            setStatus(picked?.error || 'No se pudo guardar ese perfil.', true);
+            return;
+          }
+          syncWizardAccount(picked);
           box.replaceChildren();
           await loadCurrent();
         });
         box.appendChild(row);
       }
-    } catch (_) { /* ignore */ }
-  }, 260);
+    } catch (_) {
+      if (token === wizSearchToken) box.innerHTML = '<div class="central-search-feedback is-error">Error al buscar.</div>';
+    }
+  }, 240);
 });
 
 paintThemes();
@@ -2291,8 +2588,8 @@ loadCurrent();
       if (wizSignedIn) wizSignedIn.hidden = true;
       if (railUserBtn) railUserBtn.classList.remove('is-signed');
       if (railUserAvatar) railUserAvatar.textContent = 'G';
-      if (railUserName) railUserName.textContent = t('account.googleBtn', 'Continuar con Google');
-      if (railUserSub) railUserSub.textContent = t('account.notSignedIn', 'Sin sesión iniciada');
+      if (railUserName) railUserName.textContent = t('account.signInRail', 'Iniciar sesión');
+      if (railUserSub) railUserSub.textContent = t('account.signInRailSub', 'Google · sincronizá tu plan');
       renderWizardStep();
       return;
     }
@@ -2411,8 +2708,6 @@ loadCurrent();
     await triggerGoogleLogout();
     await triggerGoogleLogin();
   });
-
-  railUserBtn?.addEventListener('click', () => goTo('player'));
 
   redeemForm?.addEventListener('submit', async (ev) => {
     ev.preventDefault();

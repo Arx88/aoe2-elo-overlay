@@ -454,53 +454,53 @@ body.moving #panel * {
   display: none;
 }
 
-/* ============ 1) Clásico: pergamino oscuro y dorado (default) ============ */
+/* ============ 1) Clásico: Obsidian Gold — tema oficial de Relic (default) ============ */
 body,
 body[data-theme='clasico'] {
-  --font: 'Georgia', 'Times New Roman', serif;
-  --text: #f3ead8;
+  --font: var(--interface-font);
+  --text: #edf2f5;
   --strong: #ffffff;
-  --muted: #a99b83;
-  --accent: #d9b26a;
-  --accent-dim: #8d7442;
-  --panel-bg: linear-gradient(180deg, rgba(22, 17, 12, 0.94), rgba(14, 11, 8, 0.9));
-  --panel-border: rgba(217, 178, 106, 0.38);
-  --panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --panel-blur: blur(3px);
-  --radius: 0.6rem;
-  --panel-pad: 0.55rem 0.75rem 0.5rem;
-  --rows-pad: 0.3rem;
-  --row-gap: 0.45rem;
-  --row-pad: 0.18rem 0;
-  --row-radius: 0;
-  --you-bg: transparent;
-  --name-size: 0.92rem;
-  --head-size: 0.78rem;
-  --head-weight: 400;
-  --head-spacing: 0.14em;
+  --muted: #96a4ad;
+  --accent: #d6b875;
+  --accent-dim: #93815b;
+  --panel-bg: linear-gradient(180deg, rgba(22, 28, 34, 0.96) 0%, rgba(14, 18, 23, 0.96) 100%);
+  --panel-border: rgba(214, 184, 117, 0.28);
+  --panel-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --panel-blur: blur(6px);
+  --radius: 12px;
+  --panel-pad: 0.62rem 0.82rem 0.54rem;
+  --rows-pad: 0.28rem;
+  --row-gap: 0.46rem;
+  --row-pad: 0.24rem 0.34rem;
+  --row-radius: 8px;
+  --you-bg: linear-gradient(90deg, rgba(214, 184, 117, 0.11), rgba(214, 184, 117, 0.02));
+  --name-size: 0.94rem;
+  --head-size: 0.72rem;
+  --head-weight: 600;
+  --head-spacing: 0.12em;
   --head-transform: uppercase;
-  --head-border: rgba(217, 178, 106, 0.22);
-  --badge-bg: #d9b26a;
-  --badge-color: #10100f;
-  --badge-size: 0.62rem;
-  --badge-radius: 3px;
+  --head-border: rgba(214, 184, 117, 0.16);
+  --badge-bg: #d6b875;
+  --badge-color: #0e1217;
+  --badge-size: 0.6rem;
+  --badge-radius: 5px;
   --shield-size: 1.32rem;
   --shield-filter: none;
-  --shield-opacity: 0.96;
-  --elo-size: 1.05rem;
-  --elo-weight: 400;
+  --shield-opacity: 0.98;
+  --elo-size: 1.04rem;
+  --elo-weight: 650;
   --rank-size: 0.68rem;
   --peak-size: 0.7rem;
-  --dot-ring: rgba(255, 255, 255, 0.22);
-  --sep-bg: linear-gradient(90deg, transparent, rgba(217, 178, 106, 0.35), transparent);
-  --sep-margin: 0.3rem 0 0.2rem;
-  --foot-border: rgba(217, 178, 106, 0.16);
-  --foot-color: #8d7442;
+  --dot-ring: rgba(255, 255, 255, 0.2);
+  --sep-bg: linear-gradient(90deg, transparent, rgba(214, 184, 117, 0.26), transparent);
+  --sep-margin: 0.32rem 0 0.22rem;
+  --foot-border: rgba(214, 184, 117, 0.14);
+  --foot-color: #8b9aa3;
   --foot-size: 0.62rem;
-  --foot-spacing: 0.08em;
+  --foot-spacing: 0.07em;
   --foot-transform: uppercase;
   --credit-size: 0.58rem;
-  --credit-color: rgba(217, 178, 106, 0.62);
+  --credit-color: rgba(214, 184, 117, 0.65);
 }
 
 /* ============ 2) Noche: oscuro moderno, sin adornos ============ */

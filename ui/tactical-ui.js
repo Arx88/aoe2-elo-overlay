@@ -1136,7 +1136,9 @@
           ? `<strong class="pm-grade-stamp${ready ? ` grade-${s.grade}` : ''}">${ready ? esc(s.grade) : '—'}</strong>`
           : (ready && sd ? `<strong class="pm-grade-stamp">${sd.betterThanPct}%</strong>` : '<strong class="pm-grade-stamp">—</strong>');
         const tileTone = ready && showCommunity ? (STAGE_TONE[s.grade] || 'is-slate') : 'is-slate';
-        return `<article class="pm-stage-card${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}"${s.tip ? ` title="${esc(s.tip)}"` : ''}>
+        const stageJumpTab = s.id === 'imperial' ? 'evo' : 'duel';
+        const stageJumpSel = s.id === 'imperial' ? '.pm-habits' : '.pm-race-box, .pm-duel';
+        return `<article class="pm-stage-card is-jumpable${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}" data-pm-jump-tab="${stageJumpTab}" data-scroll-target="${stageJumpSel}"${s.tip ? ` title="${esc(s.tip)}"` : ''}>
           <div class="pm-stage-top">
             <span class="pm-icon-tile ${tileTone} sm">${reportIcon(s.id)}</span>
             <div class="pm-stage-head">
@@ -1184,6 +1186,14 @@
         </div>`
       : '';
 
+    const jumpInfoForNarrative = (item) => {
+      const txt = `${item?.id || ''} ${item?.domain || ''} ${item?.title || ''}`.toLowerCase();
+      if (/eapm|apm|ritmo|stamina|micro|late/.test(txt)) return { tab: 'evo', sel: '.pm-habits' };
+      if (/feudal|castill|imperial|edad|apertura|opening/.test(txt)) return { tab: 'duel', sel: '.pm-race-box, .pm-duel' };
+      if (/herrer|blacksmith|eco|mejora|tech|mercado|market|edif|producc/.test(txt)) return { tab: 'tech', sel: '.pm-tech-box, .pm-queue-box' };
+      return { tab: 'evo', sel: '.pm-kpi-grid' };
+    };
+
     const medalCards = medalsList.length
       ? medalsList.map((m) => {
         const isGold = m.tier === 'gold';
@@ -1191,7 +1201,8 @@
         const badgeName = m.badgeName && m.badgeName !== m.title ? `<span class="pm-medal-name">${esc(m.badgeName)}</span>` : '';
         const metricChip = m.metric ? `<strong class="pm-medal-metric">${esc(m.metric)}</strong>` : '';
         const deltaChip = m.delta ? `<small class="pm-medal-delta">${esc(m.delta)}</small>` : '';
-        return `<article class="pm-medal-card ${isGold ? 'is-gold' : 'is-green'}">
+        const jmp = jumpInfoForNarrative(m);
+        return `<article class="pm-medal-card is-jumpable ${isGold ? 'is-gold' : 'is-green'}" data-pm-jump-tab="${jmp.tab}" data-scroll-target="${jmp.sel}">
           <span class="pm-icon-tile ${isGold ? 'is-gold' : 'is-emerald'} sm">${postmatchEmblem(m.domain === 'macro_tc' ? 'clock' : (m.icon || 'medal'))}</span>
           <div class="pm-medal-body">
             ${tagText || badgeName ? `<div class="pm-medal-kicker">${tagText ? `<span class="pm-medal-tag">${esc(tagText)}</span>` : ''}${badgeName}</div>` : ''}
@@ -1206,7 +1217,8 @@
     const issueCards = issuesList.length
       ? issuesList.map((n) => {
         const metricChip = n.metric ? `<strong class="pm-issue-metric">${esc(n.metric)}</strong>` : '';
-        return `<article class="pm-issue-card">
+        const jmp = jumpInfoForNarrative(n);
+        return `<article class="pm-issue-card is-jumpable" data-pm-jump-tab="${jmp.tab}" data-scroll-target="${jmp.sel}">
           <span class="pm-icon-tile is-rose sm">${postmatchEmblem(n.icon || 'target')}</span>
           <div class="pm-issue-body">
             <div class="pm-issue-top"><b>${esc(n.title)}</b></div>
@@ -1241,7 +1253,7 @@
       : evo?.sampleSize > 0
         ? tr('postmatch.evolutionTitle', `Tu evolución · vs tus últimas ${number(evo.sampleSize)} partidas`, { n: number(evo.sampleSize) })
         : tr('postmatch.evolutionFirst', 'Tu rendimiento · primera referencia local');
-    const evoCard = (item, mainVal, suffix, invert = false, customNote = null) => {
+    const evoCard = (item, mainVal, suffix, invert = false, customNote = null, jump = null) => {
       const tone = !showPersonal || !item || item.delta == null || item.delta === 0
         ? 'neutral'
         : ((invert ? item.delta < 0 : item.delta > 0) ? 'win' : 'loss');
@@ -1254,7 +1266,8 @@
           : item?.sampleSize >= 2 && item.betterThanPct != null
             ? `<small>${esc(tr('postmatch.betterThan', `Mejor que el ${item.betterThanPct}% de tus ${item.sampleSize} previas`, { pct: item.betterThanPct, n: item.sampleSize }))}</small>`
             : `<small>${item?.median != null ? esc(tr('postmatch.yourAvg', `Tu media: ${suffix === ' s' ? fmtIdle(item.median) : `${dec(item.median, suffix === '/m' ? 2 : 1)}${suffix}`}`, { val: suffix === ' s' ? fmtIdle(item.median) : `${dec(item.median, suffix === '/m' ? 2 : 1)}${suffix}` })) : esc(tr('postmatch.savingBase', 'Guardando base personal'))}</small>`;
-      return `<article class="pm-kpi is-${tone}${showPersonal && item?.isBest ? ' is-best' : ''}">
+      const jumpAttrs = jump ? ` data-pm-jump-tab="${esc(jump.tab)}" data-scroll-target="${esc(jump.sel)}"` : '';
+      return `<article class="pm-kpi${jump ? ' is-jumpable' : ''} is-${tone}${showPersonal && item?.isBest ? ' is-best' : ''}"${jumpAttrs}>
         <div class="pm-kpi-top"><span>${esc(item?.label || '')}</span>${deltaBadge}</div>
         <div class="pm-kpi-mid"><b>${mainVal}</b>${spark}</div>
         ${note}
@@ -1276,10 +1289,10 @@
       .map((w) => `${number(w.count)} ${locBuilding(w)}`).join(' · ') || null;
 
     const evoGrid = `<div class="pm-kpi-grid">
-      ${evoCard({ label: tr('postmatch.kpiFeudal', 'Llegada a Feudal') }, kpiTm.feudalSeconds != null ? clock(kpiTm.feudalSeconds) : '—', '', false, feudalSub)}
-      ${evoCard({ label: tr('postmatch.kpiEco', 'Expansión eco') }, `${number(self.townCenters || 1)} TC · ${number(kpiMb.farms || 0)} gr.`, '', false, ecoSub)}
-      ${evoCard({ label: tr('postmatch.kpiBuildings', 'Edif. militares') }, `${number(self.workshopsCount || 0)} edif.`, '', false, bldSub)}
-      ${evoCard({ ...(em.eapm || {}), label: tr('postmatch.eapm', 'Ritmo eAPM') }, self.eapm != null ? dec(self.eapm, 1) : '—', '')}
+      ${evoCard({ label: tr('postmatch.kpiFeudal', 'Llegada a Feudal') }, kpiTm.feudalSeconds != null ? clock(kpiTm.feudalSeconds) : '—', '', false, feudalSub, { tab: 'duel', sel: '.pm-race-box, .pm-duel' })}
+      ${evoCard({ label: tr('postmatch.kpiEco', 'Expansión eco') }, `${number(self.townCenters || 1)} TC · ${number(kpiMb.farms || 0)} gr.`, '', false, ecoSub, { tab: 'tech', sel: '.pm-tech-box' })}
+      ${evoCard({ label: tr('postmatch.kpiBuildings', 'Edif. militares') }, `${number(self.workshopsCount || 0)} edif.`, '', false, bldSub, { tab: 'tech', sel: '.pm-queue-box' })}
+      ${evoCard({ ...(em.eapm || {}), label: tr('postmatch.eapm', 'Ritmo eAPM') }, self.eapm != null ? dec(self.eapm, 1) : '—', '', false, null, { tab: 'evo', sel: '.pm-habits' })}
     </div>`;
 
     // 4. Duelo cara a cara con escudos + barras espejadas + carrera de edades
@@ -1519,10 +1532,10 @@
       ? `<span class="review-activity"><b>${number(metrics.apm.value)}</b> APM de comandos</span>` : '';
     const replayBody = access.replay !== false
       ? (scan || `${stage ? `<div class="review-stages">${stage}</div>` : ''}${shownMetrics ? `<div class="review-metrics">${shownMetrics}</div>` : ''}`)
-      : (access.compact ? '' : `<p class="intel-muted">${access.replayReason === 'disabled' ? 'Las métricas de replay están desactivadas en tus preferencias.' : 'Las métricas de replay y calificaciones están incluidas en ProMax.'}</p>`);
+      : (access.compact ? '' : `<p class="intel-muted">${access.replayReason === 'disabled' ? 'Las métricas de replay están desactivadas en tus preferencias.' : 'Las métricas de replay y calificaciones están incluidas en Ultra.'}</p>`);
     const source = report.data && report.data.hasTelemetry
       ? report.data.sourceLabel
-      : analysis.status === 'locked' ? 'El análisis del replay está incluido en ProMax.'
+      : analysis.status === 'locked' ? 'El análisis del replay está incluido en Ultra.'
         : scanning ? 'El replay se descarga y analiza automáticamente. Esto puede tardar unos segundos.'
           : analysis.status === 'error' ? 'Resultado confirmado. Podés volver a intentar desde Ajustes.'
             : 'Resultado confirmado.';
@@ -1543,7 +1556,7 @@
       return header + episode + impact + execution + arrivals + mapBody + (scanning ? scan : '') + warning + footer;
     }
     return header + episode + arrivals + replayBody + warning +
-      (access.comparison !== false ? mapBody + historyMoments : `<p class="intel-muted">${access.comparisonReason === 'disabled' ? 'La comparación con tu historial está desactivada en tus preferencias.' : 'La evolución en este mapa está incluida en ProMax.'}</p>`) +
+      (access.comparison !== false ? mapBody + historyMoments : `<p class="intel-muted">${access.comparisonReason === 'disabled' ? 'La comparación con tu historial está desactivada en tus preferencias.' : 'La evolución en este mapa está incluida en Ultra.'}</p>`) +
       (access.replay !== false && !scanning ? executionBlock(report.executionRatings, access.comparison !== false) + combatBlock(report.combat) : '') +
       (access.replay !== false && access.comparison !== false && (report.improvements || []).length ? '<section class="review-insights">' + report.improvements.slice(0, 2).map((i) => `<div>${icon('trend')}<p><b>${esc(i.title)}</b><span>${esc(i.detail)}</span></p></div>`).join('') + '</section>' : '') +
       `<p class="review-data">${esc(source)}</p>`;
@@ -1559,7 +1572,10 @@
     const days = Math.round(hours / 24);
     if (days <= 14) return `${days}d`;
     try {
-      return new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+      const intlLocale = (typeof root !== 'undefined' && root.AppI18n && typeof root.AppI18n.getIntlLocale === 'function')
+        ? root.AppI18n.getIntlLocale()
+        : 'es-AR';
+      return new Date(ts).toLocaleDateString(intlLocale, { day: '2-digit', month: 'short' });
     } catch {
       return '';
     }
@@ -1785,7 +1801,19 @@
     </section>`;
   }
 
-  function renderMasteryRows(items = [], { kind = 'civ' } = {}) {
+  function wrapUltraGate(innerHtml, { locked = false, ctaLabel = '', compact = false } = {}) {
+    if (!locked) return innerHtml;
+    const label = ctaLabel || tr('central.ultraUnlockDefault', 'Ver análisis completo');
+    return `<div class="cx-ultra-gate${compact ? ' is-compact' : ''}">
+      <div class="cx-ultra-blur" aria-hidden="true" inert>${innerHtml}</div>
+      <button type="button" class="cx-ultra-veil" data-goto-plan="1">
+        <span class="cx-ultra-badge">ULTRA</span>
+        <strong>${esc(label)}</strong>
+      </button>
+    </div>`;
+  }
+
+  function renderMasteryRows(items = [], { kind = 'civ', selectedCivSlug = null, mapSort = 'games', isUltra = true, maxEapm = 90 } = {}) {
     if (!Array.isArray(items) || !items.length) {
       return `<p class="intel-muted">${esc(tr('central.noDataYet', 'Sin datos suficientes en este modo.'))}</p>`;
     }
@@ -1796,17 +1824,193 @@
         ? (locCiv(item.civ) || item.civ)
         : (locMap(item.mapName) || item.mapName);
       const crest = kind === 'civ' ? civBadge(item.civ) : icon('map');
-      return `<div class="cx-entity-row">
-        <span class="central-entity-crest${kind === 'map' ? ' is-map' : ''}">${crest}</span>
+
+      if (kind === 'civ') {
+        const slug = item.slug || String(item.civ || '').toLowerCase();
+        const active = selectedCivSlug && slug === selectedCivSlug;
+        return `<button type="button" class="cx-entity-row is-civ-btn${active ? ' is-selected' : ''}" data-diag-civ="${esc(slug)}" aria-pressed="${Boolean(active)}">
+          <span class="central-entity-crest">${crest}</span>
+          <div class="cx-entity-main">
+            <div class="cx-entity-top">
+              <strong>${esc(title)} <small class="pick-share">${number(item.games)} pj</small></strong>
+              <span class="cx-entity-stat"><small>${number(item.wins)}V-${number(item.losses)}D</small> <b class="${wrTone}">${wr != null ? `${wr}%` : '—'}</b></span>
+            </div>
+            ${wr != null ? `<div class="central-bar-track has-mid" aria-hidden="true"><i class="bar-${wrTone === 'win' ? 'emerald' : wrTone === 'loss' ? 'rose' : 'gold'}" data-w="${Math.max(0, Math.min(100, wr))}"></i></div>` : '<small class="cx-missing-result">Sin resultados confirmados</small>'}
+          </div>
+        </button>`;
+      }
+
+      // Map row con eAPM integrado (sin tabla duplicada)
+      const mapKeyAttr = String(item.mapKey || item.mapName || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      const hasEapm = Number.isFinite(item.avgEapm);
+      const eapmDeltaTxt = hasEapm && Number.isFinite(item.eapmDelta) && item.eapmDelta !== 0
+        ? `<em class="cx-map-eapm-delta ${item.eapmDelta > 0 ? 'win' : 'loss'}">${item.eapmDelta > 0 ? '+' : ''}${dec(item.eapmDelta, 1)}</em>`
+        : '';
+      const eapmBadge = hasEapm
+        ? (isUltra
+          ? `<span class="cx-map-eapm" title="${esc(`${item.eapmSample || 0} replays${item.avgApm ? ` · ${dec(item.avgApm, 1)} APM` : ''}`)}">${dec(item.avgEapm, 1)} eAPM ${eapmDeltaTxt}</span>`
+          : `<span class="cx-map-eapm is-blurred" aria-hidden="true">${dec(item.avgEapm, 1)} eAPM</span>`)
+        : '';
+      const showEapmBar = mapSort === 'eapm' && hasEapm;
+      const barPct = showEapmBar
+        ? Math.max(12, Math.min(100, Math.round((item.avgEapm / Math.max(45, maxEapm)) * 100)))
+        : (wr != null ? Math.max(0, Math.min(100, wr)) : 0);
+      const barColor = showEapmBar ? 'gold' : (wrTone === 'win' ? 'emerald' : wrTone === 'loss' ? 'rose' : 'gold');
+      return `<div class="cx-entity-row is-map-row" data-map-row="${esc(mapKeyAttr)}">
+        <span class="central-entity-crest is-map">${crest}</span>
         <div class="cx-entity-main">
           <div class="cx-entity-top">
-            <strong>${esc(title)} <small class="pick-share">${number(item.games)} partidas</small></strong>
-            <span class="cx-entity-stat"><small>${number(item.wins)} V / ${number(item.knownGames ?? (item.wins + item.losses))} con resultado</small> <b class="${wrTone}">${wr != null ? `${wr}%` : '—'}</b></span>
+            <strong>${esc(title)} <small class="pick-share">${number(item.games)} pj</small></strong>
+            <span class="cx-entity-stat">${eapmBadge}<small>${number(item.wins)}V-${number(item.losses)}D</small> <b class="${wrTone}">${wr != null ? `${wr}%` : '—'}</b></span>
           </div>
-          ${wr != null ? `<div class="central-bar-track has-mid" aria-hidden="true"><i class="bar-${wrTone === 'win' ? 'emerald' : wrTone === 'loss' ? 'rose' : 'gold'}" data-w="${Math.max(0, Math.min(100, wr))}"></i></div>` : '<small class="cx-missing-result">Sin resultados confirmados</small>'}
+          ${showEapmBar || wr != null ? `<div class="central-bar-track${showEapmBar ? '' : ' has-mid'}" aria-hidden="true"><i class="bar-${barColor}" data-w="${barPct}"></i></div>` : '<small class="cx-missing-result">Sin resultados confirmados</small>'}
         </div>
       </div>`;
     }).join('');
+  }
+
+  function renderCivDiagnosticPanel(diag, { activeTab = 'maps', isUltra = true, modeLabel = 'RM 1v1' } = {}) {
+    if (!diag || !diag.ok) {
+      return `<div class="cx-diag-empty"><p>${esc(tr('central.diagSelectCiv', 'Elegí una civilización de la lista para ver tu diagnóstico.'))}</p></div>`;
+    }
+    const civName = locCiv(diag.civ) || diag.civ;
+    const verdictCls = {
+      strength: 'is-win',
+      weakness: 'is-loss',
+      polarized: 'is-polar',
+      balanced: 'is-neutral',
+      sample: 'is-muted',
+    }[diag.verdict] || 'is-neutral';
+
+    const s = diag.sample || {};
+    const deltaTxt = Number.isFinite(s.deltaPp) && s.games >= 5
+      ? `<span class="cx-delta ${s.deltaPp > 0 ? 'win' : s.deltaPp < 0 ? 'loss' : 'neutral'}">${s.deltaPp > 0 ? '+' : ''}${s.deltaPp} pp vs esperado</span>`
+      : '';
+    const allTimeBadge = s.allTime && s.allTime.games > (s.games || 0)
+      ? `<span class="cx-diag-meta-chip">Histórico: ${s.allTime.winRate}% (${number(s.allTime.games)} pj)</span>`
+      : '';
+
+    const headerHtml = `<div class="cx-diag-head">
+      <div class="cx-diag-id">
+        <span class="cx-diag-crest">${civBadge(diag.civ)}</span>
+        <div>
+          <div class="cx-diag-title-row">
+            <h4>${esc(civName)}</h4>
+            <span class="cx-verdict-pill ${verdictCls}">${esc(diag.verdictLabel || 'Equilibrada')}</span>
+          </div>
+          <div class="cx-diag-anchor">
+            <strong>${s.rawWinRate != null ? `${s.rawWinRate}% WR` : '—'}</strong>
+            <span>${number(s.wins || 0)}V-${number(s.losses || 0)}D (${number(s.games || 0)} pj · ${esc(modeLabel)})</span>
+            ${deltaTxt}
+            <span class="cx-diag-conf">${esc(diag.confidenceLabel || '')}</span>
+            ${allTimeBadge}
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    const locDiagText = (txt) => {
+      if (!txt || !diag.civ || !civName || civName === diag.civ) return txt || '';
+      return String(txt).replace(new RegExp(`\\b${diag.civ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), civName);
+    };
+
+    const divAlert = diag.historicalDivergence
+      ? `<div class="cx-diag-alert is-${diag.historicalDivergence.direction === 'up' ? 'win' : 'warn'}">
+          <strong>${esc(diag.historicalDivergence.label)}</strong>
+          <span>${esc(locDiagText(diag.historicalDivergence.detail))}</span>
+        </div>`
+      : '';
+
+    const ctxAlerts = (diag.contextAlerts || []).map((a) => `<div class="cx-diag-alert is-${esc(a.tone || 'info')}">
+      <strong>${esc(locDiagText(a.title))}${a.metric ? ` · ${esc(a.metric)}` : ''}</strong>
+      <span>${esc(locDiagText(a.detail))}</span>
+    </div>`).join('');
+
+    let findingsHtml = '';
+    if (diag.status === 'insufficient') {
+      const progressPct = Math.min(100, Math.round(((s.games || 0) / (s.needed || 5)) * 100));
+      findingsHtml = `<div class="cx-diag-sample-gate">
+        <p>${esc(diag.summaryLine)}</p>
+        <div class="central-bar-track sm" aria-hidden="true"><i class="bar-gold" data-w="${progressPct}"></i></div>
+        <small>${number(s.games || 0)}/${number(s.needed || 5)} partidas con detalle para detectar patrones repetidos</small>
+      </div>`;
+    } else if (diag.findings && diag.findings.length) {
+      findingsHtml = `<div class="cx-diag-findings">${diag.findings.map((f) => {
+        const arrow = f.tone === 'loss' ? '▼' : '▲';
+        const tags = (f.secondaryTags || []).length
+          ? `<span class="cx-diag-tags">${f.secondaryTags.map((tg) => `<em>${esc(tg)}</em>`).join('')}</span>`
+          : '';
+        const mapJump = f.dimension === 'map'
+          ? ` data-scroll-target="#cxSectionMaps"`
+          : '';
+        return `<article class="cx-diag-finding is-${esc(f.tone)}${mapJump ? ' is-jumpable' : ''}"${mapJump}>
+          <div class="cx-diag-f-top">
+            <span class="cx-diag-arrow">${arrow}</span>
+            <strong>${esc(f.title)}</strong>
+            ${tags}
+            <b class="cx-diag-f-metric">${esc(f.metric || '')}</b>
+          </div>
+          <p>${esc(f.detail || '')}</p>
+          ${f.takeaway ? `<small class="cx-diag-takeaway">${esc(f.takeaway)}</small>` : ''}
+        </article>`;
+      }).join('')}</div>`;
+    } else {
+      findingsHtml = `<p class="cx-diag-neutral-note">${esc(diag.summaryLine || 'Rendimiento parejo en los distintos escenarios analizados.')}</p>`;
+    }
+
+    // Mini-desglose [ Mapas | Fases | Aperturas | Ritmo ]
+    const bd = diag.breakdowns || {};
+    const tabKey = ['maps', 'phases', 'openings', 'pace'].includes(activeTab) ? activeTab : 'maps';
+    const renderMiniBars = (rows, emptyMsg) => {
+      if (!Array.isArray(rows) || !rows.length) return `<p class="intel-muted">${esc(emptyMsg)}</p>`;
+      return `<div class="cx-diag-bars">${rows.map((r) => {
+        const tone = r.winRate >= 55 ? 'emerald' : r.winRate < 45 ? 'rose' : 'gold';
+        return `<div class="cx-diag-bar-row">
+          <span class="cx-diag-bar-lbl">${esc(r.label)}${r.sub ? ` <small>${esc(r.sub)}</small>` : ''}</span>
+          <div class="central-bar-track sm has-mid" aria-hidden="true"><i class="bar-${tone}" data-w="${Math.max(4, Math.min(100, r.winRate ?? 0))}"></i></div>
+          <span class="cx-diag-bar-val"><small>${number(r.wins)}V-${number(r.losses)}D</small> <b>${r.winRate != null ? `${r.winRate}%` : '—'}</b></span>
+        </div>`;
+      }).join('')}</div>`;
+    };
+
+    let tabBody = '';
+    if (tabKey === 'maps') {
+      const localizedMaps = (bd.maps || []).map((r) => ({ ...r, label: locMap(r.label) || r.label }));
+      tabBody = renderMiniBars(localizedMaps, 'Sin suficientes partidas con mapa registrado.');
+    } else if (tabKey === 'phases') tabBody = renderMiniBars(bd.phases, 'Sin duraciones suficientes (reloj in-game).');
+    else if (tabKey === 'openings') tabBody = renderMiniBars(bd.openings, 'Sin aperturas detectadas en AoE2Insights para esta civ.');
+    else {
+      const p = bd.pace || {};
+      tabBody = p.sample > 0
+        ? `<div class="cx-diag-pace-grid">
+            <div class="cx-stat-chip"><span>Mediana eAPM</span><b>${dec(p.medianEapm, 1)}</b><small>${number(p.sample)} replays</small></div>
+            ${p.baselineMedianEapm != null ? `<div class="cx-stat-chip"><span>vs Otras civs</span><b class="${(p.deltaEapm || 0) >= 0 ? 'win' : 'loss'}">${p.deltaEapm > 0 ? '+' : ''}${dec(p.deltaEapm, 1)}</b><small>media ${dec(p.baselineMedianEapm, 1)}</small></div>` : ''}
+            ${p.outpacedWinRate != null ? `<div class="cx-stat-chip"><span>Superando eAPM</span><b class="${p.outpacedWinRate >= 55 ? 'win' : ''}">${p.outpacedWinRate}%</b><small>${number(p.outpacedGames)} pj</small></div>` : ''}
+          </div>`
+        : '<p class="intel-muted">Sin replays con eAPM registrado para esta civ.</p>';
+    }
+
+    const tabsHtml = `<div class="cx-diag-tabs-wrap">
+      <div class="cx-sort-pills" role="tablist" aria-label="${esc(tr('central.diagTabsLabel', 'Desglose de civilización'))}">
+        <button type="button" class="cx-sort-btn${tabKey === 'maps' ? ' active' : ''}" data-diag-tab="maps">${esc(tr('central.diagTabMaps', 'Mapas'))}</button>
+        <button type="button" class="cx-sort-btn${tabKey === 'phases' ? ' active' : ''}" data-diag-tab="phases">${esc(tr('central.diagTabPhases', 'Fases'))}</button>
+        <button type="button" class="cx-sort-btn${tabKey === 'openings' ? ' active' : ''}" data-diag-tab="openings">${esc(tr('central.diagTabOpenings', 'Aperturas'))}</button>
+        <button type="button" class="cx-sort-btn${tabKey === 'pace' ? ' active' : ''}" data-diag-tab="pace">${esc(tr('central.diagTabPace', 'Ritmo'))}</button>
+      </div>
+      <div class="cx-diag-tab-body">${tabBody}</div>
+    </div>`;
+
+    const deepBody = `<div class="cx-diag-body">
+      ${divAlert}
+      ${ctxAlerts}
+      ${findingsHtml}
+      ${tabsHtml}
+    </div>`;
+
+    return `<div class="cx-diag-panel" id="cxCivDiagPanel">
+      ${headerHtml}
+      ${wrapUltraGate(deepBody, { locked: !isUltra, ctaLabel: tr('central.ultraUnlockCivDiag', 'Desbloqueá patrones por civ, fase y mapa') })}
+    </div>`;
   }
 
   function renderCentralDashboard(data, options = {}) {
@@ -1826,12 +2030,18 @@
     const stats = mode.stats || {};
     const ins = mode.insights || null;
     const eloRange = options.eloRange || '30';
-    const civSort = options.civSort === 'wr' && stats.topCivsByWr?.length ? 'wr' : 'games';
-    const mapSort = options.mapSort === 'wr' && stats.topMapsByWr?.length ? 'wr' : 'games';
+    const hasMapEapm = Array.isArray(stats.topMapsByEapm) && stats.topMapsByEapm.length >= 2;
+    const civSort = options.civSort === 'wr' && stats.topCivsByWr?.length >= 2 ? 'wr' : 'games';
+    const mapSort = options.mapSort === 'eapm' && hasMapEapm
+      ? 'eapm'
+      : (options.mapSort === 'wr' && stats.topMapsByWr?.length >= 2 ? 'wr' : 'games');
     const lmWindow = Number(options.lmWindow) === 20 ? 20 : 10;
     const isExternal = data.isOwnProfile === false;
+    const isUltra = options.isUltra !== undefined ? Boolean(options.isUltra) : (data.isUltra === true);
+    const civFilter = String(options.civFilter || '').trim().toLowerCase();
+    const diagTab = options.diagTab || 'maps';
 
-    // 1. HERO CARD + KPIs + SEGMENTED MODE TABS (un solo bloque protagonista, cero redundancia)
+    // 1. HERO CARD + KPIs clickeables (Smart Auto-Scroll) + SEGMENTED MODE TABS
     const initials = String(data.alias || '?').replace(/[|·]/g, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
     const streakVal = ladder.streak;
     const streakPill = streakVal > 0
@@ -1867,7 +2077,7 @@
             <div class="cx-name-row">
               <h2>${esc(data.alias || `#${data.profileId}`)}</h2>
               ${data.clan ? `<span class="identity-clan">[${esc(data.clan)}]</span>` : ''}
-              ${data.countryIcon || data.country ? `<span class="identity-country">${esc(data.countryIcon || '')} ${esc((data.country || '').toUpperCase())}</span>` : ''}
+              ${data.country ? `<span class="identity-country">${esc(data.country.toUpperCase())}</span>` : ''}
             </div>
             <div class="cx-id-meta">
               <span class="mono">#${esc(data.profileId)}</span>
@@ -1877,71 +2087,103 @@
           </div>
         </div>
         <div class="cx-kpi-row">
-          <div class="cx-kpi is-gold">
+          <button type="button" class="cx-kpi is-gold is-jumpable" data-scroll-target="#cxSectionChart">
             <span>${modeId === 'global' ? 'MEJOR ELO' : `ELO ${esc(mode.label)}`}</span>
             <strong>${ladder.rating != null ? number(ladder.rating) : '—'}</strong>
             <small>${ladder.peak ? `Pico ${number(ladder.peak)}` : 'Sin pico'}</small>
-          </div>
-          <div class="cx-kpi">
+          </button>
+          <button type="button" class="cx-kpi is-jumpable" data-scroll-target="#cxSectionLastMatch, #cxSectionChart">
             <span>VICTORIAS</span>
             <strong class="${ladder.winRate >= 54 ? 'win' : ladder.winRate != null && ladder.winRate < 46 ? 'loss' : ''}">${ladder.winRate != null ? `${ladder.winRate}%` : '—'}${streakPill}</strong>
             <small>${number(ladder.wins || 0)}V - ${number(ladder.losses || 0)}D</small>
-          </div>
-          <div class="cx-kpi">
+          </button>
+          <button type="button" class="cx-kpi is-jumpable" data-scroll-target="#cxSectionCivs">
             <span>${modeId === 'global' ? 'MEJOR RANKING' : 'RANKING DEL MODO'}</span>
             <strong>${ladder.rank ? `#${number(ladder.rank)}` : '—'}</strong>
             <small>${ladder.ladderPercentile ? `Top ${dec(ladder.ladderPercentile, 1)}%` : (ladder.rankModeLabel || 'Sin clasificar')}</small>
-          </div>
-          <div class="cx-kpi">
+          </button>
+          <button type="button" class="cx-kpi is-jumpable" data-scroll-target="#cxSectionMaps"${hasMapEapm ? ' data-scroll-map-eapm="1"' : ''}>
             <span>${esc(kpi4Title)}</span>
             <strong>${esc(kpi4Val)}</strong>
             <small>${esc(kpi4Sub)}</small>
-          </div>
+          </button>
         </div>
       </div>
       <div class="cx-mode-bar" role="group" aria-label="Modo de estadísticas">${modePills}</div>
     </section>`;
 
-    // 2. GRÁFICO PRINCIPAL (Curva interactiva con hover crosshair o Comparativa Global)
-    const chartBlock = modeId === 'global'
+    // 2. GRÁFICO PRINCIPAL
+    const chartInner = modeId === 'global'
       ? renderGlobalLadderComparison(mode.ladderComparison || data.allLadders)
       : renderInteractiveEloChart(mode, eloRange);
+    const chartBlock = `<div id="cxSectionChart">${chartInner}</div>`;
 
-    // 3. MAESTRÍA HISTÓRICA (Civs + Mapas sobre TODA la historia, con switch Más jugadas / Mejor WR)
-    const civList = civSort === 'wr' ? stats.topCivsByWr : stats.topCivs;
-    const mapList = mapSort === 'wr' ? stats.topMapsByWr : stats.topMaps;
+    // 3. CIVILIZACIONES + DIAGNÓSTICO MASTER-DETAIL ("¿Cómo me va con esta civ?")
+    const allCivsList = Array.isArray(stats.allCivs) && stats.allCivs.length ? stats.allCivs : (stats.topCivs || []);
+    const baseCivList = civFilter
+      ? allCivsList.filter((c) => {
+          const en = String(c.civ || '').toLowerCase();
+          const loc = String(locCiv(c.civ) || '').toLowerCase();
+          return en.includes(civFilter) || loc.includes(civFilter);
+        }).slice(0, 12)
+      : (civSort === 'wr' ? stats.topCivsByWr : stats.topCivs);
+    const civDiagnostics = mode.civDiagnostics || {};
+    const defaultDiagSlug = (baseCivList[0]?.slug) || (allCivsList[0]?.slug) || Object.keys(civDiagnostics)[0] || null;
+    const selectedCivSlug = (options.selectedCivSlug && (civDiagnostics[options.selectedCivSlug] || allCivsList.some((c) => c.slug === options.selectedCivSlug)))
+      ? options.selectedCivSlug
+      : defaultDiagSlug;
+    const activeDiag = selectedCivSlug ? (civDiagnostics[selectedCivSlug] || null) : null;
+
     const civToggle = stats.topCivsByWr?.length >= 2 ? `<div class="cx-sort-pills">
       <button type="button" class="cx-sort-btn${civSort === 'games' ? ' active' : ''}" aria-pressed="${civSort === 'games'}" data-civ-sort="games">Más jugadas</button>
       <button type="button" class="cx-sort-btn${civSort === 'wr' ? ' active' : ''}" aria-pressed="${civSort === 'wr'}" data-civ-sort="wr">Mejor %</button>
     </div>` : '';
-    const mapToggle = stats.topMapsByWr?.length >= 2 ? `<div class="cx-sort-pills">
-      <button type="button" class="cx-sort-btn${mapSort === 'games' ? ' active' : ''}" aria-pressed="${mapSort === 'games'}" data-map-sort="games">Más jugados</button>
-      <button type="button" class="cx-sort-btn${mapSort === 'wr' ? ' active' : ''}" aria-pressed="${mapSort === 'wr'}" data-map-sort="wr">Mejor %</button>
-    </div>` : '';
 
-    const masteryGrid = `<div class="cx-grid-2">
-      <section class="cx-card cx-civs-card">
-        <header class="cx-card-head">
-          <div>
-            <h3>Civilizaciones</h3>
-            <p class="cx-card-context">${stats.sourceScope === 'all-time' ? 'Historial disponible' : 'Muestra reciente'} · ${number(stats.totalCivGames || 0)} partidas</p>
-          </div>
+    const civMasterDetail = `<section class="cx-card cx-civ-master-card" id="cxSectionCivs">
+      <header class="cx-card-head">
+        <div>
+          <h3>${esc(tr('central.civDiagTitle', 'Civilizaciones · ¿Cómo me va con esta civ?'))}</h3>
+          <p class="cx-card-context">${stats.sourceScope === 'all-time' ? esc(tr('central.scopeAllTime', 'Historial disponible')) : esc(tr('central.scopeRecent', 'Muestra reciente'))} · ${number(stats.totalCivGames || 0)} ${esc(tr('central.matchesUnit', 'partidas'))} · ${esc(tr('central.civDiagHint', 'tocá cualquier civ para diagnosticar patrones'))}</p>
+        </div>
+        <div class="cx-civ-controls">
+          <input type="search" class="cx-civ-filter" id="cxCivFilterInput" value="${esc(options.civFilter || '')}" placeholder="${esc(tr('central.civFilterPlaceholder', 'Buscar civ…'))}" autocomplete="off" spellcheck="false" />
           ${civToggle}
-        </header>
-        <div class="cx-entity-list">${renderMasteryRows(civList, { kind: 'civ' })}</div>
-      </section>
+        </div>
+      </header>
+      <div class="cx-master-detail">
+        <div class="cx-master-list">
+          <div class="cx-entity-list">${renderMasteryRows(baseCivList, { kind: 'civ', selectedCivSlug, isUltra })}</div>
+        </div>
+        <div class="cx-detail-pane">
+          ${renderCivDiagnosticPanel(activeDiag, { activeTab: diagTab, isUltra, modeLabel: mode.label })}
+        </div>
+      </div>
+    </section>`;
 
-      <section class="cx-card cx-maps-card">
-        <header class="cx-card-head">
-          <div>
-            <h3>Mapas</h3>
-            <p class="cx-card-context">${stats.sourceScope === 'all-time' ? 'Historial disponible' : 'Muestra reciente'} · ${number(stats.totalMapGames || 0)} partidas</p>
-          </div>
-          ${mapToggle}
-        </header>
-        <div class="cx-entity-list">${renderMasteryRows(mapList, { kind: 'map' })}</div>
-      </section>
+    // 3b. MAPAS + PROMEDIO DE eAPM POR MAPA INTEGRADO
+    const mapList = mapSort === 'eapm'
+      ? (stats.topMapsByEapm || [])
+      : (mapSort === 'wr' ? stats.topMapsByWr : stats.topMaps);
+    const maxMapEapm = Math.max(50, ...(stats.topMapsByEapm || []).map((m) => Number(m.avgEapm) || 0));
+    const mapToggle = `<div class="cx-sort-pills">
+      <button type="button" class="cx-sort-btn${mapSort === 'games' ? ' active' : ''}" aria-pressed="${mapSort === 'games'}" data-map-sort="games">${esc(tr('central.mostPlayedMaps', 'Más jugados'))}</button>
+      ${stats.topMapsByWr?.length >= 2 ? `<button type="button" class="cx-sort-btn${mapSort === 'wr' ? ' active' : ''}" aria-pressed="${mapSort === 'wr'}" data-map-sort="wr">${esc(tr('central.bestWr', 'Mejor %'))}</button>` : ''}
+      ${hasMapEapm ? `<button type="button" class="cx-sort-btn${mapSort === 'eapm' ? ' active' : ''}" aria-pressed="${mapSort === 'eapm'}" data-map-sort="eapm">eAPM${!isUltra ? ' · ULTRA' : ''}</button>` : ''}
     </div>`;
+
+    const mapRowsHtml = renderMasteryRows(mapList, { kind: 'map', mapSort, isUltra, maxEapm: maxMapEapm });
+    const mapsSection = `<section class="cx-card cx-maps-card" id="cxSectionMaps">
+      <header class="cx-card-head">
+        <div>
+          <h3>${esc(tr('central.mapsEapmTitle', 'Mapas y eAPM promedio'))}</h3>
+          <p class="cx-card-context">${stats.sourceScope === 'all-time' ? esc(tr('central.scopeAllTime', 'Historial disponible')) : esc(tr('central.scopeRecent', 'Muestra reciente'))} · ${number(stats.totalMapGames || 0)} ${esc(tr('central.matchesUnit', 'partidas'))}${stats.modeAvgEapm != null ? ` · ${esc(tr('central.modeAvgEapm', 'Media del modo'))}: ${dec(stats.modeAvgEapm, 1)} eAPM (${number(stats.mapEapmSample || 0)} replays)` : ''}</p>
+        </div>
+        ${mapToggle}
+      </header>
+      <div class="cx-entity-list">${mapSort === 'eapm' && !isUltra ? wrapUltraGate(mapRowsHtml, { locked: true, ctaLabel: tr('central.ultraUnlockMapEapm', 'Desbloqueá eAPM promedio por mapa'), compact: true }) : mapRowsHtml}</div>
+    </section>`;
+
+    const masteryGrid = `${civMasterDetail}${mapsSection}`;
 
     // 4. EVOLUCIÓN + ESTILO (Compacto, limpio, sin cajas deformadas) + RADAR HONESTO
     const bvnRows = (modeId === 'global' ? [] : mode.beforeVsNow || []).map((item) => {
@@ -1987,7 +2229,15 @@
         ${winRate === null ? '<b>—</b>' : `<div class="central-bar-track has-mid" aria-hidden="true"><i class="bar-gold" data-w="${winRate}"></i></div><b>${winRate}%</b>`}</div>`;
     }).join('')}</div>` : '';
 
-    const insightsRow = (bvnRows || extraHighlights || openingsCompact || durationHtml) ? `<div class="cx-grid-2">
+    const insightsInner = `${bvnRows ? `<div class="cx-trend-list">${bvnRows}</div>` : ''}
+      ${extraHighlights ? `<div class="cx-stat-chips">${extraHighlights}</div>` : ''}
+      ${agro != null ? `<div class="cx-style-wrap">
+        <div class="intel-style-labels"><span>Presión temprana <b>${agro}%</b></span><span>Fast Castle <b>${boom}%</b></span></div>
+        <div class="intel-style-track"><i class="seg-agro" data-w="${agro}"></i><i class="seg-hyb" data-w="${hyb}"></i><i class="seg-fc" data-w="${boom}"></i></div>
+        ${openingsCompact ? `<div class="cx-op-list">${openingsCompact}</div>` : ''}
+      </div>` : ''}`;
+
+    const insightsRow = (bvnRows || extraHighlights || openingsCompact || durationHtml) ? `<div class="cx-grid-2" id="cxSectionInsights">
       <section class="cx-card">
         <header class="cx-card-head">
           <div>
@@ -1995,13 +2245,7 @@
           </div>
           <span class="cx-meta-pill">${esc(mode.label)}</span>
         </header>
-        ${bvnRows ? `<div class="cx-trend-list">${bvnRows}</div>` : ''}
-        ${extraHighlights ? `<div class="cx-stat-chips">${extraHighlights}</div>` : ''}
-        ${agro != null ? `<div class="cx-style-wrap">
-          <div class="intel-style-labels"><span>Presión temprana <b>${agro}%</b></span><span>Fast Castle <b>${boom}%</b></span></div>
-          <div class="intel-style-track"><i class="seg-agro" data-w="${agro}"></i><i class="seg-hyb" data-w="${hyb}"></i><i class="seg-fc" data-w="${boom}"></i></div>
-          ${openingsCompact ? `<div class="cx-op-list">${openingsCompact}</div>` : ''}
-        </div>` : ''}
+        ${wrapUltraGate(insightsInner, { locked: !isUltra, ctaLabel: isExternal ? 'Desbloqueá scouting de aperturas y ritmo' : 'Desbloqueá aperturas, estilo y evolución' })}
       </section>
 
       ${durationHtml ? `<section class="cx-card cx-duration-card">
@@ -2011,7 +2255,7 @@
             <p class="cx-card-context">${esc(mode.durationAnalysis.sourceLabel || '')}</p>
           </div>
         </header>
-        ${durationHtml}
+        ${wrapUltraGate(durationHtml, { locked: !isUltra && isExternal, ctaLabel: 'Desbloqueá fases de duración en scouting', compact: true })}
       </section>` : ''}
     </div>` : '';
 
@@ -2032,7 +2276,7 @@
       </button>`;
     }).join('')}</div>`;
 
-    const socialSection = (allies.length || opps.length) ? `<section class="cx-card">
+    const socialSection = (allies.length || opps.length) ? `<section class="cx-card" id="cxSectionSocial">
       <header class="cx-card-head">
         <div>
           <span class="cx-eyebrow">EXPLORADOR DE JUGADORES · HISTÓRICO EN ${esc(mode.label)}</span>
@@ -2060,7 +2304,8 @@
         const tone = m.neutral ? 'neutral' : (m.improved ? 'win' : 'loss');
         const arrow = m.neutral ? '' : (m.improved ? '▲ ' : '▼ ');
         const avgPrefix = m.id === 'windowWr' ? 'Balance' : 'Promedio';
-        return `<div class="cx-lm-metric">
+        const jumpTarget = m.id === 'eapm' ? '#cxSectionMaps' : (m.id === 'duration' ? '#cxSectionInsights' : '#cxSectionChart');
+        return `<button type="button" class="cx-lm-metric is-jumpable" data-scroll-target="${jumpTarget}">
           <div class="cx-lm-top">
             <span>${esc(m.label)}</span>
             <b class="cx-delta ${tone}">${arrow}${esc(m.deltaText)}</b>
@@ -2070,10 +2315,10 @@
             <small>${avgPrefix}: <em>${esc(m.avgText)}</em></small>
           </div>
           <small class="cx-lm-sub">${esc(m.sampleText)}</small>
-        </div>`;
+        </button>`;
       }).join('');
 
-      return `<section class="cx-card cx-lm-card">
+      return `<section class="cx-card cx-lm-card" id="cxSectionLastMatch">
         <header class="cx-card-head">
           <div>
             <h3>Última partida y forma reciente</h3>
@@ -2088,7 +2333,7 @@
           </div>
         </header>
         <p class="cx-card-context">Comparación contra tus últimas ${lmWindow} partidas · ${esc(lmSummary.modeLabel || mode.label)}</p>
-        <div class="cx-lm-grid">${cards}</div>
+        ${wrapUltraGate(`<div class="cx-lm-grid">${cards}</div>`, { locked: !isUltra && isExternal, ctaLabel: 'Desbloqueá telemetría reciente del jugador', compact: true })}
       </section>`;
     })() : '';
 

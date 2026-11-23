@@ -471,7 +471,7 @@ function analysisStage() {
   if (civView.eloHidden) return null;
   // 1) El roster ya está en pantalla y faltan los números de ELO.
   if (lastState.pending) return 'elo';
-  if (lastState.previewPhase === 'during') return null;
+  if (lastState.previewPhase === 'during' || lastState.previewPhase === 'durante') return null;
   // 2) Informe del rival: primero civs/favoritos, después las aperturas.
   if (rivalEnabled()) {
     const reports = rivalPayload && Array.isArray(rivalPayload.reports) ? rivalPayload.reports : [];
@@ -557,7 +557,7 @@ function applyVisibility() {
   document.body.classList.toggle('scout-f2', scoutF2Enabled);
   document.body.classList.toggle('scout-detail', detail);
   const isPrematchPhase = lastState?.phase === 'lobby' || lastState?.previewPhase === 'prematch';
-  const isDuringPreview = lastState?.previewPhase === 'during';
+  const isDuringPreview = lastState?.previewPhase === 'during' || lastState?.previewPhase === 'durante';
   scoutingEl.hidden = !(ongoing && compactAvailable() && !hidden) || isDuringPreview;
   if (scoutingEl.hidden) stopScoutCarousel();
   rivalInfoEl.hidden = true;

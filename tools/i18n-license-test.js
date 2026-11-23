@@ -66,6 +66,24 @@ async function run() {
       assert.ok(val && val !== key, `Falta traducción para "${key}" en ${code}`);
     }
   }
+  // Verificar paridad exacta de claves (0 faltantes, 0 extras) entre los 4 idiomas
+  const flattenKeys = (obj, prefix = '') => {
+    const out = [];
+    for (const [k, v] of Object.entries(obj || {})) {
+      const p = prefix ? `${prefix}.${k}` : k;
+      if (v && typeof v === 'object' && !Array.isArray(v)) out.push(...flattenKeys(v, p));
+      else out.push(p);
+    }
+    return out;
+  };
+  const baseKeys = new Set(flattenKeys(allBundles['es-MX']));
+  for (const code of i18n.SUPPORTED_LOCALES) {
+    const curKeys = new Set(flattenKeys(allBundles[code]));
+    const missing = [...baseKeys].filter((k) => !curKeys.has(k));
+    const extra = [...curKeys].filter((k) => !baseKeys.has(k));
+    assert.deepEqual(missing, [], `Claves faltantes en ${code}: ${missing.join(', ')}`);
+    assert.deepEqual(extra, [], `Claves extra en ${code}: ${extra.join(', ')}`);
+  }
   AppI18n.configure({ locale: 'zh-CN', allBundles });
   TacticalUI.configure({ slugs: ['franks', 'mayans'], i18n: AppI18n });
   const zhHtml = TacticalUI.renderPostMatch({

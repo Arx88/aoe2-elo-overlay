@@ -4,6 +4,82 @@ const { RequestScheduler } = require('./request-scheduler');
 const matchHistoryScheduler = new RequestScheduler();
 
 /**
+ * Caché liviana en memoria con TTL + deduplicación de requests en vuelo.
+ * Solo para consultas semi-estáticas (búsqueda, identidad, historial, stats);
+ * NUNCA se aplica a detección de partida en vivo (`fetchLatestMatch`).
+ */
+function createApiCache({ maxEntries = 120 } = {}) {
+  const entries = new Map();
+  const inflight = new Map();
+
+  function get(key, ttlMs, now = Date.now()) {
+    const hit = entries.get(key);
+    if (!hit) return undefined;
+    if (now - hit.ts > ttlMs) {
+      entries.delete(key);
+      return undefined;
+    }
+    // LRU touch
+    entries.delete(key);
+    entries.set(key, hit);
+    return hit.value;
+  }
+
+  function set(key, value, now = Date.now()) {
+    if (entries.has(key)) entries.delete(key);
+    entries.set(key, { ts: now, value });
+    while (entries.size > maxEntries) {
+      const oldest = entries.keys().next().value;
+      entries.delete(oldest);
+    }
+    return value;
+  }
+
+  async function getOrFetch(key, ttlMs, fetcher, { bypass = false, cacheNull = true } = {}) {
+    if (!bypass && ttlMs > 0) {
+      const cached = get(key, ttlMs);
+      if (cached !== undefined) return cached;
+    }
+    if (!bypass && inflight.has(key)) return inflight.get(key);
+    const promise = Promise.resolve()
+      .then(fetcher)
+      .then((value) => {
+        if (ttlMs > 0 && value !== undefined && (cacheNull || value !== null)) set(key, value);
+        return value;
+      })
+      .finally(() => {
+        if (inflight.get(key) === promise) inflight.delete(key);
+      });
+    inflight.set(key, promise);
+    return promise;
+  }
+
+  function clear(prefix = null) {
+    if (!prefix) {
+      entries.clear();
+      return;
+    }
+    for (const key of entries.keys()) {
+      if (key.startsWith(prefix)) entries.delete(key);
+    }
+  }
+
+  function stats() {
+    return { size: entries.size, inflight: inflight.size };
+  }
+
+  return { get, set, getOrFetch, clear, stats };
+}
+
+const apiCache = createApiCache({ maxEntries: 160 });
+const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
+const IDENTITY_CACHE_TTL_MS = 15 * 60 * 1000;
+const MATCH_HISTORY_CACHE_TTL_MS = 60 * 1000;
+const MATCH_BY_ID_CACHE_TTL_MS = 10 * 60 * 1000;
+const PROFILE_EXTENDED_CACHE_TTL_MS = 5 * 60 * 1000;
+const PERSONAL_STATS_DEDUP_TTL_MS = 20 * 1000;
+
+/**
  * Capa de datos del overlay.
  *
  * Fuentes (ninguna requiere API key):
@@ -126,9 +202,18 @@ async function fetchMatches(profileId, perPage = 20, page = 1, ladder = null, op
     `&use_enums=true&page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}` +
     (ladder ? `&leaderboard_ids=${encodeURIComponent(ladder)}` : '');
   const priority = Number(page) === 1 ? 2 : options.priority === 'own' ? 1 : 0;
-  const data = await matchHistoryScheduler.run(() => getJson(url), priority);
-  const list = Array.isArray(data) ? data : (data && data.matches) || [];
-  return list.map(normalizeMatch);
+  const ttlMs = Number.isFinite(options.cacheTtlMs) ? options.cacheTtlMs : MATCH_HISTORY_CACHE_TTL_MS;
+  const key = `matches:${profileId}:${perPage}:${page}:${ladder || 'all'}`;
+  return apiCache.getOrFetch(
+    key,
+    ttlMs,
+    async () => {
+      const data = await matchHistoryScheduler.run(() => getJson(url), priority);
+      const list = Array.isArray(data) ? data : (data && data.matches) || [];
+      return list.map(normalizeMatch);
+    },
+    { bypass: Boolean(options.bypassCache) },
+  );
 }
 
 async function fetchLatestMatch(profileId) {
@@ -178,13 +263,32 @@ async function fetchLatestTeamMatch(profileId) {
  * Solo la usa el modo ejemplo para capturar una partida concreta del perfil
  * (`--example-match=<id>`) en vez de la última.
  */
-async function fetchMatchById(matchId) {
+async function fetchMatchById(matchId, options = {}) {
   const id = Number(matchId);
   if (!Number.isFinite(id) || id <= 0) throw new Error('Ese match ID no es válido.');
-  const data = await getJson(`${COMPANION_BASE}/api/matches/${id}`);
-  const raw = data && data.match ? data.match : data;
-  if (!raw || !raw.matchId) throw new Error(`AoE2 Companion no tiene la partida #${id}.`);
-  return normalizeMatch(raw);
+  return apiCache.getOrFetch(
+    `matchById:${id}`,
+    MATCH_BY_ID_CACHE_TTL_MS,
+    async () => {
+      const data = await getJson(`${COMPANION_BASE}/api/matches/${id}`);
+      const raw = data && data.match ? data.match : data;
+      if (!raw || !raw.matchId) throw new Error(`AoE2 Companion no tiene la partida #${id}.`);
+      return normalizeMatch(raw);
+    },
+    { bypass: Boolean(options.bypassCache) },
+  );
+}
+
+/** Perfil extendido de AoE2 Companion (`?use_enums=true&extend=stats`), cacheado con TTL. */
+async function fetchExtendedProfile(profileId, { bypassCache = false, timeoutMs = 10000 } = {}) {
+  const id = Number(profileId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  return apiCache.getOrFetch(
+    `profileExt:${id}`,
+    PROFILE_EXTENDED_CACHE_TTL_MS,
+    () => getJson(`${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}?use_enums=true&extend=stats`, timeoutMs),
+    { bypass: Boolean(bypassCache), cacheNull: false },
+  );
 }
 
 function historyCutoff(state) {
@@ -247,115 +351,134 @@ function normalizeMatch(raw) {
  * Si un jugador no jugó ese ladder, no aparece en el Map.
  */
 async function fetchPersonalStats(profileIds, ladderId = ELO_LADDER.id, timeoutMs = 7000) {
-  const ids = [...new Set((profileIds || []).map(Number).filter(Number.isFinite))];
+  const ids = [...new Set((profileIds || []).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
   if (!ids.length || ladderId == null) return new Map();
 
-  const url =
-    `${WE_BASE}/community/leaderboard/getPersonalStat?title=age2` +
-    `&profile_ids=${encodeURIComponent(JSON.stringify(ids))}`;
-  // Timeout corto a propósito: el panel ya está en pantalla con `…` y esta
-  // request es lo único que falta. Antes eran 12 s de espera muerta.
-  const data = await getJson(url, timeoutMs);
+  const cacheKey = `personalStats:${ladderId}:${ids.join(',')}`;
+  const cached = await apiCache.getOrFetch(cacheKey, PERSONAL_STATS_DEDUP_TTL_MS, async () => {
+    const url =
+      `${WE_BASE}/community/leaderboard/getPersonalStat?title=age2` +
+      `&profile_ids=${encodeURIComponent(JSON.stringify(ids))}`;
+    // Timeout corto a propósito: el panel ya está en pantalla con `…` y esta
+    // request es lo único que falta. Antes eran 12 s de espera muerta.
+    const data = await getJson(url, timeoutMs);
 
-  if (data && data.result && Number(data.result.code) !== 0) {
-    throw new Error(`World's Edge: ${data.result.message || 'error'}`);
-  }
+    if (data && data.result && Number(data.result.code) !== 0) {
+      throw new Error(`World's Edge: ${data.result.message || 'error'}`);
+    }
 
-  // statGroups[] agrupa miembros; cada fila de leaderboardStats apunta a un statgroup_id.
-  const owner = new Map();
-  const memberMeta = new Map();
-  for (const group of data.statGroups || []) {
-    const member = (group.members || [])[0];
-    if (member && member.profile_id != null) {
-      const pid = Number(member.profile_id);
-      owner.set(group.id, pid);
-      memberMeta.set(pid, {
-        country: member.country || null,
-        clan: member.clanlist_name || null,
+    // statGroups[] agrupa miembros; cada fila de leaderboardStats apunta a un statgroup_id.
+    const owner = new Map();
+    const memberMeta = new Map();
+    for (const group of data.statGroups || []) {
+      const member = (group.members || [])[0];
+      if (member && member.profile_id != null) {
+        const pid = Number(member.profile_id);
+        owner.set(group.id, pid);
+        memberMeta.set(pid, {
+          country: member.country || null,
+          clan: member.clanlist_name || null,
+        });
+      }
+    }
+
+    const out = new Map();
+    for (const row of data.leaderboardStats || []) {
+      if (Number(row.leaderboard_id) !== Number(ladderId)) continue;
+      const profileId = owner.get(row.statgroup_id);
+      if (profileId == null) continue;
+
+      const rating = numOrNull(row.rating);
+      const peak = numOrNull(row.highestrating);
+      const cleanPeak = peak && peak > 0 ? peak : null;
+      const rank = row.rank > 0 ? Number(row.rank) : null;
+      const rankTotal = row.ranktotal > 0 ? Number(row.ranktotal) : null;
+      const ladderPercentile = rank && rankTotal
+        ? Math.max(0.1, Math.min(100, Math.round((rank / rankTotal) * 1000) / 10))
+        : null;
+      const peakDelta = rating != null && cleanPeak != null ? Math.round(cleanPeak - rating) : null;
+      const lastMatchSec = numOrNull(row.lastmatchdate);
+      const meta = memberMeta.get(profileId) || {};
+
+      out.set(profileId, {
+        rating,
+        peak: cleanPeak,
+        rank,
+        rankTotal,
+        ladderPercentile,
+        peakDelta,
+        wins: numOrNull(row.wins),
+        losses: numOrNull(row.losses),
+        streak: numOrNull(row.streak),
+        drops: numOrNull(row.drops),
+        regionRank: row.regionrank > 0 ? Number(row.regionrank) : null,
+        regionRankTotal: row.regionranktotal > 0 ? Number(row.regionranktotal) : null,
+        lastMatchAt: lastMatchSec && lastMatchSec > 0 ? lastMatchSec * 1000 : null,
+        country: meta.country || null,
+        clan: meta.clan || null,
       });
     }
-  }
-
-  const out = new Map();
-  for (const row of data.leaderboardStats || []) {
-    if (Number(row.leaderboard_id) !== Number(ladderId)) continue;
-    const profileId = owner.get(row.statgroup_id);
-    if (profileId == null) continue;
-
-    const rating = numOrNull(row.rating);
-    const peak = numOrNull(row.highestrating);
-    const cleanPeak = peak && peak > 0 ? peak : null;
-    const rank = row.rank > 0 ? Number(row.rank) : null;
-    const rankTotal = row.ranktotal > 0 ? Number(row.ranktotal) : null;
-    const ladderPercentile = rank && rankTotal
-      ? Math.max(0.1, Math.min(100, Math.round((rank / rankTotal) * 1000) / 10))
-      : null;
-    const peakDelta = rating != null && cleanPeak != null ? Math.round(cleanPeak - rating) : null;
-    const lastMatchSec = numOrNull(row.lastmatchdate);
-    const meta = memberMeta.get(profileId) || {};
-
-    out.set(profileId, {
-      rating,
-      peak: cleanPeak,
-      rank,
-      rankTotal,
-      ladderPercentile,
-      peakDelta,
-      wins: numOrNull(row.wins),
-      losses: numOrNull(row.losses),
-      streak: numOrNull(row.streak),
-      drops: numOrNull(row.drops),
-      regionRank: row.regionrank > 0 ? Number(row.regionrank) : null,
-      regionRankTotal: row.regionranktotal > 0 ? Number(row.regionranktotal) : null,
-      lastMatchAt: lastMatchSec && lastMatchSec > 0 ? lastMatchSec * 1000 : null,
-      country: meta.country || null,
-      clan: meta.clan || null,
-    });
-  }
-  return out;
+    return out;
+  });
+  return new Map(cached);
 }
 
-/** Busca perfiles por nombre (sugerencias de la ventana de configuración). */
-async function searchProfiles(query, limit = 12) {
+/** Busca perfiles por nombre (sugerencias de la ventana de configuración y Central). */
+async function searchProfiles(query, limit = 12, options = {}) {
   const term = String(query || '').trim();
   if (term.length < 2) return [];
+  const normKey = `search:${term.toLowerCase()}:${limit}`;
+  const list = await apiCache.getOrFetch(
+    normKey,
+    SEARCH_CACHE_TTL_MS,
+    async () => {
+      const url =
+        `${COMPANION_BASE}/api/profiles?search=${encodeURIComponent(term)}` +
+        `&per_page=${encodeURIComponent(limit)}`;
+      const data = await getJson(url, 8000);
 
-  const url =
-    `${COMPANION_BASE}/api/profiles?search=${encodeURIComponent(term)}` +
-    `&per_page=${encodeURIComponent(limit)}`;
-  const data = await getJson(url);
-
-  return (data.profiles || []).map((profile) => ({
-    profileId: Number(profile.profileId),
-    name: profile.name,
-    clan: profile.clan || '',
-    country: profile.country || '',
-    games: numOrNull(profile.games),
-    platform: profile.platform || '',
-  }));
+      return (data.profiles || []).map((profile) => ({
+        profileId: Number(profile.profileId),
+        name: profile.name,
+        clan: profile.clan || '',
+        country: profile.country || '',
+        games: numOrNull(profile.games),
+        platform: profile.platform || '',
+      }));
+    },
+    { bypass: Boolean(options.bypassCache) },
+  );
+  return list.slice();
 }
 
 /** Nombre/alias de un profile_id, para mostrarlo en la configuración. */
-async function fetchProfileIdentity(profileId) {
+async function fetchProfileIdentity(profileId, options = {}) {
   const id = Number(profileId);
   if (!Number.isFinite(id) || id <= 0) return null;
 
-  const url =
-    `${WE_BASE}/community/leaderboard/getPersonalStat?title=age2` +
-    `&profile_ids=${encodeURIComponent(JSON.stringify([id]))}`;
-  const data = await getJson(url);
+  return apiCache.getOrFetch(
+    `identity:${id}`,
+    IDENTITY_CACHE_TTL_MS,
+    async () => {
+      const url =
+        `${WE_BASE}/community/leaderboard/getPersonalStat?title=age2` +
+        `&profile_ids=${encodeURIComponent(JSON.stringify([id]))}`;
+      const data = await getJson(url);
 
-  // Igual que al buscar por SteamID: profiles[] puede venir vacío y el dato
-  // estar en statGroups[0].members[0].
-  const group = (data.statGroups || [])[0];
-  const member = (data.profiles || [])[0] || (group && (group.members || [])[0]);
-  if (!member || member.profile_id == null) return null;
+      // Igual que al buscar por SteamID: profiles[] puede venir vacío y el dato
+      // estar en statGroups[0].members[0].
+      const group = (data.statGroups || [])[0];
+      const member = (data.profiles || [])[0] || (group && (group.members || [])[0]);
+      if (!member || member.profile_id == null) return null;
 
-  return {
-    profileId: Number(member.profile_id),
-    alias: member.alias || null,
-    country: member.country || null,
-  };
+      return {
+        profileId: Number(member.profile_id),
+        alias: member.alias || null,
+        country: member.country || null,
+      };
+    },
+    { bypass: Boolean(options.bypassCache), cacheNull: false },
+  );
 }
 
 /**
@@ -736,9 +859,12 @@ module.exports = {
   fetchLatest1v1Match,
   fetchLatestTeamMatch,
   fetchMatchById,
+  fetchExtendedProfile,
   fetchPersonalStats,
   searchProfiles,
   fetchProfileIdentity,
+  createApiCache,
+  apiCache,
   composeRows,
   normalizeMatch,
   historyCutoff,

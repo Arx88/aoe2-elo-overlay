@@ -55,44 +55,44 @@
   },
   "pages": {
     "player": {
-      "index": "01 / 账号",
-      "title": "玩家账号",
-      "sub": "你的游戏档案与最近对局。"
+      "index": "账号",
+      "title": "账号与游戏档案",
+      "sub": "Relic 登录状态、已激活电脑与帝国时代 II 档案。"
     },
     "overlay": {
-      "index": "03 / 赛前",
-      "title": "赛前情报准备",
-      "sub": "匹配队列与开局阶段显示的内容 · 实时浮窗预览。"
+      "index": "02 / 赛前",
+      "title": "赛前悬浮窗",
+      "sub": "匹配成功及进入对局前显示的侦察信息。"
     },
     "tactics": {
-      "index": "04 / 局内",
-      "title": "局内战术应对",
-      "sub": "基于双方文明、历史战绩与阵容的战术路线。"
+      "index": "03 / 局内",
+      "title": "局内指南",
+      "sub": "文明速查、建造顺序与对位战术机会。"
     },
     "postmatch": {
-      "index": "05 / 赛后复盘",
-      "title": "每局复盘进阶",
-      "sub": "最近 10 场对局快速切换、战果汇总与录像深度分析。"
+      "index": "04 / 赛后",
+      "title": "赛后复盘",
+      "sub": "自动战绩汇总与本地录像分析。"
     },
     "skins": {
-      "index": "06 / 外观",
-      "title": "个性化面板",
-      "sub": "自定义游戏内悬浮窗的主题、透明度与位置。"
+      "index": "05 / 外观",
+      "title": "外观设置",
+      "sub": "主题风格、透明度与悬浮窗位置。"
     },
     "plans": {
-      "index": "07 / 方案与权限",
-      "title": "选择你的战术方案",
-      "sub": "Free 基础对战；Pro 完整赛前情报；Ultra 全阶段终极体验。"
+      "index": "方案与权限",
+      "title": "方案与权限",
+      "sub": "对比 Free、Pro 与 Ultra 方案或兑换预付密钥。"
     },
     "updater": {
-      "index": "08 / 更新",
-      "title": "保持最新版本",
-      "sub": "安全自动更新，绝不在对局中打断。"
+      "index": "06 / 更新",
+      "title": "版本更新",
+      "sub": "当前版本与后台自动更新设置。"
     },
     "central": {
-      "index": "02 / 数据中心",
-      "title": "个人战术数据中心",
-      "sub": "按模式查看等级分走势及对局记录。"
+      "index": "01 / 数据中心",
+      "title": "数据中心",
+      "sub": "段位走势、文明诊断与各模式完整战绩。"
     }
   },
   "account": {
@@ -153,7 +153,10 @@
     "activePcsTitle": "我的活跃设备",
     "encryptedSession": "Windows 加密会话",
     "tabProfile": "账号与资料",
-    "tabPlan": "订阅与密钥"
+    "tabPlan": "订阅与密钥",
+    "signInRail": "登录账号",
+    "signInRailSub": "Google · 同步方案",
+    "authDesc": "同步你的方案、管理已激活电脑并兑换预付密钥。"
   },
   "overlay": {
     "wf1Title": "读懂对手",
@@ -197,10 +200,16 @@
     "civHelpExtended": "文明速查卡：显示至 0:40",
     "hideAtSaved": "浮窗与文明卡将于 {seconds} 秒后隐藏",
     "smurfTitle": "小号检测",
-    "smurfDesc": "在对手 ELO 旁提示疑似小号。"
+    "smurfDesc": "在对手 ELO 旁提示疑似小号。",
+    "phaseTitle": "匹配队列与进入地图前",
+    "phaseDesc": "找到对手后立即显示 ELO、战绩与开局情报；开局后按设定时间自动隐藏。",
+    "phasePill1": "RM 1v1 ELO",
+    "phasePill2": "对手侦察",
+    "phasePill3": "自动隐藏",
+    "hideEloName": "隐藏悬浮窗"
   },
   "tactics": {
-    "bannerTitle": "文明战术参考",
+    "bannerTitle": "局内战术参考",
     "bannerDesc": "当前对阵的推荐路线与文明优势。",
     "intro": "此处提供封建、城堡与帝王时代的战术选项参考，不代表实时对局进度。",
     "guideGroup": "开局指引",
@@ -221,14 +230,23 @@
     "routesEmptyTitle": "对局路线",
     "routesNote": "当前对阵的文明参考信息。",
     "optionOf": "{age}选项",
-    "sampleResults": "样本 {n} 局"
+    "sampleResults": "样本 {n} 局",
+    "phasePill1": "文明速查",
+    "phasePill2": "建造顺序",
+    "phasePill3": "战术机会"
   },
   "postmatchPage": {
-    "bannerTitle": "复盘你的对局",
+    "bannerTitle": "赛后复盘总结",
     "bannerDesc": "自动汇总你最近 10 场对局的复盘数据。",
     "afterGroup": "对局结束后",
     "summaryTitle": "赛后总结",
-    "summaryDesc": "对局确认结束后自动弹出结果与核心复盘",
+    "summaryDesc": "对局确认结束后自动生成结果与复盘报告",
+    "popupTitle": "对局结束后弹出悬浮窗",
+    "popupDesc": "控制是否在游戏上方弹出赛后浮窗；关闭后仍可在 Relic 中查看报告",
+    "hideAtLabel": "赛后浮窗自动隐藏",
+    "hideManual": "手动关闭",
+    "hideSaved": "赛后浮窗：{s} 秒后自动隐藏",
+    "hideManualSaved": "赛后浮窗：保持显示直至下一场对局",
     "compareTitle": "对比个人成长",
     "compareDesc": "开启历史趋势对比与同分段基准参考",
     "modeTitle": "复盘对比标准",
@@ -249,7 +267,10 @@
     "drawError": "无法渲染报告。",
     "last10Group": "最近 10 场对局 · 点击任意一场加载复盘报告",
     "loadingMatchStatus": "正在加载对局 #{id} 的复盘报告…",
-    "configSummary": "赛后分析设置"
+    "configSummary": "赛后分析设置",
+    "phasePill1": "本地录像",
+    "phasePill2": "成长趋势",
+    "phasePill3": "可选浮窗"
   },
   "plansPage": {
     "eyebrow": "当前权限",
@@ -432,7 +453,8 @@
     "anaTips": "正在分析对手录像…",
     "updateReady": "更新 v{ver} 已就绪 · 退出时自动安装",
     "updateAvail": "发现新版本 v{ver} · 请在设置中打开“检查更新”",
-    "previewHighlightPrefix": "预览 · 已开启"
+    "previewHighlightPrefix": "预览 · 已开启",
+    "civPendingShort": "文明待确认"
   },
   "plans": {
     "badgeConfig": "设置",
@@ -444,7 +466,9 @@
     "revoked": "管理员已停用此付费权限",
     "checking": "正在验证许可…",
     "refreshBtn": "立即验证权限",
-    "offlineGrace": "已验证（离线宽限期内）"
+    "offlineGrace": "已验证（离线宽限期内）",
+    "kickerFree": "当前方案",
+    "kickerActive": "已激活方案"
   },
   "postmatch": {
     "win": "胜利",
@@ -535,7 +559,25 @@
     "duelBuildings": "军事建筑",
     "duelTechs": "关键科技",
     "duelEapm": "eAPM 节奏",
-    "tabTech": "科技与生产"
+    "tabTech": "科技与生产",
+    "medalsBaseline": "积累更多对局以解锁个人亮点与纪录。",
+    "noCriticalIssues": "本局未检测到明显瓶颈。",
+    "zoneGoodTitle": "表现亮点与进步",
+    "zoneBadTitle": "主要失分点",
+    "houses": "房屋",
+    "farms": "农田",
+    "castles": "城堡",
+    "yourAgesTitle": "你的升时代时间",
+    "ageRaceTitle": "时代竞速",
+    "bsTechs": "铁匠铺与战斗科技",
+    "noneDetected": "未检测到升级",
+    "techsTitle": "关键科技与运营",
+    "ecoTechs": "经济科技",
+    "lateStamina": "后期节奏",
+    "tabEvo": "趋势与曲线",
+    "tabDuel": "双方对位",
+    "techPanelTitle": "科技与兵营产能",
+    "overlayDeepHint": "完整曲线、对位与科技详情请见 Relic → 赛后"
   },
   "prematch": {
     "title": "赛前情报",
@@ -628,7 +670,8 @@
     "tgCivInGame": "本局文明",
     "tgRecentLeft": "最近在左",
     "tgSuffersVs": "弱于",
-    "tgYouPct": "你 {p}%"
+    "tgYouPct": "你 {p}%",
+    "civOnMap": "{map} 上的 {civ}"
   },
   "openings": {
     "Scout Rush": "斥候快攻",
@@ -709,6 +752,14 @@
     "smartBuildOrder": {
       "title": "智能建造顺序",
       "desc": "根据你的文明、地图与对位机会推荐的可视化开局指南。"
+    },
+    "civCounterPick": {
+      "title": "文明推荐器",
+      "desc": "综合地图、个人胜率与对手弱点推荐最佳文明。"
+    },
+    "smurfDetector": {
+      "title": "小号检测器",
+      "desc": "结合关联账号、极端胜率、历史峰值落差与 eAPM 识别潜在小号。"
     }
   },
   "central": {
@@ -757,7 +808,48 @@
     "mapsTitle": "各地图胜率统计",
     "noDataYet": "暂无足够数据。",
     "recentEyebrow": "交互式对局历史",
-    "recentTitle": "你的最近对局 · 点击即可打开赛后复盘"
+    "recentTitle": "你的最近对局 · 点击即可打开赛后复盘",
+    "diagSelectCiv": "在左侧选择一个文明以查看诊断结果。",
+    "bvnElo": "模式 ELO",
+    "bvnWinrate": "近期胜率",
+    "bvnEapm": "eAPM 节奏",
+    "bvnTcUtil": "城镇中心效率",
+    "searchPlaceholder": "搜索 AoE2 玩家（如 Hera、TheViper 或 #ID）…",
+    "searchBtn": "搜索",
+    "viewingBadge": "正在查看外部档案",
+    "viewingMeta": "外部档案 · 你的个人数据保持不变",
+    "backToOwn": "← 返回我的档案",
+    "civDiagTitle": "文明表现 · 这个文明打得怎么样？",
+    "civDiagHint": "点击任意文明查看重复规律诊断",
+    "civFilterPlaceholder": "筛选文明…",
+    "mapsEapmTitle": "地图与平均 eAPM",
+    "modeAvgEapm": "模式均值",
+    "sortGames": "最常使用",
+    "sortMapsGames": "最常游玩",
+    "sortWr": "最高胜率",
+    "ultraUnlockDiag": "解锁按文明、阶段与地图的胜负规律",
+    "ultraUnlockMapEapm": "解锁各地图平均 eAPM",
+    "ultraUnlockInsights": "解锁开局风格、打法与进化趋势",
+    "ultraUnlockScoutInsights": "解锁对手开局与节奏侦察",
+    "ultraUnlockScoutDuration": "解锁侦察中的对局时长阶段分布",
+    "ultraUnlockScoutRecent": "解锁该玩家的近期对局遥测",
+    "tabMaps": "地图",
+    "tabPhases": "阶段",
+    "tabOpenings": "开局",
+    "tabPace": "节奏",
+    "ownDataIntact": "你的个人数据保持不变",
+    "matchesUnit": "场对局",
+    "scopeAllTime": "全部历史",
+    "scopeRecent": "近期样本",
+    "mostPlayedMaps": "最常游玩",
+    "bestWr": "最高胜率",
+    "ultraUnlockDefault": "查看完整分析",
+    "ultraUnlockCivDiag": "解锁按文明、阶段与地图的胜负规律",
+    "diagTabsLabel": "文明细分数据",
+    "diagTabMaps": "地图",
+    "diagTabPhases": "阶段",
+    "diagTabOpenings": "开局",
+    "diagTabPace": "节奏"
   },
   "feedback": {
     "openBtn": "发送反馈",
@@ -778,6 +870,7 @@
     "tooShort": "请至少输入 5 个字符。",
     "sending": "正在发送反馈…",
     "sent": "感谢！你的反馈已成功提交。",
-    "error": "暂时无法发送反馈，请稍后再试。"
+    "error": "暂时无法发送反馈，请稍后再试。",
+    "desc": "反馈错误或为 Relic 提出改进建议。"
   }
 }
