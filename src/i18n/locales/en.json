@@ -47,6 +47,7 @@
     "overlay": "Prematch",
     "tactics": "In-Game",
     "postmatch": "Postmatch",
+    "training": "Training",
     "skins": "Appearance",
     "plans": "Plans",
     "updater": "Updates",

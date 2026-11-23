@@ -7450,10 +7450,24 @@ select.field,
   color: #8796a4;
 }
 
+.page[data-page="central"] .cx-curious-grid {
+  align-items: start;
+  gap: 14px;
+}
+.page[data-page="central"] .cx-curious-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: auto;
+}
+.page[data-page="central"] .cx-curious-grid > .cx-curious-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 .page[data-page="central"] .cx-color-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
   gap: 8px;
+  align-content: start;
 }
 .page[data-page="central"] .cx-color-chip {
   display: flex;
@@ -7493,8 +7507,19 @@ select.field,
 
 .page[data-page="central"] .cx-fun-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
+  align-content: start;
+}
+.page[data-page="central"] .cx-curious-grid > .cx-fun-card:last-child:nth-child(odd) .cx-fun-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.page[data-page="central"] .cx-curious-grid > .cx-fun-card:last-child:nth-child(odd) .cx-fun-tile:last-child:nth-child(odd) {
+  grid-column: auto;
+}
+.pm-age-brand {
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .page[data-page="central"] .cx-fun-tile {
   padding: 11px 13px;
@@ -7815,6 +7840,9 @@ select.field,
   border-radius: 12px;
   border: 1px solid rgba(214, 184, 117, 0.2);
   background: rgba(16, 22, 30, 0.72);
+}
+.plans-status-below {
+  margin-top: 22px;
 }
 .plans-billing-switch {
   display: inline-flex;
@@ -8219,4 +8247,67 @@ select.field,
 }
 .checkout-key-link:hover {
   text-decoration: underline;
+}
+
+/* ==================== ENTRENAMIENTO (BETA) ==================== */
+.training-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(214, 184, 117, 0.24);
+  background: linear-gradient(155deg, rgba(214, 184, 117, 0.08) 0%, rgba(14, 19, 26, 0.94) 60%);
+  margin-bottom: 16px;
+}
+.training-hero-copy h2 {
+  margin: 4px 0 6px;
+  font-size: 20px;
+  color: #f4e6c2;
+}
+.training-hero-copy p {
+  margin: 0;
+  font-size: 13px;
+  color: #9ba8b6;
+  max-width: 560px;
+  line-height: 1.5;
+}
+.training-ages-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.training-ages-strip img {
+  object-fit: contain;
+}
+.training-modules-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 960px) {
+  .training-modules-grid { grid-template-columns: 1fr; }
+  .training-hero { flex-direction: column; align-items: flex-start; }
+}
+.training-card {
+  padding: 18px 20px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 18, 25, 0.86);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.training-card h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #edf2f7;
+}
+.training-card p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #8f9dab;
+  line-height: 1.5;
 }

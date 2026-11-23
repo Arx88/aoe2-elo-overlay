@@ -2153,16 +2153,17 @@ document.addEventListener('keydown', (event) => {
 /* ============================================================
    Navegación del wizard: solo el rail, sin botones de pie.
    ============================================================ */
-const PAGE_ORDER = ['player', 'central', 'overlay', 'tactics', 'postmatch', 'skins', 'plans', 'updater'];
+const PAGE_ORDER = ['player', 'central', 'overlay', 'tactics', 'postmatch', 'training', 'skins', 'plans', 'updater'];
 const PAGE_META = {
   player: { index: '01 / CUENTA', title: 'Cuenta de jugador', sub: 'Tu cuenta en el juego y tus últimas partidas.' },
   central: { index: '02 / CENTRAL', title: 'Central de estadísticas', sub: 'Tu evolución y el historial de cada modo.' },
   overlay: { index: '03 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida · vista previa en vivo.' },
   tactics: { index: '04 / DURANTE', title: 'Elegí cómo responder.', sub: 'Oportunidades por civilización, historial y composición observada.' },
   postmatch: { index: '05 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'Tus últimas 10 partidas, resultado y evolución detallada.' },
-  skins: { index: '06 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
-  plans: { index: '07 / PLAN Y ACCESO', title: 'Elegí cuánto ver.', sub: 'Free para competir; Pro para el Prematch; Ultra para la experiencia completa.' },
-  updater: { index: '08 / ACTUALIZACIONES', title: 'Mantené la app al día.', sub: 'Actualizaciones seguras, también en plena temporada.' },
+  training: { index: '06 / ENTRENAMIENTO', title: 'Entrenamiento', sub: 'Práctica guiada de aperturas, tiempos de edad y objetivos tácticos.' },
+  skins: { index: '07 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
+  plans: { index: '08 / PLAN Y ACCESO', title: 'Elegí cuánto ver.', sub: 'Free para competir; Pro para el Prematch; Ultra para la experiencia completa.' },
+  updater: { index: '09 / ACTUALIZACIONES', title: 'Mantené la app al día.', sub: 'Actualizaciones seguras, también en plena temporada.' },
 };
 
 let activePage = 'player';

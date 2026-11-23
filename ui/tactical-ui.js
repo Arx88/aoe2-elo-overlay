@@ -1051,11 +1051,11 @@
       : reportIcon(name);
   }
   const AGE_BRAND_ART = {
-    dark: 'assets/brand/opening-v1.png',
-    opening: 'assets/brand/opening-v1.png',
-    feudal: 'assets/brand/feudal-v1.png',
-    castle: 'assets/brand/castle-v1.png',
-    imperial: 'assets/brand/imperial-v1.png',
+    dark: 'assets/icons/ages/dark.png',
+    opening: 'assets/icons/ages/dark.png',
+    feudal: 'assets/icons/ages/feudal.png',
+    castle: 'assets/icons/ages/castle.png',
+    imperial: 'assets/icons/ages/imperial.png',
   };
   function ageBrandEmblem(ageId, size = 34) {
     const src = AGE_BRAND_ART[ageId];

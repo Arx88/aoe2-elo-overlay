@@ -59,6 +59,8 @@
           <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Durante</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
           <button class="nav-item" data-page="postmatch" type="button"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span data-i18n="nav.postmatch">Postmatch</span></button>
           <span class="rail-nav-sep" aria-hidden="true"></span>
+          <button class="nav-item" data-page="training" type="button"><img class="product-icon" src="assets/icons/target.png" alt="" draggable="false"><span data-i18n="nav.training">Entrenamiento</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
+          <span class="rail-nav-sep" aria-hidden="true"></span>
           <button class="nav-item" data-page="skins" type="button">
             <img class="product-icon" src="assets/icons/palette.png" alt="" draggable="false">
             <span data-i18n="nav.skins">Apariencia</span>
@@ -454,47 +456,48 @@
             <div id="postMatchReport" class="postmatch-report" aria-live="polite"></div><template id="emptyPostmatchState"><div class="empty-report"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><h3 data-i18n="postmatchPage.emptyTitle">Tu próxima partida marca el comienzo.</h3><p data-i18n="postmatchPage.emptyDesc">Al terminar, el informe aparecerá acá y en el overlay.</p></div></template>
           </section>
 
+          <!-- ============ ENTRENAMIENTO (BETA) ============ -->
+          <section class="page" data-page="training">
+            <div class="training-hero">
+              <div class="training-hero-copy">
+                <span class="eyebrow">MODO ENTRENAMIENTO · BETA</span>
+                <h2>Práctica guiada y objetivos tácticos</h2>
+                <p>Entrená tus tiempos de edad, órdenes de construcción y hábitos de partida con seguimiento real sobre tus replays de Age of Empires II: DE.</p>
+              </div>
+              <div class="training-ages-strip" aria-hidden="true">
+                <img src="assets/icons/ages/dark.png" width="38" height="38" alt="" draggable="false" />
+                <img src="assets/icons/ages/feudal.png" width="38" height="38" alt="" draggable="false" />
+                <img src="assets/icons/ages/castle.png" width="38" height="38" alt="" draggable="false" />
+                <img src="assets/icons/ages/imperial.png" width="38" height="38" alt="" draggable="false" />
+              </div>
+            </div>
+            <div class="training-modules-grid">
+              <article class="training-card">
+                <span class="eyebrow">PRÓXIMAMENTE EN BETA</span>
+                <h3>Tiempos de Edad y Build Orders</h3>
+                <p>Practicá subidas a Edad Feudal y Edad de los Castillos con metas por mapa (Arabia, Arena, Nómada) comparadas contra tu propia curva real.</p>
+              </article>
+              <article class="training-card">
+                <span class="eyebrow">PRÓXIMAMENTE EN BETA</span>
+                <h3>Cero inactividad de Centro Urbano</h3>
+                <p>Desafíos progresivos para reducir tus segundos de Centro Urbano inactivo y mejorar tu ritmo económico temprano.</p>
+              </article>
+              <article class="training-card">
+                <span class="eyebrow">PRÓXIMAMENTE EN BETA</span>
+                <h3>Objetivos por Matchup y Civilización</h3>
+                <p>Metas concretas generadas desde tus puntos débiles en Central y Postmatch para entrenar con foco cada sesión.</p>
+              </article>
+            </div>
+          </section>
+
           <!-- ============ PLAN Y ACCESO ============ -->
           <section class="page" data-page="plans">
-            <div class="acct-subtabs" role="tablist">
-              <button type="button" class="acct-subtab" data-goto="player" aria-selected="false" data-i18n="account.tabProfile">Mi cuenta y perfil</button>
-              <button type="button" class="acct-subtab active" data-goto="plans" aria-selected="true" data-i18n="account.tabPlan">Plan y clave</button>
-            </div>
-            <div class="access-summary">
-              <div>
-                <span class="eyebrow" data-i18n="plansPage.eyebrow">TU ACCESO ACTUAL</span>
-                <h2 id="planName" data-i18n="plansPage.loading">Cargando…</h2>
-                <p id="planDescription" data-i18n="plansPage.loadingDesc">Consultando las funciones disponibles de esta versión.</p>
-                <span id="planExpiry" class="access-expiry"></span>
-              </div>
-              <div class="access-summary-actions">
-                <button id="planRefreshBtn" class="btn" type="button" data-i18n="plans.refreshBtn">Verificar acceso</button>
-              </div>
-            </div>
-
-            <div id="planRedeemCard" class="plan-redeem-card" aria-live="polite">
-              <div class="plan-redeem-head">
-                <span class="eyebrow" data-i18n="plansPage.redeemTitle">Canjear clave prepaga</span>
-              </div>
-              <form id="redeemKeyForm" class="relic-redeem-row" hidden>
-                <input id="redeemKeyInput" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="RELIC-XXXX-XXXX-XXXX" />
-                <button id="redeemKeyBtn" class="btn gold" type="submit" data-i18n="plansPage.redeemTitle">Canjear clave prepaga</button>
-                <span id="redeemKeyStatus" class="inline-status" role="status"></span>
-              </form>
-              <div id="planRedeemSignInPrompt" class="plan-redeem-signin">
-                <p class="mini" data-i18n="plansPage.redeemSignInHint">Iniciá sesión con Google para canjear una clave y vincular tu plan a tu cuenta.</p>
-                <button id="planGoogleLoginBtn" class="btn gold relic-google-btn" type="button">
-                  <span class="g-mark" aria-hidden="true">G</span>
-                  <span data-i18n="account.googleBtn">Continuar con Google</span>
-                </button>
-              </div>
-            </div>
             <div class="plans-billing-bar" role="group" aria-label="Ciclo de facturación">
               <div class="plans-billing-switch">
                 <button type="button" class="plans-cycle-btn is-active" data-billing-cycle="monthly" aria-pressed="true">Mensual</button>
                 <button type="button" class="plans-cycle-btn" data-billing-cycle="annual" aria-pressed="false">Anual <span class="plans-save-pill">−20%</span></button>
               </div>
-              <span class="plans-billing-note">Precios en USD · Cancelás cuando quieras · Sin cargos ocultos</span>
+              <span class="plans-billing-note">Precios en USD · Tarjeta en plan Anual · USDT/USDC en Mensual y Anual</span>
             </div>
 
             <div class="plans-grid" id="plansGrid" data-billing-cycle="monthly">
@@ -579,7 +582,35 @@
               </article>
             </div>
 
-            
+            <div class="access-summary plans-status-below">
+              <div>
+                <span class="eyebrow" data-i18n="plansPage.eyebrow">TU ACCESO ACTUAL</span>
+                <h2 id="planName" data-i18n="plansPage.loading">Cargando…</h2>
+                <p id="planDescription" data-i18n="plansPage.loadingDesc">Consultando las funciones disponibles de esta versión.</p>
+                <span id="planExpiry" class="access-expiry"></span>
+              </div>
+              <div class="access-summary-actions">
+                <button id="planRefreshBtn" class="btn" type="button" data-i18n="plans.refreshBtn">Verificar acceso</button>
+              </div>
+            </div>
+
+            <div id="planRedeemCard" class="plan-redeem-card" aria-live="polite">
+              <div class="plan-redeem-head">
+                <span class="eyebrow" data-i18n="plansPage.redeemTitle">Canjear clave prepaga</span>
+              </div>
+              <form id="redeemKeyForm" class="relic-redeem-row" hidden>
+                <input id="redeemKeyInput" class="field" type="text" autocomplete="off" spellcheck="false" placeholder="RELIC-XXXX-XXXX-XXXX" />
+                <button id="redeemKeyBtn" class="btn gold" type="submit" data-i18n="plansPage.redeemTitle">Canjear clave prepaga</button>
+                <span id="redeemKeyStatus" class="inline-status" role="status"></span>
+              </form>
+              <div id="planRedeemSignInPrompt" class="plan-redeem-signin">
+                <p class="mini" data-i18n="plansPage.redeemSignInHint">Iniciá sesión con Google para canjear una clave y vincular tu plan a tu cuenta.</p>
+                <button id="planGoogleLoginBtn" class="btn gold relic-google-btn" type="button">
+                  <span class="g-mark" aria-hidden="true">G</span>
+                  <span data-i18n="account.googleBtn">Continuar con Google</span>
+                </button>
+              </div>
+            </div>
           </section>
 
           <!-- ============ SKINS ============ -->

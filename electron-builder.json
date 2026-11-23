@@ -31,7 +31,7 @@
     "src/**/*",
     "assets/**/*",
     "!assets/app-icon-source.png",
-    "!assets/brand/*-v1.png",
+    "!assets/brand/review-*-v1.png",
     "!admin-app/**",
     "!licensing-api/**",
     "!build/**",
