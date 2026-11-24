@@ -28,6 +28,7 @@ try {
       keepAliveTimeout: 30_000,
       keepAliveMaxTimeout: 60_000,
       connections: 12,
+      allowH2: true,
     }));
   }
 } catch {
@@ -48,7 +49,7 @@ const {
   hideLobbyCivs,
 } = require('./src/aoe');
 const { fetchCentralDashboard, hydrateCentralEwMode, mergeRecentMatches } = require('./src/central');
-const { detectProfile, getActiveSteamId, getActiveSteamIdAsync, resolveSteamId } = require('./src/detect');
+const { detectProfile, getActiveSteamId, getActiveSteamIdAsync, resolveSteamId, listAccounts } = require('./src/detect');
 let lastActiveSteamId = null;
 let lastSteamCheckAt = 0;
 const { CIV_SLUGS, CIV_ALIASES, civSlug } = require('./src/civs');
@@ -723,11 +724,11 @@ async function syncRemoteLicense(reason = 'startup') {
     productSession = { accountId: res.accountId, entitlementToken: res.token };
     log(`licencia remota verificada (${res.plan}) · ${reason}`);
     refreshAccessPresentation();
-  } else if (res.revoked || res.status === 'free') {
+  } else if (res.revoked || res.status === 'free' || res.status === 'invalid-signature') {
     const hadAccess = Boolean(productSession.entitlementToken || config.accessKeyGrant);
     if ((res.revoked || res.paywallEnabled) && config.accessKeyGrant) persistConfig({ accessKeyGrant: null });
     productSession = { accountId: null, entitlementToken: null };
-    if (hadAccess || res.revoked || res.paywallEnabled) {
+    if (hadAccess || res.revoked || res.paywallEnabled || res.status === 'invalid-signature') {
       log(`acceso remoto retirado (${res.reason || res.status}) · ${reason}`);
       refreshAccessPresentation();
     }
@@ -763,8 +764,13 @@ function productState() {
         productExpiryTimer = null;
         productExpiryAt = null;
         const next = productState();
+        if (next.plan === 'free' && productSession.entitlementToken) {
+          productSession = { accountId: null, entitlementToken: null };
+        }
         refreshAccessPresentation(next);
-      }, Math.min(Math.max(1, expiresAt - Date.now()), 2147483647));
+        syncRemoteLicense('expiry').catch(() => {});
+        fetchCurrentAuthState().then((auth) => { if (auth) broadcastAuthState(auth); }).catch(() => {});
+      }, Math.min(Math.max(250, expiresAt - Date.now() + 250), 2147483647));
       productExpiryTimer.unref?.();
     }
   }
@@ -772,6 +778,17 @@ function productState() {
 }
 
 function refreshAccessPresentation(product = productState()) {
+  if (!allowsFeature(product, 'trainingHub')) {
+    if (trainingController?.liveOverlayState) {
+      trainingController.liveOverlayState.testActive = false;
+      trainingController.liveOverlayState.startedAt = null;
+      trainingController.liveOverlayState.offsetGameSec = 0;
+    }
+    syncLiveArmedBuildTimer();
+  }
+  if (!allowsFeature(product, 'smurfDetector')) {
+    clearSmurfReports();
+  }
   send('overlay:state', projectOverlayState(lastGood || {
     status: profileId ? 'idle' : 'no-profile', profileId, players: [],
   }, product));
@@ -785,6 +802,9 @@ function refreshAccessPresentation(product = productState()) {
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.webContents.send('product:update', product);
     settingsWin.webContents.send('tactics:update', tacticalPayload());
+    if (!allowsFeature(product, 'trainingHub')) {
+      settingsWin.webContents.send('training:update', { unlocked: false, plan: product.plan || 'free' });
+    }
   }
 }
 
@@ -1088,13 +1108,26 @@ async function refreshSmurfReports(state, options = {}) {
     return;
   }
   const matchId = state.match?.matchId || 'sin-id';
+  const enemies = opponentsOf(state, RIVAL_LIMIT);
+  const enemyIds = new Set(enemies.map((e) => Number(e.profileId)).filter((n) => n > 0));
+  const modeObj = resolveMode(leaderboardOf(state) || 3);
   const sig = `${matchId}:${rivals.map((r) => r.profileId).join(',')}`;
   if (!options.force && sig === smurfSig && smurfReports) return;
   if (smurfFetching) return;
   smurfSig = sig;
   smurfFetching = true;
   try {
-    const byPlayer = await detectSmurfsForPlayers(players, { cache: statsCache, log });
+    const byPlayer = await detectSmurfsForPlayers(players, {
+      cache: statsCache,
+      enemyIds,
+      mode: modeObj,
+      onUpdate: (enrichedByPlayer) => {
+        if (!lastGood || lastGood.status !== 'ongoing' || !viewConfig().smurfDetector) return;
+        if (String(lastGood.match?.matchId || 'sin-id') !== String(matchId)) return;
+        sendSmurf({ ts: Date.now(), matchId: String(matchId), byPlayer: enrichedByPlayer });
+      },
+      log,
+    });
     if (!lastGood || lastGood.status !== 'ongoing' || !viewConfig().smurfDetector) return;
     const anyFlagged = Object.values(byPlayer || {}).some((entry) => entry && entry.flagged);
     if (!anyFlagged && state.example && activePreviewHighlight?.feature === 'smurfDetector') {
@@ -1265,6 +1298,7 @@ function scheduleRivalRetry(reports, rivals) {
     const report = reports.find((item) => Number(item.profileId) === Number(rival.profileId));
     if (!report) reason = `sin informe de ${rival.name}`;
     else if (report.modeUnavailable) return false;
+    else if (report.error && /HTTP 429/.test(String(report.error))) return false;
     else if (report.error) reason = `error de ${rival.name}: ${report.error}`;
     // Un historial vacío sin error es un resultado válido, no un fallo de red.
     return Boolean(reason);
@@ -1325,7 +1359,13 @@ async function refreshRivalReports(state, options = {}) {
 
   rivalFetching = true;
   const startedAt = Date.now();
-  let reports = rivals.map((rival) => ({ profileId: rival.profileId, name: rival.name, civ: rival.civ, loading: true }));
+  const prevReportsList = Array.isArray(rivalReports?.reports) ? rivalReports.reports : [];
+  let reports = rivals.map((rival) => {
+    const prev = prevReportsList.find((item) => Number(item?.profileId) === Number(rival.profileId) && !item.loading);
+    return prev
+      ? { ...prev, name: rival.name, civ: rival.civ }
+      : { profileId: rival.profileId, name: rival.name, civ: rival.civ, loading: true };
+  });
   const publish = (report) => {
     // Una respuesta tardía no puede publicar datos de una sala anterior,
     // un mapa anterior ni de una combinación de opciones ya modificada.
@@ -1459,6 +1499,7 @@ function buildOrderPayload() {
   if (!prod.featureAccess.smartBuildOrder && !allowsFeature(prod, 'trainingHub')) {
     return { status: 'locked', enabled: false, message: 'Smart Build Order está incluido en Ultra.', guides: [], selected: null };
   }
+  const helperEnabled = Boolean(viewConfig().smartBuildOrder);
   const ongoing = lastGood?.status === 'ongoing';
   const inLobby = Boolean(ongoing && (lastGood?.phase === 'lobby' || lastGood?.previewPhase === 'prematch'));
   const pid = runtimeProfileId();
@@ -1473,7 +1514,13 @@ function buildOrderPayload() {
       ownCiv: own?.civ || null,
       mapName: ongoing ? lastGood.match?.mapName : null,
     });
-    if (armedPayload) return armedPayload;
+    // La prueba explícita ("Probar en pantalla") corre SOLO fuera de partida;
+    // en partida real el Build Order de Entrenamiento SOLO se activa si
+    // "Build Order Helper" (Batalla) está encendido.
+    const isLiveTestOnly = Boolean(armedPayload && armedPayload.liveTestActive && !ongoing);
+    if (armedPayload && (isLiveTestOnly || (helperEnabled && ongoing && !inLobby))) {
+      return { ...armedPayload, enabled: helperEnabled, liveTestActive: isLiveTestOnly };
+    }
   }
 
   const sameMatch = ongoing && scoutPayload && String(scoutPayload.matchId) === String(lastGood.match?.matchId);
@@ -1481,7 +1528,7 @@ function buildOrderPayload() {
   return { ...buildSmartBuildOrder({ ownCiv: own?.civ,
     mapName: ongoing ? lastGood.match?.mapName : null,
     mode: ongoing ? resolveMode(leaderboardOf(lastGood)) : null, opportunityStages }),
-    enabled: Boolean(viewConfig().smartBuildOrder), ongoing,
+    enabled: helperEnabled, ongoing,
     matchId: ongoing ? lastGood.match?.matchId : null };
 }
 
@@ -1490,7 +1537,6 @@ function sendBuildOrder() {
   const shouldShow = Boolean(
     payload && (
       payload.liveTestActive ||
-      (payload.isArmedCustom && payload.ongoing) ||
       (payload.enabled && payload.ongoing)
     )
   );
@@ -1499,17 +1545,27 @@ function sendBuildOrder() {
 }
 
 function syncLiveArmedBuildTimer() {
+  if (!allowsFeature(productState(), 'trainingHub')) {
+    if (liveArmedBuildTimer) {
+      clearInterval(liveArmedBuildTimer);
+      liveArmedBuildTimer = null;
+    }
+    return;
+  }
   const pid = runtimeProfileId();
   const prof = trainingController.store.getProfile(pid);
+  const helperEnabled = Boolean(viewConfig().smartBuildOrder);
   const needTimer = Boolean(
     trainingController.liveOverlayState?.testActive ||
-    (lastGood?.status === 'ongoing' && prof?.armedBuildOrderId)
+    (helperEnabled && lastGood?.status === 'ongoing' && prof?.armedBuildOrderId)
   );
   if (needTimer && !liveArmedBuildTimer) {
     liveArmedBuildTimer = setInterval(() => {
-      const stillNeeded = Boolean(
+      const stillAllowed = allowsFeature(productState(), 'trainingHub');
+      const stillHelperEnabled = Boolean(viewConfig().smartBuildOrder);
+      const stillNeeded = stillAllowed && Boolean(
         trainingController.liveOverlayState?.testActive ||
-        (lastGood?.status === 'ongoing' && trainingController.store.getProfile(runtimeProfileId())?.armedBuildOrderId)
+        (stillHelperEnabled && lastGood?.status === 'ongoing' && trainingController.store.getProfile(runtimeProfileId())?.armedBuildOrderId)
       );
       if (!stillNeeded) {
         clearInterval(liveArmedBuildTimer);
@@ -2721,7 +2777,7 @@ function startLive() {
     onSnapshot: (events) => {
       if (queueWatcher) queueWatcher.handleEvents(events, true, { quiet: true });
     },
-    onQueue: (active) => {
+    onQueue: (active, queueItem) => {
       if (active === searching) return;
       searching = active;
       log(
@@ -2729,7 +2785,15 @@ function startLive() {
           ? 'estás buscando partida (carril rápido) · polling acelerado'
           : 'cola finalizada (carril rápido)',
       );
-      if (active) scheduleNext('idle');
+      if (active) {
+        const mode = queueItem ? resolveMode(queueItem.leaderboard ?? queueItem.leaderboardId) : null;
+        if (mode && ['rm_1v1', 'rm_team', 'ew_1v1', 'ew_team', 'dm_1v1', 'dm_team'].includes(mode.key) &&
+            (viewConfig().rivalH2H || viewConfig().civRecommender || viewConfig().civCounterPick)) {
+          fetchMyHistory({ profileId, leaderboardId: mode.id, cache: statsCache,
+            cacheTtlMs: 30 * 60 * 1000, log }).catch((err) => log(`precarga de historial: ${err.message}`));
+        }
+        scheduleNext('idle');
+      }
     },
   });
   fastLane.start();
@@ -2755,9 +2819,66 @@ function startLive() {
     },
   });
   liveWatcher.start();
+  startSavegameWatchers();
+}
+
+let savegameWatchers = [];
+let savegamePollTimer = null;
+let lastSavegameTriggerAt = 0;
+
+function stopSavegameWatchers() {
+  if (savegamePollTimer) {
+    clearTimeout(savegamePollTimer);
+    savegamePollTimer = null;
+  }
+  for (const w of savegameWatchers) {
+    try { w.close(); } catch { /* ignore */ }
+  }
+  savegameWatchers = [];
+}
+
+function startSavegameWatchers() {
+  stopSavegameWatchers();
+  if (DEMO || NO_PROFILE) return;
+  let accounts = [];
+  try {
+    accounts = listAccounts();
+  } catch {
+    return;
+  }
+  const seenDirs = new Set();
+  for (const acc of accounts.slice(0, 4)) {
+    const dir = acc && acc.dir ? path.join(acc.dir, 'savegame') : null;
+    if (!dir || seenDirs.has(dir)) continue;
+    seenDirs.add(dir);
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const watcher = fs.watch(dir, { persistent: false }, (_eventType, filename) => {
+        if (!filename || !/\.aoe2record$/i.test(String(filename))) return;
+        if (exampleActive || DEMO || !profileId) return;
+        const now = Date.now();
+        if (now - lastSavegameTriggerAt < 4000) return;
+        clearTimeout(savegamePollTimer);
+        savegamePollTimer = setTimeout(() => {
+          savegamePollTimer = null;
+          if (exampleActive || DEMO || !profileId || polling) return;
+          lastSavegameTriggerAt = Date.now();
+          log(`savegame detectado (${filename}): adelantando poll en vivo`);
+          poll().then((next) => scheduleNext(next)).catch(() => {});
+        }, 500);
+      });
+      watcher.on('error', () => {
+        try { watcher.close(); } catch { /* ignore */ }
+      });
+      savegameWatchers.push(watcher);
+    } catch {
+      /* carpeta savegame no accesible; Companion WS/REST sigue como fallback */
+    }
+  }
 }
 
 function stopLive() {
+  stopSavegameWatchers();
   if (liveWatcher) liveWatcher.stop();
   if (queueWatcher) queueWatcher.stop();
   if (fastLane) fastLane.stop();
@@ -3192,7 +3313,7 @@ function stopExample() {
 
 async function getRecentMatchesList(limit = 10) {
   if (!profileId) return [];
-  const stored = performanceStore.list(profileId);
+  const stored = performanceStore.listReadOnly(profileId);
   let remote = [];
   const cacheKey = `recent-matches:${profileId}`;
   const cached = statsCache.get(cacheKey);
@@ -3548,6 +3669,9 @@ function registerIpc() {
   // curso se recalcula la vista con el reloj ya andando, sin reiniciar nada.
   ipcMain.handle('settings:civHelp', (_event, raw) => {
     const enabled = Boolean(raw);
+    if (enabled && !allowsFeature(productState(), 'civHelp')) {
+      return { ok: false, error: 'Disponible con Pro.' };
+    }
     persistConfig({ civHelp: enabled });
     send('overlay:config', overlayConfig());
     syncIntro(lastGood, { force: true });
@@ -3585,6 +3709,9 @@ function registerIpc() {
     const key = String(rawKey || '');
     if (!RIVAL_OPTION_KEYS.includes(key)) return { ok: false, error: 'Esa opción no existe.' };
     const enabled = Boolean(rawValue);
+    if (enabled && !allowsFeature(productState(), key)) {
+      return { ok: false, error: 'Disponible con Pro.' };
+    }
     persistConfig({ [key]: enabled });
     send('overlay:config', overlayConfig());
     log(`informe del rival · ${key}: ${enabled ? 'activado' : 'desactivado'}`);
@@ -3615,6 +3742,9 @@ function registerIpc() {
   // aplica en caliente como civHelp: persistir + reenviar configuración.
   ipcMain.handle('settings:tgBalance', (_event, raw) => {
     const enabled = Boolean(raw);
+    if (enabled && !allowsFeature(productState(), 'tgBalance')) {
+      return { ok: false, error: 'Disponible con Pro.' };
+    }
     persistConfig({ tgBalance: enabled });
     send('overlay:config', overlayConfig());
     triggerTogglePreview('prematch', enabled ? 'tgBalance' : null).catch(() => {});
@@ -3669,6 +3799,9 @@ function registerIpc() {
   ipcMain.handle('settings:postMatchOption', (_event, rawKey, rawValue) => {
     const key = String(rawKey || '');
     if (key === 'postMatchCompareMode') {
+      if (!allowsFeature(productState(), 'postMatchComparison')) {
+        return { ok: false, error: 'Disponible con Ultra.' };
+      }
       const mode = ['both', 'personal', 'community'].includes(String(rawValue)) ? String(rawValue) : null;
       if (!mode) return { ok: false, error: 'Modo de comparación inválido.' };
       persistConfig({ postMatchCompareMode: mode });
@@ -3756,7 +3889,7 @@ function registerIpc() {
           const wantHistory = postMatchAccess().comparison;
           let initHistory = { rows: [], pending: wantHistory };
           if (wantHistory) {
-            // Intentar cargar historial autoritativo rápido (espera hasta 900ms; si tarda más, pinta y actualiza al volver)
+            // Si el historial ya está en caché en memoria resuelve en ~1ms; si falta red, pinta al instante y actualiza al llegar.
             const histPromise = fetchMyHistory({
               profileId: targetPid,
               leaderboardId: first.rawMatch.leaderboardId,
@@ -3767,7 +3900,7 @@ function registerIpc() {
             }).catch((err) => ({ rows: [], error: err.message, pending: false }));
             const quick = await Promise.race([
               histPromise,
-              new Promise((resolve) => setTimeout(() => resolve(null), 900)),
+              new Promise((resolve) => setTimeout(() => resolve(null), 35)),
             ]);
             if (quick) {
               initHistory = quick;
@@ -3817,6 +3950,7 @@ function registerIpc() {
 
   let hydratingCentralPid = null;
   async function hydrateRecentReplaysForCentral(targetPid, candidates = []) {
+    if (!allowsFeature(productState(), 'postMatchReplay')) return;
     const pid = Number(targetPid);
     if (!pid || hydratingCentralPid === pid) return;
     const existingWithTelemetry = performanceStore.listReadOnly(pid).filter((r) => r && r.telemetry);
@@ -3864,6 +3998,9 @@ function registerIpc() {
   }
 
   ipcMain.handle('postmatch:select', async (_event, rawMatchId) => {
+    if (!allowsFeature(productState(), 'postMatch')) {
+      return { ok: false, error: 'Disponible con Ultra.' };
+    }
     const targetId = String(rawMatchId || '').trim();
     if (!targetId || !profileId) return { ok: false, error: 'Elegí una partida válida.' };
     if (exampleActive) deactivateExample();
@@ -3984,12 +4121,16 @@ function registerIpc() {
     const enabled = Boolean(raw);
     persistConfig({ smartBuildOrder: enabled });
     send('overlay:config', overlayConfig());
+    syncLiveArmedBuildTimer();
     sendBuildOrder();
     triggerTogglePreview('durante', enabled ? 'smartBuildOrder' : null).catch(() => {});
     return { ok: true, enabled };
   });
 
   ipcMain.handle('postmatch:refresh', async () => {
+    if (!allowsFeature(productState(), 'postMatch')) {
+      return { ok: false, error: 'Disponible con Ultra.' };
+    }
     const match = latestStoredMatch();
     if (!match) {
       return { ok: false, error: 'Todavía no hay una partida terminada para analizar.' };
@@ -4206,16 +4347,12 @@ function registerIpc() {
   function trainingAccessContext() {
     const prod = productState();
     const unlocked = allowsFeature(prod, 'trainingHub');
-    const cachedDisk = typeof readCachedDiskProfile === 'function' ? readCachedDiskProfile() : null;
-    let pid = profileId || config.profileId || config.autoProfileId || cachedDisk?.profileId || null;
-    let records = pid ? performanceStore.listReadOnly(pid) : [];
-    if (!records.length) {
-      const all = performanceStore.listReadOnly();
-      if (Array.isArray(all) && all.length) {
-        if (!pid && all[0]?.profileId) pid = all[0].profileId;
-        records = all;
-      }
+    let pid = profileId || config.profileId || config.autoProfileId || null;
+    if (!pid && typeof readCachedDiskProfile === 'function') {
+      const cachedDisk = readCachedDiskProfile();
+      if (cachedDisk?.profileId) pid = cachedDisk.profileId;
     }
+    const records = pid ? performanceStore.listReadOnly(pid) : [];
     return { prod, unlocked, pid, records };
   }
 
@@ -4340,7 +4477,7 @@ function registerIpc() {
     });
     syncLiveArmedBuildTimer();
     sendBuildOrder();
-    return res;
+    return { ...res, buildOrderHelperEnabled: Boolean(viewConfig().smartBuildOrder) };
   });
 
   ipcMain.handle('training:build-extract', () => {
@@ -4364,7 +4501,7 @@ function registerIpc() {
     });
     syncLiveArmedBuildTimer();
     sendBuildOrder();
-    return res;
+    return { ...res, buildOrderHelperEnabled: Boolean(viewConfig().smartBuildOrder) };
   });
 
   ipcMain.handle('training:build-arm', (_event, payload = {}) => {
@@ -4384,7 +4521,7 @@ function registerIpc() {
     }
     syncLiveArmedBuildTimer();
     sendBuildOrder();
-    return res;
+    return { ...res, buildOrderHelperEnabled: Boolean(viewConfig().smartBuildOrder) };
   });
 
   ipcMain.handle('training:high-elo-config', (_event, payload = {}) => {
@@ -4649,7 +4786,7 @@ function registerIpc() {
     syncReviewInteraction();
     // Y también el informe del rival que ya estaba calculado.
     if (rivalReports) send('overlay:rival', projectRivalPayload(rivalReports, productState()));
-    if (smurfReports) send('overlay:smurf', smurfReports);
+    if (smurfReports && allowsFeature(productState(), 'smurfDetector')) send('overlay:smurf', smurfReports);
     // Ídem el consejo pre-partida (si sigue vigente: el renderer lo valida).
     if (scoutPayload) send('overlay:scout', projectScoutPayload(scoutPayload, productState()));
     sendBuildOrder();
@@ -4945,7 +5082,7 @@ function broadcastPostMatch() {
 function latestStoredMatch() {
   if (postMatchMatch) return postMatchMatch;
   if (!profileId) return null;
-  const record = performanceStore.list(profileId)[0];
+  const record = performanceStore.listReadOnly(profileId)[0];
   return record && record.match ? record.match : null;
 }
 
@@ -5026,7 +5163,7 @@ async function publishPostMatch(match, options = {}) {
     leaderboardId: match.leaderboardId,
     currentMatchId: match.matchId,
     cache: statsCache,
-    cacheTtlMs: (options.force || options.refreshReplay) ? 0 : 15 * 1000,
+    cacheTtlMs: options.refreshReplay ? 0 : 30 * 1000,
     log,
   }).catch((err) => ({ rows: [], error: err.message })).then((result) => {
     history = result;
@@ -5142,7 +5279,9 @@ function emit(state) {
     lastOngoingMatchId = ongoingId;
     clearRivalReports();
     clearScoutTips();
-    trainingController.notifyMatchStarted({ profileId: runtimeProfileId(), matchId: ongoingId, startedAt: Date.now() });
+    if (allowsFeature(productState(), 'trainingHub')) {
+      trainingController.notifyMatchStarted({ profileId: runtimeProfileId(), matchId: ongoingId, startedAt: Date.now() });
+    }
     syncLiveArmedBuildTimer();
     // Asegurar que Windows DWM mantenga el overlay por encima del juego al detectar partida nueva.
     if (win && !win.isDestroyed() && !manuallyHiddenByHotkey && !(minimizeController && minimizeController.isHiddenByMinimized())) {
@@ -5818,6 +5957,10 @@ if (!gotLock) {
     // silenciosamente muertos: reiniciamos detección en vivo y refrescamos.
     if (powerMonitor && typeof powerMonitor.on === 'function') {
       const recoverLive = (reason) => {
+        if (!DEV_SESSION) {
+          refreshAccessPresentation(productState());
+          syncRemoteLicense('resume').catch(() => {});
+        }
         if (!profileId || DEMO || NO_PROFILE) return;
         log(`sistema ${reason}: reconectando detección en vivo de partidas`);
         startLive();

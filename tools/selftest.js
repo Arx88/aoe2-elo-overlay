@@ -1596,12 +1596,11 @@ function fakeLobby(leaderboardId, leaderboardName) {
         !settingsJs.includes("'comandos'"));
     const overlayHtmlCredit = read('index.html');
     const mainCredit = read('main.js');
-    check('crédito By Acido: solo en el pie del riel, junto a la versión',
+    check('pie del riel con Derechos reservados Relic y sin By acido',
       !/By acido/i.test(overlayHtmlCredit) &&
         !/By acido/i.test(mainCredit) &&
-        !/by Acido/.test(settingsHtml) &&
-        (settingsHtml.match(/By acido/g) || []).length === 1 &&
-        /id="version"[\s\S]{0,120}By acido/.test(settingsHtml));
+        !/By acido/i.test(settingsHtml) &&
+        /Derechos reservados Relic/.test(settingsHtml));
     check('settings.js navega 4 pestañas y no cablea el ejemplo',
       ['player', 'overlay', 'skins', 'updater'].every((p) => settingsJs.includes(`'${p}'`)) &&
         !/window\.settings\.exampleStart/.test(settingsJs) &&

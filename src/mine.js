@@ -159,11 +159,20 @@ async function fetchMyHistoryImpl(options = {}) {
   try {
     const matches = [];
     const seen = new Set();
-    // Delta Sync incremental: si ya tenemos historial cacheado, recordamos los matchId ya asentados
-    // (con resultado booleano confirmado y ratingDiff presente o partida de hace > 30 min).
-    // Apenas la página 1 alcanza un matchId ya asentado, cortamos la paginación (1 request en vez de 6)
-    // y fusionamos monotónicamente con las filas previas.
-    const priorRows = (cached && Array.isArray(cached.rows)) ? cached.rows : [];
+    // Delta Sync incremental: si no tenemos caché `mine:` pero sí existe `central:v6:<pid>`,
+    // sembramos priorRows desde Central (100–200 partidas ya en memoria/disco!) para cortar en Página 1.
+    const modeId = mode ? Number(mode.id) : null;
+    let priorRows = (cached && Array.isArray(cached.rows)) ? cached.rows : [];
+    let priorMatches = (cached && Array.isArray(cached.matches)) ? cached.matches : null;
+    if (!priorRows.length && cache && typeof cache.get === 'function' && (modeId === 3 || modeId === 4)) {
+      const centralEntry = cache.get(`central:v6:${id}`);
+      const cRaw = centralEntry?.raw;
+      const cMatches = modeId === 3 ? cRaw?.matches1v1 : cRaw?.matchesTeam;
+      if (Array.isArray(cMatches) && cMatches.length >= 20) {
+        priorRows = parseMyHistory(cMatches, id, null);
+        priorMatches = cMatches;
+      }
+    }
     const settledPriorIds = new Set();
     for (const r of priorRows) {
       if (!r || r.matchId == null) continue;
@@ -189,15 +198,38 @@ async function fetchMyHistoryImpl(options = {}) {
       return matches.length - before;
     };
 
-    let page = 0;
-    while (true) {
-      page += 1;
-      if (page > 1) await wait(PAGE_DELAY_MS);
-      const lastPage = await fetchPage(page);
-      if (!add(lastPage)) break;
-      if (hitSettledHistory) break;
-      if (lastPage.length < PAGE_SIZE) break;
-      if (page >= maxPages) break;
+    // Página 1 primero (para Delta Sync instantáneo si ya tenemos priorRows)
+    let page = 1;
+    let lastPage = await fetchPage(1);
+    const gotFirst = add(lastPage);
+
+    // Si es carga fría (sin hitSettledHistory) y hay más páginas, pedimos en lotes paralelos de 2
+    // sin sleep artificial (RequestScheduler ya regula el ritmo).
+    if (gotFirst && !hitSettledHistory && lastPage.length >= PAGE_SIZE && page < maxPages) {
+      while (page < maxPages && !hitSettledHistory && lastPage.length >= PAGE_SIZE) {
+        if (typeof sleep === 'function') {
+          await wait(PAGE_DELAY_MS);
+          page += 1;
+          lastPage = await fetchPage(page);
+          if (!add(lastPage)) break;
+        } else {
+          const nextPages = [];
+          for (let k = 0; k < 2 && page + 1 <= maxPages; k += 1) {
+            page += 1;
+            nextPages.push(page);
+          }
+          const batch = await Promise.all(nextPages.map((p) => fetchPage(p).catch(() => [])));
+          let stop = false;
+          for (const pageRows of batch) {
+            lastPage = pageRows;
+            if (!add(pageRows) || hitSettledHistory || pageRows.length < PAGE_SIZE) {
+              stop = true;
+              break;
+            }
+          }
+          if (stop) break;
+        }
+      }
     }
 
     // La exclusión de la partida actual es por consumidor, no por caché: así
@@ -226,9 +258,9 @@ async function fetchMyHistoryImpl(options = {}) {
         .slice(0, maxPages * PAGE_SIZE);
     }
     let fullMatches = matches;
-    if (priorRows.length > 0 && hitSettledHistory && Array.isArray(cached?.matches)) {
+    if (priorRows.length > 0 && hitSettledHistory && Array.isArray(priorMatches)) {
       const mMap = new Map();
-      for (const m of cached.matches) {
+      for (const m of priorMatches) {
         if (m && m.matchId != null) mMap.set(String(m.matchId), m);
       }
       for (const m of matches) {

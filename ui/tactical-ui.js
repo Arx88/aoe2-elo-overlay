@@ -2099,7 +2099,7 @@
     const netPill = `<span class="cx-delta ${net > 0 ? 'win' : net < 0 ? 'loss' : 'neutral'}">${net > 0 ? '+' : ''}${net} ELO en el tramo</span>`;
     const btn20 = isProOrUltra
       ? `<button type="button" class="central-range-btn${activeRange === '20' ? ' active' : ''}" aria-pressed="${activeRange === '20'}" data-elo-range="20">Últ. 20</button>`
-      : `<button type="button" class="central-range-btn is-tier-locked" data-goto-plan="1" title="Disponible con Pro">Últ. 20 · PRO</button>`;
+      : `<button type="button" class="central-range-btn is-tier-locked" data-goto-plan="1" data-upgrade-tier="pro" title="Disponible con Pro">Últ. 20 · PRO</button>`;
     const btn100 = allPts.length > 50
       ? (isUltraTier
         ? `<button type="button" class="central-range-btn${activeRange === '100' ? ' active' : ''}" aria-pressed="${activeRange === '100'}" data-elo-range="100">Últ. 100</button>`
@@ -2595,7 +2595,7 @@
     const dashOffset = Math.round(circ * (1 - wr / 100) * 10) / 10;
     const tone = wr >= 56 ? 'win' : wr > 0 && wr < 46 ? 'loss' : 'gold';
     return `<span class="cx-ring-pedestal is-${tone} is-sz-${size}">
-      <svg class="cx-wr-ring" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+      <svg class="cx-wr-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
         <circle class="cx-ring-bg" cx="${cx}" cy="${cx}" r="${r}" />
         ${wr > 0 ? `<circle class="cx-ring-val is-${tone}" cx="${cx}" cy="${cx}" r="${r}" stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}" transform="rotate(-90 ${cx} ${cx})" />` : ''}
       </svg>
@@ -4008,9 +4008,12 @@
       const modeRecentList = !isExternal && modeMatchesExact.length
         ? (() => {
             const feed = modeMatchesExact.slice(0, 4);
+            const feedHeading = isUltra
+              ? 'ÚLTIMAS PARTIDAS · TOCÁ UNA PARA ABRIR SU POSTMATCH'
+              : 'ÚLTIMAS PARTIDAS RECIENTES';
             return feed.length
               ? `<div class="cx-battle-feed">
-                  <div class="cx-bf-head"><span class="central-mini-k">ÚLTIMAS PARTIDAS · TOCÁ UNA PARA ABRIR SU POSTMATCH</span></div>
+                  <div class="cx-bf-head"><span class="central-mini-k">${feedHeading}</span></div>
                   ${renderRecentMatchesList(feed, { limit: 4, mode: 'feed', jumpToPostmatch: true })}
                 </div>`
               : '';
@@ -4019,7 +4022,7 @@
 
       const lmBtn20 = isProOrUltra
         ? `<button type="button" class="cx-sort-btn${String(lmKey) === '20' ? ' active' : ''}" data-lm-window="20">Últ. 20</button>`
-        : `<button type="button" class="cx-sort-btn is-tier-locked" data-goto-plan="1" title="Disponible con Pro">Últ. 20 · PRO</button>`;
+        : `<button type="button" class="cx-sort-btn is-tier-locked" data-goto-plan="1" data-upgrade-tier="pro" title="Disponible con Pro">Últ. 20 · PRO</button>`;
       const lmBtn50 = lm.windows[50]
         ? (isUltra
           ? `<button type="button" class="cx-sort-btn${String(lmKey) === '50' ? ' active' : ''}" data-lm-window="50">Últ. 50</button>`

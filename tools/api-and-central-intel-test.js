@@ -1124,6 +1124,67 @@ test('15. Companion-First Left-Join, 200-match Delta Sync, AoE2 domain guards & 
   assert.equal(cmhOut.siegePct, 33, '1 siege game out of 3 Castle-Age games must be 33%, not 25%');
 });
 
+test('16. ReplayCache true LRU preserves hot keys + Smurf 2-phase returns Phase A immediately & skips allies in Phase B', async () => {
+  const os = require('node:os');
+  const { detectSmurfsForPlayers } = require('../src/smurf');
+
+  // A. True LRU: touching hot key keeps it alive past 300-entry eviction
+  const tmpCache = new ReplayCache(path.join(os.tmpdir(), `relic-lru-${Date.now()}.json`));
+  tmpCache.set('central:v6:123', { ts: Date.now(), raw: { hot: true } });
+  for (let i = 0; i < 250; i += 1) tmpCache.set(`cold:${i}`, { ts: Date.now(), i });
+  assert.ok(tmpCache.get('central:v6:123'), 'Hot key must still exist before touching');
+  for (let i = 250; i < 340; i += 1) tmpCache.set(`cold:${i}`, { ts: Date.now(), i });
+  assert.ok(tmpCache.get('central:v6:123'), 'LRU .get() must refresh recency so hot key survives 300-entry eviction');
+  assert.equal(tmpCache.get('cold:0'), undefined, 'Untouched oldest cold key must be evicted');
+
+  // B. Smurf 2-phase: Phase A does NOT wait on slow Insights, and Phase B only queries enemyIds
+  const insightsQueried = [];
+  const updates = [];
+  const t0 = Date.now();
+  const res = await detectSmurfsForPlayers(
+    [
+      { profileId: 1001, name: 'Ally', team: 1, rating: 1100 },
+      { profileId: 2002, name: 'Enemy', team: 2, rating: 1100 },
+    ],
+    {
+      cache: new Map(),
+      enemyIds: new Set([2002]),
+      mode: { id: 3, key: 'rm_1v1' },
+      onUpdate: (partial) => updates.push(partial),
+      fetchExtendedProfileImpl: async (pid) => ({
+        profileId: pid,
+        name: pid === 1001 ? 'Ally' : 'Enemy',
+        games: 22,
+        drops: 0,
+        leaderboards: [{ leaderboardId: 'rm_1v1', rating: 1100, maxRating: 1120, games: 22, wins: 14, losses: 8, streak: 3 }],
+      }),
+      fetchPersonalStatsImpl: async (ids) => {
+        const m = new Map();
+        for (const id of ids) m.set(id, { totalGames: 22, totalWins: 14, totalLosses: 8, activeModes: 1 });
+        return m;
+      },
+      fetchOpeningRowsImpl: async (pid) => {
+        insightsQueried.push(pid);
+        await new Promise((r) => setTimeout(r, 80));
+        return {
+          rows: {
+            match_id: [1, 2, 3, 4, 5, 6],
+            started_time: [10, 20, 30, 40, 50, 60],
+            won: [true, true, true, true, true, false],
+            mean_eapm: [72, 75, 70, 74, 73, 76],
+          },
+        };
+      },
+    },
+  );
+  const elapsedPhaseA = Date.now() - t0;
+  assert.ok(elapsedPhaseA < 65, `Phase A must resolve fast without waiting for slow Insights (took ${elapsedPhaseA}ms)`);
+  assert.ok(res[2002], 'Enemy must be evaluated in Phase A');
+  await new Promise((r) => setTimeout(r, 130));
+  assert.deepEqual(insightsQueried, [2002], 'Phase B Insights must ONLY query enemyIds, skipping allies');
+  assert.ok(updates.length >= 1, 'Phase B must deliver async eAPM enrichment via onUpdate');
+});
+
 Promise.all(pending).then(() => {
   console.log(`\napi-and-central-intel-test: all ${passed} suites passed!`);
 });

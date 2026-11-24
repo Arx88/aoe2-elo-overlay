@@ -1,3 +1,14 @@
+## v3.2.0 · Progreso de alto rendimiento, Balance Semanal real, Arena v6 verificada y optimización integral
+
+- **Entrenamiento → Progreso rediseñado con arte coherente con Central:** nueva consola de telemetría con selector de partidas, diagnóstico de cuello de botella con pérdida exacta en aldeanos, **Ejecución por Edades en 3 etapas cronológicas ilustradas** (**I · Alta Edad Media**, **II · Edad Feudal** y **III · Castillos y Combate**), libro de 6 fundamentos con barras divergentes y curva partida a partida.
+- **Nuevo Balance Semanal («Mejoras de esta semana») + Gráfico de mejoras por día:** módulo adicional con estética propia en verde bosque, jade y oro champán que muestra únicamente mejoras reales verificadas de los últimos 7 días (`Antes → Ahora`, aldeanos ganados y récords reales) junto a un gráfico diario honesto que distingue días con mejoras, días jugados sin mejoras y días de descanso sin inventar datos.
+- **Arena v6 auditada contra la wiki y el árbol tecnológico completo de las 56 civilizaciones:** más de 420 preguntas verificadas, correcciones de bonos, unidades únicas y tecnologías de Corona, sin contradicciones ni opciones ilegales.
+- **Coherencia de planes y Build Order Helper:** blindaje total al vencer la prueba gratuita de 24 horas en Ultra (sin restos de funciones Ultra en cuentas Free) y respeto estricto del interruptor maestro de **Build Order Helper** en **Batalla** para que un Build Order armado en Entrenamiento nunca se active en partida si el interruptor está desactivado.
+- **Corrección del overlay de Postmatch y barra lateral:** eliminación de bloques de la vista de Ajustes que se filtraban en el overlay al terminar una partida, y pie de barra lateral limpio en una sola línea (`v3.2.0 · Derechos reservados`).
+- **Mejoras de rendimiento y fluidez:** Prematch en dos fases, lectura de replays fuera del hilo principal, sincronización delta optimizada, HTTP/2 con `undici` y caché LRU.
+
+---
+
 ## v3.1.0 · Entrenamiento completo, Batalla, Central renovada y popups minimalistas
 
 - **Entrenamiento (Beta · Relic Ultra):** navegación limpia en 5 pestañas (**Progreso**, **Mi Plan**, **Build Orders**, **Matchups** y **Arena**) con gráfico de araña, curva de evolución por indicador, creador/editor de Build Orders con bonos de civilización y campaña de 7 unidades con 410 desafíos.

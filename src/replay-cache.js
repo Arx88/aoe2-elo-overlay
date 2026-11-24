@@ -45,6 +45,16 @@ class ReplayCache extends Map {
     return json;
   }
 
+  get(key) {
+    if (!super.has(key)) return undefined;
+    const value = super.get(key);
+    // LRU real: refrescar recencia en cada lectura para que claves calientes
+    // (central:v6:*, mine:*, elo1v1:*) no sean evictadas por FIFO-300.
+    super.delete(key);
+    super.set(key, value);
+    return value;
+  }
+
   set(key, value) {
     // Reinsertar para que el orden del Map refleje el uso reciente: el evict
     // saca siempre el más viejo.

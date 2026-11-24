@@ -186,13 +186,33 @@ function evaluateSmurfSignals({
 }
 
 /**
- * Ejecuta el detector en paralelo para los rivales de una partida (con caché 30 min).
+ * Ejecuta el detector en 2 fases para los jugadores de una partida (con caché 30 min):
+ *   - Fase A (<0.8 s): perfil Companion + batch World's Edge de cuentas vinculadas
+ *     (emite alertas al instante sin esperar 15–36 s de AoE2Insights).
+ *   - Fase B (asíncrona en segundo plano, SOLO enemigos): enriquece con eAPM de
+ *     AoE2Insights del modo actual (reutilizando filas ya cacheadas) y notifica
+ *     vía `onUpdate` solo si algún rival cambia de estado.
  */
-async function detectSmurfsForPlayers(players = [], { cache = null, log = () => {} } = {}) {
+async function detectSmurfsForPlayers(players = [], {
+  cache = null,
+  enemyIds = null,
+  mode = null,
+  onUpdate = null,
+  log = () => {},
+  fetchExtendedProfileImpl = fetchExtendedProfile,
+  fetchPersonalStatsImpl = fetchPersonalStats,
+  fetchOpeningRowsImpl = fetchOpeningRows,
+} = {}) {
   const rivals = (Array.isArray(players) ? players : [])
     .filter((p) => p && !p.isYou && Number(p.profileId) > 0);
   const out = {};
   if (!rivals.length) return out;
+
+  const enemySet = enemyIds instanceof Set
+    ? enemyIds
+    : (Array.isArray(enemyIds) && enemyIds.length ? new Set(enemyIds.map(Number)) : null);
+  const effectiveMode = mode || resolveMode(3);
+  const modeNum = Number(effectiveMode?.id) || 3;
 
   const toFetch = [];
   for (const r of rivals) {
@@ -207,35 +227,37 @@ async function detectSmurfsForPlayers(players = [], { cache = null, log = () => 
   }
   if (!toFetch.length) return out;
 
-  // 1. Perfil Companion (trae linkedProfiles, leaderboards, ratings y drops) + Insights opcional
+  // 1. Fase A rápida: SOLO fetchExtendedProfile (Companion) + filas de Insights SI ya están en caché (0 ms!)
   const profileByPid = new Map();
   const insightsByPid = new Map();
+  const pendingInsightsRivals = [];
   const allLinkedIds = new Set();
 
   await Promise.all(toFetch.map(async (rival) => {
     const pid = Number(rival.profileId);
-    const scoutCached = cache && cache.get(`scout:rows:v2:${pid}:3:500`);
+    const scoutCached = cache && (
+      cache.get(`scout:rows:v2:${pid}:${modeNum}:500`) ||
+      cache.get(`scout:rows:v2:${pid}:3:500`)
+    );
     const cachedInsightsRows = (scoutCached && Array.isArray(scoutCached.rows) && Date.now() - scoutCached.ts < 4 * 60 * 60 * 1000)
       ? scoutCached.rows.slice(0, 25)
       : null;
-    const [profRes, insRes] = await Promise.allSettled([
-      fetchExtendedProfile(pid, { timeoutMs: 7500 }),
-      cachedInsightsRows
-        ? Promise.resolve(null)
-        : fetchOpeningRows(pid, { mode: resolveMode(3), limit: 25 }),
-    ]);
-    if (profRes.status === 'fulfilled' && profRes.value) {
-      const pdata = profRes.value;
-      profileByPid.set(pid, pdata);
-      for (const lp of Array.isArray(pdata.linkedProfiles) ? pdata.linkedProfiles : []) {
-        const lpid = Number(lp?.profileId);
-        if (lpid > 0 && lpid !== pid) allLinkedIds.add(lpid);
-      }
-    }
     if (cachedInsightsRows) {
       insightsByPid.set(pid, cachedInsightsRows);
-    } else if (insRes.status === 'fulfilled' && insRes.value) {
-      insightsByPid.set(pid, parseScoutRows(insRes.value));
+    } else if (!enemySet || enemySet.has(pid)) {
+      pendingInsightsRivals.push(rival);
+    }
+    try {
+      const pdata = await fetchExtendedProfileImpl(pid, { timeoutMs: 6500 });
+      if (pdata) {
+        profileByPid.set(pid, pdata);
+        for (const lp of Array.isArray(pdata.linkedProfiles) ? pdata.linkedProfiles : []) {
+          const lpid = Number(lp?.profileId);
+          if (lpid > 0 && lpid !== pid) allLinkedIds.add(lpid);
+        }
+      }
+    } catch (_) {
+      // Sin perfil extendido seguimos evaluando con datos del roster
     }
   }));
 
@@ -243,16 +265,16 @@ async function detectSmurfsForPlayers(players = [], { cache = null, log = () => 
   let linkedStatsMap = new Map();
   if (allLinkedIds.size > 0) {
     try {
-      linkedStatsMap = await fetchPersonalStats([...allLinkedIds].slice(0, 24), 3, 6500);
+      linkedStatsMap = await fetchPersonalStatsImpl([...allLinkedIds].slice(0, 24), 3, 5000);
     } catch (err) {
       log(`smurf: no pude consultar cuentas vinculadas: ${err.message}`);
     }
   }
 
-  // 3. Evaluamos cada rival y cacheamos 30 min
-  for (const rival of toFetch) {
+  // 3. Evaluamos Fase A inmediatamente y cacheamos
+  const evaluateFor = (rival, insRows) => {
     const pid = Number(rival.profileId);
-    const result = evaluateSmurfSignals({
+    return evaluateSmurfSignals({
       profileId: pid,
       currentRating: rival.rating ?? rival.matchRating ?? null,
       ladder1v1: {
@@ -264,13 +286,37 @@ async function detectSmurfsForPlayers(players = [], { cache = null, log = () => 
       },
       profileData: profileByPid.get(pid) || null,
       linkedStatsMap,
-      insightsRows: insightsByPid.get(pid) || null,
+      insightsRows: insRows || null,
     });
+  };
+
+  for (const rival of toFetch) {
+    const pid = Number(rival.profileId);
+    const result = evaluateFor(rival, insightsByPid.get(pid) || null);
     out[pid] = result;
     if (cache) cache.set(`smurf:v1:${pid}`, { ts: Date.now(), result });
     if (result.flagged) {
       log(`smurf · ${rival.name || `#${pid}`}: ${result.label} (${result.score} pts) · ${result.reasons.join(' | ')}`);
     }
+  }
+
+  // 4. Fase B asíncrona (solo enemigos sin caché Insights): enriquece eAPM sin bloquear Fase A!
+  if (typeof onUpdate === 'function' && pendingInsightsRivals.length > 0) {
+    Promise.allSettled(pendingInsightsRivals.map(async (rival) => {
+      const pid = Number(rival.profileId);
+      const raw = await fetchOpeningRowsImpl(pid, { mode: effectiveMode, limit: 25 });
+      if (!raw) return false;
+      const rows = parseScoutRows(raw);
+      if (!rows.length) return false;
+      const updated = evaluateFor(rival, rows);
+      const prev = out[pid];
+      out[pid] = updated;
+      if (cache) cache.set(`smurf:v1:${pid}`, { ts: Date.now(), result: updated });
+      return Boolean(!prev || updated.score !== prev.score || updated.flagged !== prev.flagged);
+    })).then((settled) => {
+      const changed = settled.some((s) => s.status === 'fulfilled' && s.value === true);
+      if (changed) onUpdate({ ...out });
+    }).catch(() => {});
   }
 
   return out;

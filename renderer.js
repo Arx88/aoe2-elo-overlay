@@ -571,9 +571,9 @@ function applyVisibility() {
   scoutInfoEl.hidden = true;
   const reviewing = Boolean(postMatchEnabled && postMatchPayload && !ongoing && !moving);
   if (postMatchEl) postMatchEl.hidden = !reviewing;
-  const isArmedLiveTest = Boolean(buildOrderPayload && buildOrderPayload.liveTestActive && !moving);
+  const isArmedLiveTest = Boolean(!ongoing && buildOrderPayload && buildOrderPayload.liveTestActive && !moving);
   const isArmedMatch = Boolean(ongoing && !isPrematchPhase && !moving && buildOrderPayload &&
-    (smartBuildOrderEnabled || buildOrderPayload.isArmedCustom) &&
+    smartBuildOrderEnabled &&
     String(buildOrderPayload.matchId) === String(lastState.match?.matchId));
   document.body.classList.toggle('bo-live-test', isArmedLiveTest && !ongoing);
   if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(isArmedLiveTest || isArmedMatch);
@@ -1291,6 +1291,7 @@ function scoutTipSections(tip) {
  * (pico y ELO actual), nunca un score con decimales que aparente precisión.
  */
 function smurfSignal(tip) {
+  if (!smurfDetectorEnabled) return null;
   const players = lastState && Array.isArray(lastState.players) ? lastState.players : [];
   const player = players.find((p) => Number(p && p.profileId) === Number(tip && tip.profileId));
   if (!player || player.peak == null || player.rating == null) return null;
@@ -1756,15 +1757,10 @@ function stopScoutCarousel() {
 function isCarouselPageReady(visibleEntries) {
   if (!Array.isArray(visibleEntries) || !visibleEntries.length) return false;
   const needReport = rivalEnabled();
-  const needTips = smartTipsEnabled || civRecommenderEnabled || civCounterPickEnabled;
-  return visibleEntries.every(({ report, tip }) => {
+  return visibleEntries.every(({ report }) => {
     if (needReport) {
       if (!report || report.loading) return false;
       if (rivalOptions.rivalH2H && report.h2hPending) return false;
-      if (rivalOptions.rivalOpenings && report.openingsPending) return false;
-    }
-    if (needTips) {
-      if (!tip || tip.loading || tip.provisional) return false;
     }
     return true;
   });

@@ -59,7 +59,10 @@ body:is([data-theme="claro"], [data-theme="pergamino"], [data-theme="fantasma"])
 }
 
 /* Overlay in-game: ultra legible en 3 segundos (solo Resumen 3 Zonas + Foco; detalle técnico en Launcher) */
-#postMatch .pm-deep-dive { display: none; }
+#postMatch .pm-deep-dive,
+#postMatch .pm-insights-v6,
+#postMatch .pm-civ-mastery,
+#postMatch .train-pin-btn { display: none; }
 #postMatch .pm-overlay-hint { display: block; }
 #postMatch .pm-narrative-grid { grid-template-columns: 1fr; gap: 8px; }
 #postMatch .pm-zone { padding: 10px 11px; gap: 7px; }
@@ -186,23 +189,29 @@ body:is([data-theme="claro"], [data-theme="pergamino"])
 .pm-v2 .pm-zone-head h3 { font-size: 14px; letter-spacing: normal; text-transform: none; }
 .pm-v2 .pm-zone-head small { font-size: 11px; }
 
-:is(#postMatch, #postMatchReport) .pm-v2 :is(.pm-medal-card,.pm-issue-card) {
+:is(#postMatch, #postMatchReport) .pm-v2 .pm-medal-card {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) minmax(0, min(112px, 26%));
+  grid-template-columns: 38px minmax(0, 1fr) minmax(0, min(116px, 26%));
   align-items: start;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 10px 12px;
+  padding: 11px 14px;
   border: 0;
   background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+:is(#postMatch, #postMatchReport) .pm-v2 .pm-issue-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 12px 15px;
+  border: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pm-negative) 8%, transparent), color-mix(in srgb, var(--text) 4%, transparent));
 }
 :is(#postMatch, #postMatchReport) .pm-v2 .pm-medal-card.is-gold {
   background: linear-gradient(90deg, color-mix(in srgb, var(--pm-accent) 12%, transparent), color-mix(in srgb, var(--text) 4.5%, transparent));
 }
-:is(#postMatch, #postMatchReport) .pm-v2 .pm-issue-card {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--pm-negative) 8%, transparent), color-mix(in srgb, var(--text) 4%, transparent));
-}
 .pm-v2 :is(.pm-medal-body > b,.pm-issue-top > b) { font-size: 14px; }
-.pm-v2 :is(.pm-medal-body > p,.pm-issue-body > p) { color: var(--pm-rival); font-size: 12px; line-height: 1.4; }
+.pm-v2 :is(.pm-medal-body > p,.pm-issue-body > p) { color: var(--pm-rival); font-size: 12px; line-height: 1.42; }
 .pm-v2 .pm-medal-kicker { margin-bottom: 4px; }
 .pm-v2 .pm-medal-name {
   background: none;
@@ -212,12 +221,44 @@ body:is([data-theme="claro"], [data-theme="pergamino"])
   letter-spacing: .02em;
 }
 .pm-v2 .pm-medal-stat { justify-self: end; align-self: center; }
-.pm-v2 :is(.pm-medal-metric, .pm-issue-metric) {
+.pm-v2 .pm-issue-card .pm-medal-stat {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 32px;
+  justify-self: end;
+  align-self: center;
+}
+.pm-v2 .pm-medal-metric {
   padding: 0;
   background: none;
   font-size: 17px;
   line-height: 1.14;
   white-space: normal;
+}
+.pm-v2 .pm-issue-card .pm-issue-metric {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(239, 138, 129, 0.13);
+  border: 1px solid rgba(239, 138, 129, 0.28);
+  color: #f6a69e;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.pm-v2 .pm-issue-card .train-pin-btn {
+  margin: 0;
+  width: 30px;
+  height: 30px;
+}
+.pm-v2 .pm-issue-card .train-pin-btn .train-pin-ico {
+  width: 14px;
+  height: 14px;
 }
 .pm-v2 .pm-medal-delta { font-size: 11px; white-space: normal; }
 
@@ -228,17 +269,49 @@ body:is([data-theme="claro"], [data-theme="pergamino"])
   padding: 0;
 }
 .pm-v2 .pm-focus > .pm-icon-tile { align-self: center; }
+.pm-v2 .pm-focus > div { flex: 1; min-width: 0; padding-right: 10px; }
+.pm-v2 .pm-focus .train-pin-btn { margin-left: auto; align-self: center; width: 32px; height: 32px; }
+.pm-v2 .pm-stage-meta {
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pm-v2 .pm-stage-meta > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pm-v2 .pm-stage-meta .train-pin-btn {
+  margin-left: 4px;
+  flex-shrink: 0;
+}
 .pm-v2 .pm-focus > .pm-icon-tile > .pm-emblem {
   object-fit: contain;
   object-position: center;
   margin: 0;
 }
 
-@container (max-width: 440px) {
+@container (max-width: 480px) {
   :is(#postMatch, #postMatchReport) .pm-v2 :is(.pm-medal-card,.pm-issue-card) {
     grid-template-columns: 38px minmax(0, 1fr);
+    align-items: start;
   }
   .pm-v2 .pm-medal-stat { grid-column: 2; justify-self: start; text-align: left; align-items: start; }
+  .pm-v2 .pm-issue-card .pm-medal-stat {
+    grid-column: 2;
+    width: 100%;
+    justify-self: stretch;
+    justify-content: space-between;
+    padding-left: 0;
+    padding-top: 8px;
+    margin-top: 4px;
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
 }
 
 /* ============ LAUNCHER POSTMATCH REPORT · UNIFIED OBSIDIAN-GOLD SYSTEM (ZERO SHADOW ABUSE) ============ */

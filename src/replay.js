@@ -64,28 +64,32 @@ function getReplayWorker() {
   return w;
 }
 
-function analyzeOffThread({ filePath = null, buffer = null, match, profileId }) {
+function analyzeOffThread({ filePath = null, buffer = null, zipBuffer = null, match, profileId }) {
+  const runInline = () => {
+    if (filePath) return analyzeReplayFile(filePath, { match, profileId });
+    const recBuf = zipBuffer ? extractRecordBuffer(zipBuffer) : buffer;
+    return analyzeReplayBuffer(recBuf, { match, profileId });
+  };
   // Fallback directo en entornos sin worker_threads o si falla la creación
   if (process.env.AOE_REPLAY_INLINE === '1') {
-    return filePath
-      ? analyzeReplayFile(filePath, { match, profileId })
-      : analyzeReplayBuffer(buffer, { match, profileId });
+    return runInline();
   }
   return new Promise((resolve, reject) => {
     let w;
     try {
       w = getReplayWorker();
     } catch {
-      const p = filePath
-        ? analyzeReplayFile(filePath, { match, profileId })
-        : analyzeReplayBuffer(buffer, { match, profileId });
-      p.then(resolve, reject);
+      Promise.resolve().then(runInline).then(resolve, reject);
       return;
     }
     if (workerIdleTimer) { clearTimeout(workerIdleTimer); workerIdleTimer = null; }
     const id = ++workerReqId;
     workerPending.set(id, { resolve, reject });
-    if (buffer) {
+    if (zipBuffer) {
+      const copy = new Uint8Array(zipBuffer.byteLength);
+      copy.set(zipBuffer);
+      w.postMessage({ id, zipBuffer: copy.buffer, match, profileId }, [copy.buffer]);
+    } else if (buffer) {
       const copy = new Uint8Array(buffer.byteLength);
       copy.set(buffer);
       w.postMessage({ id, buffer: copy.buffer, match, profileId }, [copy.buffer]);
@@ -282,8 +286,8 @@ async function fetchReplayTelemetry(match, profileId, { onStatus, skipLocal = fa
         detail: 'Leyendo órdenes del replay: economía, ejército, edades y ritmo.',
       });
     }
-    const recordBuffer = extractRecordBuffer(zip);
-    return analyzeOffThread({ buffer: recordBuffer, match, profileId });
+    // Descompresión ZIP + parseo 100% fuera del hilo principal de Electron
+    return analyzeOffThread({ zipBuffer: zip, match, profileId });
   })().finally(() => {
     if (replayInflight.get(inflightKey) === task) replayInflight.delete(inflightKey);
   });

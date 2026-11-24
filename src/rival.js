@@ -423,9 +423,12 @@ async function buildRivalInsights(options = {}) {
   }
   const cachedBase = !historical && cache && cache.get(baseKey);
   if (cachedBase && now - cachedBase.ts <= cacheTtlMs && cachedBase.data) {
-    const reused = { ...cachedBase.data, openings: null, openingError: null, openingsPending: false };
+    const reused = { ...cachedBase.data, openings: null, openingError: null, openingsPending: Boolean(includeOpenings) };
+    const openingCiv = civSlug(civ) ? civ : null;
     if (includeOpenings) {
-      const openingsRes = await openingsImpl({
+      // Nunca bloquear en 0:00 esperando AoE2Insights 15–36 s: corremos carrera con OPENINGS_WAIT_MS
+      // y si tarda, devolvemos la base al instante y actualizamos vía onOpenings.
+      const openingsPromise = openingsImpl({
         profileId: id,
         mode,
         cache,
@@ -435,19 +438,43 @@ async function buildRivalInsights(options = {}) {
         sleep,
         log,
       }).catch((err) => ({ ok: false, error: `aperturas: ${err.message}` }));
-      if (openingsRes) {
-        const openingCiv = civSlug(civ) ? civ : null;
+
+      const applyOpeningsTo = (target, openingsRes) => {
+        if (!openingsRes) return;
         const summary = summarizeOpeningsByMap(
           (openingsRes.analyzedMatches || []).filter((row) => isPriorReplay(row, currentMatchId, cutoff)),
           mapName,
           openingCiv,
         );
-        reused.openings = { ...openingsRes, ...summary, openingCiv };
-        delete reused.openings.analyzedMatches;
-        reused.openingError = openingsRes.ok === false ? openingsRes.error : null;
+        target.openings = { ...openingsRes, ...summary, openingCiv };
+        delete target.openings.analyzedMatches;
+        target.openingError = openingsRes.ok === false ? openingsRes.error : null;
+        target.openingsPending = false;
+      };
+
+      const TIMED_OUT = Symbol('timeout');
+      const raceWait = typeof openingsWaitMs === 'number' ? openingsWaitMs : OPENINGS_WAIT_MS;
+      const settled = await Promise.race([
+        openingsPromise,
+        new Promise((resolve) => {
+          const t = setTimeout(() => resolve(TIMED_OUT), raceWait);
+          if (t.unref) t.unref();
+        }),
+      ]);
+
+      if (settled !== TIMED_OUT) {
+        applyOpeningsTo(reused, settled);
+      } else {
+        // Entregar base inmediatamente y completar aperturas en segundo plano
+        openingsPromise.then((lateRes) => {
+          const late = { ...base, ...reused, ladder, fromCache: true };
+          applyOpeningsTo(late, lateRes);
+          if (cache && !late.error) cache.set(key, { ts: Date.now(), data: late });
+          if (typeof onOpenings === 'function') onOpenings(late);
+        }).catch(() => {});
       }
     }
-    if (cache && !reused.error) cache.set(key, { ts: now, data: reused });
+    if (cache && !reused.error && !reused.openingsPending) cache.set(key, { ts: now, data: reused });
     return { ...base, ...reused, ladder, fromCache: true };
   }
 
@@ -595,27 +622,37 @@ async function buildRivalInsights(options = {}) {
     // El mapa '—' (TG antes de arrancar) no filtra nada: recorrer más páginas
     // no agrega información útil, solo retrasa.
     const mapKnown = Boolean(mapName) && mapName !== '—';
-    while (true) {
-      // Se corta al juntar TODAS las partidas del mapa que declara /stats, al
-      // terminar el historial o al llegar al tope de seguridad. El filtro de
-      // modo ya está en parseMapStats.
-      if (lastPage.length < MAP_PAGE_SIZE) break;
-      if (!mapKnown) break;
-      if (result.mapStats && result.mapStats.sampleGames >= targetMapGames) break;
-      if (page >= maxPages) break;
-      if (Date.now() - historyStartedAt > HISTORY_BUDGET_MS) {
-        log(
-          `historial del rival #${id}: tope de ${HISTORY_BUDGET_MS / 1000}s ` +
-            `con ${matches.length} partidas leídas (${page} páginas)`,
-        );
-        break;
+    const wantMore = () => (
+      lastPage.length >= MAP_PAGE_SIZE &&
+      mapKnown &&
+      !(result.mapStats && result.mapStats.sampleGames >= targetMapGames) &&
+      page < maxPages &&
+      (Date.now() - historyStartedAt <= HISTORY_BUDGET_MS)
+    );
+
+    // Lote rápido paralelo para páginas 2–3 cuando el jugador tiene >= 200 partidas en el modo
+    if (wantMore() && maxPages >= 3 && (result.totalGames === 0 || result.totalGames >= 200) && typeof sleep !== 'function') {
+      const batchPages = [2, 3].filter((p) => p <= maxPages);
+      const batchRes = await Promise.all(batchPages.map((p) => fetchPage(p).catch(() => [])));
+      let addedAny = false;
+      for (let bi = 0; bi < batchRes.length; bi += 1) {
+        page = batchPages[bi];
+        lastPage = batchRes[bi];
+        if (add(lastPage)) addedAny = true;
+        if (lastPage.length < MAP_PAGE_SIZE) break;
       }
+      if (addedAny) applyHistory(matches);
+    }
+
+    // Páginas adicionales (4–5) solo si todavía faltan muestras en el mapa actual (< 8 partidas)
+    while (wantMore()) {
+      if (page >= 3 && result.mapStats && result.mapStats.sampleGames >= 8) break;
       if (typeof sleep === 'function') await wait(PAGE_DELAY_MS);
       page += 1;
       lastPage = await fetchPage(page);
       if (!add(lastPage)) break;
-      applyHistory(matches);
     }
+    if (page > 1) applyHistory(matches);
   } catch (err) {
     errors.push(`historial: ${err.message}`);
   }

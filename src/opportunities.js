@@ -15,16 +15,17 @@ const INF_TECHS = [['Forging', 2], ['Iron Casting', 3], ['Blast Furnace', 4], ['
 // Tiers are potential availability, never research already completed in-game.
 const LINES = {
   archers: { label: 'Arqueros', icon: 'bow', role: 'archers', tiers: [[2, 'Archer'], [3, 'Crossbowman'], [4, 'Arbalester']], techs: ARCHER_TECHS },
-  scouts: { label: 'Caballería ligera', icon: 'sword', role: 'cavalry', tiers: [[2, 'Scout Cavalry'], [3, 'Light Cavalry'], [4, 'Hussar', 'Winged Hussar']], techs: CAV_TECHS },
+  scouts: { label: 'Caballería ligera', icon: 'sword', role: 'cavalry', tiers: [[2, 'Scout Cavalry', 'Camel Scout'], [3, 'Light Cavalry'], [4, 'Hussar', 'Winged Hussar']], techs: CAV_TECHS },
   infantry: { label: 'Infantería de espada', icon: 'sword', role: 'infantry', tiers: [[2, 'Man-at-Arms'], [3, 'Long Swordsman'], [4, 'Two-Handed Swordsman'], [4, 'Champion', 'Legionary']], techs: INF_TECHS },
   knights: { label: 'Caballería pesada', icon: 'shield', role: 'cavalry', tiers: [[3, 'Knight', 'Hei Guang Cavalry'], [4, 'Cavalier', 'Heavy Hei Guang Cavalry'], [4, 'Paladin', 'Savar']], techs: CAV_TECHS },
   camels: { label: 'Camellos', icon: 'shield', role: 'camels', tiers: [[3, 'Camel Rider'], [4, 'Heavy Camel Rider', 'Imperial Camel Rider']], techs: CAV_TECHS },
-  eagles: { label: 'Guerreros águila', icon: 'sword', role: 'infantry', tiers: [[2, 'Eagle Scout'], [3, 'Eagle Warrior'], [4, 'Elite Eagle Warrior']], techs: INF_TECHS },
+  eagles: { label: 'Guerreros águila', icon: 'sword', role: 'infantry', tiers: [[2, 'Eagle Scout', 'Champi Runner'], [3, 'Eagle Warrior', 'Champi Warrior'], [4, 'Elite Eagle Warrior', 'Elite Champi Warrior']], techs: INF_TECHS },
   cavarchers: { label: 'Arqueros montados', icon: 'bow', role: 'cavarchers', tiers: [[3, 'Cavalry Archer', 'Mounted Crossbowman'], [4, 'Heavy Cavalry Archer', 'Heavy Mounted Crossbowman']], techs: [...ARCHER_TECHS, ['Bloodlines', 2], ['Husbandry', 3], ['Parthian Tactics', 4]] },
-  siege: { label: 'Asedio de apoyo', icon: 'castle', role: 'siege', tiers: [[3, 'Mangonel'], [4, 'Onager'], [4, 'Siege Onager']], techs: [['Siege Engineers', 4]] },
-  skirmishers: { label: 'Guerrilleros', icon: 'shield', response: true, tiers: [[2, 'Skirmisher'], [3, 'Elite Skirmisher'], [4, 'Imperial Skirmisher']], techs: ARCHER_TECHS.filter(([n]) => n !== 'Thumb Ring' && n !== 'Ballistics') },
+  gunpowder: { label: 'Pólvora', icon: 'target', role: 'archers', tiers: [[3, 'Hand Cannoneer'], [4, 'Hand Cannoneer', 'Bombard Cannon', 'Houfnice']], techs: [['Chemistry', 4], ['Padded Archer Armor', 2], ['Leather Archer Armor', 3], ['Ring Archer Armor', 4]] },
+  siege: { label: 'Asedio de apoyo', icon: 'castle', role: 'siege', tiers: [[3, 'Mangonel', 'Rocket Cart'], [4, 'Onager', 'Heavy Rocket Cart'], [4, 'Siege Onager']], techs: [['Siege Engineers', 4]] },
+  skirmishers: { label: 'Guerrilleros', icon: 'shield', response: true, tiers: [[2, 'Skirmisher'], [3, 'Elite Skirmisher'], [4, 'Imperial Skirmisher']], techs: ARCHER_TECHS.filter(([n]) => n !== 'Thumb Ring') },
   spears: { label: 'Lanceros y piqueros', icon: 'shield', response: true, tiers: [[2, 'Spearman'], [3, 'Pikeman'], [4, 'Halberdier']], techs: INF_TECHS },
-  monks: { label: 'Monjes', icon: 'target', response: true, tiers: [[3, 'Monk']], techs: [['Sanctity', 3], ['Fervor', 3], ['Block Printing', 4], ['Theocracy', 4]] },
+  monks: { label: 'Monjes', icon: 'target', response: true, tiers: [[3, 'Monk']], techs: [['Sanctity', 3], ['Fervor', 3], ['Redemption', 3], ['Block Printing', 4], ['Theocracy', 4]] },
 };
 // Decision-policy weights, not measured damage or matchup win probabilities.
 const COUNTERS = {
@@ -52,7 +53,10 @@ function lineQuality(slug, key, age) {
   const nodes = tree.civilizations[slug]?.nodes;
   const line = LINES[key];
   if (!nodes || !line) return null;
-  const available = (name) => Number.isInteger(nodes[name]) && nodes[name] <= age;
+  const available = (name) => {
+    if (slug === 'gurjaras' && name === 'Scout Cavalry') return false;
+    return Number.isInteger(nodes[name]) && nodes[name] <= age;
+  };
   const targets = line.tiers.filter(([at]) => at <= age);
   const present = line.tiers.flatMap(([, ...names]) => names.filter(available));
   if (!present.length) return null;

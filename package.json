@@ -1,6 +1,6 @@
 {
   "name": "aoe2-elo-overlay",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "private": true,
   "description": "Relic — Inteligencia táctica, prematch y postmatch para Age of Empires II: DE",
   "author": "Relic",
@@ -25,7 +25,8 @@
   "dependencies": {
     "adm-zip": "^0.6.1",
     "aoe2rec-js": "^0.1.25",
-    "electron-updater": "^6.8.11"
+    "electron-updater": "^6.8.11",
+    "undici": "^7.30.2"
   },
   "repository": {
     "type": "git",

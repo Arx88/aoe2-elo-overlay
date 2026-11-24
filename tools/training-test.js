@@ -275,4 +275,321 @@ const CIV_TECH = require('../src/civ-tech.json').civilizations;
   assert.doesNotMatch(combined, /Punta de acero|anillas para arqueros|AoE2Insights|aoe2recs|\.aoe2record/i, 'Official AoE2:DE Spanish nomenclature & zero external-site references required');
 }
 
-console.log('Entrenamiento v5 (Beta · Ultra): 410 preguntas 7 niveles, bloqueo 24h, cola Mi Plan, Radar real, CSP y nomenclatura oficial AoE2:DE OK.');
+// 6. Exhaustive 56x55 = 3,080 Matchup Pairs Audit (Antisymmetry, Pixel-Mirror SVG, Tech-Tree Legality, Unique Units, Non-Forced Comps)
+{
+  const CIV_TECH = require('../src/civ-tech.json').civilizations;
+  const { CIV_MATCHUP_PROFILES } = require('../src/training/civ-matchup-profiles');
+  const { computeMatchupWarRoom } = require('../src/training/training-high-elo');
+  const slugs = Object.keys(CIV_TECH).filter((s) => Boolean(CIV_TECH[s]?.nodes));
+  assert.equal(slugs.length, 56, 'Expected all 56 standard AoE2:DE civilizations in civ-tech.json');
+  for (const s of slugs) {
+    assert.ok(CIV_MATCHUP_PROFILES[s], `Missing matchup profile for ${s}`);
+    const uuNode = CIV_MATCHUP_PROFILES[s].uniqueUnit?.node;
+    assert.ok(uuNode && CIV_TECH[s].nodes[uuNode] != null, `Unique Unit node "${uuNode}" must exist in civ-tech.json for ${s}`);
+  }
+
+  const cache = new Map();
+  let feudalSingle = 0;
+  let feudalMix = 0;
+  let uuRecommended = 0;
+
+  for (const a of slugs) {
+    for (const b of slugs) {
+      if (a === b) continue;
+      const res = computeMatchupWarRoom({ myCivSlug: a, rivalCivSlug: b });
+      cache.set(`${a}|${b}`, res);
+      assert.ok(res.myCiv.uniqueUnit && res.rivalCiv.uniqueUnit, `Both sides must expose uniqueUnit for ${a} vs ${b}`);
+      for (const g of res.gameplanByAge) {
+        const nodes = CIV_TECH[a].nodes;
+        if (g.primaryNode) {
+          assert.ok(nodes[g.primaryNode] != null && nodes[g.primaryNode] <= g.age, `Illegal primaryNode ${g.primaryNode} for ${a} in age ${g.age}`);
+        }
+        if (g.complementNode) {
+          assert.ok(nodes[g.complementNode] != null && nodes[g.complementNode] <= g.age, `Illegal complementNode ${g.complementNode} for ${a} in age ${g.age}`);
+        }
+        if (a === 'gurjaras') {
+          assert.notEqual(g.primaryNode, 'Scout Cavalry', 'Gurjaras must use Camel Scout, never Scout Cavalry');
+          assert.notEqual(g.complementNode, 'Scout Cavalry', 'Gurjaras must use Camel Scout, never Scout Cavalry');
+        }
+        if (g.age === 4) {
+          assert.notEqual(g.primaryNode, 'Monk', `Pure Monk must never be Imperial closing condition (${a} vs ${b})`);
+        }
+        if (g.age === 2) {
+          if (g.complementNode) feudalMix += 1; else feudalSingle += 1;
+        }
+        const uuNode = CIV_MATCHUP_PROFILES[a].uniqueUnit.node;
+        if (g.age >= 3 && (g.primaryNode === uuNode || g.complementNode === uuNode)) uuRecommended += 1;
+      }
+    }
+  }
+
+  assert.equal(cache.size, 3080, 'Must evaluate all 56x55 = 3,080 directed pairs');
+  assert.ok(feudalSingle >= 1000 && feudalMix >= 400, `Feudal plans must balance focused openings (${feudalSingle}) and reactive mixes (${feudalMix}) without forcing`);
+  assert.ok(uuRecommended >= 800, `Unique Units must actively participate across matchups (got ${uuRecommended})`);
+
+  for (let i = 0; i < slugs.length; i += 1) {
+    for (let j = i + 1; j < slugs.length; j += 1) {
+      const ab = cache.get(`${slugs[i]}|${slugs[j]}`);
+      const ba = cache.get(`${slugs[j]}|${slugs[i]}`);
+      for (const age of [1, 2, 3, 4]) {
+        assert.equal(ab.ageEdgeScores[age] + ba.ageEdgeScores[age], 0, `Exact antisymmetry failed for ${slugs[i]} vs ${slugs[j]} age ${age}`);
+      }
+      for (let k = 0; k < 4; k += 1) {
+        assert.equal(ab.svg.nodes[k].cy + ba.svg.nodes[k].cy, 170, `Exact SVG pixel mirror failed for ${slugs[i]} vs ${slugs[j]} node ${k}`);
+      }
+    }
+  }
+
+  // Golden AoE2:DE pro sanity checks
+  const frVsHi = cache.get('franks|hindustanis');
+  const hiVsFr = cache.get('hindustanis|franks');
+  assert.ok(hiVsFr.ageEdgeScores[3] > 0 && frVsHi.ageEdgeScores[3] < 0, 'Hindustanis must hold Castle Age edge over Franks');
+  assert.match(hiVsFr.gameplanByAge[2].bestLine, /Camello imperial/i, 'Hindustanis Imperial plan vs Franks must feature Camello imperial');
+
+  const goVsBr = cache.get('goths|britons');
+  assert.match(goVsBr.gameplanByAge[1].bestLine, /Huscarle/i, 'Goths Castle Age plan vs Britons must feature Huscarle');
+
+  const brVsGo = cache.get('britons|goths');
+  assert.doesNotMatch(brVsGo.gameplanByAge[1].bestLine, /Arquero con arco largo.*Huscarle/i, 'Britons must not suggest Longbowman as anti-Huskarl');
+  assert.ok(brVsGo.ageEdgeScores[2] > 0, 'Britons must hold Feudal edge over Goths');
+
+  const esVsFr = cache.get('spanish|franks');
+  assert.match(esVsFr.gameplanByAge[1].bestLine, /Conquistador/i, 'Spanish Castle Age plan vs Franks must feature Conquistador');
+
+  const inVsFr = cache.get('incas|franks');
+  assert.match(inVsFr.gameplanByAge[0].bestLine, /champi/i, 'Incas Feudal plan must reflect Champi Runner (Last Chieftains)');
+  assert.match(inVsFr.gameplanByAge[1].bestLine, /Kamayuk/i, 'Incas Castle Age plan vs Franks must feature Kamayuk');
+}
+
+// 7. Global Blacksmith Technology Highlighter & Official PNG Icons Verification
+{
+  const bsDir = path.join(__dirname, '..', 'assets', 'icons', 'blacksmith');
+  const expectedPngs = [
+    'forging.png', 'iron_casting.png', 'blast_furnace.png',
+    'fletching.png', 'bodkin_arrow.png', 'bracer.png',
+    'scale_barding.png', 'chain_barding.png', 'plate_barding.png',
+    'scale_mail.png', 'chain_mail.png', 'plate_mail.png',
+    'padded_archer.png', 'leather_archer.png', 'ring_archer.png',
+  ];
+  for (const file of expectedPngs) {
+    const full = path.join(bsDir, file);
+    assert.ok(fs.existsSync(full), `Missing official Blacksmith PNG icon: ${file}`);
+    const hdr = fs.readFileSync(full).subarray(0, 4);
+    assert.deepEqual([...hdr], [0x89, 0x50, 0x4E, 0x47], `Blacksmith icon ${file} must be a valid PNG (not WebP/JPEG)`);
+  }
+
+  const bsSrc = fs.readFileSync(path.join(__dirname, '..', 'ui', 'blacksmith-terms.js'), 'utf8');
+  assert.equal(/\bstyle\s*=/.test(bsSrc), false, 'ui/blacksmith-terms.js must contain ZERO inline style= attributes');
+  assert.ok(bsSrc.includes('Arquero emplumado'), 'ui/blacksmith-terms.js must guard against false-positive Arquero emplumado match');
+
+  const settingsHtml = fs.readFileSync(path.join(__dirname, '..', 'settings.html'), 'utf8');
+  const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(settingsHtml.includes('ui/blacksmith-terms.js'), 'settings.html must load ui/blacksmith-terms.js globally');
+  assert.ok(indexHtml.includes('ui/blacksmith-terms.js'), 'index.html must load ui/blacksmith-terms.js globally');
+}
+
+// 8. 24h Ultra Trial Expiration -> Locked Free payload must strip ALL Ultra training & Build Order Creator data
+{
+  const tmpLockFile = path.join(os.tmpdir(), `relic-training-lock-${Date.now()}.json`);
+  const ctrl = createTrainingController({ filePath: tmpLockFile });
+  const saveRes = ctrl.saveCustomBuild({
+    profileId: 555,
+    armNow: true,
+    build: {
+      name: 'Scouts 19 pop Trial',
+      civSlug: 'franks',
+      mapName: 'Arabia',
+      steps: [{ age: 1, pop: '06/05', gameSec: 0, alloc: { food: 6, wood: 0, gold: 0, stone: 0 }, title: '6 ovejas' }],
+    },
+  });
+  const unlockedDash = ctrl.buildDashboard({ profileId: 555, unlocked: true, plan: 'promax', records: [] });
+  assert.equal(unlockedDash.unlocked, true);
+  assert.equal(unlockedDash.customBuilds.length, 1);
+  assert.equal(unlockedDash.armedBuildOrderId, saveRes.saved.id);
+
+  // Trial expires -> unlocked: false (Free)
+  const lockedDash = ctrl.buildDashboard({ profileId: 555, unlocked: false, plan: 'free', records: [] });
+  assert.equal(lockedDash.unlocked, false);
+  assert.equal(lockedDash.customBuilds.length, 0, 'Locked Free dashboard must NOT leak saved Build Orders');
+  assert.equal(lockedDash.armedBuildOrderId, null, 'Locked Free dashboard must NOT leak armedBuildOrderId');
+  assert.equal(lockedDash.pacer, null, 'Locked Free dashboard must NOT expose pacer');
+  assert.equal(lockedDash.matchupWarRoom, null, 'Locked Free dashboard must NOT expose matchupWarRoom');
+  assert.equal(lockedDash.arena, null, 'Locked Free dashboard must NOT expose arena');
+  assert.equal(lockedDash.liveOverlayTestActive, false);
+  assert.equal(lockedDash.highElo.hasData, false);
+
+  // Build Order Helper master gate: renderer.js & main.js must NEVER activate armed training BO in-match when smartBuildOrder is OFF
+  const mainSrc = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  const rendererSrc = fs.readFileSync(path.join(__dirname, '..', 'renderer.js'), 'utf8');
+  assert.equal(/\(smartBuildOrderEnabled\s*\|\|\s*buildOrderPayload\.isArmedCustom\)/.test(rendererSrc), false,
+    'renderer.js must NOT bypass smartBuildOrderEnabled for armed training build orders in-match');
+  assert.equal(/\(payload\.isArmedCustom\s*&&\s*payload\.ongoing\)/.test(mainSrc), false,
+    'main.js sendBuildOrder must NOT bypass smartBuildOrder for armed training build orders in-match');
+
+  // Arena v6 Wiki + 56-Civ Tech Tree + Crowns integrity checks
+  const arenaCat = buildArenaCatalog();
+  assert.ok(arenaCat.totalCount >= 420, `Arena v6 must contain >= 420 verified questions (got ${arenaCat.totalCount})`);
+  assert.equal(arenaCat.byId.has('l7_fu_monk_byzantines'), false, 'Byzantines lacks Herbal Medicine and must NOT appear as full Monastery');
+  assert.equal(arenaCat.byId.has('l6_trash_triple_varangians'), false, 'Varangians lacks Thumb Ring and must NOT appear as 100% triple trash');
+  assert.ok(arenaCat.byId.has('l3_td_franks_hindustanis_camels_spears'), 'Franks vs Hindustani Imperial Camels must transition to Halberdiers (spears), not Champions');
+  assert.ok(arenaCat.byId.has('l7_crown_artillery_turks') && arenaCat.byId.has('l6_crown_forced_levy_malay'), 'Arena v6 must include dedicated Crown / Unique Tech mastery questions');
+  const teutBrac = arenaCat.byId.get('l5_brac_teutons');
+  assert.ok(teutBrac && /Almenas/i.test(teutBrac.explanation), 'Teutons Bracer question must explain Crenellations (+3 Castle range)');
+  const xbowSp = arenaCat.byId.get('l1_core_no_xbow_spanish');
+  assert.ok(xbowSp && !xbowSp.options.some((o) => o.id === 'civ_aztecs' || o.id === 'civ_mongols'), 'European Crossbowman question must use European distractors only');
+  for (const q of arenaCat.allQuestions) {
+    const joined = `${q.prompt} ${q.explanation} ${q.options.map((o) => `${o.title} ${o.sub}`).join(' ')}`;
+    assert.equal(/…/.test(joined), false, `Arena question ${q.id} must not contain truncated ellipsis`);
+    assert.equal(/\)\)/.test(joined), false, `Arena question ${q.id} must not contain broken double parentheses`);
+    if (q.id.startsWith('l3_champ_')) {
+      assert.equal(q.options.some((o) => o.id === 'node_two_handed_swordsman'), false, `${q.id} must not offer Two-Handed Swordsman as a missing option`);
+    }
+  }
+  try { fs.unlinkSync(tmpLockFile); } catch (_) {}
+}
+
+// 9. Weekly Progress Real Telemetry & Anti-Fabrication Integrity
+{
+  const { computeHighEloTelemetry } = require('../src/training/training-high-elo');
+  const fixedNowMs = new Date(2026, 10, 24, 15, 0, 0).getTime(); // 2026-11-24 15:00 local
+  const DAY = 86400_000;
+  const makeRec = ({ id, startedAt, updatedAt, finishedAt, won = true, dur = 1600, darkIdle = 20, feudalIdle = 25, feudal = 610, castle = 1200, dba = 20, eapm = 46, bell = 0, wellEq = true, startingAge = 'dark' }) => ({
+    matchId: id,
+    mapName: 'Arabia',
+    civSlug: 'franks',
+    civ: 'Franks',
+    won,
+    ...(startedAt !== undefined ? { startedAt } : {}),
+    ...(updatedAt !== undefined ? { updatedAt } : {}),
+    ...(finishedAt !== undefined ? { finishedAt } : {}),
+    telemetry: {
+      durationSeconds: dur,
+      context: { startingAge },
+      engineSummary: {
+        durationSeconds: dur,
+        self: {
+          tcIdleDarkSeconds: darkIdle,
+          tcIdleFeudalPerTcSeconds: feudalIdle,
+          timings: { feudalSeconds: feudal, castleSeconds: castle },
+          techProfile: { hasDoubleBitAxe: true, doubleBitAxeDelaySec: dba, armyRelevance: { wellEquipped: wellEq } },
+          eapm,
+          habits: { attackMove: 14, patrol: 8, townBell: bell },
+        },
+      },
+    },
+  });
+
+  // C1: 0 replays
+  const c1 = computeHighEloTelemetry([], null, { nowMs: fixedNowMs });
+  assert.equal(c1.weeklyProgress.status, 'no_replays_week');
+  assert.equal(c1.weeklyProgress.gains.length, 0);
+  assert.equal(c1.weeklyProgress.milestones.length, 0);
+  assert.equal(c1.weeklyProgress.dailySeries.length, 7);
+  assert.ok(c1.weeklyProgress.dailySeries.every((d) => d.matchCount === 0 && d.improvedFundamentalsAvg === null));
+
+  // C2: 0 replays this week, 4 older replays
+  const old4 = [10, 12, 14, 16].map((dAgo, i) => makeRec({ id: `old_${i}`, startedAt: fixedNowMs - dAgo * DAY }));
+  const c2 = computeHighEloTelemetry(old4, null, { nowMs: fixedNowMs });
+  assert.equal(c2.weeklyProgress.status, 'idle_week');
+  assert.equal(c2.weeklyProgress.weekMatchCount, 0);
+  assert.equal(c2.weeklyProgress.priorMatchCount, 4);
+  assert.equal(c2.weeklyProgress.gains.length, 0);
+  assert.ok(c2.weeklyProgress.dailySeries.every((d) => d.matchCount === 0 && d.improvedFundamentalsAvg === null));
+
+  // C3: 1 replay this week, 0 older -> calibrating_first_match (isBaselineOnly, zero gains)
+  const oneWeekRec = [makeRec({ id: 'first_1', startedAt: fixedNowMs - 3600_000 })];
+  const c3 = computeHighEloTelemetry(oneWeekRec, null, { nowMs: fixedNowMs });
+  assert.equal(c3.weeklyProgress.status, 'calibrating_first_match');
+  assert.equal(c3.weeklyProgress.hasComparison, false);
+  assert.equal(c3.weeklyProgress.gains.length, 0);
+  const todayC3 = c3.weeklyProgress.dailySeries[6];
+  assert.equal(todayC3.matchCount, 1);
+  assert.equal(todayC3.isBaselineOnly, true);
+  assert.equal(todayC3.improvedFundamentalsAvg, null);
+
+  // Backfill trap (updatedAt = now, NO startedAt/finishedAt) MUST NOT land in today!
+  const backfillRec = makeRec({ id: 'backfill_1', updatedAt: fixedNowMs });
+  const futureCorruptRec = makeRec({ id: 'future_1', startedAt: fixedNowMs + 7 * DAY });
+  const bfRes = computeHighEloTelemetry([backfillRec, futureCorruptRec], null, { nowMs: fixedNowMs });
+  assert.equal(bfRes.weeklyProgress.weekMatchCount, 0, 'Backfilled undated & far-future replays must NEVER be placed into this week');
+  assert.equal(bfRes.weeklyProgress.undatedExcludedCount, 2);
+
+  // Mixed Unix seconds vs ms + minor +60s clock skew
+  const secRec = makeRec({ id: 'sec_1', startedAt: Math.floor((fixedNowMs - 2 * DAY) / 1000) });
+  const msRec = makeRec({ id: 'ms_1', startedAt: fixedNowMs - 2 * DAY + 1000 });
+  const skewRec = makeRec({ id: 'skew_1', startedAt: fixedNowMs + 60_000 });
+  const mixedRes = computeHighEloTelemetry([skewRec, msRec, secRec], null, { nowMs: fixedNowMs });
+  assert.equal(mixedRes.weeklyProgress.weekMatchCount, 3);
+  assert.equal(mixedRes.weeklyProgress.dailySeries[4].matchCount, 2, 'Seconds and ms timestamps on same day must bucket together');
+  assert.equal(mixedRes.weeklyProgress.dailySeries[6].matchCount, 1, 'Minor +60s skew must bucket cleanly into today');
+
+  // Case A (>20 replays un-slicing + deadband enforcement + PB milestone guard + Empire Wars guard + dedup + short match filter)
+  const prior5 = [10, 11, 12, 13, 14].map((dAgo, i) => makeRec({
+    id: `p_${i}`, startedAt: fixedNowMs - dAgo * DAY,
+    darkIdle: 32, feudalIdle: 34, feudal: 635, castle: 1260, dba: 32, eapm: 44,
+  }));
+  const week22 = [];
+  for (let i = 0; i < 22; i += 1) {
+    const dayOff = i % 5; // spread across last 5 days
+    week22.push(makeRec({
+      id: `w_${i}`, startedAt: fixedNowMs - dayOff * DAY - i * 60_000,
+      darkIdle: 22, // -10s > 4s deadband => MUST qualify (+0.4 villagers)
+      feudalIdle: 31, // -3s <= 5s deadband => MUST NOT qualify!
+      feudal: 610, // -25s > 10s deadband => qualifies
+      castle: 1245, // -15s <= 20s deadband => MUST NOT qualify!
+      dba: 18, // -14s > 10s deadband => qualifies
+      eapm: 48.5, // +4.5 > 2.5 deadband => qualifies
+    }));
+  }
+  // Add duplicate matchId, short <180s match, and Empire Wars match (feudal=0)
+  const dupRec = { ...week22[0] };
+  const shortRec = makeRec({ id: 'short_1', startedAt: fixedNowMs - 1000, dur: 120, darkIdle: 0 });
+  const ewRec = makeRec({ id: 'ew_1', startedAt: fixedNowMs - 2000, startingAge: 'feudal', feudal: 0, darkIdle: 0, castle: 1000 });
+  const caseA = computeHighEloTelemetry([...week22, dupRec, shortRec, ewRec, ...prior5], null, { nowMs: fixedNowMs });
+  assert.equal(caseA.weeklyProgress.comparisonMode, 'prior_baseline', 'Prior baseline must NOT be lost even with >20 weekly replays');
+  assert.equal(caseA.weeklyProgress.weekMatchCount, 23, '22 unique standard + 1 valid EW (deduped, excluding <180s short match)');
+  assert.equal(caseA.weeklyProgress.priorMatchCount, 5);
+  const darkGain = caseA.weeklyProgress.gains.find((g) => g.metricKey === 'tcIdleDarkSec');
+  assert.ok(darkGain && darkGain.villagersSaved === 0.4, 'Dark TC idle -10s must surface with +0.4 villagers saved');
+  assert.equal(caseA.weeklyProgress.gains.some((g) => g.metricKey === 'tcIdleFeudalPerTcSec'), false, '-3s feudal idle within 5s deadband must NOT appear as gain');
+  assert.equal(caseA.weeklyProgress.gains.some((g) => g.metricKey === 'castleSec'), false, '-15s castle within 20s deadband must NOT appear as gain');
+  assert.ok(caseA.weeklyProgress.milestones.some((m) => m.kind === 'personal_best'), 'Real PB broken with >=2 prior samples must emit personal_best milestone');
+  const feudalGain = caseA.weeklyProgress.gains.find((g) => g.metricKey === 'feudalSec');
+  assert.ok(feudalGain && feudalGain.nowVal === 610, 'EW feudal=0 match must NOT pollute feudalSec median');
+
+  // Case B (within_week_split: 4 replays this week, 0 older -> zero future leakage, never says "semana pasada")
+  const weekOnly4 = [
+    makeRec({ id: 'wo_1', startedAt: fixedNowMs - 4 * DAY, darkIdle: 40, feudal: 650, eapm: 40 }),
+    makeRec({ id: 'wo_2', startedAt: fixedNowMs - 3 * DAY, darkIdle: 38, feudal: 645, eapm: 41 }),
+    makeRec({ id: 'wo_3', startedAt: fixedNowMs - 1 * DAY, darkIdle: 20, feudal: 605, eapm: 48 }),
+    makeRec({ id: 'wo_4', startedAt: fixedNowMs - 3600_000, darkIdle: 16, feudal: 598, eapm: 50 }),
+  ];
+  const caseB = computeHighEloTelemetry(weekOnly4, null, { nowMs: fixedNowMs });
+  assert.equal(caseB.weeklyProgress.comparisonMode, 'within_week_split');
+  assert.equal(caseB.weeklyProgress.baselineLabel, 'vs inicio de esta semana');
+  assert.doesNotMatch(`${caseB.weeklyProgress.headline} ${caseB.weeklyProgress.subhead} ${caseB.weeklyProgress.baselineDetail}`, /semana pasada/i);
+  assert.equal(caseB.weeklyProgress.dailySeries[2].isBaselineOnly, true, 'First chronological match day must be baseline-only (zero future leakage)');
+  assert.equal(caseB.weeklyProgress.dailySeries[2].improvedFundamentalsAvg, null);
+  assert.ok(caseB.weeklyProgress.gains.length >= 2, 'Genuine within-week improvement must be detected');
+
+  // Case D (Tough / Steady week: 3 matches this week worse/flat vs 5 prior -> ZERO fake green gains!)
+  const toughWeek3 = [
+    makeRec({ id: 'tw_1', startedAt: fixedNowMs - 3 * DAY, won: false, darkIdle: 44, feudalIdle: 48, feudal: 655, castle: 1310, dba: 45, eapm: 40, bell: 0 }),
+    makeRec({ id: 'tw_2', startedAt: fixedNowMs - 1 * DAY, won: false, darkIdle: 33, feudalIdle: 36, feudal: 636, castle: 1265, dba: 33, eapm: 43, bell: 0 }),
+    makeRec({ id: 'tw_3', startedAt: fixedNowMs - 3600_000, won: true, darkIdle: 32, feudalIdle: 35, feudal: 634, castle: 1258, dba: 31, eapm: 44, bell: 0 }),
+  ];
+  const caseD = computeHighEloTelemetry([...toughWeek3, ...prior5], null, { nowMs: fixedNowMs });
+  assert.equal(caseD.weeklyProgress.gains.length, 0, 'Tough/steady week must NEVER fabricate fake gains');
+  assert.equal(caseD.weeklyProgress.hasGains, false);
+  assert.ok(caseD.weeklyProgress.status === 'steady_week' || caseD.weeklyProgress.status === 'tough_week');
+  assert.ok(caseD.weeklyProgress.encouragingFacts.length >= 1, 'Case D must surface verified encouraging facts');
+
+  // Locked Free dashboard must NOT leak weeklyProgress
+  const tmpFreeWp = path.join(os.tmpdir(), `relic-wp-lock-${Date.now()}.json`);
+  const ctrlWp = createTrainingController({ stateFile: tmpFreeWp, saveCustomBuilds: () => {} });
+  const lockedWpDash = ctrlWp.buildDashboard({ profileId: 777, unlocked: false, plan: 'free', records: week22 });
+  assert.equal(lockedWpDash.highElo.weeklyProgress, undefined, 'Locked Free dashboard must NOT leak weeklyProgress');
+  try { fs.unlinkSync(tmpFreeWp); } catch (_) {}
+}
+
+console.log('Entrenamiento v5 (Beta · Ultra): 410 preguntas 7 niveles, 3080 matchups antisimétricos + UU, 15 PNGs Herrería globales, bloqueo 24h, cola Mi Plan, Radar real, Weekly real, CSP y nomenclatura oficial AoE2:DE OK.');

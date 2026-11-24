@@ -278,9 +278,17 @@ async function fetchOpeningRows(profileId, options = {}) {
     options.retryMs == null && options.timeoutMs == null;
   if (!production) return fetchOpeningRowsImpl(profileId, options);
   const reqLimit = Number(options.limit ?? ROW_LIMIT) || ROW_LIMIT;
-  // Unificar toda consulta <= 500 filas (Rival=500, Scout=60, Smurf=25, Central=500) en UNA sola petición canónica (limit=500)
-  // y recortar localmente en memoria: elimina los 3 jobs HTTP 202 duplicados por rival.
-  const canonicalLimit = reqLimit <= ROW_LIMIT ? ROW_LIMIT : reqLimit;
+  // Si el caché canónico de 500 ya está RESUELTO, recortamos en memoria (0 ms).
+  // Pero si se pide un sondeo rápido (limit <= 60, p.ej. progressiveScout) y el de 500
+  // aún no resolvió, usamos su carril rápido propio para no bloquear 15–27 s!
+  const canonicalKey = buildMatchUpsUrl(profileId, ROW_LIMIT, options.mode ?? null,
+    options.fields || DEFAULT_FIELDS);
+  const existingCanonical = replayRequests.get(canonicalKey);
+  if (existingCanonical && !options.force && !existingCanonical.pending && Date.now() - existingCanonical.at < REPLAY_RAW_TTL_MS && reqLimit <= ROW_LIMIT) {
+    const fullPayload = await existingCanonical.promise;
+    return reqLimit < ROW_LIMIT ? sliceColumnarPayload(fullPayload, reqLimit) : fullPayload;
+  }
+  const canonicalLimit = (reqLimit <= 60) ? reqLimit : (reqLimit <= ROW_LIMIT ? ROW_LIMIT : reqLimit);
   const key = buildMatchUpsUrl(profileId, canonicalLimit, options.mode ?? null,
     options.fields || DEFAULT_FIELDS);
   const existing = replayRequests.get(key);

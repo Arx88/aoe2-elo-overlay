@@ -2111,7 +2111,7 @@ async function hydrateCentralEwMode({
   const storeRev = storeRevOf(performanceStore, storedRecords);
 
   if (stillFresh) {
-    return computeCentralMemoized(cacheKey, Date.now(), baseRaw, {
+    return computeCentralMemoized(cacheKey, existingTs || Date.now(), baseRaw, {
       alias, storedRecords, storeRev, isOwnProfile, ownProfileId,
     });
   }
@@ -2306,42 +2306,63 @@ async function fetchCentralDashboard({
               extra: needInsights ? { insightsPending: true } : null,
             }));
 
-            // Fase 2A: Backfill silencioso de página 2 (hasta 200 pj/modo) si faltan partidas
-            if (merged._needsPage2?.rm_1v1 || merged._needsPage2?.rm_team) {
-              const bf = await backfillCentralPage2(pid, merged, { signal });
-              if (!signal?.aborted && bf.updated) {
-                merged = bf.raw;
-                const tsBf = Date.now();
-                if (cache) cache.set(cacheKey, { ts: tsBf, raw: merged });
-                writeDiskCache(diskCachePath, pid, merged);
-                const rBf = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
-                onUpdate(computeCentralMemoized(cacheKey, tsBf, merged, {
-                  alias,
-                  storedRecords: rBf,
-                  storeRev: storeRevOf(performanceStore, rBf),
-                  isOwnProfile,
-                  ownProfileId,
-                  extra: needInsights ? { insightsPending: true } : null,
-                }));
+            // Fase 2A + 2B en paralelo: Backfill de página 2 (hasta 200 pj/modo) + revalidación de AoE2Insights
+            const wantPage2 = Boolean(merged._needsPage2?.rm_1v1 || merged._needsPage2?.rm_team);
+            const wantInsights = Boolean(needInsights && !signal?.aborted);
+            if (wantPage2 || wantInsights) {
+              let insightsDone = !wantInsights;
+              const tasks = [];
+              if (wantPage2) {
+                tasks.push(
+                  backfillCentralPage2(pid, merged, { signal }).then((bf) => {
+                    if (signal?.aborted || !bf.updated) return;
+                    merged = {
+                      ...merged,
+                      matches1v1: bf.raw.matches1v1,
+                      matchesTeam: bf.raw.matchesTeam,
+                      _needsPage2: bf.raw._needsPage2,
+                    };
+                    const tsBf = Date.now();
+                    if (cache) cache.set(cacheKey, { ts: tsBf, raw: merged });
+                    writeDiskCache(diskCachePath, pid, merged);
+                    const rBf = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+                    onUpdate(computeCentralMemoized(cacheKey, tsBf, merged, {
+                      alias,
+                      storedRecords: rBf,
+                      storeRev: storeRevOf(performanceStore, rBf),
+                      isOwnProfile,
+                      ownProfileId,
+                      extra: insightsDone ? null : { insightsPending: true },
+                    }));
+                  }),
+                );
               }
-            }
-
-            // Fase 2B: Revalidación perezosa de AoE2Insights solo si hubo partidas nuevas o venció TTL 4h
-            if (needInsights && !signal?.aborted) {
-              const { raw: enriched, updated } = await hydrateCentralInsights(pid, merged, { cache, force: hasNewMatch, signal });
-              if (signal?.aborted) return;
-              const ts2 = Date.now();
-              const stamped = { ...enriched, insightsTs: ts2 };
-              if (cache) cache.set(cacheKey, { ts: ts2, raw: stamped });
-              if (updated) writeDiskCache(diskCachePath, pid, stamped);
-              const r2 = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
-              onUpdate(computeCentralMemoized(cacheKey, ts2, stamped, {
-                alias,
-                storedRecords: r2,
-                storeRev: storeRevOf(performanceStore, r2),
-                isOwnProfile,
-                ownProfileId,
-              }));
+              if (wantInsights) {
+                tasks.push(
+                  hydrateCentralInsights(pid, merged, { cache, force: hasNewMatch, signal }).then(({ raw: enriched, updated }) => {
+                    if (signal?.aborted) return;
+                    insightsDone = true;
+                    const ts2 = Date.now();
+                    merged = {
+                      ...merged,
+                      insights1v1: enriched.insights1v1,
+                      insightsTeam: enriched.insightsTeam,
+                      insightsTs: ts2,
+                    };
+                    if (cache) cache.set(cacheKey, { ts: ts2, raw: merged });
+                    if (updated) writeDiskCache(diskCachePath, pid, merged);
+                    const r2 = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+                    onUpdate(computeCentralMemoized(cacheKey, ts2, merged, {
+                      alias,
+                      storedRecords: r2,
+                      storeRev: storeRevOf(performanceStore, r2),
+                      isOwnProfile,
+                      ownProfileId,
+                    }));
+                  }),
+                );
+              }
+              await Promise.allSettled(tasks);
             }
           }
         } catch (err) {
@@ -2390,41 +2411,59 @@ async function fetchCentralDashboard({
     (async () => {
       try {
         let cur = raw;
+        let insightsDone = !shouldLazyInsights;
+        const tasks = [];
         if (shouldLazyPage2) {
-          const bf = await backfillCentralPage2(pid, cur, { signal });
-          if (signal?.aborted) return;
-          if (bf.updated) {
-            cur = bf.raw;
-            const tsBf = Date.now();
-            if (cache) cache.set(cacheKey, { ts: tsBf, raw: cur });
-            if (isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, cur);
-            const rBf = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
-            onUpdate(computeCentralMemoized(cacheKey, tsBf, cur, {
-              alias,
-              storedRecords: rBf,
-              storeRev: storeRevOf(performanceStore, rBf),
-              isOwnProfile,
-              ownProfileId,
-              extra: shouldLazyInsights ? { insightsPending: true } : null,
-            }));
-          }
+          tasks.push(
+            backfillCentralPage2(pid, cur, { signal }).then((bf) => {
+              if (signal?.aborted || !bf.updated) return;
+              cur = {
+                ...cur,
+                matches1v1: bf.raw.matches1v1,
+                matchesTeam: bf.raw.matchesTeam,
+                _needsPage2: bf.raw._needsPage2,
+              };
+              const tsBf = Date.now();
+              if (cache) cache.set(cacheKey, { ts: tsBf, raw: cur });
+              if (isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, cur);
+              const rBf = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+              onUpdate(computeCentralMemoized(cacheKey, tsBf, cur, {
+                alias,
+                storedRecords: rBf,
+                storeRev: storeRevOf(performanceStore, rBf),
+                isOwnProfile,
+                ownProfileId,
+                extra: insightsDone ? null : { insightsPending: true },
+              }));
+            }),
+          );
         }
         if (shouldLazyInsights && !signal?.aborted) {
-          const { raw: enriched, updated } = await hydrateCentralInsights(pid, cur, { cache, force, signal });
-          if (signal?.aborted) return;
-          const ts2 = Date.now();
-          const stamped = { ...enriched, insightsTs: ts2 };
-          if (cache) cache.set(cacheKey, { ts: ts2, raw: stamped });
-          if (updated && isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, stamped);
-          const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
-          onUpdate(computeCentralMemoized(cacheKey, ts2, stamped, {
-            alias,
-            storedRecords: freshRecords,
-            storeRev: storeRevOf(performanceStore, freshRecords),
-            isOwnProfile,
-            ownProfileId,
-          }));
+          tasks.push(
+            hydrateCentralInsights(pid, cur, { cache, force, signal }).then(({ raw: enriched, updated }) => {
+              if (signal?.aborted) return;
+              insightsDone = true;
+              const ts2 = Date.now();
+              cur = {
+                ...cur,
+                insights1v1: enriched.insights1v1,
+                insightsTeam: enriched.insightsTeam,
+                insightsTs: ts2,
+              };
+              if (cache) cache.set(cacheKey, { ts: ts2, raw: cur });
+              if (updated && isOwnProfile && diskCachePath) writeDiskCache(diskCachePath, pid, cur);
+              const freshRecords = getStoredRecordsFast(performanceStore, pid, isOwnProfile);
+              onUpdate(computeCentralMemoized(cacheKey, ts2, cur, {
+                alias,
+                storedRecords: freshRecords,
+                storeRev: storeRevOf(performanceStore, freshRecords),
+                isOwnProfile,
+                ownProfileId,
+              }));
+            }),
+          );
         }
+        await Promise.allSettled(tasks);
       } catch (err) {
         log(`central bg hydrate: ${err.message}`);
       }

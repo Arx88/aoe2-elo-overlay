@@ -112,52 +112,52 @@
 
   const METRIC_HUMAN_META = {
     tcIdleDarkSec: {
-      title: 'Sin producir aldeanos (Alta Edad)',
+      title: 'Centro Urbano · Alta Edad',
       shortRadar: 'CU Alta Edad',
-      pill: 'CU Alta',
-      sub: 'Segundos con el Centro Urbano quieto antes de Feudal',
+      pill: 'Alta Edad Media',
+      sub: 'Pausa antes de Edad Feudal',
       valSuffix: '',
-      betterHint: '↓ Menos segundos es mejor',
+      betterHint: 'Menos segundos quieto = más aldeanos al pasar a Edad Feudal',
     },
     tcIdleFeudalPerTcSec: {
-      title: 'Sin producir aldeanos (Feudal)',
+      title: 'Centro Urbano · Edad Feudal',
       shortRadar: 'CU Feudal',
-      pill: 'CU Feudal',
-      sub: 'Pausa promedio de cada Centro Urbano en Edad Feudal',
+      pill: 'Edad Feudal',
+      sub: 'Pausa media por Centro Urbano',
       valSuffix: '',
-      betterHint: '↓ Menos segundos es mejor',
+      betterHint: 'Menos pausas en Edad Feudal = economía más sólida bajo presión',
     },
     feudalSec: {
-      title: 'Llegada a Edad Feudal',
-      shortRadar: 'Edad Feudal',
-      pill: 'Feudal',
-      sub: 'Minuto exacto al completar Edad Feudal',
+      title: 'Pase a Edad Feudal',
+      shortRadar: 'Pase Feudal',
+      pill: 'Edad Feudal',
+      sub: 'Llegada a la 2.ª edad',
       valSuffix: '',
-      betterHint: '↓ Llegar antes es mejor',
+      betterHint: 'Llegar antes habilita presión temprana y control del mapa',
     },
     castleSec: {
-      title: 'Llegada a Edad de los Castillos',
-      shortRadar: 'Castillos',
-      pill: 'Castillos',
-      sub: 'Minuto exacto al entrar en Castillos',
+      title: 'Pase a Edad de los Castillos',
+      shortRadar: 'Pase Castillos',
+      pill: 'Edad de los Castillos',
+      sub: 'Llegada a la 3.ª edad',
       valSuffix: '',
-      betterHint: '↓ Llegar antes es mejor',
+      betterHint: 'Entrar antes desbloquea Centros Urbanos adicionales y pico militar',
     },
     dbaDelaySec: {
-      title: 'Demora en Hacha de doble filo',
-      shortRadar: 'Hacha madera',
-      pill: 'Madera',
-      sub: 'Segundos desde pisar Feudal hasta mejorar la tala',
-      valSuffix: ' tras Feudal',
-      betterHint: '↓ Investigarla apenas pisás Feudal',
+      title: 'Hacha de doble filo',
+      shortRadar: 'Hacha doble filo',
+      pill: 'Hacha de doble filo',
+      sub: 'Demora tras llegar a Feudal',
+      valSuffix: '',
+      betterHint: 'Investigarla al instante al pisar Feudal acelera toda tu madera',
     },
     eapm: {
-      title: 'Ritmo efectivo de acciones (eAPM)',
-      shortRadar: 'Ritmo eAPM',
-      pill: 'eAPM',
-      sub: 'Órdenes reales por minuto (sin clics repetidos)',
+      title: 'Ritmo efectivo (eAPM)',
+      shortRadar: 'Ritmo efectivo',
+      pill: 'Ritmo efectivo',
+      sub: 'Acciones útiles por minuto',
       valSuffix: '',
-      betterHint: '↑ Más ritmo efectivo es mejor',
+      betterHint: 'Mayor ritmo sostenido mejora tu respuesta táctica y económica',
     },
   };
 
@@ -532,8 +532,30 @@
       </div>`;
     }
 
+    let trialAvailable = true;
+
+    function enforceLockedState() {
+      stopPacerClock();
+      stopArenaTimer();
+      stopLockoutTimer();
+      activeSubtab = 'perf';
+      studioEditMode = false;
+      draftRecipe = null;
+      showWelcomeModal = false;
+      arenaQuestion = null;
+      arenaAnswerResult = null;
+      arenaPickedOptionId = null;
+      arenaUnlockBanner = null;
+    }
+
     function renderLockVeil() {
       if (state?.unlocked) return '<div class="tr-lock-veil" hidden></div>';
+      const leadCopy = trialAvailable
+        ? 'Probalo gratis durante 24 horas y medí tu evolución partida a partida.'
+        : 'Desbloqueá Progreso, Mi Plan, Build Orders en vivo, Matchups y Arena con Relic Ultra.';
+      const primaryAction = trialAvailable
+        ? '<button type="button" class="tr-lock-cta" id="trLockTrialBtn">Probar 24 h gratis</button><button type="button" class="tr-lock-link" id="trLockPlanesBtn">Ver planes <span aria-hidden="true">→</span></button>'
+        : '<button type="button" class="tr-lock-cta" id="trLockPlanesBtn">Ver Plan Ultra →</button>';
       return `<div class="tr-lock-veil">
         <div class="tr-lock-stage">
           <img class="tr-lock-art" src="assets/art/central-hero.jpg" alt="" draggable="false" />
@@ -544,7 +566,7 @@
               Relic Ultra
             </span>
             <h2>Entrená con tus propias partidas</h2>
-            <p class="tr-lock-lead">Probalo gratis durante 24 horas y medí tu evolución partida a partida.</p>
+            <p class="tr-lock-lead">${leadCopy}</p>
             <div class="tr-lock-rule" aria-hidden="true"></div>
             <ul class="tr-lock-list">
               <li>
@@ -565,8 +587,7 @@
               </li>
             </ul>
             <div class="tr-lock-actions">
-              <button type="button" class="tr-lock-cta" id="trLockTrialBtn">Probar 24 h gratis</button>
-              <button type="button" class="tr-lock-link" id="trLockPlanesBtn">Ver planes <span aria-hidden="true">→</span></button>
+              ${primaryAction}
             </div>
           </div>
         </div>
@@ -637,12 +658,16 @@
 
       return `<div class="tr-view${activeSubtab === 'plan' ? ' is-active' : ''}" data-tr-view="plan">
         <section class="tr-queue-card">
-          <div class="tr-qc-head">
-            <div>
-              <span class="eyebrow">SEGUIMIENTO AUTOMÁTICO</span>
-              <h4>Objetivos de Mi Plan (${pending.length} activos · ${completed.length} cumplidos)</h4>
+          <div class="tr-plan-hero">
+            <img class="tr-panel-art-bg" src="assets/art/prematch-estandartes.webp" alt="" aria-hidden="true" draggable="false" />
+            <div class="tr-qc-head">
+              <div>
+                <span class="eyebrow">SEGUIMIENTO AUTOMÁTICO DE PARTIDAS</span>
+                <h4>Objetivos de Mi Plan (${pending.length} activos · ${completed.length} cumplidos)</h4>
+                <small class="tr-plan-sub">Cada objetivo se verifica solo al terminar tus próximas partidas reales.</small>
+              </div>
+              ${completed.length ? `<span class="tr-subtab-badge is-em">✓ ${completed.length} ${completed.length === 1 ? 'cumplido' : 'cumplidos'}</span>` : ''}
             </div>
-            ${completed.length ? `<span class="tr-subtab-badge is-em">✓ ${completed.length} ${completed.length === 1 ? 'cumplido' : 'cumplidos'}</span>` : ''}
           </div>
           ${listBody}
         </section>
@@ -651,7 +676,7 @@
 
     /* ==================== TOP COMMAND NAV (CLEAN RELIC UNDERLINE BAR · 5 CLEAR TABS) ==================== */
     const TAB_HINTS = {
-      perf: 'Compará tu última partida con tu promedio en 6 indicadores clave.',
+      perf: 'Mirá en 2 segundos en qué fundamentos mejoraste frente a tu promedio y cómo evolucionás partida a partida.',
       plan: 'Relic sigue tus próximas partidas y te avisa cuando cumplís cada objetivo.',
       orders: 'Elegí o creá una build order visual para seguirla en vivo en el Overlay.',
       matchups: 'Elegí dos civilizaciones para ver en qué edad tenés ventaja y qué jugar.',
@@ -833,6 +858,7 @@
       return `<div class="tr-view${activeSubtab === 'arena' ? ' is-active' : ''}" data-tr-view="arena">
         <!-- Unified Compact Campaign Header (7 Units + 3 Daily Lives + Metronome) -->
         <section class="tr-campaign-bar">
+          <img class="tr-panel-art-bg is-subtle" src="assets/art/wizard-umbral.webp" alt="" aria-hidden="true" draggable="false" />
           <div class="tr-cb-ladder-col">
             <div class="tr-cb-head">
               <div class="tr-cb-title-row">
@@ -954,6 +980,7 @@
       // Civ Bonuses Showcase Card right above Acciones e Íconos!
       const civBonusCardHtml = civGuideObj
         ? `<div class="tr-civ-bonuses-card">
+            <img class="tr-panel-art-bg" src="assets/art/apertura-castle.webp" alt="" aria-hidden="true" draggable="false" />
             <div class="tr-cbc-head">
               <img class="tr-cbc-shield" src="${resolveCivCrest(selectedCivSlug)}" alt="" draggable="false" />
               <div class="tr-cbc-meta">
@@ -1196,107 +1223,187 @@
         `<button type="button" class="tr-nemesis-pill" data-tr-matchup-my="${esc(m.myCiv)}" data-tr-matchup-rival="${esc(m.rivalCiv)}">${esc(m.label)}</button>`
       ).join('');
 
-      const gameplanHtml = (lab.gameplanByAge || []).map((g, idx) => `<div class="tr-age-plan-card tr-stagger-${idx + 1}">
+      const gameplanHtml = (lab.gameplanByAge || []).map((g, idx) => {
+        const edgeCls = g.edge >= 4 ? 'is-em' : (g.edge <= -4 ? 'is-warn' : 'is-even');
+        const edgeTxt = g.edge >= 4 ? 'Ventaja' : (g.edge <= -4 ? 'Cuidado' : 'Parejo');
+        const edgeSign = g.edge > 0 ? `+${g.edge}` : `${g.edge}`;
+        const rawLine = String(g.bestLine || 'Economía y control');
+        const parts = rawLine.split(' + ').map((s) => s.trim()).filter(Boolean);
+        const headlineHtml = parts.length > 1
+          ? `${esc(parts[0])} <span class="tr-comp-plus">+</span> ${esc(parts.slice(1).join(' + '))}`
+          : esc(rawLine);
+        const isUuHit = /\(Unidad única\)/i.test(String(g.advice || ''));
+        const compKind = parts.length > 1
+          ? (isUuHit ? '★ Única + Contraunidad' : 'Núcleo + Contraunidad')
+          : (isUuHit ? '★ Unidad única' : 'Núcleo enfocado');
+        return `<article class="tr-age-plan-card ${edgeCls} tr-stagger-${idx + 1}">
         <div class="tr-age-plan-top">
-          <span><img src="${resolveAsset(g.icon, 'assets/icons/ages/feudal.png')}" alt="" draggable="false" />${esc(g.ageLabel)}</span>
-          <span class="tr-subtab-badge${g.edge >= 0 ? ' is-em' : ''}">${g.edge >= 0 ? 'Ventaja' : 'Cuidado'}</span>
+          <span class="tr-age-plan-age"><img src="${resolveAsset(g.icon, 'assets/icons/ages/feudal.png')}" alt="" draggable="false" />${esc(g.ageLabel)}</span>
+          <span class="tr-age-edge-badge ${edgeCls}">${edgeTxt} <em class="mono">${esc(edgeSign)}</em></span>
         </div>
-        <strong>${esc(g.bestLine)}</strong>
+        <div class="tr-age-plan-hero">
+          <strong>${headlineHtml}</strong>
+          <span class="tr-comp-tag${isUuHit ? ' is-uu' : ''}">${esc(compKind)}</span>
+        </div>
         <p>${esc(g.advice)}</p>
-      </div>`).join('');
+      </article>`;
+      }).join('');
 
       const clashRowsHtml = (lab.clashLines || []).map((row) => {
-        const wOwn = Math.max(8, Math.round((row.impOwn / 100) * 140));
-        const wRiv = Math.max(8, Math.round((row.impRival / 100) * 140));
+        const wOwn = row.impOwn > 0 ? Math.max(5, Math.min(144, Math.round((row.impOwn / 100) * 140))) : 0;
+        const wRiv = row.impRival > 0 ? Math.max(5, Math.min(144, Math.round((row.impRival / 100) * 140))) : 0;
+        const ownLead = row.impOwn > row.impRival;
+        const rivLead = row.impRival > row.impOwn;
         return `<div class="tr-clash-row">
-          <span class="tr-clash-label">${esc(row.label)}</span>
+          <span class="tr-clash-label" title="${esc(row.label)}">${esc(row.label)}</span>
           <svg viewBox="0 0 300 14" width="100%" height="14" preserveAspectRatio="none" aria-hidden="true">
-            <rect x="0" y="1" width="144" height="12" rx="3" fill="rgba(255,255,255,0.06)"></rect>
-            <rect x="${144 - wOwn}" y="1" width="${wOwn}" height="12" rx="3" fill="#78d8a6"></rect>
-            <rect x="156" y="1" width="144" height="12" rx="3" fill="rgba(255,255,255,0.06)"></rect>
-            <rect x="156" y="1" width="${wRiv}" height="12" rx="3" fill="#ef8a81"></rect>
+            <rect x="0" y="2" width="144" height="10" rx="5" fill="rgba(255,255,255,0.06)"></rect>
+            ${wOwn > 0 ? `<rect x="${144 - wOwn}" y="2" width="${wOwn}" height="10" rx="5" fill="${ownLead ? '#78d8a6' : 'rgba(120,216,166,0.58)'}"></rect>` : ''}
+            <line x1="150" y1="0" x2="150" y2="14" stroke="rgba(242,215,153,0.34)" stroke-width="1.2"></line>
+            <rect x="156" y="2" width="144" height="10" rx="5" fill="rgba(255,255,255,0.06)"></rect>
+            ${wRiv > 0 ? `<rect x="156" y="2" width="${wRiv}" height="10" rx="5" fill="${rivLead ? '#ef8a81' : 'rgba(239,138,129,0.58)'}"></rect>` : ''}
           </svg>
-          <span class="tr-clash-vals mono">${row.impOwn} · ${row.impRival}</span>
+          <span class="tr-clash-vals mono"><b class="${ownLead ? 'is-own-lead' : (row.impOwn === 0 ? 'is-zero' : '')}">${row.impOwn}</b><i class="tr-clash-sep">·</i><b class="${rivLead ? 'is-riv-lead' : (row.impRival === 0 ? 'is-zero' : '')}">${row.impRival}</b></span>
         </div>`;
       }).join('');
 
+      const myTrapsSlice = (lab.myTraps || []).slice(0, 2);
+      const rivalHolesSlice = (lab.rivalHoles || []).slice(0, Math.max(2, 4 - myTrapsSlice.length));
       const trapsHtml = [
-        ...(lab.myTraps || []).map((t) => `<div class="tr-trap-item">
-          <strong>${esc(t.title)}</strong>
+        ...myTrapsSlice.map((t) => `<div class="tr-trap-row is-risk">
+          <div class="tr-trap-head"><span class="tr-trap-kicker is-risk">TU RIESGO</span><strong>${esc(t.title)}</strong></div>
           <small>${esc(t.detail)}</small>
         </div>`),
-        ...(lab.rivalHoles || []).map((h) => `<div class="tr-trap-item is-exploit">
-          <strong>${esc(rivalCiv.name)} sin ${esc(h.es)}</strong>
+        ...rivalHolesSlice.map((h) => `<div class="tr-trap-row is-exploit">
+          <div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">BRECHA RIVAL</span><strong>${esc(rivalCiv.name)} sin ${esc(h.es)}</strong></div>
           <small>${esc(h.desc)}</small>
         </div>`),
-      ].slice(0, 4).join('') || '<div class="tr-trap-item is-exploit"><strong>Árboles parejos</strong><small>Se define por tempo y control de reliquias.</small></div>';
+      ].slice(0, 4).join('') || '<div class="tr-trap-row is-exploit"><div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">EQUILIBRIO</span><strong>Árboles parejos</strong></div><small>Se define por tempo, economía limpia y control de reliquias.</small></div>';
 
       const n0 = svg.nodes[0] || { cx: 110, cy: 85 };
       const n1 = svg.nodes[1] || { cx: 330, cy: 85 };
       const n2 = svg.nodes[2] || { cx: 550, cy: 85 };
       const n3 = svg.nodes[3] || { cx: 770, cy: 85 };
+      const dotFill = (cy) => (cy < 80 ? '#78d8a6' : (cy > 90 ? '#ef8a81' : '#f2d799'));
+      const agesScores = lab.ageEdgeScores || { 1: 0, 2: 0, 3: 0, 4: 0 };
+      const fmtDelta = (v) => (v > 0 ? `+${v}` : `${v}`);
+      const labelY = (cy) => (cy <= 85 ? Math.max(26, cy - 16) : Math.min(144, cy + 23));
+
+      // Smooth cubic Bézier spline through exact antisymmetric anchor nodes (preserves cy(A,B)+cy(B,A)===170!)
+      const pts = [
+        { x: 0, y: 85 },
+        { x: n0.cx, y: n0.cy },
+        { x: n1.cx, y: n1.cy },
+        { x: n2.cx, y: n2.cy },
+        { x: n3.cx, y: n3.cy },
+        { x: 880, y: n3.cy },
+      ];
+      let smoothCurve = `M${pts[0].x},${pts[0].y}`;
+      for (let i = 0; i < pts.length - 1; i += 1) {
+        const pA = pts[i];
+        const pB = pts[i + 1];
+        const midX = ((pA.x + pB.x) / 2).toFixed(1);
+        smoothCurve += ` C${midX},${pA.y} ${midX},${pB.y} ${pB.x},${pB.y}`;
+      }
+      const smoothArea = `${smoothCurve} L880,85 L0,85 Z`;
+
+      const shortUt = (raw) => String(raw || '').split('(')[0].trim();
+      const myUuLine = myCiv.uniqueUnit
+        ? `<span class="tr-war-uu" title="${esc(myCiv.keyUniqueTech || '')}"><i>★</i> ${esc(myCiv.uniqueUnit)}${shortUt(myCiv.keyUniqueTech) ? ` <em>· ${esc(shortUt(myCiv.keyUniqueTech))}</em>` : ''}</span>`
+        : '';
+      const rivalUuLine = rivalCiv.uniqueUnit
+        ? `<span class="tr-war-uu" title="${esc(rivalCiv.keyUniqueTech || '')}"><i>★</i> ${esc(rivalCiv.uniqueUnit)}${shortUt(rivalCiv.keyUniqueTech) ? ` <em>· ${esc(shortUt(rivalCiv.keyUniqueTech))}</em>` : ''}</span>`
+        : '';
 
       return `<div class="tr-view${activeSubtab === 'matchups' ? ' is-active' : ''}" data-tr-view="matchups">
         <section class="tr-matchup-lab">
-          ${nemesisHtml ? `<div class="tr-nemesis-strip"><span class="eyebrow">TUS CRUCES</span>${nemesisHtml}</div>` : ''}
+          ${nemesisHtml ? `<div class="tr-nemesis-strip"><span class="eyebrow">TUS CRUCES RECIENTES</span>${nemesisHtml}</div>` : ''}
 
           <div class="tr-war-table-head">
             <img class="tr-war-art-bg" src="assets/art/central-civs.webp" alt="" aria-hidden="true" draggable="false" />
             <div class="tr-war-side is-ally">
-              <img class="tr-war-shield-lg" src="${resolveCivCrest(mySlugNorm)}" alt="" draggable="false" />
+              <div class="tr-war-crest-ring is-ally">
+                <img class="tr-war-shield-lg" src="${resolveCivCrest(mySlugNorm)}" alt="" draggable="false" />
+              </div>
               <div class="tr-war-select-col">
-                <select id="trLabMyCiv" class="field" aria-label="Tu civilización">${myOpts}</select>
+                <span class="tr-war-kicker is-ally">TU CIVILIZACIÓN</span>
+                <select id="trLabMyCiv" class="field tr-war-select" aria-label="Tu civilización">${myOpts}</select>
                 <small>${esc(myCiv.role)}</small>
+                ${myUuLine}
               </div>
             </div>
 
             <div class="tr-war-vs">
-              <div class="tr-vs-medallion-lg"><span>VS</span></div>
-              <button type="button" class="tr-swap-civs-btn" id="trSwapMatchupBtn">⇄ Invertir</button>
+              <div class="tr-vs-diamond-lg"><span>VS</span></div>
+              <button type="button" class="tr-swap-civs-btn" id="trSwapMatchupBtn" title="Invertir civilizaciones">⇄ Invertir</button>
             </div>
 
             <div class="tr-war-side is-rival">
               <div class="tr-war-select-col">
-                <select id="trLabRivalCiv" class="field" aria-label="Civilización rival">${rivOpts}</select>
+                <span class="tr-war-kicker is-rival">CIVILIZACIÓN RIVAL</span>
+                <select id="trLabRivalCiv" class="field tr-war-select" aria-label="Civilización rival">${rivOpts}</select>
                 <small>${esc(rivalCiv.role)}</small>
+                ${rivalUuLine}
               </div>
-              <img class="tr-war-shield-lg is-rival" src="${resolveCivCrest(rivSlugNorm)}" alt="" draggable="false" />
+              <div class="tr-war-crest-ring is-rival">
+                <img class="tr-war-shield-lg is-rival" src="${resolveCivCrest(rivSlugNorm)}" alt="" draggable="false" />
+              </div>
             </div>
           </div>
 
           <div class="tr-powerspike-card">
+            <img class="tr-panel-art-bg is-subtle" src="assets/art/durante.webp" alt="" aria-hidden="true" draggable="false" />
             <div class="tr-ps-header">
-              <h3>${esc(lab.verdictTitle || 'Ventanas de poder por edad')}</h3>
+              <div class="tr-ps-title-wrap">
+                <span class="tr-ps-eyebrow">CURVA DE PODER POR EDAD</span>
+                <h3>${esc(lab.verdictTitle || 'Ventanas de poder por edad')}</h3>
+              </div>
               <div class="tr-ps-badges">
                 <span class="tr-ps-badge is-gold">${esc(lab.peakWindowLabel || 'Tu pico')}</span>
                 <span class="tr-ps-badge is-crimson">${esc(lab.dangerWindowLabel || 'Pico rival')}</span>
               </div>
             </div>
 
-            <svg class="tr-powerspike-svg" viewBox="0 0 880 184" preserveAspectRatio="none" aria-label="Curva de ventaja por edad">
+            <svg class="tr-powerspike-svg" viewBox="0 0 880 190" preserveAspectRatio="none" aria-label="Curva de ventaja por edad">
               <defs>
-                <linearGradient id="trSpikeFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#78d8a6" stop-opacity="0.44"></stop>
-                  <stop offset="50%" stop-color="#f2d799" stop-opacity="0.06"></stop>
-                  <stop offset="100%" stop-color="#ef8a81" stop-opacity="0.44"></stop>
+                <linearGradient id="trSpikeAbove" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#78d8a6" stop-opacity="0.48"></stop>
+                  <stop offset="100%" stop-color="#78d8a6" stop-opacity="0.03"></stop>
                 </linearGradient>
+                <linearGradient id="trSpikeBelow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#ef8a81" stop-opacity="0.03"></stop>
+                  <stop offset="100%" stop-color="#ef8a81" stop-opacity="0.48"></stop>
+                </linearGradient>
+                <clipPath id="trClipAbove"><rect x="0" y="0" width="880" height="85"></rect></clipPath>
+                <clipPath id="trClipBelow"><rect x="0" y="85" width="880" height="105"></rect></clipPath>
               </defs>
-              <line x1="220" y1="14" x2="220" y2="148" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 4"></line>
-              <line x1="440" y1="14" x2="440" y2="148" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 4"></line>
-              <line x1="660" y1="14" x2="660" y2="148" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 4"></line>
-              <line x1="0" y1="85" x2="880" y2="85" stroke="rgba(242, 215, 153, 0.36)" stroke-width="1.5"></line>
-              <text x="14" y="24" fill="#98ecc0" font-size="11" font-weight="700">▲ ${esc(myCiv.name.toUpperCase())}</text>
-              <text x="14" y="140" fill="#f5a9a2" font-size="11" font-weight="700">▼ ${esc(rivalCiv.name.toUpperCase())}</text>
-              <path d="${esc(svg.areaFullPath)}" fill="url(#trSpikeFill)"></path>
-              <path class="tr-spike-stroke" d="${esc(svg.curvePath)}" fill="none" stroke="#f5dfa6" stroke-width="3.2" stroke-linecap="round"></path>
-              <circle cx="${n0.cx}" cy="${n0.cy}" r="6.5" fill="${n0.cy <= 85 ? '#78d8a6' : '#ef8a81'}" stroke="#0c1015" stroke-width="2.2"></circle>
-              <circle cx="${n1.cx}" cy="${n1.cy}" r="7.5" fill="${n1.cy <= 85 ? '#78d8a6' : '#ef8a81'}" stroke="#0c1015" stroke-width="2.2"></circle>
-              <circle cx="${n2.cx}" cy="${n2.cy}" r="7.5" fill="${n2.cy <= 85 ? '#78d8a6' : '#ef8a81'}" stroke="#0c1015" stroke-width="2.2"></circle>
-              <circle cx="${n3.cx}" cy="${n3.cy}" r="7.5" fill="${n3.cy <= 85 ? '#78d8a6' : '#ef8a81'}" stroke="#0c1015" stroke-width="2.2"></circle>
-              <text x="110" y="170" fill="#cfd8e3" font-size="11.5" font-weight="700" text-anchor="middle">I · ALTA EDAD</text>
-              <text x="330" y="170" fill="#f6e1ae" font-size="11.5" font-weight="700" text-anchor="middle">II · FEUDAL</text>
-              <text x="550" y="170" fill="#f6e1ae" font-size="11.5" font-weight="700" text-anchor="middle">III · CASTILLOS</text>
-              <text x="770" y="170" fill="#cfd8e3" font-size="11.5" font-weight="700" text-anchor="middle">IV · IMPERIAL</text>
+              <line x1="0" y1="36" x2="880" y2="36" stroke="rgba(120, 216, 166, 0.09)" stroke-dasharray="3 5"></line>
+              <line x1="0" y1="134" x2="880" y2="134" stroke="rgba(239, 138, 129, 0.09)" stroke-dasharray="3 5"></line>
+              <line x1="220" y1="16" x2="220" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
+              <line x1="440" y1="16" x2="440" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
+              <line x1="660" y1="16" x2="660" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
+              <line x1="0" y1="85" x2="880" y2="85" stroke="rgba(242, 215, 153, 0.42)" stroke-width="1.4"></line>
+              <text x="14" y="24" fill="#8ee8ba" font-size="10.5" font-weight="800" letter-spacing="0.06em">▲ ${esc(myCiv.name.toUpperCase())}</text>
+              <text x="14" y="148" fill="#f4a49d" font-size="10.5" font-weight="800" letter-spacing="0.06em">▼ ${esc(rivalCiv.name.toUpperCase())}</text>
+              <path d="${esc(smoothArea)}" fill="url(#trSpikeAbove)" clip-path="url(#trClipAbove)"></path>
+              <path d="${esc(smoothArea)}" fill="url(#trSpikeBelow)" clip-path="url(#trClipBelow)"></path>
+              <path class="tr-spike-stroke" d="${esc(smoothCurve)}" fill="none" stroke="#f7e3b0" stroke-width="3.2" stroke-linecap="round"></path>
+              <circle cx="${n0.cx}" cy="${n0.cy}" r="12" fill="${dotFill(n0.cy)}" fill-opacity="0.16"></circle>
+              <circle cx="${n1.cx}" cy="${n1.cy}" r="13" fill="${dotFill(n1.cy)}" fill-opacity="0.18"></circle>
+              <circle cx="${n2.cx}" cy="${n2.cy}" r="13" fill="${dotFill(n2.cy)}" fill-opacity="0.18"></circle>
+              <circle cx="${n3.cx}" cy="${n3.cy}" r="13" fill="${dotFill(n3.cy)}" fill-opacity="0.18"></circle>
+              <circle cx="${n0.cx}" cy="${n0.cy}" r="6" fill="${dotFill(n0.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
+              <circle cx="${n1.cx}" cy="${n1.cy}" r="7" fill="${dotFill(n1.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
+              <circle cx="${n2.cx}" cy="${n2.cy}" r="7" fill="${dotFill(n2.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
+              <circle cx="${n3.cx}" cy="${n3.cy}" r="7" fill="${dotFill(n3.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
+              <text x="${n0.cx}" y="${labelY(n0.cy)}" fill="${dotFill(n0.cy)}" font-size="11" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[1] || 0))}</text>
+              <text x="${n1.cx}" y="${labelY(n1.cy)}" fill="${dotFill(n1.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[2] || 0))}</text>
+              <text x="${n2.cx}" y="${labelY(n2.cy)}" fill="${dotFill(n2.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[3] || 0))}</text>
+              <text x="${n3.cx}" y="${labelY(n3.cy)}" fill="${dotFill(n3.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[4] || 0))}</text>
+              <text x="110" y="176" fill="#9fb0c2" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">I · ALTA EDAD</text>
+              <text x="330" y="176" fill="#f6e1ae" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">II · FEUDAL</text>
+              <text x="550" y="176" fill="#f6e1ae" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">III · CASTILLOS</text>
+              <text x="770" y="176" fill="#d7e1ec" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">IV · IMPERIAL</text>
             </svg>
           </div>
 
@@ -1304,92 +1411,232 @@
 
           <div class="tr-lab-bottom-split">
             <div class="tr-clash-card">
-              <span class="eyebrow">IMPERIAL · ${esc(myCiv.name.toUpperCase())} VS ${esc(rivalCiv.name.toUpperCase())}</span>
-              ${clashRowsHtml}
+              <div class="tr-clash-head">
+                <span class="eyebrow">CHOQUE IMPERIAL</span>
+                <div class="tr-clash-legend">
+                  <span class="is-ally"><img src="${resolveCivCrest(mySlugNorm)}" alt="" draggable="false" />${esc(myCiv.name)}</span>
+                  <em>vs</em>
+                  <span class="is-rival">${esc(rivalCiv.name)}<img src="${resolveCivCrest(rivSlugNorm)}" alt="" draggable="false" /></span>
+                </div>
+              </div>
+              <div class="tr-clash-list">${clashRowsHtml}</div>
             </div>
             <div class="tr-traps-card">
-              <span class="eyebrow">TRAMPAS Y VULNERABILIDADES</span>
-              ${trapsHtml}
+              <div class="tr-traps-head">
+                <span class="eyebrow">TRAMPAS Y VULNERABILIDADES</span>
+                <small>Árbol tecnológico verificado</small>
+              </div>
+              <div class="tr-traps-list">${trapsHtml}</div>
             </div>
           </div>
         </section>
       </div>`;
     }
 
-    /* ==================== TAB 4: EVOLUCIÓN (SPIDER RADAR + TREND LINE · 100 % REAL) ==================== */
-    function buildSpiderRadarSvg(metrics) {
-      const cx = 210;
-      const cy = 136;
-      const R = 86;
-      const hexPts = (scale) => Array.from({ length: 6 }, (_, i) => {
-        const ang = (-90 + i * 60) * (Math.PI / 180);
-        return `${(cx + R * scale * Math.cos(ang)).toFixed(1)},${(cy + R * scale * Math.sin(ang)).toFixed(1)}`;
-      }).join(' ');
+    /* ==================== TAB 1: PROGRESO · SALA DE TELEMETRÍA Y ALTO RENDIMIENTO ==================== */
+    function buildDivergingDeltaSvg(metric) {
+      const hasVal = Boolean(metric && metric.hasSample && Number.isFinite(metric.currentVal));
+      const med = Number(metric?.medianVal);
+      const best = Number(metric?.bestVal);
+      const worst = Number(metric?.worstVal);
+      const cur = Number(metric?.currentVal);
+      const center = 52;
+      let barX = center;
+      let barW = 0;
+      let fill = '#8e9ca9';
 
-      const normVal = (m, val) => {
-        if (!m || !m.hasSample || !Number.isFinite(val)) return 0.24;
-        if (!Number.isFinite(m.bestVal) || !Number.isFinite(m.worstVal) || m.bestVal === m.worstVal) return 0.74;
-        const raw = m.direction === 'lower'
-          ? (m.worstVal - val) / (m.worstVal - m.bestVal)
-          : (val - m.worstVal) / (m.bestVal - m.worstVal);
-        return 0.24 + 0.76 * Math.max(0, Math.min(1, raw));
-      };
-
-      const curCoords = [];
-      const medCoords = [];
-      const labelsSvg = [];
-
-      for (let i = 0; i < 6; i += 1) {
-        const m = metrics[i] || { key: '', hasSample: false, currentDisplay: '—' };
-        const hm = METRIC_HUMAN_META[m.key] || { shortRadar: m.title || '' };
-        const ang = (-90 + i * 60) * (Math.PI / 180);
-        const cos = Math.cos(ang);
-        const sin = Math.sin(ang);
-
-        const rCur = R * normVal(m, m.currentVal);
-        const rMed = R * normVal(m, m.medianVal);
-        curCoords.push({ x: cx + rCur * cos, y: cy + rCur * sin, hasSample: m.hasSample });
-        medCoords.push({ x: cx + rMed * cos, y: cy + rMed * sin });
-
-        const lx = cx + (R + 24) * cos;
-        const ly = cy + (R + 22) * sin;
-        const anchor = Math.abs(cos) < 0.2 ? 'middle' : (cos > 0 ? 'start' : 'end');
-        const valText = m.hasSample ? String(m.currentDisplay || '—').replace('/CU', '').replace(' eAPM', '') : '—';
-        labelsSvg.push(`<g>
-          <text x="${lx.toFixed(1)}" y="${(ly - 2).toFixed(1)}" text-anchor="${anchor}" fill="#dce5ee" font-size="11.5" font-weight="700">${esc(hm.shortRadar)}</text>
-          <text x="${lx.toFixed(1)}" y="${(ly + 12).toFixed(1)}" text-anchor="${anchor}" fill="#f6e1ae" font-size="11.5" font-weight="750">${esc(valText)}</text>
-        </g>`);
+      if (hasVal && Number.isFinite(med)) {
+        const diff = metric.direction === 'lower' ? (med - cur) : (cur - med);
+        const goodSpan = Math.max(1, Math.abs(best - med));
+        const badSpan = Math.max(1, Math.abs(worst - med));
+        if (diff > 0) {
+          const frac = Math.max(0.14, Math.min(1, diff / goodSpan));
+          barW = Math.round(frac * 46);
+          barX = center;
+          fill = metric.isPersonalBest ? '#f2d799' : '#78d8a6';
+        } else if (diff < 0) {
+          const frac = Math.max(0.14, Math.min(1, Math.abs(diff) / badSpan));
+          barW = Math.round(frac * 46);
+          barX = center - barW;
+          fill = '#ef8a81';
+        } else {
+          barW = 4;
+          barX = center - 2;
+          fill = '#d6b875';
+        }
       }
 
-      const spokeLines = Array.from({ length: 6 }, (_, i) => {
-        const ang = (-90 + i * 60) * (Math.PI / 180);
-        return `<line x1="${cx}" y1="${cy}" x2="${(cx + R * Math.cos(ang)).toFixed(1)}" y2="${(cy + R * Math.sin(ang)).toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"></line>`;
-      }).join('');
-
-      return `<svg class="tr-radar-svg" viewBox="0 0 420 274" aria-label="Gráfico de araña de rendimiento real">
-        <polygon points="${hexPts(1)}" fill="rgba(10,14,20,0.45)" stroke="rgba(214,184,117,0.32)" stroke-width="1.2"></polygon>
-        <polygon points="${hexPts(0.75)}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"></polygon>
-        <polygon points="${hexPts(0.50)}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"></polygon>
-        <polygon points="${hexPts(0.25)}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"></polygon>
-        ${spokeLines}
-        <polygon points="${medCoords.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" fill="rgba(120,216,166,0.14)" stroke="#78d8a6" stroke-width="2" stroke-dasharray="5 4"></polygon>
-        <polygon points="${curCoords.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" fill="rgba(242,215,153,0.24)" stroke="#f2d799" stroke-width="2.6"></polygon>
-        ${curCoords.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.8" fill="${p.hasSample ? '#f2d799' : '#10151b'}" stroke="${p.hasSample ? '#10151b' : '#6c7b88'}" stroke-width="2"></circle>`).join('')}
-        ${labelsSvg.join('')}
+      return `<svg class="tr-diverging-svg" viewBox="0 0 104 18" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="4" y="6" width="96" height="6" rx="2" fill="rgba(255,255,255,0.06)"></rect>
+        ${barW > 0 ? `<rect x="${barX}" y="6" width="${barW}" height="6" rx="2" fill="${fill}"></rect>` : ''}
+        <line x1="${center}" y1="2" x2="${center}" y2="16" stroke="rgba(242,215,153,0.72)" stroke-width="1.4" stroke-linecap="round"></line>
       </svg>`;
+    }
+
+    function buildAgeExecutionStagesHtml(hi, snap, metrics) {
+      const byKey = new Map(metrics.map((m) => [m.key, m]));
+      const mDark = byKey.get('tcIdleDarkSec');
+      const mFeudal = byKey.get('feudalSec');
+      const mCastle = byKey.get('castleSec');
+      const mFeudalTc = byKey.get('tcIdleFeudalPerTcSec');
+      const mDba = byKey.get('dbaDelaySec');
+      const mEapm = byKey.get('eapm');
+
+      const hasFeudal = Boolean(mFeudal?.hasSample && Number.isFinite(mFeudal.currentVal));
+      const hasCastle = Boolean(mCastle?.hasSample && Number.isFinite(mCastle.currentVal));
+      const hasDark = Boolean(mDark?.hasSample && Number.isFinite(mDark.currentVal));
+      const hasFeudalTc = Boolean(mFeudalTc?.hasSample && Number.isFinite(mFeudalTc.currentVal));
+      const hasDba = Boolean(mDba?.hasSample && Number.isFinite(mDba.currentVal));
+      const hasEapm = Boolean(mEapm?.hasSample && Number.isFinite(mEapm.currentVal));
+
+      if (!hasFeudal && !hasCastle && !hasDark && !hasEapm) return '';
+
+      const fmtAld = (v) => (v != null ? `${String(v).replace('.', ',')} ald.` : '');
+      const deltaTag = (m) => {
+        if (!m?.hasSample) return '';
+        if (m.isPersonalBest) return `<span class="tr-age-delta is-gold">★ Récord</span>`;
+        if (!m.signedDeltaShort || m.signedDeltaShort === 'Base inicial' || m.signedDeltaShort === '—') return '';
+        const cls = m.improved === true ? 'is-good' : m.improved === false ? 'is-warn' : 'is-flat';
+        return `<span class="tr-age-delta ${cls}">${esc(m.signedDeltaShort)}</span>`;
+      };
+
+      const stage1Warn = (hasDark && (mDark.improved === false || mDark.currentVal >= 35))
+        || (hasFeudal && mFeudal.improved === false && Number(mFeudal.rawDelta || 0) >= 15);
+      const stage1Good = !stage1Warn && ((hasFeudal && mFeudal.improved === true) || (hasDark && mDark.improved === true));
+      const stage1Tone = stage1Warn ? 'is-warn' : stage1Good ? 'is-good' : 'is-neutral';
+
+      const stage2Warn = (hasFeudalTc && (mFeudalTc.improved === false || mFeudalTc.currentVal >= 30))
+        || (hasDba && mDba.currentVal >= 45);
+      const stage2Good = !stage2Warn && ((hasCastle && mCastle.improved === true) || (hasFeudalTc && mFeudalTc.improved === true));
+      const stage2Tone = stage2Warn ? 'is-warn' : stage2Good ? 'is-good' : 'is-neutral';
+
+      const hasTownBellPenalty = Number.isFinite(snap?.townBells) && snap.townBells > 0;
+      const stage3Warn = (hasEapm && mEapm.improved === false) || hasTownBellPenalty;
+      const stage3Good = !stage3Warn && hasEapm && mEapm.improved === true;
+      const stage3Tone = stage3Warn ? 'is-warn' : stage3Good ? 'is-good' : 'is-neutral';
+
+      const durEnd = snap?.durationDisplay || 'Fin';
+      const w1 = hasFeudal ? `00:00 → ${mFeudal.currentDisplay}` : `00:00 → ${durEnd}`;
+      const w2 = hasFeudal
+        ? (hasCastle ? `${mFeudal.currentDisplay} → ${mCastle.currentDisplay}` : `${mFeudal.currentDisplay} → ${durEnd}`)
+        : 'Sin avance';
+      const w3 = hasCastle ? `${mCastle.currentDisplay} → ${durEnd}` : (snap?.durationDisplay ? `Total ${snap.durationDisplay}` : 'Partida');
+
+      const darkTcTone = !hasDark ? '' : (mDark.improved === false || mDark.currentVal >= 35) ? ' is-warn' : ' is-good';
+      const feudalTcTone = !hasFeudalTc ? '' : (mFeudalTc.improved === false || mFeudalTc.currentVal >= 30) ? ' is-warn' : ' is-good';
+      const dbaTone = !hasDba ? '' : (mDba.improved === false || mDba.currentVal >= 45) ? ' is-warn' : ' is-good';
+      const bowTone = !Number.isFinite(snap?.bowDelaySec) ? '' : snap.bowDelaySec >= 45 ? ' is-warn' : ' is-good';
+
+      const cleanEapm = hasEapm ? String(mEapm.currentDisplay || '').replace(' eAPM', '') : '—';
+      const cleanEapmMed = hasEapm ? String(mEapm.medianDisplay || '').replace(' eAPM', '') : '—';
+
+      const microText = Number.isFinite(snap?.microOrders) ? `${snap.microOrders} órd.` : '—';
+      const bellText = Number.isFinite(snap?.townBells) ? `${snap.townBells} camp.` : '—';
+
+      return `<div class="tr-age-stages" role="list" aria-label="Ejecución cronológica por edades">
+        <button type="button" class="tr-age-stage is-stage-dark ${stage1Tone}" data-tr-trend-key="feudalSec" role="listitem">
+          <div class="tr-age-stage-head">
+            <span class="tr-age-step">I · ALTA EDAD MEDIA</span>
+            <span class="tr-age-window tr-perf-num">${esc(w1)}</span>
+          </div>
+          <div class="tr-age-hero">
+            <span class="tr-age-hero-k">Pase a Edad Feudal</span>
+            <div class="tr-age-hero-row">
+              <strong class="tr-age-hero-val tr-perf-num">${hasFeudal ? esc(mFeudal.currentDisplay) : '—'}</strong>
+              ${deltaTag(mFeudal)}
+            </div>
+            <small class="tr-age-hero-ref tr-perf-num">${hasFeudal && mFeudal.medianDisplay ? `Tu promedio: ${esc(mFeudal.medianDisplay)}` : 'Sin referencia previa'}</small>
+          </div>
+          <div class="tr-age-rows">
+            <div class="tr-age-row">
+              <span>Pausa Centro Urbano</span>
+              <strong class="tr-perf-num${darkTcTone}">${hasDark ? esc(mDark.currentDisplay) : '—'}${hasDark && mDark.villagersLostCurrent != null ? ` <em>(${esc(fmtAld(mDark.villagersLostCurrent))})</em>` : ''}</strong>
+            </div>
+            <div class="tr-age-row">
+              <span>Actividad Centro Urbano</span>
+              <strong class="tr-perf-num">${Number.isFinite(snap?.tcUtilDarkPct) ? `${String(snap.tcUtilDarkPct).replace('.', ',')}%` : '—'}</strong>
+            </div>
+            <div class="tr-age-row">
+              <span>Tu mejor Feudal</span>
+              <strong class="tr-perf-num is-muted-gold">${hasFeudal && mFeudal.bestDisplay ? esc(mFeudal.bestDisplay) : '—'}</strong>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="tr-age-stage is-stage-feudal ${stage2Tone}" data-tr-trend-key="tcIdleFeudalPerTcSec" role="listitem">
+          <div class="tr-age-stage-head">
+            <span class="tr-age-step">II · EDAD FEUDAL</span>
+            <span class="tr-age-window tr-perf-num">${esc(w2)}</span>
+          </div>
+          <div class="tr-age-hero">
+            <span class="tr-age-hero-k">Pase a Edad de los Castillos</span>
+            <div class="tr-age-hero-row">
+              <strong class="tr-age-hero-val${hasCastle ? ' tr-perf-num' : ' is-text'}">${hasCastle ? esc(mCastle.currentDisplay) : 'Finalizó en Feudal'}</strong>
+              ${hasCastle ? deltaTag(mCastle) : ''}
+            </div>
+            <small class="tr-age-hero-ref tr-perf-num">${hasCastle && mCastle.medianDisplay ? `Tu promedio: ${esc(mCastle.medianDisplay)}` : 'Decidida antes de la 3.ª edad'}</small>
+          </div>
+          <div class="tr-age-rows">
+            <div class="tr-age-row">
+              <span>Pausa por Centro Urbano</span>
+              <strong class="tr-perf-num${feudalTcTone}">${hasFeudalTc ? esc(mFeudalTc.currentDisplay) : '—'}${hasFeudalTc && mFeudalTc.villagersLostCurrent != null ? ` <em>(${esc(fmtAld(mFeudalTc.villagersLostCurrent))})</em>` : ''}</strong>
+            </div>
+            <div class="tr-age-row">
+              <span>Hacha de doble filo</span>
+              <strong class="tr-perf-num${dbaTone}">${hasDba ? `+${mDba.currentVal} s` : 'No registrada'}${hasDba ? ' <em>tras Feudal</em>' : ''}</strong>
+            </div>
+            <div class="tr-age-row">
+              <span>Tu mejor Castillos</span>
+              <strong class="tr-perf-num is-muted-gold">${hasCastle && mCastle.bestDisplay ? esc(mCastle.bestDisplay) : '—'}</strong>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="tr-age-stage is-stage-castle ${stage3Tone}" data-tr-trend-key="eapm" role="listitem">
+          <div class="tr-age-stage-head">
+            <span class="tr-age-step">III · CASTILLOS Y COMBATE</span>
+            <span class="tr-age-window tr-perf-num">${esc(w3)}</span>
+          </div>
+          <div class="tr-age-hero">
+            <span class="tr-age-hero-k">Ritmo efectivo sostenido</span>
+            <div class="tr-age-hero-row">
+              <strong class="tr-age-hero-val tr-perf-num">${esc(cleanEapm)}${hasEapm ? '<small> eAPM</small>' : ''}</strong>
+              ${deltaTag(mEapm)}
+            </div>
+            <small class="tr-age-hero-ref tr-perf-num">${hasEapm && cleanEapmMed !== '—' ? `Tu promedio: ${esc(cleanEapmMed)} eAPM` : 'Sin referencia previa'}</small>
+          </div>
+          <div class="tr-age-rows">
+            <div class="tr-age-row">
+              <span>Sierra de arco</span>
+              <strong class="tr-perf-num${bowTone}">${Number.isFinite(snap?.bowDelaySec) ? `+${snap.bowDelaySec} s` : 'No registrada'}</strong>
+            </div>
+            <div class="tr-age-row">
+              <span>Retención de ritmo</span>
+              <strong class="tr-perf-num">${Number.isFinite(snap?.eapmRetentionPct) ? `${snap.eapmRetentionPct}%` : '—'}</strong>
+            </div>
+            <div class="tr-age-row">
+              <span>Micro · Campana urbana</span>
+              <strong class="tr-perf-num${hasTownBellPenalty ? ' is-warn' : ''}">${esc(microText)} <em>· ${esc(bellText)}</em></strong>
+            </div>
+          </div>
+        </button>
+      </div>`;
     }
 
     function buildTrendLineSvg(metric) {
       const hist = Array.isArray(metric?.history) ? metric.history : [];
-      if (!hist.length) {
-        return '<div class="tr-trend-empty">Sin suficiente muestra histórica para trazar la curva.</div>';
+      if (hist.length < 2) {
+        return `<div class="tr-trend-empty">
+          <strong>Línea base registrada (${hist.length === 1 ? esc(hist[0].display) : '—'})</strong>
+          <span>Jugá 1 partida más con análisis de replay para activar tu curva de evolución y brecha contra tu promedio.</span>
+        </div>`;
       }
-      const W = 460;
-      const H = 224;
-      const padL = 54;
-      const padR = 24;
-      const padT = 24;
-      const padB = 34;
+      const W = 740;
+      const H = 264;
+      const padL = 62;
+      const padR = 88;
+      const padT = 42;
+      const padB = 46;
       const innerW = W - padL - padR;
       const innerH = H - padT - padB;
 
@@ -1397,211 +1644,795 @@
       const minV = Math.min(...vals);
       const maxV = Math.max(...vals);
       const span = Math.max(1, maxV - minV);
-      const yFor = (v) => padT + innerH - ((v - minV) / span) * innerH;
-      const xFor = (i) => hist.length === 1 ? padL + innerW / 2 : padL + (i / (hist.length - 1)) * innerW;
+      const yFor = (v) => {
+        const t = metric.direction === 'lower' ? (maxV - v) / span : (v - minV) / span;
+        return padT + innerH - t * innerH;
+      };
+      const xFor = (i) => padL + 32 + (i / (hist.length - 1)) * (innerW - 60);
 
       const pts = hist.map((h, i) => ({
         x: xFor(i),
-        y: hist.length === 1 ? padT + innerH / 2 : yFor(Number(h.value)),
+        y: yFor(Number(h.value)),
         ...h,
       }));
-      const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-      const areaD = `${lineD} L${pts[pts.length - 1].x.toFixed(1)},${padT + innerH} L${pts[0].x.toFixed(1)},${padT + innerH} Z`;
-      const medY = Number.isFinite(metric.medianVal)
-        ? (hist.length === 1 ? padT + innerH / 2 : yFor(metric.medianVal))
-        : null;
 
-      return `<svg class="tr-trend-svg" viewBox="0 0 ${W} ${H}" aria-label="Curva real de evolución">
+      let smoothLine = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+      for (let i = 0; i < pts.length - 1; i += 1) {
+        const a = pts[i];
+        const b = pts[i + 1];
+        const mx = ((a.x + b.x) / 2).toFixed(1);
+        smoothLine += ` C${mx},${a.y.toFixed(1)} ${mx},${b.y.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+      }
+      const medY = Number.isFinite(metric.medianVal)
+        ? Math.max(padT + 4, Math.min(padT + innerH - 4, yFor(metric.medianVal)))
+        : (padT + innerH / 2);
+
+      const areaToMed = `${smoothLine} L${pts[pts.length - 1].x.toFixed(1)},${medY.toFixed(1)} L${pts[0].x.toFixed(1)},${medY.toFixed(1)} Z`;
+
+      const worstDisp = metric.direction === 'lower'
+        ? hist.reduce((a, b) => (b.value > a.value ? b : a)).display
+        : hist.reduce((a, b) => (b.value < a.value ? b : a)).display;
+
+      const clipKey = String(metric.key || 'm').replace(/[^a-zA-Z0-9]/g, '');
+
+      return `<svg class="tr-studio-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-label="Evolución partida a partida">
         <defs>
-          <linearGradient id="trEvoAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#f2d799" stop-opacity="0.28"></stop>
-            <stop offset="100%" stop-color="#f2d799" stop-opacity="0.00"></stop>
+          <linearGradient id="trAboveGrad_${clipKey}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#78d8a6" stop-opacity="0.24"></stop>
+            <stop offset="100%" stop-color="#78d8a6" stop-opacity="0.02"></stop>
           </linearGradient>
+          <linearGradient id="trBelowGrad_${clipKey}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ef8a81" stop-opacity="0.02"></stop>
+            <stop offset="100%" stop-color="#ef8a81" stop-opacity="0.22"></stop>
+          </linearGradient>
+          <clipPath id="trClipAbove_${clipKey}">
+            <rect x="${padL}" y="0" width="${innerW}" height="${medY.toFixed(1)}"></rect>
+          </clipPath>
+          <clipPath id="trClipBelow_${clipKey}">
+            <rect x="${padL}" y="${medY.toFixed(1)}" width="${innerW}" height="${(H - medY).toFixed(1)}"></rect>
+          </clipPath>
         </defs>
-        <line x1="${padL}" y1="${padT}" x2="${W - padR}" y2="${padT}" stroke="rgba(255,255,255,0.07)"></line>
-        <line x1="${padL}" y1="${padT + innerH}" x2="${W - padR}" y2="${padT + innerH}" stroke="rgba(255,255,255,0.12)"></line>
-        <text x="${padL - 8}" y="${padT + 4}" text-anchor="end" fill="#8f9dab" font-size="10.5">${esc(metric.direction === 'lower' ? (hist.reduce((a, b) => (b.value > a.value ? b : a)).display) : metric.bestDisplay)}</text>
-        <text x="${padL - 8}" y="${padT + innerH + 4}" text-anchor="end" fill="#8f9dab" font-size="10.5">${esc(metric.direction === 'lower' ? metric.bestDisplay : (hist.reduce((a, b) => (b.value < a.value ? b : a)).display))}</text>
-        ${medY != null ? `<line x1="${padL}" y1="${medY.toFixed(1)}" x2="${W - padR}" y2="${medY.toFixed(1)}" stroke="#78d8a6" stroke-width="1.6" stroke-dasharray="5 4" stroke-opacity="0.72"></line>` : ''}
-        ${pts.length >= 2 ? `<path d="${areaD}" fill="url(#trEvoAreaGrad)"></path><path class="tr-spike-stroke" d="${lineD}" fill="none" stroke="#f2d799" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></path>` : ''}
+
+        <!-- Guías horizontales sutiles -->
+        <line x1="${padL}" y1="${padT}" x2="${W - padR}" y2="${padT}" stroke="rgba(255,255,255,0.06)"></line>
+        <line x1="${padL}" y1="${(padT + innerH / 2).toFixed(1)}" x2="${W - padR}" y2="${(padT + innerH / 2).toFixed(1)}" stroke="rgba(255,255,255,0.04)"></line>
+        <line x1="${padL}" y1="${padT + innerH}" x2="${W - padR}" y2="${padT + innerH}" stroke="rgba(255,255,255,0.11)"></line>
+
+        <!-- Etiquetas eje Y -->
+        <text x="${padL - 12}" y="${padT - 13}" text-anchor="end" fill="#78d8a6" font-size="9.5" font-weight="740">↑ MEJOR</text>
+        <text x="${padL - 12}" y="${padT + 4}" text-anchor="end" fill="#8be6b6" font-size="10.5" font-weight="720">${esc(String(metric.bestDisplay || '').replace(' eAPM', ''))}</text>
+        <text x="${padL - 12}" y="${padT + innerH + 4}" text-anchor="end" fill="#7c8b99" font-size="10.5">${esc(String(worstDisp || '').replace(' eAPM', ''))}</text>
+
+        <!-- Áreas divididas arriba (esmeralda) y abajo (carmesí) de Tu Promedio -->
+        <path d="${areaToMed}" fill="url(#trAboveGrad_${clipKey})" clip-path="url(#trClipAbove_${clipKey})"></path>
+        <path d="${areaToMed}" fill="url(#trBelowGrad_${clipKey})" clip-path="url(#trClipBelow_${clipKey})"></path>
+
+        <!-- Línea de Tu Promedio (oro antiguo #d6b875, 100 % coherente con leyenda) -->
+        <line x1="${padL}" y1="${medY.toFixed(1)}" x2="${W - padR}" y2="${medY.toFixed(1)}" stroke="#d6b875" stroke-width="1.5" stroke-dasharray="5 4" stroke-opacity="0.82"></line>
+        <text x="${W - padR + 8}" y="${(medY - 2).toFixed(1)}" fill="#f2d799" font-size="10" font-weight="760">PROMEDIO</text>
+        <text x="${W - padR + 8}" y="${(medY + 11).toFixed(1)}" fill="#d6b875" font-size="10.5" font-weight="700">${esc(String(metric.medianDisplay || '').replace(' eAPM', ''))}</text>
+
+        <!-- Curva principal -->
+        <path class="tr-spike-stroke" d="${smoothLine}" fill="none" stroke="#f2d799" stroke-width="2.6" stroke-linecap="round"></path>
+
+        <!-- Nodos clicables por partida -->
         ${pts.map((p) => {
           const dotColor = p.won === true ? '#78d8a6' : p.won === false ? '#ef8a81' : '#8f9dab';
           const shortMap = String(p.mapName || 'Partida').slice(0, 9);
+          const cleanDisp = String(p.display || '').replace(' eAPM', '');
+          const labelBelow = p.y < padT + 28;
+          const clearance = p.isBest ? 24 : 18;
+          const upClearance = p.isBest ? 16 : 13;
+          const labelY = Math.max(18, Math.min(padT + innerH - 8, labelBelow ? p.y + clearance : p.y - upClearance));
           return `<g class="tr-trend-node" data-tr-replay-id="${esc(p.matchId)}">
-            ${p.isCurrent ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="10" fill="rgba(242,215,153,0.22)"></circle>` : ''}
-            ${p.isBest ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="7.5" fill="none" stroke="#78d8a6" stroke-width="1.6"></circle>` : ''}
-            <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.isCurrent ? '5.5' : '4.5'}" fill="${p.isCurrent ? '#faf0d4' : '#182029'}" stroke="#f2d799" stroke-width="2.2"></circle>
-            ${p.isCurrent ? `<text x="${p.x.toFixed(1)}" y="${(p.y - 12).toFixed(1)}" text-anchor="middle" fill="#faf0d4" font-size="11.5" font-weight="800">${esc(p.display)}</text>` : ''}
-            <text x="${p.x.toFixed(1)}" y="${H - 16}" text-anchor="middle" fill="#9aa8b5" font-size="10.5">${esc(shortMap)}</text>
-            <circle cx="${p.x.toFixed(1)}" cy="${H - 6}" r="3" fill="${dotColor}"></circle>
+            ${p.isCurrent ? `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${padT + innerH}" stroke="rgba(242,215,153,0.36)" stroke-dasharray="3 3"></line>` : ''}
+            ${p.isBest ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="9" fill="none" stroke="#78d8a6" stroke-width="1.5" opacity="0.85"></circle>` : ''}
+            <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.isCurrent ? '5.6' : '4.4'}" fill="${p.isCurrent ? '#faf0d4' : '#111720'}" stroke="${p.isCurrent ? '#d6b875' : dotColor}" stroke-width="2.2"></circle>
+            ${p.isCurrent
+              ? `<rect x="${(p.x - 28).toFixed(1)}" y="${(labelY - 12).toFixed(1)}" width="56" height="17" rx="4" fill="#0b0f16" stroke="rgba(242,215,153,0.62)" stroke-width="1"></rect>
+                 <text x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" fill="#faf0d4" font-size="11" font-weight="800">${esc(cleanDisp)}</text>`
+              : `<text x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" fill="#aebcc9" font-size="10" font-weight="660">${esc(cleanDisp)}</text>`}
+            <text x="${p.x.toFixed(1)}" y="${H - 20}" text-anchor="middle" fill="${p.isCurrent ? '#f2d799' : '#8594a3'}" font-size="10" font-weight="${p.isCurrent ? '760' : '600'}">${esc(shortMap)}</text>
+            <circle cx="${p.x.toFixed(1)}" cy="${H - 8}" r="3" fill="${dotColor}"></circle>
           </g>`;
         }).join('')}
       </svg>`;
     }
 
+    function buildWeeklyDailyChartSvg(wp) {
+      const days = Array.isArray(wp?.dailySeries) ? wp.dailySeries : [];
+      if (!days.length) return '';
+
+      const W = 460;
+      const H = 218;
+      const padL = 34;
+      const padR = 12;
+      const padT = 28;
+      const plotW = W - padL - padR; // 414
+      const plotH = 132;
+      const baseY = padT + plotH; // 160
+      const slotW = plotW / days.length;
+      const barW = 30;
+
+      const fmtAvgScore = (val) => {
+        if (!Number.isFinite(val)) return '0';
+        const rounded = Math.round(val * 10) / 10;
+        return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
+      };
+
+      const colsHtml = days.map((d, idx) => {
+        const cx = padL + (idx + 0.5) * slotW;
+        const bx = cx - barW / 2;
+        const isToday = Boolean(d.isToday);
+        const dayTextFill = isToday ? '#f5dfa8' : d.hasMatches ? '#d5e4dc' : '#657a73';
+        const dayWeight = isToday ? '780' : d.hasMatches ? '680' : '600';
+        const partText = d.matchCount === 1 ? '1 part.' : `${d.matchCount} part.`;
+        const tooltipLines = [
+          `${d.dayLabel} (${d.dateShort})`,
+          d.hasMatches
+            ? `${d.matchCount} ${d.matchCount === 1 ? 'partida' : 'partidas'}${d.wins || d.losses ? ` (${d.wins}V–${d.losses}D)` : ''}`
+            : 'Sin partidas registradas',
+          d.hasComparison
+            ? `Promedio diario: ${fmtAvgScore(d.improvedFundamentalsAvg)}/${fmtAvgScore(d.measuredFundamentalsAvg)} fundamentos mejorados`
+            : d.isBaselineOnly
+              ? 'Partida base inicial (sin comparación previa)'
+              : null,
+          d.peakHighlight ? `Destacado: ${d.peakHighlight}` : null,
+        ].filter(Boolean).join(' · ');
+
+        const todayTick = isToday
+          ? `<rect x="${(cx - 8).toFixed(1)}" y="${baseY + 6}" width="16" height="2" rx="1" fill="#7fe0ae"></rect>`
+          : '';
+        const selectedHalo = d.containsSelectedMatch && d.hasMatches
+          ? `<rect x="${(cx - 18).toFixed(1)}" y="${padT - 3}" width="36" height="${plotH + 6}" rx="8" fill="none" stroke="#f2d799" stroke-width="1.4" opacity="0.88"></rect>`
+          : '';
+
+        if (!d.hasMatches) {
+          return `<g class="tr-wk-day-col is-rest">
+            <title>${esc(tooltipLines)}</title>
+            <rect x="${(cx - 11).toFixed(1)}" y="${baseY - 3}" width="22" height="3" rx="1.5" fill="rgba(142, 168, 159, 0.22)"></rect>
+            <text x="${cx.toFixed(1)}" y="${baseY - 13}" text-anchor="middle" fill="#60746e" font-size="11" font-weight="600">—</text>
+            ${todayTick}
+            <text x="${cx.toFixed(1)}" y="183" text-anchor="middle" fill="${dayTextFill}" font-size="11" font-weight="${dayWeight}">${esc(d.dayLabel)}</text>
+          </g>`;
+        }
+
+        const clickAttr = d.bestMatchId ? ` data-tr-replay-id="${esc(d.bestMatchId)}"` : '';
+        const clickableCls = d.bestMatchId ? ' is-clickable' : '';
+
+        if (d.isBaselineOnly) {
+          const stubH = 18;
+          const stubY = baseY - stubH;
+          return `<g class="tr-wk-day-col is-base${clickableCls}"${clickAttr}>
+            <title>${esc(tooltipLines)}</title>
+            <rect x="${(cx - 26).toFixed(1)}" y="12" width="52" height="198" fill="transparent"></rect>
+            ${selectedHalo}
+            <rect x="${bx.toFixed(1)}" y="${padT}" width="${barW}" height="${plotH}" rx="6" fill="rgba(214, 184, 117, 0.045)"></rect>
+            <rect x="${bx.toFixed(1)}" y="${stubY}" width="${barW}" height="${stubH}" rx="5" fill="rgba(214, 184, 117, 0.28)" stroke="rgba(242, 215, 153, 0.52)" stroke-width="1"></rect>
+            <text x="${cx.toFixed(1)}" y="${stubY - 8}" text-anchor="middle" fill="#e5cf99" font-size="10.5" font-weight="740">Base</text>
+            ${todayTick}
+            <text x="${cx.toFixed(1)}" y="183" text-anchor="middle" fill="${dayTextFill}" font-size="11" font-weight="${dayWeight}">${esc(d.dayLabel)}</text>
+            <text x="${cx.toFixed(1)}" y="200" text-anchor="middle" fill="#859f96" font-size="10" font-weight="600">${esc(partText)}</text>
+          </g>`;
+        }
+
+        const avg = Number(d.improvedFundamentalsAvg || 0);
+        if (avg <= 0) {
+          const stubH = 12;
+          const stubY = baseY - stubH;
+          return `<g class="tr-wk-day-col is-zero${clickableCls}"${clickAttr}>
+            <title>${esc(tooltipLines)}</title>
+            <rect x="${(cx - 26).toFixed(1)}" y="12" width="52" height="198" fill="transparent"></rect>
+            ${selectedHalo}
+            <rect x="${bx.toFixed(1)}" y="${padT}" width="${barW}" height="${plotH}" rx="6" fill="rgba(214, 184, 117, 0.035)"></rect>
+            <rect x="${bx.toFixed(1)}" y="${stubY}" width="${barW}" height="${stubH}" rx="4" fill="rgba(214, 184, 117, 0.24)" stroke="rgba(214, 184, 117, 0.48)" stroke-width="1"></rect>
+            <text x="${cx.toFixed(1)}" y="${stubY - 8}" text-anchor="middle" fill="#c6b892" font-size="11" font-weight="720">0</text>
+            ${todayTick}
+            <text x="${cx.toFixed(1)}" y="183" text-anchor="middle" fill="${dayTextFill}" font-size="11" font-weight="${dayWeight}">${esc(d.dayLabel)}</text>
+            <text x="${cx.toFixed(1)}" y="200" text-anchor="middle" fill="#859f96" font-size="10" font-weight="600">${esc(partText)}</text>
+          </g>`;
+        }
+
+        const norm = Math.max(0, Math.min(1, avg / 6));
+        const barH = Math.max(22, Math.round(norm * plotH));
+        const barY = baseY - barH;
+        const isHighlight = Boolean(d.isBestDay || d.hasPersonalBest);
+        const fillUrl = isHighlight ? 'url(#trWkPeakGrad)' : 'url(#trWkBarGrad)';
+        const capFill = isHighlight ? '#faf0d4' : '#c6f8dc';
+        const valText = isHighlight ? `★ ${fmtAvgScore(avg)}` : fmtAvgScore(avg);
+        const valColor = isHighlight ? '#f5dfa8' : '#8ceab8';
+
+        return `<g class="tr-wk-day-col is-active${isHighlight ? ' is-peak' : ''}${clickableCls}"${clickAttr}>
+          <title>${esc(tooltipLines)}</title>
+          <rect x="${(cx - 26).toFixed(1)}" y="12" width="52" height="198" fill="transparent"></rect>
+          ${selectedHalo}
+          <rect x="${bx.toFixed(1)}" y="${padT}" width="${barW}" height="${plotH}" rx="6" fill="rgba(127, 224, 174, 0.05)"></rect>
+          <rect class="tr-wk-bar-fill" x="${bx.toFixed(1)}" y="${barY}" width="${barW}" height="${barH}" rx="6" fill="${fillUrl}"></rect>
+          <rect x="${(bx + 4).toFixed(1)}" y="${barY + 2}" width="${barW - 8}" height="2.4" rx="1.2" fill="${capFill}" opacity="0.88"></rect>
+          <text x="${cx.toFixed(1)}" y="${Math.max(18, barY - 8)}" text-anchor="middle" fill="${valColor}" font-size="11.2" font-weight="780">${esc(valText)}</text>
+          ${todayTick}
+          <text x="${cx.toFixed(1)}" y="183" text-anchor="middle" fill="${dayTextFill}" font-size="11" font-weight="${dayWeight}">${esc(d.dayLabel)}</text>
+          <text x="${cx.toFixed(1)}" y="200" text-anchor="middle" fill="#859f96" font-size="10" font-weight="600">${esc(partText)}</text>
+        </g>`;
+      }).join('');
+
+      const quietOverlay = !wp.hasWeeklyActivity
+        ? `<g class="tr-wk-quiet-note">
+            <rect x="64" y="66" width="354" height="52" rx="10" fill="rgba(11, 20, 18, 0.88)" stroke="rgba(127, 224, 174, 0.24)" stroke-width="1"></rect>
+            <text x="241" y="88" text-anchor="middle" fill="#f5efd8" font-size="11.5" font-weight="720">Sin partidas en los últimos 7 días</text>
+            <text x="241" y="105" text-anchor="middle" fill="#8ea89f" font-size="10.2" font-weight="600">Analizá 1 partida en Postmatch para encender tu día de hoy</text>
+          </g>`
+        : '';
+
+      return `<svg class="tr-wk-daily-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-label="Mejoras diarias de los últimos 7 días">
+        <defs>
+          <linearGradient id="trWkBarGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#8ceab8" stop-opacity="0.96"></stop>
+            <stop offset="55%" stop-color="#4bb785" stop-opacity="0.84"></stop>
+            <stop offset="100%" stop-color="#204e3f" stop-opacity="0.58"></stop>
+          </linearGradient>
+          <linearGradient id="trWkPeakGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f7e4b2" stop-opacity="0.98"></stop>
+            <stop offset="48%" stop-color="#82dfa9" stop-opacity="0.90"></stop>
+            <stop offset="100%" stop-color="#2c6650" stop-opacity="0.62"></stop>
+          </linearGradient>
+        </defs>
+
+        <!-- Guías horizontales (escala real 0 a 6 fundamentos mejorados por partida) -->
+        <line x1="${padL}" y1="${padT}" x2="${W - padR}" y2="${padT}" stroke="rgba(255,255,255,0.07)" stroke-width="1" stroke-dasharray="3 4"></line>
+        <line x1="${padL}" y1="${padT + plotH / 2}" x2="${W - padR}" y2="${padT + plotH / 2}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3 4"></line>
+        <line x1="${padL}" y1="${baseY}" x2="${W - padR}" y2="${baseY}" stroke="rgba(164, 214, 188, 0.22)" stroke-width="1.2"></line>
+
+        <!-- Etiquetas eje Y -->
+        <text x="${padL - 8}" y="${padT + 3}" text-anchor="end" fill="#7aa093" font-size="10" font-weight="660">6/6</text>
+        <text x="${padL - 8}" y="${padT + plotH / 2 + 3}" text-anchor="end" fill="#6f8d83" font-size="10" font-weight="640">3/6</text>
+        <text x="${padL - 8}" y="${baseY + 3}" text-anchor="end" fill="#607870" font-size="10" font-weight="640">0</text>
+
+        ${colsHtml}
+        ${quietOverlay}
+      </svg>`;
+    }
+
+    function renderWeeklySanctuaryHtml(wp, activeTrendKey, isSamplePreview) {
+      if (!wp || !Array.isArray(wp.dailySeries) || !wp.dailySeries.length) return '';
+
+      const artCycle = ['is-art-seal', 'is-art-sanctuary', 'is-art-scroll', 'is-art-courtyard'];
+      const gains = Array.isArray(wp.gains) ? wp.gains : [];
+      const shownGains = gains.slice(0, 4);
+      const extraGains = Math.max(0, gains.length - shownGains.length);
+      const milestones = Array.isArray(wp.milestones) ? wp.milestones : [];
+      const facts = Array.isArray(wp.encouragingFacts) ? wp.encouragingFacts : [];
+
+      const medallionSrc = wp.hasGains
+        ? 'assets/brand/imperial-v1.png'
+        : 'assets/brand/review-relic-monk-v1.png';
+      const eyebrowText = isSamplePreview
+        ? 'MUESTRA ULTRA · BALANCE SEMANAL'
+        : 'BALANCE SEMANAL · ÚLTIMOS 7 DÍAS';
+
+      const fmtScore = (val) => {
+        if (!Number.isFinite(val)) return '—';
+        const r = Math.round(val * 10) / 10;
+        return Number.isInteger(r) ? String(r) : String(r).replace('.', ',');
+      };
+
+      const thirdStatLabel = wp.weeklyPbsCount > 0
+        ? 'RÉCORDS'
+        : wp.bestDay
+          ? 'MEJOR DÍA'
+          : 'BASE PREVIA';
+      const thirdStatVal = wp.weeklyPbsCount > 0
+        ? `★ ${wp.weeklyPbsCount}`
+        : wp.bestDay
+          ? `${wp.bestDay.dayLabel} · ${fmtScore(wp.bestDay.improvedFundamentalsAvg)}/6`
+          : `${wp.priorMatchCount || 0} part.`;
+      const thirdStatTone = wp.weeklyPbsCount > 0
+        ? ' is-gold'
+        : wp.bestDay
+          ? ' is-jade'
+          : '';
+
+      const colSubRight = wp.baselineLabel || (wp.hasWeeklyActivity ? 'Calibrando referencia' : 'Esperando tu próxima partida');
+
+      let leftBodyHtml = '';
+      if (shownGains.length > 0) {
+        const rowsHtml = shownGains.map((g, idx) => {
+          const artCls = artCycle[idx % artCycle.length];
+          const isInsp = g.metricKey === activeTrendKey;
+          const cleanBefore = String(g.beforeDisplay || '').replace(' eAPM', '').replace(/(\d)\.(\d)/g, '$1,$2');
+          const cleanNow = String(g.nowDisplay || '').replace(' eAPM', '').replace(/(\d)\.(\d)/g, '$1,$2');
+          const cleanDelta = String(g.deltaDisplay || '').replace(/(\d)\.(\d)/g, '$1,$2');
+          return `<button type="button" class="tr-wk-gain-row ${artCls}${g.isPersonalBest ? ' is-record' : ''}${isInsp ? ' is-inspected' : ''}" data-tr-trend-key="${esc(g.metricKey)}" title="${esc(g.proofNote || '')}">
+            <span class="tr-wk-ico-frame">
+              <img src="${resolveAsset(g.icon, 'assets/icons/postmatch/tempo.webp')}" alt="" draggable="false" />
+            </span>
+            <span class="tr-wk-gain-copy">
+              <span class="tr-wk-gain-head">
+                <strong>${esc(g.label)}</strong>
+                ${g.isPersonalBest ? '<span class="tr-wk-pb-tag">★ Récord</span>' : ''}
+              </span>
+              <small>${esc(g.humanImpact || g.proofNote || '')}</small>
+            </span>
+            <span class="tr-wk-gain-shift tr-wk-num">
+              <span class="tr-wk-shift-vals">
+                <span class="tr-wk-before">${esc(cleanBefore)}</span>
+                <span class="tr-wk-arrow" aria-hidden="true">→</span>
+                <strong class="tr-wk-now">${esc(cleanNow)}</strong>
+              </span>
+              <small class="tr-wk-shift-delta">${esc(cleanDelta)}</small>
+            </span>
+          </button>`;
+        }).join('');
+        leftBodyHtml = `<div class="tr-wk-gain-list">${rowsHtml}</div>
+          <div class="tr-wk-col-foot">
+            <span>Clic en cualquier mejora para abrir su curva abajo</span>
+            ${extraGains > 0 ? `<strong class="tr-wk-more">+${extraGains} ${extraGains === 1 ? 'mejora más' : 'mejoras más'}</strong>` : ''}
+          </div>`;
+      } else if (wp.status === 'steady_week' || wp.status === 'tough_week') {
+        const factArtCycle = ['is-art-sanctuary', 'is-art-scroll', 'is-art-courtyard'];
+        const factCards = facts.map((f, idx) => {
+          const artCls = factArtCycle[idx % factArtCycle.length];
+          const isBtn = Boolean(f.metricKey || f.matchId);
+          const attr = f.metricKey
+            ? ` data-tr-trend-key="${esc(f.metricKey)}"`
+            : f.matchId
+              ? ` data-tr-replay-id="${esc(f.matchId)}"`
+              : '';
+          const tag = isBtn ? 'button type="button"' : 'div';
+          const closeTag = isBtn ? 'button' : 'div';
+          return `<${tag} class="tr-wk-fact-card ${artCls}${isBtn ? ' is-clickable' : ''}"${attr}>
+            <strong>${esc(f.title)}</strong>
+            <small>${esc(f.detail)}</small>
+          </${closeTag}>`;
+        }).join('');
+        leftBodyHtml = `<div class="tr-wk-fact-list">${factCards}</div>
+          <div class="tr-wk-col-foot">
+            <span>Sin mejoras artificiales: solo datos reales verificados de tus partidas</span>
+          </div>`;
+      } else {
+        const anchorLine = wp.quietAnchor
+          ? `Tu mejor marca guardada en <strong>${esc(wp.quietAnchor.label)}</strong> sigue firme en <b class="tr-wk-num">${esc(wp.quietAnchor.bestDisplay)}</b>.`
+          : wp.status === 'calibrating_first_match'
+            ? 'Ya guardamos tu primera marca semanal. Con 1 partida más vas a ver exactamente qué mejoraste esta semana.'
+            : 'Cuando analices tus primeras partidas en Postmatch, acá vas a ver cada avance real de tu semana.';
+        leftBodyHtml = `<div class="tr-wk-calm-card is-art-courtyard">
+          <div class="tr-wk-calm-copy">
+            <strong>${wp.status === 'calibrating_first_match' ? 'Base semanal en calibración' : 'Tu progreso semanal te espera'}</strong>
+            <p>${anchorLine}</p>
+          </div>
+          <div class="tr-wk-calm-actions">
+            <button type="button" class="tr-wk-calm-btn" data-tr-open-postmatch="1">Analizar partida en Postmatch →</button>
+            <button type="button" class="tr-wk-calm-link" data-tr-tab="orders">Practicar Build Order</button>
+          </div>
+        </div>`;
+      }
+
+      const footItems = [];
+      for (const ms of milestones.slice(0, 2)) {
+        const ico = ms.kind === 'personal_best' ? 'assets/icons/postmatch/record.webp' : 'assets/icons/medal.png';
+        footItems.push(`<span class="tr-wk-foot-item">
+          <img src="${ico}" alt="" draggable="false" />
+          <span><strong>${esc(ms.title)}</strong> · ${esc(ms.valueDisplay)}</span>
+        </span>`);
+      }
+      if (!footItems.length && wp.bestDay?.peakHighlight) {
+        footItems.push(`<span class="tr-wk-foot-item">
+          <img src="assets/icons/medal.png" alt="" draggable="false" />
+          <span><strong>Día destacado (${esc(wp.bestDay.dayLabel)})</strong> · ${esc(wp.bestDay.peakHighlight)}</span>
+        </span>`);
+      }
+
+      return `<section class="tr-weekly-sanctuary is-status-${esc(wp.status || 'improved')}" aria-label="Mejoras reales de esta semana">
+        <div class="tr-wk-head">
+          <div class="tr-wk-lead">
+            <div class="tr-wk-medallion">
+              <img src="${medallionSrc}" alt="" draggable="false" />
+            </div>
+            <div class="tr-wk-title-wrap">
+              <span class="tr-wk-kicker">${eyebrowText}</span>
+              <h3>${esc(wp.headline || 'Mejoras de esta semana')}</h3>
+              <p class="tr-wk-subtitle">${esc(wp.subhead || '')}</p>
+            </div>
+          </div>
+          <div class="tr-wk-summary">
+            <div class="tr-wk-stat">
+              <span>PARTIDAS</span>
+              <strong class="tr-wk-num">${wp.weekMatchCount || 0}</strong>
+            </div>
+            <div class="tr-wk-stat">
+              <span>DÍAS ACTIVOS</span>
+              <strong class="tr-wk-num">${wp.activeDaysCount || 0} / 7</strong>
+            </div>
+            <div class="tr-wk-stat">
+              <span>${thirdStatLabel}</span>
+              <strong class="tr-wk-num${thirdStatTone}">${esc(thirdStatVal)}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="tr-wk-body">
+          <div class="tr-wk-gains">
+            <div class="tr-wk-col-head">
+              <h4>${shownGains.length > 0 ? 'Lo que mejoraste esta semana' : 'Resumen real de tu semana'}</h4>
+              <small>${esc(colSubRight)}</small>
+            </div>
+            ${leftBodyHtml}
+          </div>
+
+          <div class="tr-wk-daily-stage">
+            <div class="tr-wk-col-head">
+              <h4>Mejoras por día</h4>
+              <small>Fundamentos sobre tu base · 7 días</small>
+            </div>
+            ${buildWeeklyDailyChartSvg(wp)}
+            <div class="tr-wk-daily-foot">
+              <div class="tr-wk-legend">
+                <span class="is-jade">■ Mejoró</span>
+                <span class="is-sand">▪ Jugado (0)</span>
+                <span class="is-rest">— Descanso</span>
+              </div>
+              <small>${wp.hasWeeklyActivity ? 'Clic en un día activo para inspeccionar' : 'Solo días con partidas reales'}</small>
+            </div>
+          </div>
+        </div>
+
+        ${footItems.length ? `<div class="tr-wk-foot">${footItems.join('<i class="tr-wk-foot-sep" aria-hidden="true"></i>')}</div>` : ''}
+      </section>`;
+    }
+
     function renderPerfView() {
       let hi = state?.highElo || {};
       const isPerf = activeSubtab === 'perf';
+      const isSamplePreview = Boolean((!hi.hasData || !hi.sampleSize) && !state?.unlocked);
 
-      if ((!hi.hasData || !hi.sampleSize) && !state?.unlocked) {
+      if (isSamplePreview) {
         hi = {
           hasData: true,
           sampleSize: 12,
           selectedMatchId: 'preview-1',
+          selectedReplay: {
+            matchId: 'preview-1', civSlug: 'franks', civName: 'Francos', mapName: 'Arabia', opening: 'Scouts', won: true,
+            durationDisplay: '28:14', tcUtilDarkPct: 96, bowDelaySec: 22, eapmRetentionPct: 84, microOrders: 34, townBells: 0,
+            biggestTcGap: { durationSec: 26, villagersLost: 1, startSec: 678, endSec: 704, age: 'Edad Feudal', militaryOrdersInGap: 14 },
+          },
           replays: [
-            { matchId: 'preview-1', civSlug: 'franks', civName: 'Francos', mapName: 'Arabia', won: true },
-            { matchId: 'preview-2', civSlug: 'mayans', civName: 'Mayas', mapName: 'Arena', won: true },
-            { matchId: 'preview-3', civSlug: 'spanish', civName: 'Españoles', mapName: 'Arabia', won: false },
-            { matchId: 'preview-4', civSlug: 'mongols', civName: 'Mongoles', mapName: 'Nómada', won: true },
+            { matchId: 'preview-1', civSlug: 'franks', civName: 'Francos', mapName: 'Arabia', opening: 'Scouts', durationDisplay: '28:14', won: true },
+            { matchId: 'preview-2', civSlug: 'mayans', civName: 'Mayas', mapName: 'Arena', opening: 'Castillos', durationDisplay: '34:20', won: true },
+            { matchId: 'preview-3', civSlug: 'spanish', civName: 'Españoles', mapName: 'Arabia', opening: 'Scouts', durationDisplay: '24:05', won: false },
+            { matchId: 'preview-4', civSlug: 'mongols', civName: 'Mongoles', mapName: 'Nómada', opening: 'Castillos', durationDisplay: '31:10', won: true },
           ],
-          bottlenecks: [{ title: 'Inactividad en Alta Edad Media', severity: 'gold' }],
+          villagerLossSummary: { darkVillagers: 0.7, feudalVillagersPerTc: 1.5, combinedEarlyVillagers: 2.2, combinedDisplay: '2,2 aldeanos' },
+          winLossComparison: {
+            hasComparison: true, isReliable: true, winsCount: 8, lossesCount: 4,
+            biggestDropOff: { headline: 'En tus derrotas, inactividad por Centro Urbano (Feudal) empeora +18 s (+0,7 aldeanos)' },
+          },
+          primaryDiagnosis: {
+            severity: 'crimson',
+            metricKey: 'tcIdleFeudalPerTcSec',
+            eyebrow: 'DATOS DE MUESTRA · CUELLO DE BOTELLA #1',
+            headline: 'Perdiste 1,5 aldeanos por Centro Urbano en Edad Feudal',
+            evidenceLine: 'Mayor apagón del Centro Urbano: 26 s (1 aldeano) entre 11:18 y 11:44 mientras enviaste 14 órdenes militares.',
+            targetDisplay: 'Objetivo Plata (≤ 28 s)',
+            drillCue: 'Dejá 2 aldeanos en cola antes de microear el ejército y renová la cola cada vez que ponés una granja.',
+            actionTab: 'orders',
+            actionLabel: 'Entrenar este cuello de botella →',
+            planTitle: 'Reducir pausa del Centro Urbano en Edad Feudal (≤ 28 s)',
+            planDetail: 'Actual 38 s (1,5 aldeanos perdidos) en Arabia',
+            planMetric: '38 s',
+          },
           metrics: [
             {
-              key: 'tcIdleDarkSec', title: 'CU inactivo', direction: 'lower', currentVal: 18, medianVal: 32, bestVal: 9,
-              currentDisplay: '0:18', medianDisplay: '0:32', bestDisplay: '0:09', improved: true,
+              key: 'tcIdleDarkSec', title: 'Inactividad del Centro Urbano (Alta Edad)', direction: 'lower', hasSample: true, currentVal: 18, medianVal: 32, bestVal: 9, worstVal: 55,
+              currentDisplay: '18 s', medianDisplay: '32 s', bestDisplay: '9 s', signedDeltaShort: '-14 s', villagersLostCurrent: 0.7, improved: true,
+              nextTarget: { targetDisplay: 'Oro (≤ 10 s)', shortTarget: '≤ 10 s' },
+              trendDelta3: { status: 'improving', display: '-11 s' },
               history: [
-                { matchId: 'p1', value: 44, display: '0:44', mapName: 'Arabia', won: false },
-                { matchId: 'p2', value: 36, display: '0:36', mapName: 'Arena', won: true },
-                { matchId: 'p3', value: 29, display: '0:29', mapName: 'Arabia', won: true },
-                { matchId: 'p4', value: 24, display: '0:24', mapName: 'Nómada', won: true },
-                { matchId: 'p5', value: 18, display: '0:18', mapName: 'Arabia', won: true, isCurrent: true, isBest: true },
+                { matchId: 'p1', value: 44, display: '44 s', mapName: 'Arabia', won: false },
+                { matchId: 'p2', value: 36, display: '36 s', mapName: 'Arena', won: true },
+                { matchId: 'p3', value: 29, display: '29 s', mapName: 'Arabia', won: true },
+                { matchId: 'p4', value: 24, display: '24 s', mapName: 'Nómada', won: true },
+                { matchId: 'p5', value: 18, display: '18 s', mapName: 'Arabia', won: true, isCurrent: true, isBest: true },
               ],
             },
-            { key: 'feudalSec', title: 'Edad Feudal', direction: 'lower', currentVal: 595, medianVal: 618, bestVal: 575, currentDisplay: '9:55', medianDisplay: '10:18', bestDisplay: '9:35', improved: true },
-            { key: 'castleSec', title: 'Edad Castillos', direction: 'lower', currentVal: 1180, medianVal: 1240, bestVal: 1120, currentDisplay: '19:40', medianDisplay: '20:40', bestDisplay: '18:40', improved: true },
-            { key: 'vills20m', title: 'Aldeanos 20m', direction: 'higher', currentVal: 56, medianVal: 51, bestVal: 60, currentDisplay: '56', medianDisplay: '51', bestDisplay: '60', improved: true },
-            { key: 'eapm', title: 'eAPM', direction: 'higher', currentVal: 52, medianVal: 46, bestVal: 58, currentDisplay: '52', medianDisplay: '46', bestDisplay: '58', improved: true },
-            { key: 'houseIdleSec', title: 'Encasado', direction: 'lower', currentVal: 14, medianVal: 26, bestVal: 5, currentDisplay: '0:14', medianDisplay: '0:26', bestDisplay: '0:05', improved: true },
+            { key: 'tcIdleFeudalPerTcSec', title: 'Inactividad por Centro Urbano (Feudal)', direction: 'lower', hasSample: true, currentVal: 38, medianVal: 29, bestVal: 14, worstVal: 64, currentDisplay: '38 s', medianDisplay: '29 s', bestDisplay: '14 s', signedDeltaShort: '+9 s', villagersLostCurrent: 1.5, improved: false, nextTarget: { targetDisplay: 'Plata (≤ 28 s)', shortTarget: '≤ 28 s' } },
+            { key: 'feudalSec', title: 'Pase a Edad Feudal', direction: 'lower', hasSample: true, currentVal: 595, medianVal: 618, bestVal: 575, worstVal: 660, currentDisplay: '09:55', medianDisplay: '10:18', bestDisplay: '09:35', signedDeltaShort: '-23 s', improved: true, nextTarget: { targetDisplay: 'Obsidiana (≤ 09:50)', shortTarget: '≤ 09:50' } },
+            { key: 'castleSec', title: 'Pase a Edad de los Castillos', direction: 'lower', hasSample: true, currentVal: 1180, medianVal: 1240, bestVal: 1120, worstVal: 1320, currentDisplay: '19:40', medianDisplay: '20:40', bestDisplay: '18:40', signedDeltaShort: '-1:00', improved: true, nextTarget: { targetDisplay: 'Oro (≤ 20:00)', shortTarget: '≤ 20:00' } },
+            { key: 'dbaDelaySec', title: 'Hacha de doble filo', direction: 'lower', hasSample: true, currentVal: 14, medianVal: 26, bestVal: 5, worstVal: 50, currentDisplay: '14 s', medianDisplay: '26 s', bestDisplay: '5 s', signedDeltaShort: '-12 s', improved: true, nextTarget: { targetDisplay: 'Oro (≤ 25 s)', shortTarget: '≤ 25 s' } },
+            { key: 'eapm', title: 'Ritmo efectivo (eAPM)', direction: 'higher', hasSample: true, currentVal: 52, medianVal: 46, bestVal: 58, worstVal: 34, currentDisplay: '52 eAPM', medianDisplay: '46 eAPM', bestDisplay: '58 eAPM', signedDeltaShort: '+6', improved: true },
           ],
+          weeklyProgress: {
+            status: 'improved',
+            comparisonMode: 'prior_baseline',
+            hasWeeklyActivity: true,
+            hasComparison: true,
+            hasGains: true,
+            headline: 'Esta semana mejoraste 3 fundamentos reales',
+            subhead: '8 partidas esta semana vs 12 previas. Cada mejora supera el margen de ruido real.',
+            baselineLabel: 'vs tu base previa',
+            weekMatchCount: 8,
+            priorMatchCount: 12,
+            activeDaysCount: 5,
+            weeklyPbsCount: 2,
+            bestDay: { dayLabel: 'Hoy', improvedFundamentalsAvg: 5, peakHighlight: 'CU Alta Edad: 18 s (-14 s vs base)' },
+            gains: [
+              { metricKey: 'tcIdleDarkSec', label: 'Centro Urbano · Alta Edad', icon: 'assets/brand/review-town-center-v1.png', beforeDisplay: '32 s', nowDisplay: '18 s', deltaDisplay: '-14 s', humanImpact: '-14 s · +0,6 aldeanos ganados', isPersonalBest: true },
+              { metricKey: 'feudalSec', label: 'Pase a Edad Feudal', icon: 'assets/brand/feudal-v1.png', beforeDisplay: '10:18', nowDisplay: '09:55', deltaDisplay: '-23 s', humanImpact: '-23 s antes en Edad Feudal', isPersonalBest: false },
+              { metricKey: 'dbaDelaySec', label: 'Hacha de doble filo', icon: 'assets/icons/wood.png', beforeDisplay: '26 s', nowDisplay: '14 s', deltaDisplay: '-12 s', humanImpact: '-12 s más rápido al pisar Feudal', isPersonalBest: true },
+            ],
+            milestones: [
+              { kind: 'personal_best', title: 'Nuevo récord en Centro Urbano · Alta Edad', valueDisplay: '18 s' },
+              { kind: 'clean_town_bell', title: 'Defensa limpia sin Campana urbana', valueDisplay: '7/8 partidas' },
+            ],
+            encouragingFacts: [],
+            dailySeries: [
+              { dayLabel: 'Mié', dateShort: '18/11', isToday: false, matchCount: 0, hasMatches: false, hasComparison: false, isBaselineOnly: false, improvedFundamentalsAvg: null },
+              { dayLabel: 'Jue', dateShort: '19/11', isToday: false, matchCount: 1, hasMatches: true, hasComparison: true, isBaselineOnly: false, improvedFundamentalsAvg: 3, measuredFundamentalsAvg: 6, bestMatchId: 'preview-4' },
+              { dayLabel: 'Vie', dateShort: '20/11', isToday: false, matchCount: 2, hasMatches: true, hasComparison: true, isBaselineOnly: false, improvedFundamentalsAvg: 4, measuredFundamentalsAvg: 6, bestMatchId: 'preview-2' },
+              { dayLabel: 'Sáb', dateShort: '21/11', isToday: false, matchCount: 0, hasMatches: false, hasComparison: false, isBaselineOnly: false, improvedFundamentalsAvg: null },
+              { dayLabel: 'Dom', dateShort: '22/11', isToday: false, matchCount: 2, hasMatches: true, hasComparison: true, isBaselineOnly: false, improvedFundamentalsAvg: 0, measuredFundamentalsAvg: 6, bestMatchId: 'preview-3' },
+              { dayLabel: 'Lun', dateShort: '23/11', isToday: false, matchCount: 1, hasMatches: true, hasComparison: true, isBaselineOnly: false, improvedFundamentalsAvg: 4, measuredFundamentalsAvg: 6, bestMatchId: 'preview-2' },
+              { dayLabel: 'Hoy', dateShort: '24/11', isToday: true, matchCount: 2, hasMatches: true, hasComparison: true, isBaselineOnly: false, improvedFundamentalsAvg: 5, measuredFundamentalsAvg: 6, hasPersonalBest: true, isBestDay: true, containsSelectedMatch: true, bestMatchId: 'preview-1' },
+            ],
+          },
         };
       }
 
       if (!hi.hasData || !hi.sampleSize) {
         return `<div class="tr-view${isPerf ? ' is-active' : ''}" data-tr-view="perf">
-          <div class="tr-empty-hero">
-            <img class="tr-empty-bg" src="assets/art/postmatch-v3-cabecera.webp" alt="" draggable="false" />
-            <div class="tr-empty-content">
-              <img class="tr-empty-crest" src="assets/brand/review-town-center-v1.png" alt="" draggable="false" />
-              <span class="eyebrow">PROGRESO</span>
-              <h3>Sin replays analizados todavía</h3>
-              <p>Jugá una partida o abrí Postmatch para ver tu gráfico de araña y tu curva de evolución.</p>
-              <div class="tr-welcome-foot">
-                <button type="button" class="btn gold tr-cta-sheen" id="trGoPostmatchBtn">Ir a Postmatch →</button>
-                <button type="button" class="btn" data-tr-tab="arena">Jugar en la Arena →</button>
+          <section class="tr-perf-empty-lab">
+            <img class="tr-panel-art-bg" src="assets/art/postmatch-v3-cabecera.webp" alt="" aria-hidden="true" draggable="false" />
+            <div class="tr-pel-left">
+              <div class="tr-perf-crest-frame">
+                <img src="assets/brand/review-town-center-v1.png" alt="" draggable="false" />
+              </div>
+              <span class="eyebrow">LABORATORIO DE RENDIMIENTO REAL</span>
+              <h3>Tu sala de telemetría está lista</h3>
+              <p>Analizá tu primera partida para medir exactamente cuántos aldeanos perdés por pausas del Centro Urbano, tu cronología por edades, dónde se escapan tus derrotas y tu próximo objetivo verificable.</p>
+              <div class="tr-pel-actions">
+                <button type="button" class="btn gold tr-cta-sheen" id="trGoPostmatchBtn">Analizar mi última partida en Postmatch →</button>
+                <button type="button" class="btn" data-tr-tab="orders">Practicar Build Order →</button>
               </div>
             </div>
-          </div>
+            <ol class="tr-pel-steps">
+              <li><span>01</span><div><strong>Analizá 1 partida en Postmatch</strong><small>Lectura automática de tiempos, Centro Urbano, tecnologías y ritmo efectivo.</small></div></li>
+              <li><span>02</span><div><strong>Detectamos tu cuello de botella real</strong><small>En segundos exactos y aldeanos perdidos frente a tu propio promedio.</small></div></li>
+              <li><span>03</span><div><strong>Rutina con verificación automática</strong><small>Fijá el objetivo en Mi Plan y Relic confirma cuando lo superás en partida.</small></div></li>
+            </ol>
+          </section>
         </div>`;
       }
 
       const selectedEntry = (hi.replays || []).find((r) => String(r.matchId) === String(hi.selectedMatchId)) || hi.replays?.[0] || {};
-      const resLabel = selectedEntry.won === true ? 'Victoria' : selectedEntry.won === false ? 'Derrota' : 'Partida';
+      const snap = hi.selectedReplay || selectedEntry;
+      const resLabel = selectedEntry.won === true ? 'VICTORIA' : selectedEntry.won === false ? 'DERROTA' : 'PARTIDA';
       const resTone = selectedEntry.won === true ? ' is-win' : selectedEntry.won === false ? ' is-loss' : '';
-      const topBottleneck = (hi.bottlenecks || [])[0] || null;
       const metrics = Array.isArray(hi.metrics) ? hi.metrics : [];
-      const activeTrendMetric = metrics.find((m) => m.key === selectedTrendMetricKey) || metrics[0] || null;
+      const diag = hi.primaryDiagnosis || null;
+      const defaultKey = diag?.metricKey || metrics[0]?.key || 'tcIdleDarkSec';
+      const activeTrendMetric = metrics.find((m) => m.key === selectedTrendMetricKey) || metrics.find((m) => m.key === defaultKey) || metrics[0] || null;
       const activeTrendMeta = METRIC_HUMAN_META[activeTrendMetric?.key] || {};
 
-      const replayPills = (hi.replays || []).slice(0, 6).map((r) => {
+      const measured = metrics.filter((m) => m.hasSample);
+      const improvedCount = measured.filter((m) => m.isPersonalBest || m.improved === true).length;
+      const bestExecMetric = measured.find((m) => m.isPersonalBest) || measured.find((m) => m.improved === true) || null;
+      const bestExecMeta = bestExecMetric ? (METRIC_HUMAN_META[bestExecMetric.key] || { shortRadar: bestExecMetric.title }) : null;
+
+      const queueTitles = new Set((state?.trainingQueue || []).filter((q) => !q.done).map((q) => String(q.title || '').toLowerCase()));
+      const diagAlreadyInPlan = Boolean(diag && queueTitles.has(String(diag.planTitle || '').toLowerCase()));
+
+      // ZONE 1: Match Selector Rail (5 rectangular architectural slots so all fit cleanly without scrollbar clipping)
+      const matchSlotsHtml = (hi.replays || []).slice(0, 5).map((r) => {
         const active = String(r.matchId) === String(hi.selectedMatchId);
-        const dotCls = r.won === true ? ' is-win' : r.won === false ? ' is-loss' : '';
-        return `<button type="button" class="tr-replay-pill${active ? ' is-active' : ''}" data-tr-replay-id="${esc(r.matchId)}">
+        const slotTone = r.won === true ? ' is-win' : r.won === false ? ' is-loss' : '';
+        const metaLine = [r.civName, r.opening || r.durationDisplay].filter(Boolean).join(' · ');
+        return `<button type="button" class="tr-pm-slot${slotTone}${active ? ' is-active' : ''}" data-tr-replay-id="${esc(r.matchId)}">
           <img src="${resolveCivCrest(r.civSlug)}" alt="" draggable="false" />
-          <span>${esc(r.mapName)}</span>
-          <i class="tr-res-dot${dotCls}"></i>
+          <span class="tr-pm-meta">
+            <strong>${esc(r.mapName || 'Partida')}</strong>
+            <small>${esc(metaLine)}</small>
+          </span>
         </button>`;
       }).join('');
 
-      const trendPillsHtml = metrics.map((m) => {
-        const hm = METRIC_HUMAN_META[m.key] || { pill: m.title };
-        const act = m.key === activeTrendMetric?.key;
-        return `<button type="button" class="tr-trend-pill${act ? ' is-active' : ''}" data-tr-trend-key="${esc(m.key)}">${esc(hm.pill)}</button>`;
-      }).join('');
+      // ZONE 3: Chronological 3-Stage Age Execution Breakdown + Win-Loss Dropoff
+      const ageStagesHtml = buildAgeExecutionStagesHtml(hi, snap, metrics);
+      const wlDrop = hi.winLossComparison?.biggestDropOff || null;
 
-      const metricCardsHtml = metrics.map((m, idx) => {
-        const hm = METRIC_HUMAN_META[m.key] || { title: m.title, sub: m.explanation, valSuffix: '' };
-        const toneCls = m.isPersonalBest ? ' is-pb' : m.improved === true ? ' is-good' : m.improved === false ? ' is-warn' : '';
-        const isSelTrend = m.key === activeTrendMetric?.key ? ' is-selected' : '';
-        const shortDelta = m.isPersonalBest
-          ? '★ Récord'
-          : (m.deltaDisplay ? m.deltaDisplay.replace(' vs tu mediana', '').replace('Igual a tu mediana', 'En tu promedio') : '');
-        const cleanVal = m.currentDisplay === 'No medido en este replay'
+      // ZONE 4 Left: Precision 6-Row Telemetry Ledger (ordered chronologically by match phase)
+      const ledgerOrder = ['tcIdleDarkSec', 'feudalSec', 'dbaDelaySec', 'tcIdleFeudalPerTcSec', 'castleSec', 'eapm'];
+      const orderedMetrics = ledgerOrder
+        .map((k) => metrics.find((m) => m.key === k))
+        .filter(Boolean);
+
+      const ledgerRowsHtml = orderedMetrics.map((m) => {
+        const hm = METRIC_HUMAN_META[m.key] || { title: m.title, sub: m.explanation };
+        const isSel = m.key === activeTrendMetric?.key;
+        const cleanVal = !m.hasSample
           ? '—'
-          : `${String(m.currentDisplay || '').replace('/CU', '')}${hm.valSuffix || ''}`;
+          : String(m.currentDisplay || '').replace(' eAPM', '');
+        const deltaText = !m.hasSample
+          ? 'Sin dato'
+          : m.isPersonalBest
+            ? '★ Récord'
+            : (m.signedDeltaShort || 'En media');
+        const deltaTone = !m.hasSample
+          ? ''
+          : m.isPersonalBest
+            ? ' is-pb'
+            : m.improved === true
+              ? ' is-good'
+              : m.improved === false
+                ? ' is-warn'
+                : '';
+        const villSub = (m.villagersLostCurrent != null && m.hasSample)
+          ? `${String(m.villagersLostCurrent).replace('.', ',')} ald. perdidos · ${m.key === 'tcIdleDarkSec' ? 'Alta Edad' : 'por CU'}`
+          : hm.sub;
 
-        return `<article class="tr-metric-tile${toneCls}${isSelTrend} tr-stagger-${(idx % 6) + 1}" data-tr-trend-key="${esc(m.key)}">
-          <div class="tr-mt-top">
-            <img src="${resolveAsset(m.icon, 'assets/icons/postmatch/tempo.webp')}" alt="" draggable="false" />
-            <div class="tr-mt-titles">
-              <h4>${esc(hm.title)}</h4>
-              <small>${esc(hm.sub)}</small>
-            </div>
-            ${shortDelta ? `<span class="tr-mt-pill${toneCls}">${esc(shortDelta)}</span>` : ''}
-          </div>
-          <div class="tr-mt-foot-row">
-            <strong class="tr-mt-num mono">${esc(cleanVal)}</strong>
-            <div class="tr-mt-refs">
-              <span>Promedio <b>${esc(m.medianDisplay === 'Sin muestra' ? '—' : String(m.medianDisplay).replace('/CU', ''))}</b></span>
-              <span>Récord <b class="is-best">${esc(m.bestDisplay === 'Sin muestra' ? '—' : String(m.bestDisplay).replace('/CU', ''))}</b></span>
-            </div>
-            <button type="button" class="train-pin-btn is-compact" data-train-pin="1" data-tp-source="Progreso" data-tp-title="${esc(hm.title)}" data-tp-detail="${esc(hm.sub)}" data-tp-metric="${esc(cleanVal)}" data-tp-tab="orders" title="Agregar a Mi Plan (verificación automática en próximas partidas)" aria-label="Agregar a Mi Plan: ${esc(hm.title)}">${renderDumbbellSvg()}</button>
-          </div>
-        </article>`;
+        return `<button type="button" class="tr-ledger-row${isSel ? ' is-selected' : ''}" data-tr-trend-key="${esc(m.key)}">
+          <img class="tr-ledger-ico" src="${resolveAsset(m.icon, 'assets/icons/postmatch/tempo.webp')}" alt="" draggable="false" />
+          <span class="tr-ledger-copy">
+            <strong>${esc(hm.title)}</strong>
+            <small>${esc(villSub)}</small>
+          </span>
+          <span class="tr-ledger-val">
+            <strong class="tr-perf-num">${esc(cleanVal)}</strong>
+            <small class="tr-perf-delta${deltaTone}">${esc(deltaText)}</small>
+          </span>
+          ${buildDivergingDeltaSvg(m)}
+        </button>`;
       }).join('');
+
+      const activeCleanVal = activeTrendMetric?.hasSample ? String(activeTrendMetric.currentDisplay || '').replace(' eAPM', '') : '—';
+      const activeMedVal = activeTrendMetric?.hasSample ? String(activeTrendMetric.medianDisplay || '').replace(' eAPM', '') : '—';
+      const activeBestVal = activeTrendMetric?.hasSample ? String(activeTrendMetric.bestDisplay || '').replace(' eAPM', '') : '—';
+      const activeValTone = activeTrendMetric?.isPersonalBest ? ' is-gold' : activeTrendMetric?.improved === true ? ' is-good' : activeTrendMetric?.improved === false ? ' is-warn' : '';
+      const activeFourthLabel = activeTrendMetric?.trendDelta3 ? 'TENDENCIA (ÚLT. 3)' : 'PRÓXIMO OBJETIVO';
+      const activeFourthVal = activeTrendMetric?.trendDelta3
+        ? activeTrendMetric.trendDelta3.display
+        : (activeTrendMetric?.nextTarget?.targetDisplay || (activeTrendMetric?.signedDeltaShort || '—'));
+      const activeFourthTone = activeTrendMetric?.trendDelta3
+        ? (activeTrendMetric.trendDelta3.status === 'improving' ? ' is-good' : activeTrendMetric.trendDelta3.status === 'regressing' ? ' is-warn' : '')
+        : ' is-gold';
 
       return `<div class="tr-view${isPerf ? ' is-active' : ''}" data-tr-view="perf">
-        <!-- Slim 1-Row Replay Bar (zero dead black space!) -->
-        <section class="tr-evo-topbar">
-          <div class="tr-hero-match">
-            <img class="tr-evo-shield" src="${resolveCivCrest(selectedEntry.civSlug)}" alt="" draggable="false" />
-            <div class="tr-hero-meta">
-              <div class="tr-hero-badges">
-                <h3>${esc(selectedEntry.mapName || 'Partida')} · ${esc(selectedEntry.civName || 'Civilización')}</h3>
-                <span class="tr-res-tag${resTone}">${resLabel}</span>
-                <span class="tr-hero-sample">${hi.sampleSize} partidas</span>
-              </div>
-              <div class="tr-replay-pills">${replayPills}</div>
+        <div class="tr-perf-console">
+          <!-- ZONE 1: SELECTOR ARQUITECTÓNICO DE PARTIDAS -->
+          <div class="tr-perf-matchbar">
+            <div class="tr-pm-rail">${matchSlotsHtml}</div>
+            <div class="tr-pm-sample">
+              <span>${isSamplePreview ? 'MUESTRA ULTRA' : 'BASE MEDIDA'}</span>
+              <strong class="tr-perf-num">${hi.sampleSize} ${hi.sampleSize === 1 ? 'partida' : 'partidas'}</strong>
             </div>
+            <button type="button" class="tr-pm-postmatch-link" id="trGoPostmatchBtn" title="Abrir análisis detallado en Postmatch">Postmatch ↗</button>
           </div>
-          ${topBottleneck ? `<div class="tr-hero-callout${topBottleneck.severity === 'crimson' ? ' is-crimson' : ''}">
-            <div class="tr-hc-copy">
-              <span class="eyebrow">FOCO DETECTADO</span>
-              <strong>${esc(topBottleneck.title)}</strong>
-            </div>
-            <button type="button" class="train-pin-btn" data-train-pin="1" data-tp-source="Progreso" data-tp-title="${esc(topBottleneck.title)}" data-tp-detail="Detectado en ${esc(selectedEntry.mapName || 'tu partida')}" data-tp-tab="orders" title="Agregar a Mi Plan (verificación automática en próximas partidas)" aria-label="Agregar a Mi Plan">${renderDumbbellSvg()}</button>
-          </div>` : ''}
-        </section>
 
-        <!-- 2-Panel Visual Charts (100 % Above the Fold!): Spider Radar + Real Trend Line Curve -->
-        <section class="tr-evo-charts-2col">
-          <article class="tr-chart-panel">
-            <div class="tr-cp-head">
+          <!-- ZONE 2: DIAGNÓSTICO DE PARTIDA Y DIRECTIVA DE ENTRENAMIENTO -->
+          <section class="tr-perf-banner">
+            <img class="tr-panel-art-bg" src="assets/art/postmatch-v3-cabecera.webp" alt="" aria-hidden="true" draggable="false" />
+            <div class="tr-perf-verdict">
+              <div class="tr-perf-verdict-top">
+                <div class="tr-perf-crest-frame">
+                  <img src="${resolveCivCrest(selectedEntry.civSlug)}" alt="" draggable="false" />
+                </div>
+                <div class="tr-perf-verdict-copy">
+                  <div class="tr-perf-kicker">
+                    <span class="tr-perf-outcome${resTone}">● ${resLabel}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>${esc(selectedEntry.mapName || 'Mapa')}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>${esc(selectedEntry.civName || 'Civilización')}</span>
+                    ${snap?.durationDisplay ? `<span aria-hidden="true">·</span><span class="tr-perf-num">${esc(snap.durationDisplay)}</span>` : ''}
+                  </div>
+                  <h2>${esc(diag?.headline || `Mejoraste en ${improvedCount} de ${measured.length} fundamentos`)}</h2>
+                  ${diag?.evidenceLine ? `<p class="tr-perf-evidence">${esc(diag.evidenceLine)}</p>` : ''}
+                </div>
+              </div>
+              <div class="tr-perf-kpi-strip">
+                <div class="tr-perf-kpi">
+                  <span>ARRIBA DE TU PROMEDIO</span>
+                  <strong class="tr-perf-num${improvedCount >= Math.ceil(measured.length * 0.6) ? ' is-good' : ''}">${improvedCount} / ${measured.length} fundamentos</strong>
+                </div>
+                <div class="tr-perf-kpi">
+                  <span>ALDEANOS PERDIDOS</span>
+                  <strong class="tr-perf-num${(hi.villagerLossSummary?.combinedEarlyVillagers || 0) >= 2 ? ' is-warn' : ' is-good'}">${esc(hi.villagerLossSummary?.combinedDisplay || '—')}</strong>
+                </div>
+                <div class="tr-perf-kpi">
+                  <span>MEJOR EJECUCIÓN</span>
+                  <strong class="is-gold">${bestExecMetric ? `${esc(bestExecMeta.shortRadar)} (${esc(bestExecMetric.isPersonalBest ? '★ Récord' : bestExecMetric.signedDeltaShort)})` : 'Base inicial'}</strong>
+                </div>
+              </div>
+            </div>
+
+            <aside class="tr-perf-directive${diag?.severity === 'crimson' ? ' is-crimson' : diag?.severity === 'gold' ? ' is-gold' : ' is-emerald'}">
+              <div class="tr-perf-dir-body">
+                <span class="eyebrow">${esc(diag?.eyebrow || 'PRIORIDAD DE ENTRENAMIENTO')}</span>
+                <strong>${esc(diag?.targetDisplay || 'Superar tu promedio en la próxima partida')}</strong>
+                <p>${esc(diag?.drillCue || 'Fijá este objetivo en Mi Plan para verificar tu mejora automática en próximas partidas.')}</p>
+              </div>
+              <button type="button" class="tr-perf-pin-cta tr-cta-sheen" id="trTrainBottleneckBtn"
+                data-tp-title="${esc(diag?.planTitle || 'Mejorar ejecución temprana')}"
+                data-tp-detail="${esc(diag?.planDetail || `Detectado en ${selectedEntry.mapName || 'tu partida'}`)}"
+                data-tp-metric="${esc(diag?.planMetric || '')}"
+                data-tp-tab="${esc(diag?.actionTab || 'orders')}">
+                ${renderDumbbellSvg()}
+                <span>${diagAlreadyInPlan ? '✓ En Mi Plan · Abrir rutina →' : esc(diag?.actionLabel || 'Fijar en Mi Plan y entrenar →')}</span>
+              </button>
+            </aside>
+          </section>
+
+          <!-- ZONE 3: EJECUCIÓN POR EDADES (3 FASES CRONOLÓGICAS + BRECHA EN DERROTAS) -->
+          ${ageStagesHtml ? `<section class="tr-perf-timeline-panel">
+            <div class="tr-perf-panel-head">
               <div>
-                <h4>Gráfico de Araña · Esta partida</h4>
-                <small>El borde exterior marca tu mejor registro en cada indicador</small>
+                <span class="eyebrow">EJECUCIÓN POR EDADES</span>
+                <h3>Rendimiento etapa por etapa frente a tu promedio</h3>
               </div>
-              <div class="tr-radar-legend">
-                <span class="is-gold">● Esta partida</span>
-                <span class="is-em">┅ Tu mediana</span>
+              <span class="tr-age-panel-cue">Clic en una etapa para abrir su curva abajo</span>
+            </div>
+            ${ageStagesHtml}
+            ${wlDrop ? `<div class="tr-perf-wl-bar">
+              <span class="tr-wl-tag">BRECHA EN DERROTAS (${hi.winLossComparison.winsCount}V–${hi.winLossComparison.lossesCount}D)</span>
+              <strong>${esc(wlDrop.headline)}</strong>
+            </div>` : ''}
+          </section>` : ''}
+
+          <!-- SANTUARIO SEMANAL: DATOS MEJORADOS ESTA SEMANA + GRÁFICO DIARIO REAL -->
+          ${renderWeeklySanctuaryHtml(hi.weeklyProgress, activeTrendMetric?.key, isSamplePreview)}
+
+          <!-- ZONE 4: ESTUDIO MAESTRO-DETALLE (LIBRO DE 6 FUNDAMENTOS | CURVA PARTIDA A PARTIDA) -->
+          <section class="tr-perf-studio">
+            <div class="tr-perf-ledger">
+              <div class="tr-perf-ledger-head">
+                <span class="eyebrow">FUNDAMENTOS MEDIDOS</span>
+                <small>Izq. peor · Der. mejor que tu media</small>
+              </div>
+              <div class="tr-perf-ledger-list">${ledgerRowsHtml}</div>
+            </div>
+
+            <div class="tr-perf-chart-studio">
+              <img class="tr-panel-art-bg is-subtle" src="assets/art/central-elo.webp" alt="" aria-hidden="true" draggable="false" />
+              <div class="tr-perf-panel-head">
+                <div>
+                  <span class="eyebrow">EVOLUCIÓN PARTIDA A PARTIDA</span>
+                  <h3>${esc(activeTrendMeta.title || activeTrendMetric?.title || 'Evolución')}</h3>
+                  <small class="tr-studio-hint">${esc(activeTrendMeta.betterHint || '')}</small>
+                </div>
+                ${activeTrendMetric ? `<button type="button" class="tr-perf-pin-cta is-subtle" data-train-pin="1" data-tp-source="Progreso" data-tp-title="${esc(activeTrendMeta.title || activeTrendMetric.title)}" data-tp-detail="${esc(activeTrendMeta.sub || '')}" data-tp-metric="${esc(activeCleanVal)}" data-tp-tab="orders">${renderDumbbellSvg()}<span>Fijar en Mi Plan</span></button>` : ''}
+              </div>
+
+              <div class="tr-studio-benchmarks">
+                <div class="tr-studio-bm">
+                  <span>ESTA PARTIDA</span>
+                  <strong class="tr-perf-num${activeValTone}">${esc(activeCleanVal)}</strong>
+                </div>
+                <div class="tr-studio-bm">
+                  <span>TU PROMEDIO</span>
+                  <strong class="tr-perf-num is-gold">${esc(activeMedVal)}</strong>
+                </div>
+                <div class="tr-studio-bm">
+                  <span>TU RÉCORD</span>
+                  <strong class="tr-perf-num is-good">${esc(activeBestVal)}</strong>
+                </div>
+                <div class="tr-studio-bm">
+                  <span>${activeFourthLabel}</span>
+                  <strong class="tr-perf-num${activeFourthTone}">${esc(activeFourthVal)}</strong>
+                </div>
+              </div>
+
+              ${buildTrendLineSvg(activeTrendMetric)}
+
+              <div class="tr-studio-foot">
+                <div class="tr-perf-legend">
+                  <span class="is-best">● Victoria</span>
+                  <span class="is-loss">● Derrota</span>
+                  <span class="is-median">┅ Tu promedio</span>
+                  <span class="is-current">◎ Récord personal</span>
+                </div>
+                <small>Clic en cualquier punto de la curva para inspeccionar esa partida</small>
               </div>
             </div>
-            ${buildSpiderRadarSvg(metrics)}
-          </article>
-
-          <article class="tr-chart-panel">
-            <div class="tr-cp-head">
-              <div>
-                <h4>Curva de evolución</h4>
-                <small>${esc(activeTrendMeta.betterHint || '')} · Mediana: <b>${esc(activeTrendMetric?.medianDisplay || '—')}</b> · Récord: <b class="is-best">${esc(activeTrendMetric?.bestDisplay || '—')}</b></small>
-              </div>
-            </div>
-            <div class="tr-trend-pills">${trendPillsHtml}</div>
-            ${buildTrendLineSvg(activeTrendMetric)}
-          </article>
-        </section>
-
-        <!-- Crystal-Clear Human-Labeled Metric Breakdown (clickable to switch line chart!) -->
-        <div class="tr-metrics-grid-3">${metricCardsHtml}</div>
+          </section>
+        </div>
       </div>`;
     }
 
@@ -1801,8 +2632,10 @@
         });
       });
 
-      container.querySelector('#trGoPostmatchBtn')?.addEventListener('click', () => {
-        if (typeof goTo === 'function') goTo('postmatch');
+      container.querySelectorAll('#trGoPostmatchBtn, [data-tr-open-postmatch]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (typeof goTo === 'function') goTo('postmatch');
+        });
       });
 
       container.querySelectorAll('[data-tr-tab]').forEach((btn) => {
@@ -1826,7 +2659,26 @@
         btn.addEventListener('click', () => submitArenaChoice(btn.dataset.trAnsId, false));
       });
 
-      // Evolución replay & trend-metric selectors
+      // Evolución replay & trend-metric selectors + 1-click bottleneck training CTA
+      container.querySelector('#trTrainBottleneckBtn')?.addEventListener('click', async (ev) => {
+        if (!state?.unlocked) return;
+        const btn = ev.currentTarget;
+        const targetTab = btn.dataset.tpTab || 'orders';
+        if (typeof root.settings?.trainingQueueAdd === 'function') {
+          const res = await root.settings.trainingQueueAdd({
+            source: 'Progreso',
+            title: btn.dataset.tpTitle || 'Mejorar ejecución',
+            detail: btn.dataset.tpDetail || '',
+            metric: btn.dataset.tpMetric || '',
+            targetTab,
+          });
+          if (res?.ok && Array.isArray(res.trainingQueue)) {
+            state.trainingQueue = res.trainingQueue;
+          }
+        }
+        switchSubtab(targetTab);
+      });
+
       container.querySelectorAll('[data-tr-replay-id]').forEach((elNode) => {
         elNode.addEventListener('click', async () => {
           const matchId = elNode.dataset.trReplayId;
@@ -1834,6 +2686,9 @@
             const res = await root.settings.trainingHighEloConfig({ selectedMatchId: matchId });
             if (res?.ok && res.highElo) {
               state.highElo = res.highElo;
+              if (res.highElo.primaryDiagnosis?.metricKey) {
+                selectedTrendMetricKey = res.highElo.primaryDiagnosis.metricKey;
+              }
               render();
             }
           }
@@ -1897,7 +2752,9 @@
           const res = await root.settings.trainingBuildArm({ buildId: curId, armed: !isCurrentlyArmed });
           if (res?.ok) {
             state.armedBuildOrderId = res.armedBuildOrderId;
-            studioStatusMsg = res.armedBuildOrderId ? 'Armada en Overlay' : 'Desactivada';
+            studioStatusMsg = res.armedBuildOrderId
+              ? (res.buildOrderHelperEnabled === false ? 'Armada · activá Build Order Helper en Batalla' : 'Armada en Overlay')
+              : 'Desactivada';
             render();
           }
         }
@@ -2128,6 +2985,7 @@
     }
 
     async function switchSubtab(tabId) {
+      if (!state?.unlocked) return;
       if (!['perf', 'orders', 'matchups', 'arena', 'plan'].includes(tabId)) return;
       if (tabId !== 'arena') {
         stopArenaTimer();
@@ -2144,10 +3002,31 @@
       }
     }
 
+    function bindLockVeilOnly() {
+      container.querySelector('#trLockTrialBtn')?.addEventListener('click', () => {
+        if (typeof onClaimTrial === 'function') onClaimTrial();
+      });
+      container.querySelector('#trLockPlanesBtn')?.addEventListener('click', () => {
+        if (typeof navToPlanes === 'function') navToPlanes();
+      });
+    }
+
     function render() {
       if (!container || !state) return;
-      const lockedCls = state.unlocked ? '' : ' is-locked';
-      container.innerHTML = `<div class="tr-root${lockedCls}">
+      if (!state.unlocked) {
+        enforceLockedState();
+        // Locked state: render ONLY static illustrative backdrop with `inert` — ZERO Build Order Creator or user data in DOM!
+        container.innerHTML = `<div class="tr-root is-locked">
+          ${renderLockVeil()}
+          <div class="tr-workspace" inert aria-hidden="true">
+            ${renderSubnav()}
+            ${renderPerfView()}
+          </div>
+        </div>`;
+        bindLockVeilOnly();
+        return;
+      }
+      container.innerHTML = `<div class="tr-root">
         ${renderLockVeil()}
         ${renderWelcomeModal()}
         <div class="tr-workspace">
@@ -2162,12 +3041,40 @@
       bindEvents();
     }
 
+    function syncProduct(product, opts = {}) {
+      if (typeof opts.trialAvailable === 'boolean') trialAvailable = opts.trialAvailable;
+      const nowUnlocked = Boolean(product?.featureAccess?.trainingHub);
+      if (!nowUnlocked) {
+        enforceLockedState();
+        state = {
+          ok: true,
+          unlocked: false,
+          plan: product?.plan || 'free',
+          highElo: { hasData: false, sampleSize: 0 },
+          customBuilds: [],
+          trainingQueue: [],
+          missions: [],
+          pacer: null,
+          matchupWarRoom: null,
+          arena: null,
+        };
+        render();
+      } else if (state && !state.unlocked) {
+        load();
+      }
+    }
+
     async function load() {
       if (typeof root.settings?.trainingGet !== 'function') return;
-      showWelcomeModal = !hasSeenWelcome();
       const res = await root.settings.trainingGet();
       if (res && res.ok) {
         state = res;
+        if (!state.unlocked) {
+          enforceLockedState();
+          render();
+          return;
+        }
+        showWelcomeModal = !hasSeenWelcome();
         draftRecipe = null;
         if (!arenaSelectedLevel && state.arena?.selectedLevel) {
           arenaSelectedLevel = state.arena.selectedLevel;
@@ -2182,6 +3089,11 @@
 
     function applyRealtimeUpdate(updatePayload) {
       if (!state || !updatePayload) return;
+      if (updatePayload.unlocked === false) {
+        syncProduct({ plan: updatePayload.plan || 'free', featureAccess: { trainingHub: false } });
+        return;
+      }
+      if (!state.unlocked) return;
       if (Array.isArray(updatePayload.missions)) state.missions = updatePayload.missions;
       if (Array.isArray(updatePayload.trainingQueue)) state.trainingQueue = updatePayload.trainingQueue;
       if (Array.isArray(updatePayload.ageTracks)) state.ageTracks = updatePayload.ageTracks;
@@ -2209,6 +3121,13 @@
       load,
       refresh: load,
       render,
+      syncProduct,
+      setTrialAvailable: (avail) => {
+        const next = Boolean(avail);
+        if (next === trialAvailable) return;
+        trialAvailable = next;
+        if (state && !state.unlocked) render();
+      },
       switchSubtab,
       applyRealtimeUpdate,
       onRealtimeUpdate: applyRealtimeUpdate,

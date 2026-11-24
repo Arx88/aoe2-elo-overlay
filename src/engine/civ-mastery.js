@@ -870,7 +870,7 @@ const CIV_MASTERY_PROFILES = Object.freeze({
   gurjaras: [
     ruleUnitCore({
       id: 'civ-gurjaras-mobile', unitIds: [...CAMEL_IDS, 1751, 1753, 1741, 1743], classes: ['cavalry'], minUnits: 16,
-      titleHit: 'Camellos con +20%/+30% daño extra / Jinetes Shrivamsha',
+      titleHit: 'Camellos con +20%/+30%/+40% daño extra / Jinetes Shrivamsha',
       titleMiss: 'Poca movilidad montada (Camellos/Shrivamsha) con Gurjaras',
       detailHit: 'Explotaste las unidades montadas rápidas y el daño adicional de contraataque de Gurjaras.',
       detailMiss: 'Gurjaras dominan con Camellos potenciados, Jinetes Shrivamsha y Lanzadores de chakram.',
@@ -918,7 +918,7 @@ const CIV_MASTERY_PROFILES = Object.freeze({
 
   incas: [
     ruleUnitCore({
-      id: 'civ-incas-inf', unitIds: [...EAGLE_IDS, 879, 881, 185], classes: ['infantry'], minUnits: 18, positiveOnly: true,
+      id: 'civ-incas-inf', unitIds: [...CHAMPI_IDS, 879, 881, 185], classes: ['infantry'], minUnits: 18, positiveOnly: true,
       titleHit: 'Infantería inca rebajada (−15% a −30% comida) / Honderos / Kamayuks',
       detailHit: 'Aprovechaste el descuento de comida en unidades militares y versatilidad de Incas.',
     }),
@@ -950,7 +950,7 @@ const CIV_MASTERY_PROFILES = Object.freeze({
     }),
     ruleUnitCore({
       id: 'civ-japanese-fish', unitIds: [13], minUnits: 6, waterOnly: true, positiveOnly: true,
-      titleHit: 'Pesqueros japoneses (+trabajo y doble armadura) bien explotados',
+      titleHit: 'Pesqueros japoneses (2× PR y +2 armadura antiproyectil) bien explotados',
       detailHit: 'Aprovechaste la ventaja económica naval de Japoneses en mapa de agua.',
     }),
   ],
@@ -1399,7 +1399,7 @@ const CIV_MASTERY_PROFILES = Object.freeze({
     }),
     ruleFastTempo({
       id: 'civ-turks-tempo', targetCastleSec: 1080, targetImpSec: 2040,
-      titleHit: 'Ritmo acelerado por minería de oro +20%',
+      titleHit: 'Ritmo acelerado por minería de oro +25%',
       detailHit: 'Convertiste la recolección rápida de oro en una transición temprana a Castillos/Imperial.',
     }),
   ],

@@ -1,7 +1,7 @@
 'use strict';
 
 const { RequestScheduler } = require('./request-scheduler');
-const matchHistoryScheduler = new RequestScheduler();
+const matchHistoryScheduler = new RequestScheduler({ maxConcurrent: 5, burstTokens: 5, intervalMs: 180 });
 
 /**
  * Caché liviana en memoria con TTL + deduplicación de requests en vuelo.
@@ -349,8 +349,9 @@ async function fetchProfileStats(profileId, ladder, { timeoutMs = 10000, signal 
     async () => {
       try {
         const ext = await fetchExtendedProfile(id, { timeoutMs, signal });
-        const hit = extractFromExt(ext);
-        if (hit) return hit;
+        if (ext && Array.isArray(ext.stats)) {
+          return extractFromExt(ext); // Si ext.stats ya llegó completo y no tiene este ladder, no repetir GET vacío!
+        }
       } catch { /* fallback to specific stats endpoint */ }
       return getJson(
         `${COMPANION_BASE}/api/profiles/${encodeURIComponent(id)}/stats?leaderboard_id=${encodeURIComponent(ladder)}`,
@@ -650,9 +651,9 @@ function splitCachedElo(ids, cache, cacheTtlMs) {
  * vacío (para reintentar en el próximo poll) y el panel se asienta en `—`
  * en vez de quedarse colgado en `…`.
  */
-async function fetchEloStats(missing, fetchStatsImpl = fetchPersonalStats) {
+async function fetchEloStats(missing, fetchStatsImpl = fetchPersonalStats, timeoutMs = 4500) {
   try {
-    return { ok: true, fresh: await fetchStatsImpl(missing, ELO_LADDER.id) };
+    return { ok: true, fresh: await fetchStatsImpl(missing, ELO_LADDER.id, timeoutMs) };
   } catch (err) {
     return { ok: false, fresh: new Map(), error: err.message };
   }

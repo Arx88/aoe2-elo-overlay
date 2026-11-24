@@ -61,8 +61,8 @@ const WATCHDOG_MS = 45000;
  * El snapshot global se le entrega a QueueWatcher.handleEvents(..., true), así
  * la detección, el dedupe y los avisos siguen viviendo en un solo lugar.
  */
-const FAST_IDLE_MS = 5000; // sin cola: ping filtrado liviano (300 B) para detección rápida sin saturar
-const FAST_QUEUE_MS = 1500; // en cola: snapshot global rápido con el roster
+const FAST_IDLE_MS = 3000; // sin cola: ping filtrado liviano (300 B) para detección rápida sin saturar
+const FAST_QUEUE_MS = 1500; // en cola: ping filtrado rápido (300 B) con fallback global solo si falta roster
 const FAST_TIMEOUT_MS = 4500;
 const QUIET_WATCHDOG_MS = 180000; // sockets filtrados sin tráfico (lobbies) no se cortan cada 45s
 const KEEPALIVE_PING_MS = 30000; // mantiene viva la conexión a través de NAT/firewall
@@ -70,9 +70,9 @@ const PENDING_MATCH_TTL_MS = 30000; // si un lobby se cancela antes de llegar ro
 // Después de terminar una partida se sondea seguido 3 minutos: lo habitual es
 // volver a la cola enseguida.
 const HOT_IDLE_MS = 3 * 60 * 1000;
-// Mientras está pausado (partida en curso) se mira el ping filtrado cada 30 s:
+// Mientras está pausado (partida en curso) se mira el ping filtrado cada 10 s:
 // si la partida terminó rápido o el aviso de fin se perdió, el carril se reactiva solo sin ruido.
-const PROBE_PAUSED_MS = 30000;
+const PROBE_PAUSED_MS = 10000;
 
 /** URL de /listen para una query dada (misma forma para todos los sockets). */
 function socketUrl(query) {
@@ -485,38 +485,33 @@ class FastLane {
   }
 
   async poll() {
-    const query = this.inQueue
-      ? { handler: 'queueing', language: 'en' }
-      : { handler: 'queueing', language: 'en', profile_ids: this.profileId };
-    let events = await this.readSnapshot(query, this.inQueue ? FAST_TIMEOUT_MS : 3000);
-    if (!events && this.inQueue && !this.closed && !this.paused) {
-      events = await this.readSnapshot({ handler: 'queueing', language: 'en', profile_ids: this.profileId }, 3000);
-    }
+    // Siempre consultamos primero el socket FILTRADO (~300 B, rápido y sin timeouts de 4.5s).
+    // Solo pedimos el global (~75–100 KB) si apareció `matched` sin lista completa de jugadores.
+    const filteredQuery = { handler: 'queueing', language: 'en', profile_ids: this.profileId };
+    const events = await this.readSnapshot(filteredQuery, 3000);
     if (this.closed || this.paused) return;
     if (!events) return; // red lenta o servidor mudo: se reintenta en el próximo tick
     this.polls += 1;
 
+    const matched = findMyMatch(events, this.profileId);
+    const inMyQueue = hasMyQueue(events, this.profileId);
+    const queueEvt = Array.isArray(events)
+      ? events.find((e) => e && e.type === 'queueingAdded' && e.data && Number(e.data.profileId) === Number(this.profileId))
+      : null;
+
     if (!this.inQueue) {
-      // Una cola rápida puede pasar de `queueing` a `matched` entre dos pings
-      // (cada 6 s). Mirar solo `queueing` hacía que el carril NUNCA se
-      // acelerara en esos casos: la partida aparecía recién con el lote
-      // empujado (~15 s) o cuando el REST ya la veía empezada.
-      const matched = findMyMatch(events, this.profileId);
-      if (!hasMyQueue(events, this.profileId) && !matched) return;
+      if (!inMyQueue && !matched) return;
       this.inQueue = true;
       this.log(
         `carril rápido: ${matched ? 'partida apareada' : 'cola detectada'} · ` +
-          `snapshot del feed cada ${FAST_QUEUE_MS / 1000}s`,
+          `ping filtrado cada ${FAST_QUEUE_MS / 1000}s`,
       );
-      this.onQueue(true);
-      if (!matched) return; // en cola: el próximo tick (1,5 s) trae el global
-      // Si el snapshot filtrado ya trae el roster completo (>= 2 jugadores), se emite AL INSTANTE
-      // sin esperar un segundo handshake WebSocket global (~100 KB / hasta 4,5 s).
+      this.onQueue(true, queueEvt ? queueEvt.data : null);
+      if (!matched) return;
       if (Array.isArray(matched.data?.players) && matched.data.players.length >= 2) {
         this.onSnapshot(events);
         return;
       }
-      // Fallback: si el item filtrado vino sin roster, pedimos el snapshot global.
       const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
       if (this.closed || this.paused) return;
       const chosen = full && full.length ? full : events;
@@ -526,14 +521,27 @@ class FastLane {
       return;
     }
 
-    // Snapshot global: se le entrega al watcher para que aplique su lógica.
-    if (!events.length) return;
-    this.onSnapshot(events);
-    // Si ya no estoy ni en cola ni apareado, la búsqueda terminó: se vuelve al
-    // ping filtrado (300 B) hasta la próxima cola.
-    if (!hasMyQueue(events, this.profileId) && !findMyMatch(events, this.profileId)) {
+    // Ya estábamos en cola: si apareció `matched`, despachamos al instante (global solo si falta roster).
+    if (matched) {
+      if (Array.isArray(matched.data?.players) && matched.data.players.length >= 2) {
+        this.onSnapshot(events);
+        return;
+      }
+      const full = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
+      if (this.closed || this.paused) return;
+      const chosen = full && full.length ? full : events;
+      if (chosen && chosen.length) {
+        this.polls += 1;
+        this.onSnapshot(chosen);
+      }
+      return;
+    }
+
+    if (events.length) this.onSnapshot(events);
+    // Si ya no estoy ni en cola ni apareado, la búsqueda terminó: volvemos a cadencia idle.
+    if (!inMyQueue && !matched) {
       this.inQueue = false;
-      this.onQueue(false);
+      this.onQueue(false, null);
     }
   }
 

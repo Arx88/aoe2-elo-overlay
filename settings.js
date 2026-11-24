@@ -367,6 +367,11 @@ function renderProduct(product) {
     if (!input) continue;
     const allowed = product.featureAccess && product.featureAccess[key] === true;
     input.disabled = !allowed;
+    if (!allowed) {
+      input.checked = false;
+    } else if (lastLoadedInfo && Object.hasOwn(lastLoadedInfo, key)) {
+      input.checked = Boolean(lastLoadedInfo[key]);
+    }
     const tier = features.find((feature) => feature.key === key)?.plan;
     const tierName = tier === 'promax' ? 'Ultra' : 'Pro';
     input.title = allowed ? '' : t('plansPage.availableWith', `Disponible con ${tierName}. Tu preferencia guardada se conserva.`, { tier: tierName });
@@ -387,10 +392,18 @@ function renderProduct(product) {
   if (commerceTitle) commerceTitle.textContent = t('plansPage.subsTitle', 'Suscripciones');
   if (accountCommerce) accountCommerce.disabled = !(commerce.account && commerce.account.enabled);
   if (checkoutCommerce) checkoutCommerce.disabled = !(commerce.checkout && commerce.checkout.enabled);
-  if (typeof trainingUi !== 'undefined' && trainingUi && activePage === 'training') {
-    trainingUi.refresh();
+  if (typeof trainingUi !== 'undefined' && trainingUi) {
+    const trialAvail = typeof isUltraTrialAvailable === 'function' ? isUltraTrialAvailable(product) : true;
+    if (typeof trainingUi.syncProduct === 'function') {
+      trainingUi.syncProduct(product, { trialAvailable: trialAvail });
+    }
+    if (activePage === 'training' && product.featureAccess?.trainingHub) {
+      trainingUi.refresh();
+    }
   }
-  if (typeof syncLockedPageShowcases === 'function') {
+  if (typeof renderPlansPricing === 'function') {
+    renderPlansPricing();
+  } else if (typeof syncLockedPageShowcases === 'function') {
     syncLockedPageShowcases(product);
   }
 }
@@ -430,6 +443,18 @@ function bindRecentMatchClicks(container, { jumpToPostmatch = false } = {}) {
     btn.addEventListener('click', async () => {
       const matchId = btn.dataset.matchId;
       if (!matchId) return;
+      if (currentProduct && !currentProduct.featureAccess?.postMatch) {
+        if (typeof openFriendlyUpgradeModal === 'function') {
+          openFriendlyUpgradeModal({
+            tier: 'ultra',
+            featureName: 'Análisis Postmatch detallado',
+            featureDesc: 'Revisá tiempos de edad, economía, combate y focos reales de mejora partida a partida.',
+          });
+        } else {
+          goTo('plans');
+        }
+        return;
+      }
       if (jumpToPostmatch && activePage !== 'postmatch') {
         goTo('postmatch');
       }
@@ -662,7 +687,11 @@ function bindInteractiveEloChart() {
     }
     return Boolean(cachedMatrix && cachedRect);
   };
+  if (typeof window.__relicEloResizeCleanup === 'function') {
+    window.__relicEloResizeCleanup();
+  }
   window.addEventListener('resize', invalidateGeom, { passive: true });
+  window.__relicEloResizeCleanup = () => window.removeEventListener('resize', invalidateGeom);
 
   function showPoint(index) {
     if (hoverVisible && index === activePoint) return;
@@ -972,7 +1001,7 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   if (payload && payload.isOwnProfile !== false && Array.isArray(payload.recentMatches) && payload.recentMatches.length) {
     lastRecentMatches = payload.recentMatches;
   }
-  const currentPlan = currentProduct?.plan || payload?.plan || (payload?.isUltra ? 'promax' : 'pro');
+  const currentPlan = currentProduct?.plan || payload?.plan || (payload?.isUltra ? 'promax' : 'free');
   const currentIsUltra = currentProduct
     ? (currentProduct.plan === 'promax' || currentProduct.plan === 'beta')
     : (payload?.isUltra === true || currentPlan === 'promax' || currentPlan === 'beta');
@@ -988,6 +1017,16 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
     centralSelectedMapKey = null;
     centralMapDiagTab = 'civs';
     centralActiveView = 'overview';
+  } else {
+    // Clamp ranges & sort cleanly on plan downgrade (e.g. after 24h trial expires!)
+    if (!currentIsUltra && centralMapSort === 'eapm') centralMapSort = 'games';
+    if (currentPlan === 'free') {
+      centralEloRange = '10';
+      centralLmWindow = '10';
+    } else if (!currentIsUltra) {
+      if (!['10', '20'].includes(centralEloRange)) centralEloRange = '20';
+      if (!['10', '20'].includes(centralLmWindow)) centralLmWindow = '20';
+    }
   }
   syncCentralViewingBanner(payload);
   if (!centralDashboardEl || typeof TacticalUI !== 'object' || !TacticalUI.renderCentralDashboard) return;
@@ -1021,7 +1060,6 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   if (focusAttribute) {
     centralDashboardEl.querySelector(`[${focusAttribute}="${CSS.escape(focusValue)}"]`)?.focus({ preventScroll: true });
   }
-  bindRecentMatchClicks(centralDashboardEl, { jumpToPostmatch: true });
 }
 
 function setCentralSearchLoading(on, { disableButton = false } = {}) {
@@ -1658,7 +1696,7 @@ window.settings.onProfileDetected?.((detected) => {
 });
 window.settings.onProduct((product) => {
   renderProduct(product);
-  loadTactics();
+  if (activePage === 'tactics') loadTactics();
   if (lastCentralPayload) paintCentral(lastCentralPayload, { preserveMode: true });
 });
 window.settings.onTactics((payload) => paintTactics(payload));
@@ -1667,12 +1705,14 @@ window.settings.onBuildOrder((payload) => paintBuildOrder(payload));
 let lastBuildOrderPayload = null;
 function paintBuildOrder(payload) {
   lastBuildOrderPayload = payload;
+  if (smartBuildOrderInput) {
+    smartBuildOrderInput.checked = Boolean(payload?.enabled) && payload?.status !== 'locked';
+    smartBuildOrderInput.disabled = payload?.status === 'locked' || Boolean(payload?.ongoing);
+    smartBuildOrderInput.title = payload?.ongoing ? t('tactics.configBeforeMatch', 'Se configura antes de buscar partida.')
+      : payload?.status === 'locked' ? t('postmatchPage.availableProMax', 'Disponible con Ultra.') : '';
+  }
   if (!buildOrderReportEl || typeof TacticalUI !== 'object') return;
   buildOrderReportEl.innerHTML = TacticalUI.renderSmartBuildOrder(payload, { library: true });
-  smartBuildOrderInput.checked = Boolean(payload?.enabled);
-  smartBuildOrderInput.disabled = payload?.status === 'locked' || Boolean(payload?.ongoing);
-  smartBuildOrderInput.title = payload?.ongoing ? t('tactics.configBeforeMatch', 'Se configura antes de buscar partida.')
-    : payload?.status === 'locked' ? t('postmatchPage.availableProMax', 'Disponible con ProMax.') : '';
 }
 
 async function loadBuildOrder() {
@@ -3132,9 +3172,15 @@ function syncPlanPricingUi() {
   const PLAN_RANK = { free: 0, pro: 1, promax: 2 };
   const curRank = PLAN_RANK[curPlan] ?? 0;
   const trialBtn = el('claimUltraTrialBtn');
+  const trialAvail = isUltraTrialAvailable(currentProduct);
   if (trialBtn) {
-    const alreadyClaimed = Boolean(lastAuthState?.user?.trialClaimed);
-    trialBtn.hidden = curPlan !== 'free' || alreadyClaimed;
+    trialBtn.hidden = !trialAvail;
+  }
+  if (typeof trainingUi !== 'undefined' && trainingUi && typeof trainingUi.setTrialAvailable === 'function') {
+    trainingUi.setTrialAvailable(trialAvail);
+  }
+  if (currentProduct && typeof syncLockedPageShowcases === 'function') {
+    syncLockedPageShowcases(currentProduct);
   }
   document.querySelectorAll('[data-plan-checkout]').forEach((btn) => {
     const target = btn.dataset.planCheckout;
@@ -3628,8 +3674,9 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
         ${perks.map((p) => `<li>${p.ico}<span>${escapeHtml(p.text)}</span></li>`).join('')}
       </ul>
       <div class="rum-actions">
-        ${!isPro ? '<button type="button" class="rum-cta" id="rumTrialBtn">Probar 24 h gratis</button>' : '<button type="button" class="rum-cta" id="rumPlansBtn">Ver Plan Pro</button>'}
-        ${!isPro ? '<button type="button" class="rum-link" id="rumPlansBtn">Ver planes <span aria-hidden="true">→</span></button>' : '<button type="button" class="rum-link" id="rumDismissBtn">Ahora no</button>'}
+        ${!isPro && isUltraTrialAvailable()
+          ? '<button type="button" class="rum-cta" id="rumTrialBtn">Probar 24 h gratis</button><button type="button" class="rum-link" id="rumPlansBtn">Ver planes <span aria-hidden="true">→</span></button>'
+          : `<button type="button" class="rum-cta" id="rumPlansBtn">${isPro ? 'Ver Plan Pro' : 'Ver Plan Ultra →'}</button><button type="button" class="rum-link" id="rumDismissBtn">Ahora no</button>`}
       </div>
     </div>
   </div>`;
@@ -3649,7 +3696,29 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
     close();
     goTo('plans');
     const trialBtn = el('claimUltraTrialBtn');
-    if (trialBtn && !trialBtn.disabled) trialBtn.click();
+    if (trialBtn && !trialBtn.hidden && !trialBtn.disabled) trialBtn.click();
+  });
+}
+
+function isUltraTrialAvailable(product = currentProduct) {
+  const curPlan = product?.plan === 'beta' ? 'promax' : (product?.plan || 'free');
+  if (curPlan !== 'free') return false;
+  if (lastAuthState?.user?.trialClaimed) return false;
+  if (product?.trialClaimed || product?.trialAvailable === false) return false;
+  return true;
+}
+
+function setPageChildrenInert(pageEl, locked) {
+  if (!pageEl) return;
+  Array.from(pageEl.children).forEach((child) => {
+    if (child.classList?.contains('page-lock-veil')) return;
+    if (locked) {
+      child.setAttribute('inert', '');
+      child.setAttribute('aria-hidden', 'true');
+    } else {
+      child.removeAttribute('inert');
+      child.removeAttribute('aria-hidden');
+    }
   });
 }
 
@@ -3687,13 +3756,14 @@ function bindPageLockActions(rootNode) {
     btn.addEventListener('click', () => {
       goTo('plans');
       const trialBtn = el('claimUltraTrialBtn');
-      if (trialBtn && !trialBtn.disabled) trialBtn.click();
+      if (trialBtn && !trialBtn.hidden && !trialBtn.disabled) trialBtn.click();
     });
   });
 }
 
 function syncLockedPageShowcases(product) {
   const access = product?.featureAccess || {};
+  const trialAvail = isUltraTrialAvailable(product);
   const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const icoShield = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -3708,7 +3778,6 @@ function syncLockedPageShowcases(product) {
     pmPage.querySelector(':scope > .page-lock-veil')?.remove();
     pmPage.querySelector('.pm-locked-preview')?.remove();
     if (pmLocked) {
-      // Rich illustrative blurred telemetry backdrop when user has no report loaded yet
       if (postMatchReportEl && !lastPostMatchPayload?.report) {
         const preview = document.createElement('div');
         preview.className = 'pm-locked-preview';
@@ -3737,20 +3806,23 @@ function syncLockedPageShowcases(product) {
         artRight: true,
         eyebrow: 'Relic Ultra',
         title: 'Revisá cada partida apenas termina',
-        lead: 'Probalo gratis durante 24 horas y mirá tus tiempos, economía y focos reales de mejora.',
+        lead: trialAvail
+          ? 'Probalo gratis durante 24 horas y mirá tus tiempos, economía y focos reales de mejora.'
+          : 'Incluido en Relic Ultra: tiempos de edad, economía, combate y focos reales de mejora.',
         perks: [
           { ico: icoTrend, text: 'Tiempos de Edad, inactividad del CU y comparativa ELO' },
           { ico: icoStar, text: 'Resumen flotante automático al terminar cada partida' },
           { ico: icoList, text: 'Focos detectados enviados directo a tu plan de Entrenamiento' },
         ],
-        primaryLabel: 'Probar 24 h gratis',
+        primaryLabel: trialAvail ? 'Probar 24 h gratis' : 'Ver Plan Ultra',
         secondaryLabel: 'Ver planes',
-        isTrial: true,
+        isTrial: trialAvail,
       });
       const veil = wrap.firstElementChild;
       pmPage.appendChild(veil);
       bindPageLockActions(veil);
     }
+    setPageChildrenInert(pmPage, pmLocked);
   }
 
   // 2. Batalla / Tactics (Pro + Ultra)
@@ -3767,25 +3839,29 @@ function syncLockedPageShowcases(product) {
         artRight: true,
         eyebrow: 'Relic Pro · Ultra',
         title: 'Ayuda táctica en batalla',
-        lead: 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego. Probá Ultra gratis 24 horas.',
+        lead: trialAvail
+          ? 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego. Probá Ultra gratis 24 horas.'
+          : 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego con Relic Pro y Ultra.',
         perks: [
           { ico: icoShield, text: 'Bonos, unidades fuertes y debilidades de ambas civs' },
           { ico: icoList, text: 'Smart Build Order en pantalla según tu civ y mapa' },
           { ico: icoStar, text: 'Overlay discreto pensado para no distraerte en partida' },
         ],
-        primaryLabel: 'Probar 24 h gratis',
+        primaryLabel: trialAvail ? 'Probar 24 h gratis' : 'Ver Plan Ultra',
         secondaryLabel: 'Ver planes',
-        isTrial: true,
+        isTrial: trialAvail,
       });
       const veil = wrap.firstElementChild;
       tacPage.appendChild(veil);
       bindPageLockActions(veil);
     }
+    setPageChildrenInert(tacPage, tacLocked);
   }
 
   // 3. Prematch / Overlay — centered full-page blurred Pro showcase on Free (dismissible to tweak the 1 free timer)
   const ovPage = document.querySelector('section.page[data-page="overlay"]');
   if (ovPage) {
+    if (access.rivalCivs) delete ovPage.dataset.freeVeilDismissed;
     const prematchLocked = !access.rivalCivs && ovPage.dataset.freeVeilDismissed !== '1';
     ovPage.classList.toggle('is-page-locked', prematchLocked);
     ovPage.querySelector(':scope > .page-lock-veil')?.remove();
@@ -3806,13 +3882,12 @@ function syncLockedPageShowcases(product) {
           { ico: icoTrend, text: 'Enfrentamientos previos y balance de equipos en TG' },
         ],
         primaryLabel: 'Ver Plan Pro',
-        secondaryLabel: 'Probar Ultra 24 h',
+        secondaryLabel: trialAvail ? 'Probar Ultra 24 h' : 'Ver planes',
         isTrial: false,
       });
       const veil = wrap.firstElementChild;
       const secBtn = veil.querySelector('.rum-link');
-      if (secBtn) secBtn.dataset.pageLockAction = 'trial';
-      // Subtle close button so Free users can still reach their 1 free "Ocultar al iniciar" slider
+      if (secBtn && trialAvail) secBtn.dataset.pageLockAction = 'trial';
       const stage = veil.querySelector('.relic-upgrade-stage');
       if (stage) {
         const closeBtn = document.createElement('button');
@@ -3824,6 +3899,7 @@ function syncLockedPageShowcases(product) {
         closeBtn.addEventListener('click', () => {
           ovPage.dataset.freeVeilDismissed = '1';
           ovPage.classList.remove('is-page-locked');
+          setPageChildrenInert(ovPage, false);
           veil.remove();
         });
         stage.appendChild(closeBtn);
@@ -3831,6 +3907,7 @@ function syncLockedPageShowcases(product) {
       ovPage.appendChild(veil);
       bindPageLockActions(veil);
     }
+    setPageChildrenInert(ovPage, prematchLocked);
   }
 }
 

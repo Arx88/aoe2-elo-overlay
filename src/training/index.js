@@ -144,6 +144,7 @@ function createTrainingController({ storePath }) {
   }
 
   function notifyMatchStarted({ profileId, matchId, startedAt = Date.now() }) {
+    liveOverlayState.testActive = false;
     const p = store.getProfile(profileId);
     if (!p.armedBuildOrderId) return false;
     if (String(liveOverlayState.activeMatchId) !== String(matchId)) {
@@ -253,6 +254,31 @@ function createTrainingController({ storePath }) {
   }
 
   function buildDashboard({ profileId, records = [], unlocked = false, plan = 'free' }) {
+    if (!unlocked) {
+      return {
+        ok: true,
+        unlocked: false,
+        plan,
+        profileId: null,
+        replayCount: 0,
+        focus: null,
+        rank: null,
+        sessionStreak: 0,
+        missions: [],
+        completedCount: 0,
+        recentCompleted: [],
+        ageTracks: [],
+        highElo: { hasData: false, sampleSize: 0 },
+        matchupWarRoom: null,
+        civBonusesMap: {},
+        armedBuildOrderId: null,
+        liveOverlayTestActive: false,
+        customBuilds: [],
+        trainingQueue: [],
+        pacer: null,
+        arena: null,
+      };
+    }
     const p = store.getProfile(profileId);
     const { preferredCivs, nemesisCivs } = extractPlayerCivContext(records);
     const activeMissions = selectActiveMissions({ records, profileState: p });
