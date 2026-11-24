@@ -978,95 +978,98 @@
     <!-- Modal Programa de Referidos (10 invitados reales activados -> 1 mes gratis de Relic Ultra · 1 única vez) -->
     <div id="referralBackdrop" class="referral-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="referralModalTitle">
       <div class="referral-modal" id="referralModal">
-        <button type="button" id="referralCloseBtn" class="referral-close" aria-label="Cerrar">×</button>
-        <div class="referral-head">
-          <span class="referral-eyebrow">PROGRAMA DE REFERIDOS · RECOMPENSA ÚNICA</span>
-          <h2 id="referralModalTitle">Ganá 1 mes gratis de Relic Ultra</h2>
-          <p class="referral-lead">Traé <strong>10 amigos nuevos</strong> que descarguen Relic, inicien sesión con Google y <strong>activen su cuenta (al menos versión Free)</strong> con Age of Empires II: DE en su propia PC. Beneficio válido una sola vez por cuenta y por equipo.</p>
+        <div class="referral-hero">
+          <img src="assets/art/referral-hero.jpg" alt="" class="referral-hero-img" decoding="async" />
+          <div class="referral-hero-scrim" aria-hidden="true"></div>
+          <button type="button" id="referralCloseBtn" class="referral-close" aria-label="Cerrar">×</button>
+          <div class="referral-head">
+            <span class="referral-eyebrow">RELIC ULTRA · 30 DÍAS GRATIS</span>
+            <h2 id="referralModalTitle">Invitá 10 amigos y desbloqueá Ultra</h2>
+            <p class="referral-lead">Sumás 1 punto por cada amigo que instale y abra Relic en su PC.</p>
+          </div>
         </div>
 
-        <div id="referralSignedOutBox" class="referral-gate" hidden>
-          <div class="referral-gate-copy">
-            <strong>Iniciá sesión con Google para obtener tu código único</strong>
-            <small>Tu progreso de 10 invitaciones y tu recompensa de 1 mes de Ultra se vinculan de forma segura a tu cuenta Relic.</small>
+        <div class="referral-content">
+          <div id="referralSignedOutBox" class="referral-gate" hidden>
+            <div class="referral-gate-copy">
+              <strong>Conectá Google para activar tu enlace</strong>
+              <small>Tu código y tu progreso quedan guardados en tu cuenta.</small>
+            </div>
+            <button type="button" id="referralSignInBtn" class="btn gold relic-google-btn">
+              <span class="g-mark" aria-hidden="true">G</span>
+              <span>Continuar con Google</span>
+            </button>
           </div>
-          <button type="button" id="referralSignInBtn" class="btn gold relic-google-btn">
-            <span class="g-mark" aria-hidden="true">G</span>
-            <span>Continuar con Google</span>
-          </button>
-        </div>
+          <p id="referralSignInError" class="referral-feedback is-err" hidden role="alert"></p>
 
-        <div id="referralLoadingBox" class="referral-loading" hidden>
-          <span class="mini">Cargando tu estado de referidos…</span>
-        </div>
-
-        <div id="referralMainBody" class="referral-body" hidden>
-          <div id="referralClaimedBanner" class="referral-banner is-success" hidden>
-            <strong>★ ¡Completaste tus 10 referidos y desbloqueaste 1 mes gratis de Relic Ultra!</strong>
-            <span id="referralClaimedDetail" class="mini">Recompensa única acreditada en tu cuenta.</span>
+          <div id="referralLoadingBox" class="referral-loading" hidden>
+            <span class="mini">Cargando…</span>
           </div>
 
-          <div id="referralBlockedBanner" class="referral-banner is-warn" hidden>
-            <strong>Recompensa única ya utilizada en este equipo</strong>
-            <span id="referralBlockedDetail" class="mini">Esta PC ya recibió anteriormente el mes gratis de Relic Ultra por referidos.</span>
-          </div>
+          <div id="referralMainBody" class="referral-body" hidden>
+            <div id="referralClaimedBanner" class="referral-banner is-success" hidden>
+              <strong>★ ¡1 mes de Relic Ultra desbloqueado!</strong>
+              <span id="referralClaimedDetail" class="mini">Ya acreditado en tu cuenta.</span>
+            </div>
 
-          <section class="referral-progress-card">
-            <div class="referral-progress-head">
-              <div>
-                <span class="referral-kicker">TU PROGRESO VERIFICADO</span>
+            <div id="referralBlockedBanner" class="referral-banner is-warn" hidden>
+              <strong>Recompensa ya canjeada en esta PC</strong>
+              <span id="referralBlockedDetail" class="mini">Válida una vez por equipo.</span>
+            </div>
+
+            <section class="referral-progress-card">
+              <div class="referral-progress-head">
                 <div class="referral-count-line">
                   <strong id="referralCountBig" class="mono">0 / 10</strong>
-                  <span>amigos activados</span>
+                  <span>activados</span>
                 </div>
+                <span id="referralPendingChip" class="referral-pending-chip" hidden>0 pendientes</span>
               </div>
-              <span id="referralPendingChip" class="referral-pending-chip" hidden>0 pendientes</span>
-            </div>
-            <div id="referralSegments" class="ref-segments" aria-label="Progreso de referidos">
-              <i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i>
-              <i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i>
-            </div>
-            <p class="referral-rule-note">Cada invitado cuenta automáticamente al iniciar sesión y activar Relic Free en una PC nueva distinta a la tuya.</p>
-          </section>
-
-          <section class="referral-share-card">
-            <span class="referral-kicker">TU ENLACE Y CÓDIGO PARA COMPARTIR</span>
-            <div class="referral-copy-row">
-              <code id="referralShareUrl" class="referral-copy-val">—</code>
-              <button type="button" id="referralCopyLinkBtn" class="btn gold referral-copy-btn">Copiar enlace</button>
-            </div>
-            <div class="referral-copy-row is-code">
-              <code id="referralCodeVal" class="referral-copy-val is-code-font">—</code>
-              <button type="button" id="referralCopyCodeBtn" class="btn referral-copy-btn">Copiar código</button>
-            </div>
-          </section>
-
-          <section class="referral-apply-card" id="referralApplySection">
-            <span class="referral-kicker">¿TE INVITÓ UN AMIGO?</span>
-            <div id="referralApplyFormWrap">
-              <div class="referral-apply-row">
-                <input id="referralCodeInput" class="field mono referral-code-input" type="text" placeholder="RELIC-XXXX-XXXX" maxlength="20" autocomplete="off" spellcheck="false" aria-label="Código de referido de un amigo" />
-                <button type="button" id="referralApplyBtn" class="btn gold">Aplicar código</button>
+              <div id="referralSegments" class="ref-segments" aria-label="Progreso de referidos">
+                <i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i>
+                <i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i>
               </div>
-              <p id="referralApplyFeedback" class="referral-feedback" hidden role="status"></p>
-            </div>
-            <div id="referralMyStatusBox" class="referral-my-status" hidden>
-              <div class="referral-my-status-copy">
-                <strong id="referralMyStatusTitle">—</strong>
-                <small id="referralMyStatusDesc">—</small>
-              </div>
-              <button type="button" id="referralVerifyNowBtn" class="btn" hidden>Verificar ahora</button>
-            </div>
-            <p id="referralCannotApplyMsg" class="mini referral-cannot-apply" hidden></p>
-          </section>
+            </section>
 
-          <section class="referral-friends-card" id="referralFriendsSection">
-            <div class="referral-friends-head">
-              <span class="referral-kicker">INVITACIONES RECIENTES</span>
-              <button type="button" id="referralRefreshBtn" class="link-btn">Actualizar</button>
-            </div>
-            <div id="referralFriendsList" class="referral-friends-list"></div>
-          </section>
+            <section class="referral-share-card">
+              <div class="referral-share-grid">
+                <div class="referral-code-pill">
+                  <span class="referral-code-lbl">CÓDIGO</span>
+                  <code id="referralCodeVal" class="referral-copy-val is-code-font">—</code>
+                  <button type="button" id="referralCopyCodeBtn" class="btn referral-copy-btn">Copiar</button>
+                </div>
+                <button type="button" id="referralCopyLinkBtn" class="btn gold referral-link-cta">Copiar enlace de invitación</button>
+              </div>
+              <code id="referralShareUrl" class="referral-share-url-hidden" hidden>—</code>
+            </section>
+
+            <section class="referral-friends-card" id="referralFriendsSection" hidden>
+              <div class="referral-friends-head">
+                <span class="referral-kicker">TUS INVITADOS</span>
+                <button type="button" id="referralRefreshBtn" class="link-btn">Actualizar</button>
+              </div>
+              <div id="referralFriendsList" class="referral-friends-list"></div>
+            </section>
+
+            <section class="referral-apply-card" id="referralApplySection">
+              <div id="referralApplyFormWrap" class="referral-apply-inline">
+                <span class="referral-kicker">¿TENÉS CÓDIGO?</span>
+                <div class="referral-apply-row">
+                  <input id="referralCodeInput" class="field mono referral-code-input" type="text" placeholder="RELIC-XXXX-XXXX" maxlength="20" autocomplete="off" spellcheck="false" aria-label="Código de referido de un amigo" />
+                  <button type="button" id="referralApplyBtn" class="btn">Aplicar</button>
+                </div>
+                <p id="referralApplyFeedback" class="referral-feedback" hidden role="status"></p>
+              </div>
+              <div id="referralMyStatusBox" class="referral-my-status" hidden>
+                <div class="referral-my-status-copy">
+                  <strong id="referralMyStatusTitle">—</strong>
+                  <small id="referralMyStatusDesc">—</small>
+                </div>
+                <button type="button" id="referralVerifyNowBtn" class="btn" hidden>Verificar</button>
+              </div>
+              <p id="referralCannotApplyMsg" class="mini referral-cannot-apply" hidden></p>
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -1074,6 +1077,7 @@
     <script src="ui/i18n.js"></script>
     <script src="ui/sfx.js"></script>
     <script src="ui/blacksmith-terms.js"></script>
+    <script src="ui/aoe2-icons.js"></script>
     <script src="ui/tactical-ui.js"></script>
     <script src="ui/training-ui.js"></script>
     <script src="settings.js"></script>

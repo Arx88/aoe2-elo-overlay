@@ -1219,19 +1219,36 @@
       </div>`;
     }
 
-    /* ==================== TAB 3: MATCHUPS (56 CIVS · WAR-TABLE) ==================== */
+    /* ==================== TAB 3: MATCHUPS (56 CIVS · PRO EMPIRICAL WAR-ROOM) ==================== */
+    const iconRegistry = (typeof globalThis !== 'undefined' && globalThis.AoE2Icons)
+      || (typeof require === 'function' ? (() => { try { return require('./aoe2-icons'); } catch { return null; } })() : null);
+
     function renderMatchupsView() {
       const lab = state?.matchupWarRoom || {};
       const myCiv = lab.myCiv || { slug: 'franks', name: 'Francos', role: 'Caballería' };
       const rivalCiv = lab.rivalCiv || { slug: 'hindustanis', name: 'Indostanos', role: 'Camellos y pólvora' };
       const mySlugNorm = String(myCiv.slug || 'franks').toLowerCase() === 'tupis' ? 'tupi' : String(myCiv.slug || 'franks').toLowerCase();
       const rivSlugNorm = String(rivalCiv.slug || 'hindustanis').toLowerCase() === 'tupis' ? 'tupi' : String(rivalCiv.slug || 'hindustanis').toLowerCase();
+      const activeMapType = lab.mapType === 'closed' ? 'closed' : 'open';
+      const activeMapSlug = activeMapType === 'closed' ? 'arena' : 'arabia';
+      const sample = lab.sample || { tier: 'none', totalGames: 0, badgeTone: 'is-muted', badgeFull: 'Cargando muestra real…' };
 
-      const svg = lab.svg || {
-        curvePath: 'M0,85 L110,78 L330,48 L550,124 L770,96 L880,96',
-        areaFullPath: 'M0,85 L110,78 L330,48 L550,124 L770,96 L880,96 L880,85 L0,85 Z',
-        nodes: [{ cx: 110, cy: 78 }, { cx: 330, cy: 48 }, { cx: 550, cy: 124 }, { cx: 770, cy: 96 }],
-      };
+      const getUnitIcon = (label, civSlug) => resolveAsset(
+        iconRegistry ? iconRegistry.unitIcon(label, civSlug) : 'assets/icons/ages/castle.png',
+        'assets/icons/ages/castle.png'
+      );
+      const getTechIcon = (label) => resolveAsset(
+        iconRegistry ? iconRegistry.techIcon(label) : 'assets/icons/ages/imperial.png',
+        'assets/icons/ages/imperial.png'
+      );
+      const getCivUuIcon = (civSlug) => resolveAsset(
+        iconRegistry ? iconRegistry.civUniqueUnitIcon(civSlug) : 'assets/icons/ages/castle.png',
+        'assets/icons/ages/castle.png'
+      );
+      const getClashIcon = (label, civSlug) => resolveAsset(
+        iconRegistry ? iconRegistry.clashIcon(label, civSlug) : 'assets/icons/ages/imperial.png',
+        'assets/icons/ages/imperial.png'
+      );
 
       const civEntries = Object.entries(CIV_NAMES_ES).sort((a, b) => a[1].localeCompare(b[1]));
       const myOpts = civEntries.map(([slug, label]) => `<option value="${esc(slug)}"${slug === mySlugNorm ? ' selected' : ''}>${esc(label)}</option>`).join('');
@@ -1242,28 +1259,54 @@
       ).join('');
 
       const gameplanHtml = (lab.gameplanByAge || []).map((g, idx) => {
-        const edgeCls = g.edge >= 4 ? 'is-em' : (g.edge <= -4 ? 'is-warn' : 'is-even');
-        const edgeTxt = g.edge >= 4 ? 'Ventaja' : (g.edge <= -4 ? 'Cuidado' : 'Parejo');
-        const edgeSign = g.edge > 0 ? `+${g.edge}` : `${g.edge}`;
+        const edgeVal = Number(g.edge) || 0;
+        const edgeCls = edgeVal >= 4 ? 'is-em' : (edgeVal <= -4 ? 'is-warn' : 'is-even');
+        const badgeLabel = g.badgeTxt || (edgeVal >= 4 ? 'Ventaja' : (edgeVal <= -4 ? 'Cuidado' : 'Parejo'));
         const rawLine = String(g.bestLine || 'Economía y control');
-        const parts = rawLine.split(' + ').map((s) => s.trim()).filter(Boolean);
-        const headlineHtml = parts.length > 1
-          ? `${esc(parts[0])} <span class="tr-comp-plus">+</span> ${esc(parts.slice(1).join(' + '))}`
-          : esc(rawLine);
-        const isUuHit = /\(Unidad única\)/i.test(String(g.advice || ''));
-        const compKind = parts.length > 1
-          ? (isUuHit ? '★ Única + Contraunidad' : 'Núcleo + Contraunidad')
-          : (isUuHit ? '★ Unidad única' : 'Núcleo enfocado');
+        const tokens = iconRegistry
+          ? iconRegistry.tokenizePlanLine(rawLine, mySlugNorm)
+          : [{ raw: rawLine, short: rawLine, icon: 'assets/icons/ages/castle.png', sepBefore: null }];
+
+        const showcaseHtml = tokens.map((tok) => {
+          const sepHtml = tok.sepBefore ? `<span class="tr-unit-sep" aria-hidden="true">${esc(tok.sepBefore)}</span>` : '';
+          return `${sepHtml}<div class="tr-unit-token">
+            <span class="tr-unit-medallion"><img src="${resolveAsset(tok.icon, 'assets/icons/ages/castle.png')}" alt="" draggable="false" /></span>
+            <strong class="tr-unit-name">${esc(tok.short || tok.raw)}</strong>
+          </div>`;
+        }).join('');
+
+        const tagText = String(g.compTag || 'Medido en replays');
+        const isProDirect = /\d+V–\d+D/.test(tagText);
+        const hasTcPosture = /\b[123]\s*TC\b/i.test(tagText);
+        const tcIconHtml = hasTcPosture
+          ? `<img class="tr-inline-tc-ico" src="${getUnitIcon('2 TC', mySlugNorm)}" alt="" draggable="false" />`
+          : '';
+
+        const rivalLine = g.rivalLine ? String(g.rivalLine) : '';
+        const rivalIcon = rivalLine
+          ? (g.rivalIsHole ? getTechIcon(rivalLine) : getUnitIcon(rivalLine, rivSlugNorm))
+          : '';
+        const rivalStripHtml = rivalLine
+          ? `<div class="tr-age-rival-strip${g.rivalIsHole ? ' is-hole' : ''}">
+              <span class="tr-age-rival-kicker">${g.rivalIsHole ? 'BRECHA' : 'VS RIVAL'}</span>
+              <span class="tr-age-rival-chip">
+                <img src="${rivalIcon}" alt="" draggable="false" />
+                <b>${esc(rivalLine)}</b>
+              </span>
+            </div>`
+          : '';
+
         return `<article class="tr-age-plan-card ${edgeCls} tr-stagger-${idx + 1}">
         <div class="tr-age-plan-top">
           <span class="tr-age-plan-age"><img src="${resolveAsset(g.icon, 'assets/icons/ages/feudal.png')}" alt="" draggable="false" />${esc(g.ageLabel)}</span>
-          <span class="tr-age-edge-badge ${edgeCls}">${edgeTxt} <em class="mono">${esc(edgeSign)}</em></span>
+          <span class="tr-age-edge-badge ${edgeCls}">${esc(badgeLabel)}</span>
         </div>
-        <div class="tr-age-plan-hero">
-          <strong>${headlineHtml}</strong>
-          <span class="tr-comp-tag${isUuHit ? ' is-uu' : ''}">${esc(compKind)}</span>
+        <div class="tr-unit-showcase">${showcaseHtml}</div>
+        <div class="tr-age-meta-row">
+          <span class="tr-comp-tag${isProDirect ? ' is-uu' : ''}">${tcIconHtml}${esc(tagText)}</span>
         </div>
-        <p>${esc(g.advice)}</p>
+        <p class="tr-age-micro">${esc(g.advice)}</p>
+        ${rivalStripHtml}
       </article>`;
       }).join('');
 
@@ -1272,8 +1315,12 @@
         const wRiv = row.impRival > 0 ? Math.max(5, Math.min(144, Math.round((row.impRival / 100) * 140))) : 0;
         const ownLead = row.impOwn > row.impRival;
         const rivLead = row.impRival > row.impOwn;
+        const rowIcon = getClashIcon(row.label, mySlugNorm);
         return `<div class="tr-clash-row">
-          <span class="tr-clash-label" title="${esc(row.label)}">${esc(row.label)}</span>
+          <span class="tr-clash-label" title="${esc(row.label)}">
+            <img class="tr-clash-ico" src="${rowIcon}" alt="" draggable="false" />
+            <span>${esc(row.label)}</span>
+          </span>
           <svg viewBox="0 0 300 14" width="100%" height="14" preserveAspectRatio="none" aria-hidden="true">
             <rect x="0" y="2" width="144" height="10" rx="5" fill="rgba(255,255,255,0.06)"></rect>
             ${wOwn > 0 ? `<rect x="${144 - wOwn}" y="2" width="${wOwn}" height="10" rx="5" fill="${ownLead ? '#78d8a6' : 'rgba(120,216,166,0.58)'}"></rect>` : ''}
@@ -1285,36 +1332,97 @@
         </div>`;
       }).join('');
 
-      const myTrapsSlice = (lab.myTraps || []).slice(0, 2);
-      const rivalHolesSlice = (lab.rivalHoles || []).slice(0, Math.max(2, 4 - myTrapsSlice.length));
+      const empTraps = Array.isArray(lab.empiricalTraps) ? lab.empiricalTraps : [];
+      const rivalHolesSlice = (lab.rivalHoles || []).slice(0, Math.max(1, 4 - empTraps.length));
       const trapsHtml = [
-        ...myTrapsSlice.map((t) => `<div class="tr-trap-row is-risk">
-          <div class="tr-trap-head"><span class="tr-trap-kicker is-risk">TU RIESGO</span><strong>${esc(t.title)}</strong></div>
-          <small>${esc(t.detail)}</small>
-        </div>`),
-        ...rivalHolesSlice.map((h) => `<div class="tr-trap-row is-exploit">
-          <div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">BRECHA RIVAL</span><strong>${esc(rivalCiv.name)} sin ${esc(h.es)}</strong></div>
-          <small>${esc(h.desc)}</small>
-        </div>`),
-      ].slice(0, 4).join('') || '<div class="tr-trap-row is-exploit"><div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">EQUILIBRIO</span><strong>Árboles parejos</strong></div><small>Se define por tempo, economía limpia y control de reliquias.</small></div>';
+        ...empTraps.map((t) => {
+          const isExp = t.kind === 'exploit';
+          const trapIco = getUnitIcon(t.unitLabel || t.title, isExp ? rivSlugNorm : mySlugNorm);
+          return `<div class="tr-trap-row ${isExp ? 'is-exploit' : 'is-risk'}">
+            <span class="tr-trap-medallion ${isExp ? 'is-exploit' : 'is-risk'}"><img src="${trapIco}" alt="" draggable="false" /></span>
+            <div class="tr-trap-copy">
+              <div class="tr-trap-head"><span class="tr-trap-kicker ${isExp ? 'is-exploit' : 'is-risk'}">${esc(t.kicker)}</span><strong>${esc(t.title)}</strong></div>
+              <small>${esc(t.detail)}</small>
+            </div>
+          </div>`;
+        }),
+        ...rivalHolesSlice.map((h) => {
+          const holeIco = getTechIcon(h.es);
+          const shortDesc = String(h.desc || '').split('.')[0].trim();
+          return `<div class="tr-trap-row is-exploit">
+            <span class="tr-trap-medallion is-hole"><img src="${holeIco}" alt="" draggable="false" /><i class="tr-hole-x" aria-hidden="true">✕</i></span>
+            <div class="tr-trap-copy">
+              <div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">SIN MEJORA</span><strong>${esc(rivalCiv.name)} sin ${esc(h.es)}</strong></div>
+              <small>${esc(shortDesc ? `${shortDesc}.` : h.desc)}</small>
+            </div>
+          </div>`;
+        }),
+      ].slice(0, 4).join('') || `<div class="tr-trap-row is-exploit">
+          <span class="tr-trap-medallion is-exploit"><img src="${getCivUuIcon(mySlugNorm)}" alt="" draggable="false" /></span>
+          <div class="tr-trap-copy">
+            <div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">ESTABLE</span><strong>Sin líneas trampa críticas</strong></div>
+            <small>Ambos árboles sostienen sus transiciones naturales.</small>
+          </div>
+        </div>`;
 
-      const n0 = svg.nodes[0] || { cx: 110, cy: 85 };
-      const n1 = svg.nodes[1] || { cx: 330, cy: 85 };
-      const n2 = svg.nodes[2] || { cx: 550, cy: 85 };
-      const n3 = svg.nodes[3] || { cx: 770, cy: 85 };
-      const dotFill = (cy) => (cy < 80 ? '#78d8a6' : (cy > 90 ? '#ef8a81' : '#f2d799'));
-      const agesScores = lab.ageEdgeScores || { 1: 0, 2: 0, 3: 0, 4: 0 };
-      const fmtDelta = (v) => (v > 0 ? `+${v}` : `${v}`);
-      const labelY = (cy) => (cy <= 85 ? Math.max(26, cy - 16) : Math.min(144, cy + 23));
+      const proExamples = Array.isArray(lab.proExamples) ? lab.proExamples : [];
+      const proExamplesHtml = proExamples.length
+        ? `<section class="tr-pro-refs-card">
+            <div class="tr-pro-refs-head">
+              <div>
+                <span class="eyebrow">PARTIDAS REALES DE REFERENCIA</span>
+                <h4>Ejecución Pro verificada (${esc(lab.mapTypeLabel || 'Mapas Abiertos')})</h4>
+              </div>
+              <span class="tr-sample-pill ${esc(sample.badgeTone || 'is-pro')}">${esc(sample.badgeShort || '')}</span>
+            </div>
+            <div class="tr-pro-refs-grid">
+              ${proExamples.map((ex) => {
+                const resTone = ex.myWon ? 'is-win' : 'is-loss';
+                const resTxt = ex.myWon ? `✓ ${myCiv.name}` : `✕ ${rivalCiv.name}`;
+                const routeTokens = iconRegistry
+                  ? iconRegistry.tokenizePlanLine(ex.myRoute, mySlugNorm).slice(0, 2)
+                  : [{ short: ex.myRoute, icon: 'assets/icons/ages/feudal.png', sepBefore: null }];
+                const routeChips = routeTokens.map((rt) =>
+                  `${rt.sepBefore ? `<i class="tr-ref-arrow">${esc(rt.sepBefore)}</i>` : ''}<span class="tr-ref-unit-chip"><img src="${resolveAsset(rt.icon, 'assets/icons/ages/feudal.png')}" alt="" draggable="false" /><b>${esc(rt.short || rt.raw)}</b></span>`
+                ).join('');
+                return `<div class="tr-pro-ref-item ${resTone}">
+                  <div class="tr-pro-ref-top">
+                    <span class="tr-pro-ref-res ${resTone}">${esc(resTxt)}</span>
+                    <span class="tr-pro-ref-meta mono">${ex.maxElo ? `${ex.maxElo} ELO · ` : ''}${esc(ex.mapName)} · ${ex.durMin}m</span>
+                  </div>
+                  <strong class="tr-pro-ref-players">${esc(ex.myPlayer)} <em>vs</em> ${esc(ex.rivPlayer)}</strong>
+                  <div class="tr-pro-ref-route-row">${routeChips}</div>
+                </div>`;
+              }).join('')}
+            </div>
+          </section>`
+        : '';
 
-      // Smooth cubic Bézier spline through exact antisymmetric anchor nodes (preserves cy(A,B)+cy(B,A)===170!)
+      const clkWins = Array.isArray(lab.clockWindows) && lab.clockWindows.length === 3
+        ? lab.clockWindows
+        : [
+            { cx: 235, shortLabel: '< 26 min', displayPct: '—', displaySub: '0 pj', games: 0 },
+            { cx: 490, shortLabel: '26–38 min', displayPct: '—', displaySub: '0 pj', games: 0 },
+            { cx: 745, shortLabel: '+38 min', displayPct: '—', displaySub: '0 pj', games: 0 },
+          ];
+
+      const svgData = lab.svg || {};
+      const rawNodes = Array.isArray(svgData.nodes) && svgData.nodes.length === 3
+        ? svgData.nodes
+        : [{ cx: 235, cy: 85 }, { cx: 490, cy: 85 }, { cx: 745, cy: 85 }];
+      const yStart = Number.isFinite(svgData.yStart) ? svgData.yStart : 85;
+      const c0 = rawNodes[0];
+      const c1 = rawNodes[1];
+      const c2 = rawNodes[2];
+      const dotFill = (cy) => (cy < 81 ? '#78d8a6' : (cy > 89 ? '#ef8a81' : '#f2d799'));
+      const labelY = (cy) => (cy <= 85 ? Math.max(22, cy - 14) : Math.min(142, cy + 21));
+
       const pts = [
-        { x: 0, y: 85 },
-        { x: n0.cx, y: n0.cy },
-        { x: n1.cx, y: n1.cy },
-        { x: n2.cx, y: n2.cy },
-        { x: n3.cx, y: n3.cy },
-        { x: 880, y: n3.cy },
+        { x: 0, y: yStart },
+        { x: c0.cx, y: c0.cy },
+        { x: c1.cx, y: c1.cy },
+        { x: c2.cx, y: c2.cy },
+        { x: 880, y: c2.cy },
       ];
       let smoothCurve = `M${pts[0].x},${pts[0].y}`;
       for (let i = 0; i < pts.length - 1; i += 1) {
@@ -1327,14 +1435,27 @@
 
       const shortUt = (raw) => String(raw || '').split('(')[0].trim();
       const myUuLine = myCiv.uniqueUnit
-        ? `<span class="tr-war-uu" title="${esc(myCiv.keyUniqueTech || '')}"><i>★</i> ${esc(myCiv.uniqueUnit)}${shortUt(myCiv.keyUniqueTech) ? ` <em>· ${esc(shortUt(myCiv.keyUniqueTech))}</em>` : ''}</span>`
+        ? `<span class="tr-war-uu" title="${esc(myCiv.keyUniqueTech || '')}"><img class="tr-war-uu-ico" src="${getCivUuIcon(mySlugNorm)}" alt="" draggable="false" /><span>${esc(myCiv.uniqueUnit)}${shortUt(myCiv.keyUniqueTech) ? ` <em>· ${esc(shortUt(myCiv.keyUniqueTech))}</em>` : ''}</span></span>`
         : '';
       const rivalUuLine = rivalCiv.uniqueUnit
-        ? `<span class="tr-war-uu" title="${esc(rivalCiv.keyUniqueTech || '')}"><i>★</i> ${esc(rivalCiv.uniqueUnit)}${shortUt(rivalCiv.keyUniqueTech) ? ` <em>· ${esc(shortUt(rivalCiv.keyUniqueTech))}</em>` : ''}</span>`
+        ? `<span class="tr-war-uu is-rival" title="${esc(rivalCiv.keyUniqueTech || '')}"><span>${esc(rivalCiv.uniqueUnit)}${shortUt(rivalCiv.keyUniqueTech) ? ` <em>· ${esc(shortUt(rivalCiv.keyUniqueTech))}</em>` : ''}</span><img class="tr-war-uu-ico" src="${getCivUuIcon(rivSlugNorm)}" alt="" draggable="false" /></span>`
         : '';
 
+      const overallChipTone = lab.overallWinPct == null ? '' : (lab.overallWinPct >= 53 ? ' is-good' : lab.overallWinPct <= 47 ? ' is-warn' : '');
+      const overallRecordChip = lab.hasEmpiricalData && lab.overallWinPct != null
+        ? `<span class="tr-vs-record mono${overallChipTone}">${lab.overallWinPct}% · ${lab.myWins}V–${lab.rivalWins}D</span>`
+        : '<span class="tr-vs-record mono">Sin pj en mapa</span>';
+
       return `<div class="tr-view${activeSubtab === 'matchups' ? ' is-active' : ''}" data-tr-view="matchups">
-        <section class="tr-matchup-lab">
+        <section class="tr-matchup-lab" data-active-map="${esc(activeMapSlug)}">
+          <div class="tr-matchup-topbar">
+            <div class="tr-map-mode-switch" role="group" aria-label="Tipo de mapa">
+              <button type="button" class="tr-map-mode-btn${activeMapType === 'open' ? ' is-active' : ''}" data-tr-matchup-map="arabia">Abiertos · Arabia</button>
+              <button type="button" class="tr-map-mode-btn${activeMapType === 'closed' ? ' is-active' : ''}" data-tr-matchup-map="arena">Cerrados · Arena</button>
+            </div>
+            <span class="tr-sample-pill ${esc(sample.badgeTone || 'is-muted')}">${esc(sample.badgeFull || '')}</span>
+          </div>
+
           ${nemesisHtml ? `<div class="tr-nemesis-strip"><span class="eyebrow">TUS CRUCES RECIENTES</span>${nemesisHtml}</div>` : ''}
 
           <div class="tr-war-table-head">
@@ -1353,6 +1474,7 @@
 
             <div class="tr-war-vs">
               <div class="tr-vs-diamond-lg"><span>VS</span></div>
+              ${overallRecordChip}
               <button type="button" class="tr-swap-civs-btn" id="trSwapMatchupBtn" title="Invertir civilizaciones">⇄ Invertir</button>
             </div>
 
@@ -1373,16 +1495,17 @@
             <img class="tr-panel-art-bg is-subtle" src="assets/art/durante.webp" alt="" aria-hidden="true" draggable="false" />
             <div class="tr-ps-header">
               <div class="tr-ps-title-wrap">
-                <span class="tr-ps-eyebrow">CURVA DE PODER POR EDAD</span>
-                <h3>${esc(lab.verdictTitle || 'Ventanas de poder por edad')}</h3>
+                <span class="tr-ps-eyebrow">CURVA REAL DE RELOJ · QUIÉN TIENE EL TEMPO (${esc(lab.mapTypeLabel || 'Mapas Abiertos')})</span>
+                <h3>${esc(lab.verdictTitle || 'Ventanas reales de victoria por duración')}</h3>
+                ${lab.clockDirective ? `<p class="tr-ps-directive">${esc(lab.clockDirective)}</p>` : ''}
               </div>
               <div class="tr-ps-badges">
-                <span class="tr-ps-badge is-gold">${esc(lab.peakWindowLabel || 'Tu pico')}</span>
-                <span class="tr-ps-badge is-crimson">${esc(lab.dangerWindowLabel || 'Pico rival')}</span>
+                <span class="tr-ps-badge is-gold">${esc(lab.peakWindowLabel || 'Mejor tramo')}</span>
+                <span class="tr-ps-badge is-crimson">${esc(lab.dangerWindowLabel || 'Riesgo')}</span>
               </div>
             </div>
 
-            <svg class="tr-powerspike-svg" viewBox="0 0 880 190" preserveAspectRatio="none" aria-label="Curva de ventaja por edad">
+            <svg class="tr-powerspike-svg" viewBox="0 0 880 194" preserveAspectRatio="none" aria-label="Curva real de victoria según duración de partida">
               <defs>
                 <linearGradient id="trSpikeAbove" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stop-color="#78d8a6" stop-opacity="0.48"></stop>
@@ -1393,44 +1516,44 @@
                   <stop offset="100%" stop-color="#ef8a81" stop-opacity="0.48"></stop>
                 </linearGradient>
                 <clipPath id="trClipAbove"><rect x="0" y="0" width="880" height="85"></rect></clipPath>
-                <clipPath id="trClipBelow"><rect x="0" y="85" width="880" height="105"></rect></clipPath>
+                <clipPath id="trClipBelow"><rect x="0" y="85" width="880" height="109"></rect></clipPath>
               </defs>
               <line x1="0" y1="36" x2="880" y2="36" stroke="rgba(120, 216, 166, 0.09)" stroke-dasharray="3 5"></line>
               <line x1="0" y1="134" x2="880" y2="134" stroke="rgba(239, 138, 129, 0.09)" stroke-dasharray="3 5"></line>
-              <line x1="220" y1="16" x2="220" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
-              <line x1="440" y1="16" x2="440" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
-              <line x1="660" y1="16" x2="660" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
+              <line x1="362" y1="16" x2="362" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
+              <line x1="618" y1="16" x2="618" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
               <line x1="0" y1="85" x2="880" y2="85" stroke="rgba(242, 215, 153, 0.42)" stroke-width="1.4"></line>
-              <text x="14" y="24" fill="#8ee8ba" font-size="10.5" font-weight="800" letter-spacing="0.06em">▲ ${esc(myCiv.name.toUpperCase())}</text>
-              <text x="14" y="148" fill="#f4a49d" font-size="10.5" font-weight="800" letter-spacing="0.06em">▼ ${esc(rivalCiv.name.toUpperCase())}</text>
+              <text x="12" y="21" fill="#8ee8ba" font-size="10" font-weight="800" letter-spacing="0.05em">▲ ${esc(myCiv.name.toUpperCase())}</text>
+              <text x="12" y="149" fill="#f4a49d" font-size="10" font-weight="800" letter-spacing="0.05em">▼ ${esc(rivalCiv.name.toUpperCase())}</text>
               <path d="${esc(smoothArea)}" fill="url(#trSpikeAbove)" clip-path="url(#trClipAbove)"></path>
               <path d="${esc(smoothArea)}" fill="url(#trSpikeBelow)" clip-path="url(#trClipBelow)"></path>
               <path class="tr-spike-stroke" d="${esc(smoothCurve)}" fill="none" stroke="#f7e3b0" stroke-width="3.2" stroke-linecap="round"></path>
-              <circle cx="${n0.cx}" cy="${n0.cy}" r="12" fill="${dotFill(n0.cy)}" fill-opacity="0.16"></circle>
-              <circle cx="${n1.cx}" cy="${n1.cy}" r="13" fill="${dotFill(n1.cy)}" fill-opacity="0.18"></circle>
-              <circle cx="${n2.cx}" cy="${n2.cy}" r="13" fill="${dotFill(n2.cy)}" fill-opacity="0.18"></circle>
-              <circle cx="${n3.cx}" cy="${n3.cy}" r="13" fill="${dotFill(n3.cy)}" fill-opacity="0.18"></circle>
-              <circle cx="${n0.cx}" cy="${n0.cy}" r="6" fill="${dotFill(n0.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
-              <circle cx="${n1.cx}" cy="${n1.cy}" r="7" fill="${dotFill(n1.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
-              <circle cx="${n2.cx}" cy="${n2.cy}" r="7" fill="${dotFill(n2.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
-              <circle cx="${n3.cx}" cy="${n3.cy}" r="7" fill="${dotFill(n3.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
-              <text x="${n0.cx}" y="${labelY(n0.cy)}" fill="${dotFill(n0.cy)}" font-size="11" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[1] || 0))}</text>
-              <text x="${n1.cx}" y="${labelY(n1.cy)}" fill="${dotFill(n1.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[2] || 0))}</text>
-              <text x="${n2.cx}" y="${labelY(n2.cy)}" fill="${dotFill(n2.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[3] || 0))}</text>
-              <text x="${n3.cx}" y="${labelY(n3.cy)}" fill="${dotFill(n3.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(fmtDelta(agesScores[4] || 0))}</text>
-              <text x="110" y="176" fill="#9fb0c2" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">I · ALTA EDAD</text>
-              <text x="330" y="176" fill="#f6e1ae" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">II · FEUDAL</text>
-              <text x="550" y="176" fill="#f6e1ae" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">III · CASTILLOS</text>
-              <text x="770" y="176" fill="#d7e1ec" font-size="11" font-weight="750" text-anchor="middle" letter-spacing="0.05em">IV · IMPERIAL</text>
+              <circle cx="${c0.cx}" cy="${c0.cy}" r="13" fill="${dotFill(c0.cy)}" fill-opacity="0.18"></circle>
+              <circle cx="${c1.cx}" cy="${c1.cy}" r="13" fill="${dotFill(c1.cy)}" fill-opacity="0.18"></circle>
+              <circle cx="${c2.cx}" cy="${c2.cy}" r="13" fill="${dotFill(c2.cy)}" fill-opacity="0.18"></circle>
+              <circle cx="${c0.cx}" cy="${c0.cy}" r="7" fill="${dotFill(c0.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
+              <circle cx="${c1.cx}" cy="${c1.cy}" r="7" fill="${dotFill(c1.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
+              <circle cx="${c2.cx}" cy="${c2.cy}" r="7" fill="${dotFill(c2.cy)}" stroke="#0b0f15" stroke-width="2.2"></circle>
+              <text x="${c0.cx}" y="${labelY(c0.cy)}" fill="${dotFill(c0.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(clkWins[0].displayPct)}</text>
+              <text x="${c1.cx}" y="${labelY(c1.cy)}" fill="${dotFill(c1.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(clkWins[1].displayPct)}</text>
+              <text x="${c2.cx}" y="${labelY(c2.cy)}" fill="${dotFill(c2.cy)}" font-size="11.5" font-weight="800" text-anchor="middle">${esc(clkWins[2].displayPct)}</text>
+              <text x="235" y="170" fill="#f6e1ae" font-size="10.8" font-weight="760" text-anchor="middle" letter-spacing="0.04em">TEMPRANO (&lt; 26 MIN)</text>
+              <text x="235" y="185" fill="#8f9ead" font-size="10" font-weight="650" text-anchor="middle">${esc(clkWins[0].displaySub)}</text>
+              <text x="490" y="170" fill="#f6e1ae" font-size="10.8" font-weight="760" text-anchor="middle" letter-spacing="0.04em">CASTILLOS (26–38 MIN)</text>
+              <text x="490" y="185" fill="#8f9ead" font-size="10" font-weight="650" text-anchor="middle">${esc(clkWins[1].displaySub)}</text>
+              <text x="745" y="170" fill="#d7e1ec" font-size="10.8" font-weight="760" text-anchor="middle" letter-spacing="0.04em">JUEGO LARGO (+38 MIN)</text>
+              <text x="745" y="185" fill="#8f9ead" font-size="10" font-weight="650" text-anchor="middle">${esc(clkWins[2].displaySub)}</text>
             </svg>
           </div>
 
           <div class="tr-age-gameplan-grid">${gameplanHtml}</div>
 
+          ${proExamplesHtml}
+
           <div class="tr-lab-bottom-split">
             <div class="tr-clash-card">
               <div class="tr-clash-head">
-                <span class="eyebrow">CHOQUE IMPERIAL</span>
+                <span class="eyebrow">CHOQUE IMPERIAL · TECHO DE ÁRBOL</span>
                 <div class="tr-clash-legend">
                   <span class="is-ally"><img src="${resolveCivCrest(mySlugNorm)}" alt="" draggable="false" />${esc(myCiv.name)}</span>
                   <em>vs</em>
@@ -1441,8 +1564,8 @@
             </div>
             <div class="tr-traps-card">
               <div class="tr-traps-head">
-                <span class="eyebrow">TRAMPAS Y VULNERABILIDADES</span>
-                <small>Árbol tecnológico verificado</small>
+                <span class="eyebrow">TRAMPAS REALES Y BRECHAS</span>
+                <small>Partidas reales + árbol verificado</small>
               </div>
               <div class="tr-traps-list">${trapsHtml}</div>
             </div>
@@ -2402,31 +2525,12 @@
             </aside>
           </section>
 
-          <!-- ZONE 3: EJECUCIÓN POR EDADES (3 FASES CRONOLÓGICAS + BRECHA EN DERROTAS) -->
-          ${ageStagesHtml ? `<section class="tr-perf-timeline-panel">
-            <div class="tr-perf-panel-head">
-              <div>
-                <span class="eyebrow">EJECUCIÓN POR EDADES</span>
-                <h3>Rendimiento etapa por etapa frente a tu promedio</h3>
-              </div>
-              <span class="tr-age-panel-cue">Clic en una etapa para abrir su curva abajo</span>
-            </div>
-            ${ageStagesHtml}
-            ${wlDrop ? `<div class="tr-perf-wl-bar">
-              <span class="tr-wl-tag">BRECHA EN DERROTAS (${hi.winLossComparison.winsCount}V–${hi.winLossComparison.lossesCount}D)</span>
-              <strong>${esc(wlDrop.headline)}</strong>
-            </div>` : ''}
-          </section>` : ''}
-
-          <!-- SANTUARIO SEMANAL: DATOS MEJORADOS ESTA SEMANA + GRÁFICO DIARIO REAL -->
-          ${renderWeeklySanctuaryHtml(hi.weeklyProgress, activeTrendMetric?.key, isSamplePreview)}
-
-          <!-- ZONE 4: ESTUDIO MAESTRO-DETALLE (LIBRO DE 6 FUNDAMENTOS | CURVA PARTIDA A PARTIDA) -->
+          <!-- ZONE 3: CURVA DE EVOLUCIÓN PARTIDA A PARTIDA Y SELECTOR DE FUNDAMENTOS (ARRIBA DEL TODO, SIN SCROLLEAR) -->
           <section class="tr-perf-studio">
             <div class="tr-perf-ledger">
               <div class="tr-perf-ledger-head">
                 <span class="eyebrow">FUNDAMENTOS MEDIDOS</span>
-                <small>Izq. peor · Der. mejor que tu media</small>
+                <small>Clic para cambiar curva · Der. mejor que tu media</small>
               </div>
               <div class="tr-perf-ledger-list">${ledgerRowsHtml}</div>
             </div>
@@ -2474,6 +2578,25 @@
               </div>
             </div>
           </section>
+
+          <!-- ZONE 4: EJECUCIÓN POR EDADES (3 FASES CRONOLÓGICAS + BRECHA EN DERROTAS) -->
+          ${ageStagesHtml ? `<section class="tr-perf-timeline-panel">
+            <div class="tr-perf-panel-head">
+              <div>
+                <span class="eyebrow">EJECUCIÓN POR EDADES</span>
+                <h3>Rendimiento etapa por etapa frente a tu promedio</h3>
+              </div>
+              <span class="tr-age-panel-cue">Clic en una etapa para enfocar su curva arriba</span>
+            </div>
+            ${ageStagesHtml}
+            ${wlDrop ? `<div class="tr-perf-wl-bar">
+              <span class="tr-wl-tag">BRECHA EN DERROTAS (${hi.winLossComparison.winsCount}V–${hi.winLossComparison.lossesCount}D)</span>
+              <strong>${esc(wlDrop.headline)}</strong>
+            </div>` : ''}
+          </section>` : ''}
+
+          <!-- ZONE 5: SANTUARIO SEMANAL (DATOS MEJORADOS ESTA SEMANA + GRÁFICO DIARIO REAL) -->
+          ${renderWeeklySanctuaryHtml(hi.weeklyProgress, activeTrendMetric?.key, isSamplePreview)}
         </div>
       </div>`;
     }
@@ -2740,8 +2863,15 @@
       container.querySelectorAll('[data-tr-trend-key]').forEach((btn) => {
         btn.addEventListener('click', (ev) => {
           if (ev.target?.closest?.('[data-train-pin]')) return;
+          const fromOutsideStudio = !btn.closest('.tr-perf-studio');
           selectedTrendMetricKey = btn.dataset.trTrendKey;
           render();
+          if (fromOutsideStudio) {
+            const studioEl = container.querySelector('.tr-perf-studio');
+            if (studioEl && typeof studioEl.scrollIntoView === 'function') {
+              studioEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }
         });
       });
 
@@ -2999,9 +3129,11 @@
       // Matchups events
       const labMySel = container.querySelector('#trLabMyCiv');
       const labRivSel = container.querySelector('#trLabRivalCiv');
-      const updateLabMatchup = async (mySlug, rivalSlug) => {
+      const currentLabMap = () => container.querySelector('.tr-matchup-lab')?.dataset?.activeMap || state?.matchupWarRoom?.mapSlug || 'arabia';
+      const updateLabMatchup = async (mySlug, rivalSlug, mapSlug = null) => {
         if (typeof root.settings?.trainingHighEloConfig !== 'function') return;
-        const res = await root.settings.trainingHighEloConfig({ myCivSlug: mySlug, rivalCivSlug: rivalSlug });
+        const nextMap = mapSlug || currentLabMap();
+        const res = await root.settings.trainingHighEloConfig({ myCivSlug: mySlug, rivalCivSlug: rivalSlug, mapSlug: nextMap });
         if (res?.ok && res.matchupWarRoom) {
           state.matchupWarRoom = res.matchupWarRoom;
           render();
@@ -3013,6 +3145,12 @@
       }
       container.querySelector('#trSwapMatchupBtn')?.addEventListener('click', () => {
         if (labMySel && labRivSel) updateLabMatchup(labRivSel.value, labMySel.value);
+      });
+      container.querySelectorAll('[data-tr-matchup-map]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const mSlug = btn.dataset.trMatchupMap;
+          if (labMySel && labRivSel) updateLabMatchup(labMySel.value, labRivSel.value, mSlug);
+        });
       });
       container.querySelectorAll('[data-tr-matchup-my]').forEach((pill) => {
         pill.addEventListener('click', () => updateLabMatchup(pill.dataset.trMatchupMy, pill.dataset.trMatchupRival));

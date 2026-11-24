@@ -1751,6 +1751,12 @@ function demoScoutTips(state) {
           openingsSample: index === 0 ? 9 : 0, games: mode.size === '1v1' ? 6 : 0, losses: 3,
           against: [{ name: 'Arqueros', losses: 3, games: 4 }],
         },
+        proCounterOpening: mode.size !== 'team' ? require('./src/training/pro-matchup-engine').lookupPrematchProIntel({
+          myCivSlug: civSlug(state.players.find((player) => player.isYou)?.civ),
+          rivalCivSlug: civSlug(rival.civ),
+          rivalHabitualOpening: index === 0 ? 'Archer rush' : p.style.top.name,
+          mapName,
+        }).counterOpening : null,
         recommendError: null,
         fetchedAt: Date.now(),
         fromCache: false,
@@ -4737,22 +4743,42 @@ function registerIpc() {
           const returnedState = parsed.searchParams.get('state');
           const directToken = parsed.searchParams.get('token');
           const errParam = parsed.searchParams.get('error');
+          const redirectBrowser = (ok, extra = {}) => {
+            const cleanBase = licenseClient.validateApiUrl(apiUrl);
+            if (cleanBase) {
+              const target = new URL(`${cleanBase}/v1/auth/connected`);
+              target.searchParams.set('ok', ok ? '1' : '0');
+              if (extra.email) target.searchParams.set('email', String(extra.email).slice(0, 120));
+              if (extra.error) target.searchParams.set('error', String(extra.error).slice(0, 180));
+              res.writeHead(302, { location: target.toString(), 'cache-control': 'no-store' });
+              res.end();
+              return;
+            }
+            res.writeHead(ok ? 200 : 400, { 'content-type': 'text/html; charset=utf-8' });
+            res.end(ok
+              ? '<h2>¡Sesión conectada!</h2><p>Ya podés cerrar esta pestaña y volver a Relic.</p>'
+              : `<h2>${extra.error || 'No se pudo iniciar sesión'}</h2><p>Podés cerrar esta pestaña y volver a Relic.</p>`);
+          };
           if (errParam) {
-            res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
-            res.end('<h2>Inicio de sesión cancelado</h2><p>Podés cerrar esta pestaña y volver a Relic.</p>');
-            done({ ok: false, error: 'Inicio de sesión cancelado.' });
+            const friendlyErr = errParam === 'access_denied'
+              ? 'Google bloqueó o canceló el acceso a esta cuenta.'
+              : 'Inicio de sesión cancelado.';
+            redirectBrowser(false, { error: friendlyErr });
+            done({ ok: false, error: friendlyErr });
             return;
           }
           let sessionToken = directToken;
+          let sessionEmail = '';
           let deviceLimit = parsed.searchParams.get('deviceLimit') === '1';
           if (!sessionToken && code) {
             if (returnedState !== expectedState) {
-              res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
-              res.end('<h2>Estado inválido</h2><p>Volvé a intentarlo desde Relic.</p>');
+              redirectBrowser(false, { error: 'Estado OAuth inválido. Volvé a intentarlo desde Relic.' });
               done({ ok: false, error: 'Estado OAuth inválido.' });
               return;
             }
             const { port } = server.address();
+            const allLocalPlatformIdHashes = verifiedLocalDetection?.localProof?.allLocalPlatformIdHashes
+              || collectLocalPlatformIdHashes();
             const exchanged = await licenseClient.exchangeGoogleCode({
               apiUrl,
               code,
@@ -4760,25 +4786,24 @@ function registerIpc() {
               profileId: profileId || null,
               alias: playerAlias || '',
               appVersion: app.getVersion(),
+              allLocalPlatformIdHashes,
             });
             if (!exchanged.ok || !exchanged.sessionToken) {
-              res.writeHead(502, { 'content-type': 'text/html; charset=utf-8' });
-              res.end('<h2>No se pudo completar el acceso</h2><p>Volvé a intentarlo desde Relic.</p>');
+              redirectBrowser(false, { error: exchanged.error || 'No se pudo validar con Google.' });
               done({ ok: false, error: exchanged.error || 'No se pudo validar con Google.' });
               return;
             }
             sessionToken = exchanged.sessionToken;
+            sessionEmail = exchanged.email || '';
             deviceLimit = Boolean(exchanged.deviceLimit);
           }
           if (!sessionToken) {
-            res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
-            res.end('<h2>Error al iniciar sesión</h2><p>Volvé a intentarlo desde Relic.</p>');
+            redirectBrowser(false, { error: 'Google no devolvió sesión válida.' });
             done({ ok: false, error: 'Google no devolvió sesión válida.' });
             return;
           }
           saveSessionToken(sessionToken);
-          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-          res.end('<!doctype html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0d1016;color:#e9e4d9;font-family:system-ui,sans-serif;"><div style="text-align:center;padding:28px;border:1px solid rgba(209,176,108,.4);border-radius:12px;background:#141821;"><div style="color:#d1b06c;font-size:11px;font-weight:700;letter-spacing:.12em;">RELIC</div><h2 style="margin:8px 0;">¡Listo! Sesión conectada</h2><p style="color:#9da5b4;font-size:13px;">Ya podés cerrar esta pestaña y volver a Relic.</p></div></body></html>');
+          redirectBrowser(true, { email: sessionEmail });
           log('sesión de Google iniciada y guardada con DPAPI');
           const [auth] = await Promise.all([
             fetchCurrentAuthState(),
@@ -5378,12 +5403,31 @@ async function publishPostMatch(match, options = {}) {
   return postMatchReport;
 }
 
+function attachProMatchupBrief(state) {
+  if (!state || state.status !== 'ongoing' || !Array.isArray(state.players) || state.players.length !== 2) return state;
+  const you = state.players.find((p) => p && p.isYou);
+  const rival = state.players.find((p) => p && !p.isYou);
+  const mySlug = you ? civSlug(you.civ) : null;
+  const rivSlug = rival ? civSlug(rival.civ) : null;
+  if (!mySlug || !rivSlug || mySlug === rivSlug) return state;
+  try {
+    const { civMatchupBrief } = require('./src/training/pro-matchup-engine').lookupPrematchProIntel({
+      myCivSlug: mySlug,
+      rivalCivSlug: rivSlug,
+      mapName: state.match?.mapName || 'Arabia',
+    });
+    return civMatchupBrief ? { ...state, proMatchupBrief: civMatchupBrief } : state;
+  } catch {
+    return state;
+  }
+}
+
 function emit(state) {
   // Mientras el ejemplo está abierto, el panel le pertenece a esa partida de
   // prueba: ni el polling ni los sockets pueden reemplazarla por la partida
   // real del usuario. Solo pasan los estados marcados con `example`.
   if (exampleActive && !(state && state.example)) return false;
-  state = hideLobbyCivs(state);
+  state = attachProMatchupBrief(hideLobbyCivs(state));
   const signature = signatureOf(state);
   if (signature === lastSent) return false;
   lastSent = signature;

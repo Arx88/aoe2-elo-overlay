@@ -303,8 +303,12 @@
     const weaknessLine = weakOp
       ? `<p class="intel-weakness"><span>${esc(tr('prematch.observedWeakness', 'Vulnerabilidad observada'))}</span><b>${esc(openingDisplay(weakOp))}</b> · ${number(weakOp.losses)}/${number(weakOp.games)} ${esc(tr('prematch.losses', 'derrotas'))}${weakOp.excessLossPct != null ? ` (+${number(weakOp.excessLossPct)}% ELO)` : ''}</p>`
       : '';
+    const proCnt = tip.proCounterOpening;
+    const proCounterLine = proCnt && proCnt.responseLabel
+      ? `<p class="intel-weakness is-pro-counter"><span>${esc(tr('prematch.proCounterTitle', proCnt.isCivSpecific ? 'Respuesta Pro con tu civ' : 'Respuesta Pro contra su apertura'))}</span><b>${esc(proCnt.responseLabel)}</b> · ${number(proCnt.winRatePct)}% victoria (${number(proCnt.games)} pj)</p>`
+      : '';
     return section(title, read + `<p class="intel-signal-scope">${esc(scope)}</p>` +
-      split + weaknessLine +
+      split + weaknessLine + proCounterLine +
       (caveat ? `<p class="intel-muted">${esc(caveat)}</p>` : '') +
       (question ? `<p class="intel-check">${icon('target')}${esc(question)}</p>` : '') + alternatives, 'scout', 'tactical-block' + openingArtClass(opening.name || opening.short), 'smartTips');
   }

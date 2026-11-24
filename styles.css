@@ -674,6 +674,44 @@ body.elo-hidden #stage {
   padding: 0.5rem 0.2rem;
 }
 
+.civhelp-pro-strip {
+  margin-top: 0.5rem;
+  padding: 0.36rem 0.55rem;
+  border-radius: 7px;
+  background: rgba(214, 184, 117, 0.09);
+  border: 1px solid rgba(214, 184, 117, 0.28);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  line-height: 1.32;
+}
+.civhelp-pro-strip[hidden] {
+  display: none !important;
+}
+.civhelp-pro-tag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.36rem;
+  border-radius: 4px;
+  background: rgba(214, 184, 117, 0.2);
+  color: var(--accent);
+}
+.civhelp-pro-strip strong {
+  color: var(--text);
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+}
+.civhelp-pro-strip em {
+  font-style: normal;
+  font-weight: 650;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
 .civhelp-bar {
   height: 2px;
   margin-top: 0.55rem;

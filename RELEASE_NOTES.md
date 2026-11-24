@@ -1,3 +1,12 @@
+## v3.2.2 · Matchups Pro con iconos oficiales, Referidos renovado, Progreso y Fix Login Gmail
+
+- **Inicio de sesión con Google reparado y más limpio:** optimización crítica en el servidor de cuentas (reducción de consultas DDL en frío de ~11 s a ~310 ms para LatAm/Argentina y blindaje de restricciones en D1), ampliación del timeout de intercambio OAuth a `20 s` y redirección automática HTTPS a Relic al finalizar para no dejar `127.0.0.1` visible en el navegador.
+- **Entrenamiento → Matchups con datos reales Pro e iconos oficiales AoE2:DE:** reemplazo de fórmulas abstractas por el motor empírico compilado desde 29.220 partidas reales (`Top Pro / +2000 / +1900 ELO`) y 612 repeticiones oficiales separadas en **Abiertos · Arabia** y **Cerrados · Arena**, con curva real de reloj (`<26m`, `26–38m`, `+38m`), postura económica (`1 TC / 2 TC / 3 TC`), 239 iconos oficiales locales de unidades/tecnologías (`SiegeEngineers/aoe2techtree`), estética aireada estilo Central y `PLAN PRO` en Prematch.
+- **Entrenamiento → Progreso optimizado:** la **Evolución partida a partida** con selector rápido de los 6 fundamentos ahora aparece arriba junto al banner principal para leer tu tendencia sin hacer scroll.
+- **Modal de Referidos renovado:** nueva cabecera hero a sangre completa con el estandarte de Relic, progreso `X / 10` claro y texto reducido al mínimo para invitar amigos en 1 clic.
+
+---
+
 ## v3.2.1 · Fix de Prematch en vivo, Entrenamiento sin duplicados y Programa de Referidos
 
 - **Overlay de Prematch restaurado en tiempo real:** corrección crítica en el agente global de red (`undici`) que bloqueaba el handshake de los WebSockets de matchmaking y salas personalizadas con código `1006`, y mejora en el carril rápido (`FastLane`) para detectar partidas apareadas sin perder el estado global.

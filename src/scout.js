@@ -54,6 +54,7 @@ const {
 const { mapKey } = require('./rival');
 const { civSlug } = require('./civs');
 const { buildCivRecommendation, computeMyMapCivs } = require('./mine');
+const { lookupPrematchProIntel } = require('./training/pro-matchup-engine');
 
 const SOURCE = 'AoE2Insights · replays analizados';
 const ROW_LIMIT = 500;
@@ -596,6 +597,16 @@ function computeTips(matches, options = {}) {
     },
   };
   result.tacticalPlan = buildTacticalPlan(result);
+  const habitualOp = (result.matchup?.openings?.[0] || result.likelyOpenings?.[0])?.name || null;
+  if (habitualOp && (!mode || mode.size !== 'team')) {
+    const proIntel = lookupPrematchProIntel({
+      myCivSlug: result.matchup?.own || null,
+      rivalCivSlug: result.matchup?.rival || null,
+      rivalHabitualOpening: habitualOp,
+      mapName,
+    });
+    if (proIntel.counterOpening) result.proCounterOpening = proIntel.counterOpening;
+  }
   return result;
 }
 
@@ -739,6 +750,19 @@ async function buildScoutTips(options = {}) {
   const ownOutcome = minePromise ? await minePromise : null;
   const ownRows = ownOutcome && !ownOutcome.error && !ownOutcome.value?.error
     ? ownOutcome.value?.rows || [] : [];
+  if (!result.matchup?.own && ownRows.length && resolved.size !== 'team') {
+    const myMapCivsQuick = computeMyMapCivs(ownRows, mapName, { allowModeFallback: true, modeLabel: resolved.label });
+    const myComfortSlug = myMapCivsQuick[0] ? civSlug(myMapCivsQuick[0].civ) : null;
+    const habitualOp = (result.matchup?.openings?.[0] || result.likelyOpenings?.[0])?.name || null;
+    if (myComfortSlug && habitualOp) {
+      const proIntel = lookupPrematchProIntel({
+        myCivSlug: myComfortSlug,
+        rivalHabitualOpening: habitualOp,
+        mapName,
+      });
+      if (proIntel.counterOpening) result.proCounterOpening = proIntel.counterOpening;
+    }
+  }
   if (opportunityContext) {
     result.opportunityStages = buildAutomaticOpportunityPlans({ ...opportunityContext, mode: resolved,
       mapName, rows, ownRows, now });

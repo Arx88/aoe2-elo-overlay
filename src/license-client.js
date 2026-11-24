@@ -19,6 +19,7 @@ const { verifyEntitlement } = require('./product');
 
 const DEFAULT_API_URL = process.env.AOE2_LICENSE_API_URL || 'https://aoe2-helper-licensing.aoe2helper-api.workers.dev';
 const CHECK_TIMEOUT_MS = 7000;
+const OAUTH_EXCHANGE_TIMEOUT_MS = 20000;
 const MACHINE_SALT = 'aoe2-helper-machine-v1:';
 const HW_SALT = 'relic-hw-v1:';
 const OS_SALT = 'relic-os-v1:';
@@ -285,6 +286,7 @@ async function exchangeGoogleCode({
   profileId = null,
   alias = '',
   appVersion = '0.0.0',
+  allLocalPlatformIdHashes = [],
   fetchImpl = globalThis.fetch,
 } = {}) {
   const base = validateApiUrl(apiUrl);
@@ -294,7 +296,7 @@ async function exchangeGoogleCode({
   const rawPid = profileId != null ? Number(profileId) : null;
   const pid = Number.isSafeInteger(rawPid) && rawPid > 0 ? rawPid : null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), OAUTH_EXCHANGE_TIMEOUT_MS);
   try {
     const res = await fetchImpl(`${base}/v1/auth/google/exchange`, {
       method: 'POST',
@@ -306,6 +308,7 @@ async function exchangeGoogleCode({
         hwHash: dev.hwHash,
         osInstallHash: dev.osInstallHash,
         isVm: dev.isVm,
+        allLocalPlatformIdHashes: Array.isArray(allLocalPlatformIdHashes) ? allLocalPlatformIdHashes.slice(0, 20) : [],
         deviceName: dev.deviceName,
         osInfo: dev.osInfo,
         appVersion: String(appVersion || '0.0.0').slice(0, 32),
@@ -315,10 +318,15 @@ async function exchangeGoogleCode({
       signal: controller.signal,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
+    if (!res.ok || !data.ok) {
+      const msg = data.error === 'google-token-exchange-failed'
+        ? 'Google rechazó la validación temporal. Volvé a tocar «Continuar con Google».'
+        : (data.message || data.error || `Error del servidor (HTTP ${res.status})`);
+      return { ok: false, error: msg };
+    }
     return { ok: true, ...data };
   } catch (err) {
-    return { ok: false, error: err?.name === 'AbortError' ? 'Tiempo de espera agotado.' : 'No se pudo conectar con el servidor.' };
+    return { ok: false, error: err?.name === 'AbortError' ? 'Tiempo de espera agotado al validar con Google.' : 'No se pudo conectar con el servidor.' };
   } finally {
     clearTimeout(timer);
   }

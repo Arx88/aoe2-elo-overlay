@@ -269,17 +269,27 @@ const CIV_TECH = require('../src/civ-tech.json').civilizations;
   const uiSrc = fs.readFileSync(path.join(__dirname, '..', 'ui', 'training-ui.js'), 'utf8');
   const arenaSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'training', 'training-arena.js'), 'utf8');
   const hiSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'training', 'training-high-elo.js'), 'utf8');
+  const proEngSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'training', 'pro-matchup-engine.js'), 'utf8');
   assert.equal(/\bstyle\s*=/.test(uiSrc), false, 'ui/training-ui.js must contain ZERO inline style= attributes');
   assert.equal(/\.style\./.test(uiSrc), false, 'ui/training-ui.js must contain ZERO .style.* DOM mutations');
-  const combined = `${uiSrc}\n${arenaSrc}\n${hiSrc}`;
+  const combined = `${uiSrc}\n${arenaSrc}\n${hiSrc}\n${proEngSrc}`;
   assert.doesNotMatch(combined, /Punta de acero|anillas para arqueros|AoE2Insights|aoe2recs|\.aoe2record/i, 'Official AoE2:DE Spanish nomenclature & zero external-site references required');
+
+  // Verify Evolution Curve (.tr-perf-studio) is rendered ABOVE Execution by Ages (.tr-perf-timeline-panel) and Weekly Sanctuary
+  const perfFnIdx = uiSrc.indexOf('function renderPerfView()');
+  const perfSlice = uiSrc.slice(perfFnIdx);
+  const studioIdx = perfSlice.indexOf('<section class="tr-perf-studio">');
+  const timelineIdx = perfSlice.indexOf('<section class="tr-perf-timeline-panel">');
+  const weeklyIdx = perfSlice.indexOf('renderWeeklySanctuaryHtml(');
+  assert.ok(studioIdx > 0 && studioIdx < timelineIdx && studioIdx < weeklyIdx, 'Evolution Curve (.tr-perf-studio) MUST appear above Age Execution and Weekly Sanctuary in Progreso');
 }
 
-// 6. Exhaustive 56x55 = 3,080 Matchup Pairs Audit (Antisymmetry, Pixel-Mirror SVG, Tech-Tree Legality, Unique Units, Non-Forced Comps)
+// 6. Exhaustive 56x55 = 3,080 Open + 3,080 Closed Empirical Pro Matchups Audit (100% Real Data, Antisymmetry, Pixel-Mirror SVG, Prematch Intel)
 {
   const CIV_TECH = require('../src/civ-tech.json').civilizations;
   const { CIV_MATCHUP_PROFILES } = require('../src/training/civ-matchup-profiles');
   const { computeMatchupWarRoom } = require('../src/training/training-high-elo');
+  const { loadProMatchupDataset, lookupPrematchProIntel } = require('../src/training/pro-matchup-engine');
   const slugs = Object.keys(CIV_TECH).filter((s) => Boolean(CIV_TECH[s]?.nodes));
   assert.equal(slugs.length, 56, 'Expected all 56 standard AoE2:DE civilizations in civ-tech.json');
   for (const s of slugs) {
@@ -288,77 +298,73 @@ const CIV_TECH = require('../src/civ-tech.json').civilizations;
     assert.ok(uuNode && CIV_TECH[s].nodes[uuNode] != null, `Unique Unit node "${uuNode}" must exist in civ-tech.json for ${s}`);
   }
 
-  const cache = new Map();
-  let feudalSingle = 0;
-  let feudalMix = 0;
-  let uuRecommended = 0;
+  const dataset = loadProMatchupDataset();
+  assert.ok(dataset && dataset.meta.totalMatchesAnalyzed >= 20000, 'Pro dataset must contain >= 20,000 real RM 1v1 matches');
+  assert.ok(dataset.meta.totalDeepReplays >= 500, 'Pro dataset must contain >= 500 deep parsed official replays');
+  assert.equal(dataset.meta.openPairsCovered, 1540, 'All 1,540 Open (Arabia) civ pairs must have real match coverage');
 
-  for (const a of slugs) {
-    for (const b of slugs) {
-      if (a === b) continue;
-      const res = computeMatchupWarRoom({ myCivSlug: a, rivalCivSlug: b });
-      cache.set(`${a}|${b}`, res);
-      assert.ok(res.myCiv.uniqueUnit && res.rivalCiv.uniqueUnit, `Both sides must expose uniqueUnit for ${a} vs ${b}`);
-      for (const g of res.gameplanByAge) {
-        const nodes = CIV_TECH[a].nodes;
-        if (g.primaryNode) {
-          assert.ok(nodes[g.primaryNode] != null && nodes[g.primaryNode] <= g.age, `Illegal primaryNode ${g.primaryNode} for ${a} in age ${g.age}`);
+  for (const mapSlug of ['arabia', 'arena']) {
+    const cache = new Map();
+    let empiricalPairs = 0;
+    let withRefs = 0;
+
+    for (const a of slugs) {
+      for (const b of slugs) {
+        if (a === b) continue;
+        const res = computeMatchupWarRoom({ myCivSlug: a, rivalCivSlug: b, mapSlug });
+        cache.set(`${a}|${b}`, res);
+        assert.ok(res.myCiv.uniqueUnit && res.rivalCiv.uniqueUnit, `Both sides must expose uniqueUnit for ${a} vs ${b}`);
+        assert.equal(res.gameplanByAge.length, 3, 'Must expose 3 coherent age plans (Feudal, Castle, Imperial)');
+        assert.equal(res.clockWindows.length, 3, 'Must expose 3 empirical clock windows (<22m, 22-34m, +34m)');
+        if (res.hasEmpiricalData) {
+          empiricalPairs += 1;
+          assert.ok(res.sample.totalGames >= 1, 'Empirical pair must report >= 1 real game');
+          assert.equal(res.myWins + res.rivalWins, res.sample.totalGames, 'Wins + Losses must equal exact totalGames');
         }
-        if (g.complementNode) {
-          assert.ok(nodes[g.complementNode] != null && nodes[g.complementNode] <= g.age, `Illegal complementNode ${g.complementNode} for ${a} in age ${g.age}`);
+        if (res.proExamples.length > 0) withRefs += 1;
+      }
+    }
+
+    assert.equal(cache.size, 3080, `Must evaluate all 56x55 = 3,080 directed pairs for ${mapSlug}`);
+    if (mapSlug === 'arabia') {
+      assert.equal(empiricalPairs, 3080, '100% of 3,080 directed Open pairs must have real empirical data');
+      assert.equal(withRefs, 3080, '100% of 3,080 directed Open pairs must expose real reference matches');
+    } else {
+      assert.ok(empiricalPairs >= 2400, `Closed maps must cover >= 2,400 directed pairs with real games (got ${empiricalPairs})`);
+    }
+
+    // Exact mathematical antisymmetry across all 1,540 unordered pairs
+    for (let i = 0; i < slugs.length; i += 1) {
+      for (let j = i + 1; j < slugs.length; j += 1) {
+        const ab = cache.get(`${slugs[i]}|${slugs[j]}`);
+        const ba = cache.get(`${slugs[j]}|${slugs[i]}`);
+        assert.equal(ab.hasEmpiricalData, ba.hasEmpiricalData);
+        if (ab.hasEmpiricalData) {
+          assert.equal(ab.overallWinPct + ba.overallWinPct, 100, `Win% antisymmetry failed for ${slugs[i]} vs ${slugs[j]} (${mapSlug})`);
+          assert.equal(ab.myWins, ba.rivalWins);
+          assert.equal(ab.rivalWins, ba.myWins);
         }
-        if (a === 'gurjaras') {
-          assert.notEqual(g.primaryNode, 'Scout Cavalry', 'Gurjaras must use Camel Scout, never Scout Cavalry');
-          assert.notEqual(g.complementNode, 'Scout Cavalry', 'Gurjaras must use Camel Scout, never Scout Cavalry');
+        for (const w of [1, 2, 3]) {
+          assert.equal(ab.ageEdgeScores[w] + ba.ageEdgeScores[w], 0, `Clock edge antisymmetry failed for ${slugs[i]} vs ${slugs[j]} window ${w}`);
         }
-        if (g.age === 4) {
-          assert.notEqual(g.primaryNode, 'Monk', `Pure Monk must never be Imperial closing condition (${a} vs ${b})`);
+        for (let k = 0; k < 3; k += 1) {
+          assert.equal(ab.svg.nodes[k].cy + ba.svg.nodes[k].cy, 170, `SVG pixel mirror failed for ${slugs[i]} vs ${slugs[j]} node ${k}`);
         }
-        if (g.age === 2) {
-          if (g.complementNode) feudalMix += 1; else feudalSingle += 1;
-        }
-        const uuNode = CIV_MATCHUP_PROFILES[a].uniqueUnit.node;
-        if (g.age >= 3 && (g.primaryNode === uuNode || g.complementNode === uuNode)) uuRecommended += 1;
       }
     }
   }
 
-  assert.equal(cache.size, 3080, 'Must evaluate all 56x55 = 3,080 directed pairs');
-  assert.ok(feudalSingle >= 1000 && feudalMix >= 400, `Feudal plans must balance focused openings (${feudalSingle}) and reactive mixes (${feudalMix}) without forcing`);
-  assert.ok(uuRecommended >= 800, `Unique Units must actively participate across matchups (got ${uuRecommended})`);
-
-  for (let i = 0; i < slugs.length; i += 1) {
-    for (let j = i + 1; j < slugs.length; j += 1) {
-      const ab = cache.get(`${slugs[i]}|${slugs[j]}`);
-      const ba = cache.get(`${slugs[j]}|${slugs[i]}`);
-      for (const age of [1, 2, 3, 4]) {
-        assert.equal(ab.ageEdgeScores[age] + ba.ageEdgeScores[age], 0, `Exact antisymmetry failed for ${slugs[i]} vs ${slugs[j]} age ${age}`);
-      }
-      for (let k = 0; k < 4; k += 1) {
-        assert.equal(ab.svg.nodes[k].cy + ba.svg.nodes[k].cy, 170, `Exact SVG pixel mirror failed for ${slugs[i]} vs ${slugs[j]} node ${k}`);
-      }
-    }
-  }
-
-  // Golden AoE2:DE pro sanity checks
-  const frVsHi = cache.get('franks|hindustanis');
-  const hiVsFr = cache.get('hindustanis|franks');
-  assert.ok(hiVsFr.ageEdgeScores[3] > 0 && frVsHi.ageEdgeScores[3] < 0, 'Hindustanis must hold Castle Age edge over Franks');
-  assert.match(hiVsFr.gameplanByAge[2].bestLine, /Camello imperial/i, 'Hindustanis Imperial plan vs Franks must feature Camello imperial');
-
-  const goVsBr = cache.get('goths|britons');
-  assert.match(goVsBr.gameplanByAge[1].bestLine, /Huscarle/i, 'Goths Castle Age plan vs Britons must feature Huscarle');
-
-  const brVsGo = cache.get('britons|goths');
-  assert.doesNotMatch(brVsGo.gameplanByAge[1].bestLine, /Arquero con arco largo.*Huscarle/i, 'Britons must not suggest Longbowman as anti-Huskarl');
-  assert.ok(brVsGo.ageEdgeScores[2] > 0, 'Britons must hold Feudal edge over Goths');
-
-  const esVsFr = cache.get('spanish|franks');
-  assert.match(esVsFr.gameplanByAge[1].bestLine, /Conquistador/i, 'Spanish Castle Age plan vs Franks must feature Conquistador');
-
-  const inVsFr = cache.get('incas|franks');
-  assert.match(inVsFr.gameplanByAge[0].bestLine, /champi/i, 'Incas Feudal plan must reflect Champi Runner (Last Chieftains)');
-  assert.match(inVsFr.gameplanByAge[1].bestLine, /Kamayuk/i, 'Incas Castle Age plan vs Franks must feature Kamayuk');
+  // Verify Prematch Pro Intelligence lookup (Counter-Opening + Civ Matchup Brief)
+  const pmIntel = lookupPrematchProIntel({
+    myCivSlug: 'franks',
+    rivalCivSlug: 'mayans',
+    rivalHabitualOpening: 'Archer rush',
+    mapName: 'Arabia',
+  });
+  assert.ok(pmIntel.counterOpening && pmIntel.counterOpening.games >= 4 && pmIntel.counterOpening.winRatePct >= 50,
+    'Prematch counterOpening must return real winning Pro response vs Archer rush');
+  assert.ok(pmIntel.civMatchupBrief && pmIntel.civMatchupBrief.totalGames >= 3 && pmIntel.civMatchupBrief.clockCue,
+    'Prematch civMatchupBrief must return real matchup summary for Franks vs Mayans on Arabia');
 }
 
 // 7. Global Blacksmith Technology Highlighter & Official PNG Icons Verification

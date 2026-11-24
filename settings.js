@@ -4122,13 +4122,21 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
   const segsEl = el('referralSegments');
   const shareUrlEl = el('referralShareUrl');
   const codeValEl = el('referralCodeVal');
+  const applySection = el('referralApplySection');
   const applyFormWrap = el('referralApplyFormWrap');
   const myStatusBox = el('referralMyStatusBox');
   const myStatusTitle = el('referralMyStatusTitle');
   const myStatusDesc = el('referralMyStatusDesc');
   const verifyNowBtn = el('referralVerifyNowBtn');
   const cannotApplyEl = el('referralCannotApplyMsg');
+  const friendsSection = el('referralFriendsSection');
   const friendsListEl = el('referralFriendsList');
+  const signInErrorEl = el('referralSignInError');
+
+  if (signInErrorEl && !signedOut) {
+    signInErrorEl.hidden = true;
+    signInErrorEl.textContent = '';
+  }
 
   if (signedOutBox) signedOutBox.hidden = !signedOut;
   if (loadingBox) loadingBox.hidden = !loading;
@@ -4171,6 +4179,7 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
 
   const myRef = data.myReferral || null;
   if (myRef) {
+    if (applySection) applySection.hidden = false;
     if (applyFormWrap) applyFormWrap.hidden = true;
     if (cannotApplyEl) cannotApplyEl.hidden = true;
     if (myStatusBox) myStatusBox.hidden = false;
@@ -4178,38 +4187,38 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
       myStatusTitle.textContent = myRef.status === 'activated'
         ? `✓ Invitación de ${myRef.inviterLabel} activada`
         : myRef.status === 'pending_review'
-          ? `Invitación de ${myRef.inviterLabel} en revisión automática`
+          ? `Invitación de ${myRef.inviterLabel} en revisión`
           : myRef.status === 'pending'
-            ? `Código ${myRef.code} aplicado (${myRef.inviterLabel})`
+            ? `Código ${myRef.code} aplicado`
             : `Código ${myRef.code} no validado`;
     }
     if (myStatusDesc) {
       myStatusDesc.textContent = myRef.status === 'activated'
-        ? 'Tu cuenta ya quedó verificada y sumó 1 referido válido para tu amigo.'
+        ? 'Sumó 1 referido válido para tu amigo.'
         : myRef.status === 'pending_review'
-          ? 'Tu activación está en verificación automática de seguridad.'
+          ? 'Se confirmará automáticamente.'
           : myRef.status === 'pending'
-            ? 'Abrí Age of Empires II: DE (o iniciá Steam) con Relic abierto para completar tu activación gratuita automáticamente.'
-            : (myRef.rejectMessage || 'La invitación no cumplió las condiciones antifraude o venció.');
+            ? 'Abrí AoE2:DE o Steam para completar la activación.'
+            : (myRef.rejectMessage || 'No cumplió los requisitos.');
     }
     if (verifyNowBtn) verifyNowBtn.hidden = myRef.status !== 'pending';
   } else if (data.canApplyCode) {
+    if (applySection) applySection.hidden = false;
     if (applyFormWrap) applyFormWrap.hidden = false;
     if (myStatusBox) myStatusBox.hidden = true;
     if (cannotApplyEl) cannotApplyEl.hidden = true;
   } else {
+    if (applySection) applySection.hidden = true;
     if (applyFormWrap) applyFormWrap.hidden = true;
     if (myStatusBox) myStatusBox.hidden = true;
-    if (cannotApplyEl) {
-      cannotApplyEl.hidden = false;
-      cannotApplyEl.textContent = data.cannotApplyMessage || 'Los códigos de referido aplican solo para cuentas nuevas (< 72 h).';
-    }
+    if (cannotApplyEl) cannotApplyEl.hidden = true;
   }
 
   if (friendsListEl) {
     const friends = Array.isArray(data.friends) ? data.friends : [];
+    if (friendsSection) friendsSection.hidden = friends.length === 0;
     if (!friends.length) {
-      friendsListEl.innerHTML = '<div class="referral-friend-empty">Todavía no tenés invitados registrados. Compartí tu enlace o código arriba para empezar.</div>';
+      friendsListEl.innerHTML = '';
     } else {
       friendsListEl.innerHTML = friends.map((f) => {
         const pillCls = f.status === 'activated'
@@ -4313,11 +4322,16 @@ el('referralRefreshBtn')?.addEventListener('click', () => {
 
 el('referralSignInBtn')?.addEventListener('click', async () => {
   const btn = el('referralSignInBtn');
+  const errEl = el('referralSignInError');
+  if (errEl) { errEl.hidden = true; errEl.textContent = ''; }
   if (btn) btn.disabled = true;
   try {
     const res = await window.settings?.authGoogleLogin?.();
     if (res?.ok) {
       await loadReferralsState({ showLoading: true });
+    } else if (errEl && res?.error) {
+      errEl.textContent = res.error;
+      errEl.hidden = false;
     }
   } finally {
     if (btn) btn.disabled = false;
@@ -4340,10 +4354,10 @@ async function copyReferralText(text, btn, defaultLabel) {
 }
 
 el('referralCopyLinkBtn')?.addEventListener('click', () => {
-  copyReferralText(el('referralShareUrl')?.textContent, el('referralCopyLinkBtn'), 'Copiar enlace');
+  copyReferralText(el('referralShareUrl')?.textContent, el('referralCopyLinkBtn'), 'Copiar enlace de invitación');
 });
 el('referralCopyCodeBtn')?.addEventListener('click', () => {
-  copyReferralText(el('referralCodeVal')?.textContent, el('referralCopyCodeBtn'), 'Copiar código');
+  copyReferralText(el('referralCodeVal')?.textContent, el('referralCopyCodeBtn'), 'Copiar');
 });
 
 el('referralApplyBtn')?.addEventListener('click', async () => {

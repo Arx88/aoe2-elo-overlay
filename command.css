@@ -837,6 +837,8 @@ body.elo-hidden #stage > #smartBuildOrder:not([hidden]) { display: block !import
   margin-bottom: 2px;
 }
 .intel-weakness b { color: var(--strong, var(--text)); font-weight: 650; }
+.intel-weakness.is-pro-counter > span { color: var(--accent); }
+.intel-weakness.is-pro-counter b { color: var(--accent); }
 
 .intel-block.history-block { padding-top: 4px; }
 .intel-history-row { min-height: 28px; padding: 5px 0; }

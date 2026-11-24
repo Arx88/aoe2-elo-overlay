@@ -17,6 +17,7 @@
 const CIV_TECH = require('../civ-tech.json').civilizations || {};
 const { CIV_GUIDE } = require('../civ-guide');
 const { CIV_MATCHUP_PROFILES } = require('./civ-matchup-profiles');
+const { buildProMatchupReport } = require('./pro-matchup-engine');
 
 const ARCHER_TECHS = [['Fletching', 2], ['Bodkin Arrow', 3], ['Bracer', 4], ['Padded Archer Armor', 2], ['Leather Archer Armor', 3], ['Ring Archer Armor', 4], ['Thumb Ring', 3], ['Ballistics', 3]];
 const CAV_TECHS = [['Forging', 2], ['Iron Casting', 3], ['Blast Furnace', 4], ['Scale Barding Armor', 2], ['Chain Barding Armor', 3], ['Plate Barding Armor', 4], ['Bloodlines', 2], ['Husbandry', 3]];
@@ -2187,57 +2188,7 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
   const myProf = getCivProfile(mySlug);
   const rivProf = getCivProfile(rivalSlug);
 
-  const evalMine = {};
-  const evalRival = {};
-  const ageEdgeScores = { 1: 0, 2: 0, 3: 0, 4: 0 };
-  const ageScales = { 1: 0.72, 2: 1.05, 3: 1.15, 4: 1.15 };
-
-  // Age 1 (Dark Age): purely economic & early-tempo antisymmetric delta
-  const p1A = computeDirectionalPower(mySlug, rivalSlug, 1, null);
-  const p1B = computeDirectionalPower(rivalSlug, mySlug, 1, null);
-  ageEdgeScores[1] = clamp(roundSym((p1A - p1B) * ageScales[1]), -36, 36);
-
-  // Ages 2, 3, 4: symmetric evaluation in both directions -> exact antisymmetry!
-  for (const age of [2, 3, 4]) {
-    evalMine[age] = evaluateAgeMatchup(mySlug, rivalSlug, age);
-    evalRival[age] = evaluateAgeMatchup(rivalSlug, mySlug, age);
-    const powA = computeDirectionalPower(mySlug, rivalSlug, age, evalMine[age]);
-    const powB = computeDirectionalPower(rivalSlug, mySlug, age, evalRival[age]);
-    ageEdgeScores[age] = clamp(roundSym((powA - powB) * ageScales[age]), -36, 36);
-  }
-
-  // Exact pixel-mirror SVG coordinates around y = 85: cy(A, B) + cy(B, A) === 170
-  const yOf = (edge) => 85 - clamp(roundSym(edge * 2.15), -61, 61);
-  const y1 = yOf(ageEdgeScores[1]);
-  const y2 = yOf(ageEdgeScores[2]);
-  const y3 = yOf(ageEdgeScores[3]);
-  const y4 = yOf(ageEdgeScores[4]);
-
-  const curvePath = `M0,85 L110,${y1} L330,${y2} L550,${y3} L770,${y4} L880,${y4}`;
-  const areaFullPath = `${curvePath} L880,85 L0,85 Z`;
-
-  // Context-aware Traps for MY civ (ONLY on lines that are actual signature/top Castle options for my civ!)
-  const myTraps = [];
-  const myTop2CastleKeys = new Set(getCivThreats(mySlug, 3).slice(0, 2).map((t) => t.key));
-  const relevantTrapKeys = ['archers', 'knights', 'cavarchers', 'camels', 'steppe', 'infantry', 'eagles', 'champis', 'elephants'];
-  for (const key of relevantTrapKeys) {
-    const c3 = evalCivLine(mySlug, key, 3);
-    const c4 = evalCivLine(mySlug, key, 4);
-    const isRelevant = (myProf.lineMods?.[key] || 0) >= 6 || myTop2CastleKeys.has(key);
-    if (isRelevant && c3 && !c3.outdated && c4 && (c4.outdated || c4.missingTechs.length >= 2)) {
-      const missingEs = c4.missingTechsEs.slice(0, 2).join(', ');
-      myTraps.push({
-        lineKey: key,
-        lineLabel: MATCHUP_LINES[key].label,
-        title: `Techo en Imperial para ${MATCHUP_LINES[key].label}`,
-        detail: `Fuerte en Castillos (${c3.unitEs}), pero en Imperial cae${missingEs ? ` sin ${missingEs}` : ''}. Prepará transición antes del minuto 30.`,
-      });
-    }
-  }
-  // Cap to 2 most relevant traps so rival vulnerabilities always have room
-  const myTrapsFinal = myTraps.slice(0, 2);
-
-  // Context-aware Rival Holes (NEVER flag non-Stable civs for Bloodlines/Paladin, NEVER flag waived techs!)
+  // Context-aware Rival Holes (100% verificados contra el árbol tecnológico real de la civ rival)
   const rivalNodes = CIV_TECH[rivalSlug]?.nodes || {};
   const rivalWaived = new Set(rivProf.waivedTechs || []);
   const rivalHasStable = Boolean(rivalNodes.Stable || rivalNodes['Scout Cavalry'] || rivalNodes['Camel Rider'] || rivalNodes['Steppe Lancer'] || rivalNodes.Knight || rivalNodes['Hei Guang Cavalry']);
@@ -2255,7 +2206,6 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
       if (t.node === 'Bombard Cannon' && rivalNodes.Houfnice != null) return false;
       return true;
     })
-    // Prioritize critical missing counter/age upgrades first (Pikeman, Elite Skirmisher, Crossbowman, Bracer, Halberdier)
     .sort((a, b) => {
       const prio = { Pikeman: 10, 'Elite Skirmisher': 10, Crossbowman: 9, Bracer: 8, Halberdier: 8, Redemption: 7, 'Ring Archer Armor': 7, 'Plate Barding Armor': 7, 'Bombard Cannon': 6, Arbalester: 6, 'Blast Furnace': 5, Bloodlines: 5, 'Thumb Ring': 4, 'Siege Engineers': 4, Paladin: 3, Hussar: 2 };
       return (prio[b.node] || 0) - (prio[a.node] || 0);
@@ -2263,31 +2213,7 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
     .slice(0, 3)
     .map((t) => ({ node: t.node, es: t.es, desc: t.desc }));
 
-  // Build gameplan per age (strictly age-legal, intelligent 1-unit or Core + Counter mix!)
-  const gameplanByAge = [
-    { age: 2, ageLabel: 'Edad Feudal', icon: 'assets/icons/ages/feudal.png' },
-    { age: 3, ageLabel: 'Edad de los Castillos', icon: 'assets/icons/ages/castle.png' },
-    { age: 4, ageLabel: 'Edad Imperial', icon: 'assets/icons/ages/imperial.png' },
-  ].map(({ age, ageLabel, icon }) => {
-    const ev = evalMine[age];
-    const p = ev.bestPrimary;
-    const c = ev.complement;
-    const headline = p
-      ? (c ? `${p.unitEs} + ${c.unitEs}` : p.unitEs)
-      : 'Economía y control';
-    return {
-      age,
-      ageLabel,
-      icon,
-      bestLine: headline,
-      primaryNode: p?.unitNode || null,
-      complementNode: c?.unitNode || null,
-      edge: ageEdgeScores[age],
-      advice: formatAgePlanAdvice(age, ev, rivalGuide.name),
-    };
-  });
-
-  // Imperial Clash Comparison: rank lines by actual relevance to THIS matchup (including Unique Units, Gunpowder, Elephants, Champis, Eagles!)
+  // Comparador real de techo tecnológico Imperial entre ambas civilizaciones
   const clashKeys = ['unique', 'archers', 'knights', 'camels', 'cavarchers', 'steppe', 'eagles', 'champis', 'elephants', 'infantry', 'gunpowder', 'siege', 'spears', 'skirmishers'];
   const clashLines = clashKeys
     .map((k) => {
@@ -2313,7 +2239,7 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
     .sort((a, b) => (b.relevance - a.relevance) || a.key.localeCompare(b.key))
     .slice(0, 7);
 
-  // Recent real matchups from player replays
+  // Cruces reales recientes del propio jugador
   const matchupMap = new Map();
   for (const r of (Array.isArray(records) ? records : [])) {
     if (r?.civSlug && r?.opponentCivSlug && CIV_GUIDE[r.civSlug] && CIV_GUIDE[r.opponentCivSlug]) {
@@ -2332,43 +2258,11 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
       label: `${CIV_GUIDE[m.myCiv]?.name || m.myCiv} vs ${CIV_GUIDE[m.rivalCiv]?.name || m.rivalCiv} (${m.wins}V-${m.losses}D)`,
     }));
 
-  // Mirror-consistent peak & danger windows (ALWAYS citing the plan from peakAgeIdx!)
-  const agesSortedBest = [2, 3, 4].sort((a, b) => (ageEdgeScores[b] - ageEdgeScores[a]) || (a - b));
-  const agesSortedWorst = [2, 3, 4].sort((a, b) => (ageEdgeScores[a] - ageEdgeScores[b]) || (a - b));
-  const peakAgeIdx = agesSortedBest[0];
-  const dangerAgeIdx = agesSortedWorst[0];
-  const maxEdge = ageEdgeScores[peakAgeIdx];
-  const minEdge = ageEdgeScores[dangerAgeIdx];
-  const ageNames = { 1: 'Alta Edad Media', 2: 'Edad Feudal', 3: 'Edad de los Castillos', 4: 'Edad Imperial' };
-  const peakPlan = gameplanByAge.find((g) => g.age === peakAgeIdx);
-
-  let verdictTitle;
-  let peakWindowLabel;
-  let dangerWindowLabel;
-  if (maxEdge >= 4 && minEdge <= -4) {
-    verdictTitle = `Tu mejor ventana es ${ageNames[peakAgeIdx]} con ${peakPlan?.bestLine || 'iniciativa'}; cuidado en ${ageNames[dangerAgeIdx]}`;
-    peakWindowLabel = `Tu pico: ${ageNames[peakAgeIdx]}`;
-    dangerWindowLabel = `Peligro rival: ${ageNames[dangerAgeIdx]}`;
-  } else if (maxEdge >= 4) {
-    verdictTitle = minEdge >= 4
-      ? `Ventaja clara durante toda la partida · pico en ${ageNames[peakAgeIdx]} con ${peakPlan?.bestLine || 'presión'}`
-      : `Ventaja clara en ${ageNames[peakAgeIdx]} con ${peakPlan?.bestLine || 'iniciativa'}; el resto parejo`;
-    peakWindowLabel = `Tu pico: ${ageNames[peakAgeIdx]}`;
-    dangerWindowLabel = minEdge < 0 ? `Menor margen: ${ageNames[dangerAgeIdx]}` : `Más parejo: ${ageNames[dangerAgeIdx]}`;
-  } else if (minEdge <= -4) {
-    verdictTitle = maxEdge <= -4
-      ? `Cruce exigente · tu mejor resistencia es ${ageNames[peakAgeIdx]} (${peakPlan?.bestLine || 'defensa'}); peligro en ${ageNames[dangerAgeIdx]}`
-      : `Cruce exigente en ${ageNames[dangerAgeIdx]}; buscá igualar en ${ageNames[peakAgeIdx]} con ${peakPlan?.bestLine || 'tu núcleo'}`;
-    peakWindowLabel = `Mejor ventana: ${ageNames[peakAgeIdx]}`;
-    dangerWindowLabel = `Peligro rival: ${ageNames[dangerAgeIdx]}`;
-  } else {
-    verdictTitle = `Matchup parejo · buscá iniciativa en ${ageNames[peakAgeIdx]} con ${peakPlan?.bestLine || 'tu núcleo'}`;
-    peakWindowLabel = `Iniciativa: ${ageNames[peakAgeIdx]}`;
-    dangerWindowLabel = minEdge < 0 ? `Vigilá: ${ageNames[dangerAgeIdx]}` : 'Sin pico rival claro';
-  }
-
-  return {
-    myCiv: {
+  return buildProMatchupReport({
+    myCivSlug: mySlug,
+    rivalCivSlug: rivalSlug,
+    mapSlug: mapSlug || 'arabia',
+    myCivMeta: {
       slug: mySlug,
       name: myGuide.name,
       role: myGuide.role || 'Civilización',
@@ -2376,7 +2270,7 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
       uniqueUnit: myProf.uniqueUnit?.es || '',
       keyUniqueTech: myProf.keyUniqueTech || '',
     },
-    rivalCiv: {
+    rivalCivMeta: {
       slug: rivalSlug,
       name: rivalGuide.name,
       role: rivalGuide.role || 'Civilización',
@@ -2384,27 +2278,10 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
       uniqueUnit: rivProf.uniqueUnit?.es || '',
       keyUniqueTech: rivProf.keyUniqueTech || '',
     },
-    mapSlug: mapSlug || 'arabia',
-    ageEdgeScores,
-    verdictTitle,
-    peakWindowLabel,
-    dangerWindowLabel,
-    gameplanByAge,
-    svg: {
-      curvePath,
-      areaFullPath,
-      nodes: [
-        { cx: 110, cy: y1 },
-        { cx: 330, cy: y2 },
-        { cx: 550, cy: y3 },
-        { cx: 770, cy: y4 },
-      ],
-    },
-    clashLines,
-    myTraps: myTrapsFinal,
     rivalHoles,
+    clashLines,
     recentMatchups,
-  };
+  });
 }
 
 function extractBuildFromBestReplay(records = []) {

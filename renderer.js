@@ -8,6 +8,7 @@ const rowsEl = document.getElementById('rows');
 const footText = document.getElementById('foottext');
 const civHelpEl = document.getElementById('civHelp');
 const civHelpGrid = document.getElementById('civhelpGrid');
+const civHelpProStrip = document.getElementById('civhelpProStrip');
 const civHelpClock = document.getElementById('civhelpClock');
 const civHelpBar = document.getElementById('civhelpBar');
 const rivalInfoEl = document.getElementById('rivalInfo');
@@ -431,6 +432,18 @@ function renderCivHelp() {
   civHelpGrid.innerHTML = civs.some((civ) => civ.slug)
     ? civs.map(civCard).join('')
     : `<div class="civhelp-empty">${escapeHtml(tr('hud.waitingCivs', 'Esperando las civilizaciones de la partida…'))}</div>`;
+  if (civHelpProStrip) {
+    const brief = lastState && lastState.proMatchupBrief;
+    if (brief && civs.length === 2 && civs.every((c) => Boolean(c.slug)) && (brief.route || brief.clockCue)) {
+      const routeTxt = brief.route ? escapeHtml(brief.route) : escapeHtml(tr('hud.proMeasuredMatchup', 'Cruce medido en ladder alto'));
+      const clockTxt = brief.clockCue ? `<em>${escapeHtml(brief.clockCue)}</em>` : '';
+      civHelpProStrip.innerHTML = `<span class="civhelp-pro-tag">PLAN PRO</span><strong>${routeTxt}</strong>${clockTxt}`;
+      civHelpProStrip.hidden = false;
+    } else {
+      civHelpProStrip.hidden = true;
+      civHelpProStrip.innerHTML = '';
+    }
+  }
   applyVisibility();
 }
 
