@@ -604,11 +604,29 @@
       const pending = items.filter((i) => !i.done);
       const completed = items.filter((i) => i.done);
 
+      const PLAN_GO_LABELS = {
+        orders: 'Build Orders →',
+        matchups: 'Matchups →',
+        arena: 'Arena →',
+        perf: 'Ver en Progreso →',
+      };
+
+      const resolvePlanGoTab = (it) => {
+        const ruleType = it?.verifyRule?.type || '';
+        if (['feudal_time', 'castle_time', 'tc_idle_dark', 'dba_delay'].includes(ruleType)) return 'orders';
+        if (['vs_civ', 'on_map'].includes(ruleType)) return 'matchups';
+        if (ruleType === 'army_upgrades') return 'arena';
+        if (['tc_idle_feudal', 'tc_gap', 'eapm', 'no_town_bell', 'stage_grade', 'bow_saw'].includes(ruleType)) return 'perf';
+        return ['orders', 'matchups', 'arena', 'perf'].includes(it?.targetTab) ? it.targetTab : 'perf';
+      };
+
       const renderPendingRow = (it) => {
         const ruleLbl = it.verifyRule?.targetLabel || 'Se evalúa en tu próxima partida (≥ 12 min)';
         const trackingTxt = Number(it.attemptsAfterPin || 0) > 0
           ? `Evaluado en ${it.attemptsAfterPin} ${it.attemptsAfterPin === 1 ? 'partida' : 'partidas'}${it.lastCheckedDisplay ? ` · Último registro: ${it.lastCheckedDisplay}` : ''}`
           : 'En espera de tu próxima partida';
+        const goTab = resolvePlanGoTab(it);
+        const goLabel = PLAN_GO_LABELS[goTab] || 'Ver en Progreso →';
         return `<div class="tr-q-item is-tracking">
           <div class="tr-q-status-ico is-pending" title="Se actualiza automáticamente al terminar tus próximas partidas">
             ${renderDumbbellSvg()}
@@ -625,7 +643,7 @@
             </div>
           </div>
           <div class="tr-q-actions">
-            <button type="button" class="tr-q-go" data-tr-q-go="${esc(it.targetTab || 'orders')}">Practicar →</button>
+            <button type="button" class="tr-q-go" data-tr-q-go="${esc(goTab)}">${esc(goLabel)}</button>
             <button type="button" class="tr-q-del" data-tr-q-del="${esc(it.id)}" title="Quitar objetivo">×</button>
           </div>
         </div>`;
@@ -2217,8 +2235,31 @@
       const bestExecMetric = measured.find((m) => m.isPersonalBest) || measured.find((m) => m.improved === true) || null;
       const bestExecMeta = bestExecMetric ? (METRIC_HUMAN_META[bestExecMetric.key] || { shortRadar: bestExecMetric.title }) : null;
 
-      const queueTitles = new Set((state?.trainingQueue || []).filter((q) => !q.done).map((q) => String(q.title || '').toLowerCase()));
-      const diagAlreadyInPlan = Boolean(diag && queueTitles.has(String(diag.planTitle || '').toLowerCase()));
+      const METRIC_TO_RULE_TYPE = {
+        tcIdleDarkSec: 'tc_idle_dark',
+        tcIdleFeudalPerTcSec: 'tc_idle_feudal',
+        feudalSec: 'feudal_time',
+        castleSec: 'castle_time',
+        dbaDelaySec: 'dba_delay',
+        bowDelaySec: 'bow_saw',
+        eapm: 'eapm',
+      };
+      const activePlanItems = (state?.trainingQueue || []).filter((q) => q && !q.done);
+      const findPlanItemForRule = (ruleType, title) => {
+        const cleanTitle = String(title || '').trim().toLowerCase();
+        return activePlanItems.find((q) => {
+          if (ruleType && (q.verifyRule?.type === ruleType || q.ruleKey === `rule:${ruleType}`)) return true;
+          if (cleanTitle && String(q.title || '').trim().toLowerCase() === cleanTitle) return true;
+          return false;
+        }) || null;
+      };
+      const diagRuleType = METRIC_TO_RULE_TYPE[diag?.metricKey] || '';
+      const diagPlanMatch = diag ? findPlanItemForRule(diagRuleType, diag.planTitle) : null;
+      const diagAlreadyInPlan = Boolean(diagPlanMatch);
+      const activeTrendRuleType = METRIC_TO_RULE_TYPE[activeTrendMetric?.key] || '';
+      const activeTrendPlanMatch = activeTrendMetric
+        ? findPlanItemForRule(activeTrendRuleType, activeTrendMeta.title || activeTrendMetric.title)
+        : null;
 
       // ZONE 1: Match Selector Rail (5 rectangular architectural slots so all fit cleanly without scrollbar clipping)
       const matchSlotsHtml = (hi.replays || []).slice(0, 5).map((r) => {
@@ -2349,13 +2390,14 @@
                 <strong>${esc(diag?.targetDisplay || 'Superar tu promedio en la próxima partida')}</strong>
                 <p>${esc(diag?.drillCue || 'Fijá este objetivo en Mi Plan para verificar tu mejora automática en próximas partidas.')}</p>
               </div>
-              <button type="button" class="tr-perf-pin-cta tr-cta-sheen" id="trTrainBottleneckBtn"
+              <button type="button" class="tr-perf-pin-cta tr-cta-sheen${diagAlreadyInPlan ? ' is-pinned' : ''}" id="trTrainBottleneckBtn"
                 data-tp-title="${esc(diag?.planTitle || 'Mejorar ejecución temprana')}"
                 data-tp-detail="${esc(diag?.planDetail || `Detectado en ${selectedEntry.mapName || 'tu partida'}`)}"
                 data-tp-metric="${esc(diag?.planMetric || '')}"
-                data-tp-tab="${esc(diag?.actionTab || 'orders')}">
+                data-tp-rule="${esc(diagRuleType)}"
+                data-tp-in-plan="${diagAlreadyInPlan ? '1' : '0'}">
                 ${renderDumbbellSvg()}
-                <span>${diagAlreadyInPlan ? '✓ En Mi Plan · Abrir rutina →' : esc(diag?.actionLabel || 'Fijar en Mi Plan y entrenar →')}</span>
+                <span>${diagAlreadyInPlan ? '✓ Ya en Mi Plan · Ver Mi Plan →' : 'Fijar en Mi Plan →'}</span>
               </button>
             </aside>
           </section>
@@ -2397,7 +2439,7 @@
                   <h3>${esc(activeTrendMeta.title || activeTrendMetric?.title || 'Evolución')}</h3>
                   <small class="tr-studio-hint">${esc(activeTrendMeta.betterHint || '')}</small>
                 </div>
-                ${activeTrendMetric ? `<button type="button" class="tr-perf-pin-cta is-subtle" data-train-pin="1" data-tp-source="Progreso" data-tp-title="${esc(activeTrendMeta.title || activeTrendMetric.title)}" data-tp-detail="${esc(activeTrendMeta.sub || '')}" data-tp-metric="${esc(activeCleanVal)}" data-tp-tab="orders">${renderDumbbellSvg()}<span>Fijar en Mi Plan</span></button>` : ''}
+                ${activeTrendMetric ? `<button type="button" class="tr-perf-pin-cta is-subtle${activeTrendPlanMatch ? ' is-pinned' : ''}" data-train-pin="1" data-tp-source="Progreso" data-tp-title="${esc(activeTrendMeta.title || activeTrendMetric.title)}" data-tp-detail="${esc(activeTrendMeta.sub || '')}" data-tp-metric="${esc(activeCleanVal)}" data-tp-rule="${esc(activeTrendRuleType)}"${activeTrendPlanMatch ? ` data-tp-queue-id="${esc(activeTrendPlanMatch.id)}" aria-pressed="true"` : ' aria-pressed="false"'}>${renderDumbbellSvg()}<span>${activeTrendPlanMatch ? '✓ En Mi Plan' : 'Fijar en Mi Plan'}</span></button>` : ''}
               </div>
 
               <div class="tr-studio-benchmarks">
@@ -2659,24 +2701,25 @@
         btn.addEventListener('click', () => submitArenaChoice(btn.dataset.trAnsId, false));
       });
 
-      // Evolución replay & trend-metric selectors + 1-click bottleneck training CTA
+      // Evolución replay & trend-metric selectors + 1-click bottleneck training CTA (SIEMPRE abre Mi Plan, nunca Build Orders)
       container.querySelector('#trTrainBottleneckBtn')?.addEventListener('click', async (ev) => {
         if (!state?.unlocked) return;
         const btn = ev.currentTarget;
-        const targetTab = btn.dataset.tpTab || 'orders';
-        if (typeof root.settings?.trainingQueueAdd === 'function') {
+        const alreadyInPlan = btn.dataset.tpInPlan === '1';
+        if (!alreadyInPlan && typeof root.settings?.trainingQueueAdd === 'function') {
           const res = await root.settings.trainingQueueAdd({
             source: 'Progreso',
             title: btn.dataset.tpTitle || 'Mejorar ejecución',
             detail: btn.dataset.tpDetail || '',
             metric: btn.dataset.tpMetric || '',
-            targetTab,
+            ruleType: btn.dataset.tpRule || '',
           });
           if (res?.ok && Array.isArray(res.trainingQueue)) {
             state.trainingQueue = res.trainingQueue;
+            playSfx('confirm');
           }
         }
-        switchSubtab(targetTab);
+        switchSubtab('plan');
       });
 
       container.querySelectorAll('[data-tr-replay-id]').forEach((elNode) => {

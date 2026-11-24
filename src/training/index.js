@@ -662,8 +662,13 @@ function createTrainingController({ storePath }) {
     startArena,
     finishArena,
     addQueueItem: ({ profileId, item }) => {
-      const trainingQueue = store.addTrainingQueueItem(profileId, item);
-      return { ok: true, itemId: trainingQueue[0]?.id || null, trainingQueue };
+      const res = store.addTrainingQueueItem(profileId, item);
+      return {
+        ok: true,
+        duplicate: Boolean(res.duplicate),
+        itemId: res.itemId || null,
+        trainingQueue: res.trainingQueue || [],
+      };
     },
     toggleQueueItem: ({ profileId, itemId }) => ({ ok: true, trainingQueue: store.toggleTrainingQueueItem(profileId, itemId) }),
     removeQueueItem: ({ profileId, itemId }) => ({ ok: true, trainingQueue: store.removeTrainingQueueItem(profileId, itemId) }),

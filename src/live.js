@@ -496,7 +496,7 @@ class FastLane {
     const matched = findMyMatch(events, this.profileId);
     const inMyQueue = hasMyQueue(events, this.profileId);
     const queueEvt = Array.isArray(events)
-      ? events.find((e) => e && e.type === 'queueingAdded' && e.data && Number(e.data.profileId) === Number(this.profileId))
+      ? events.find((e) => e && e.data && e.data.status === 'queueing' && includesProfile(e.data, this.profileId))
       : null;
 
     if (!this.inQueue) {
@@ -537,12 +537,25 @@ class FastLane {
       return;
     }
 
-    if (events.length) this.onSnapshot(events);
-    // Si ya no estoy ni en cola ni apareado, la búsqueda terminó: volvemos a cadencia idle.
-    if (!inMyQueue && !matched) {
-      this.inQueue = false;
-      this.onQueue(false, null);
+    // Si seguimos en cola, NO entregamos el snapshot filtrado (de 1 solo item) al QueueWatcher global
+    // para evitar borrar el mapa global de items mientras el socket principal escucha deltas.
+    if (inMyQueue) return;
+
+    // Si desapareció del filtrado mientras estábamos en cola, verificamos 1 vez el snapshot global
+    // por si el servidor dejó de matchear profile_ids al pasar de queueing -> matched.
+    const fullCheck = await this.readSnapshot({ handler: 'queueing', language: 'en' }, FAST_TIMEOUT_MS);
+    if (this.closed || this.paused) return;
+    if (fullCheck && fullCheck.length) {
+      this.polls += 1;
+      this.onSnapshot(fullCheck);
+      if (hasMyQueue(fullCheck, this.profileId) || findMyMatch(fullCheck, this.profileId)) {
+        return;
+      }
     }
+
+    // Ya no estoy ni en cola ni apareado: volvemos a cadencia idle.
+    this.inQueue = false;
+    this.onQueue(false, null);
   }
 
   get stats() {

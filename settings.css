@@ -9363,3 +9363,547 @@ details.is-section-locked > *:not(.page-lock-veil) {
   }
   .rum-copy { width: 100%; padding: 26px; }
 }
+
+/* ==================== PROGRAMA DE REFERIDOS (SIDEBAR + CUENTA + MODAL) ==================== */
+.rail-ref-wrap {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+}
+.rail-ref-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(214, 184, 117, 0.36);
+  background: linear-gradient(135deg, rgba(214, 184, 117, 0.14) 0%, rgba(18, 23, 30, 0.94) 68%);
+  color: #f3e6c8;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+.rail-ref-btn:hover {
+  border-color: rgba(235, 206, 140, 0.68);
+  background: linear-gradient(135deg, rgba(214, 184, 117, 0.22) 0%, rgba(22, 28, 36, 0.98) 72%);
+  transform: translateY(-1px);
+}
+.rail-ref-btn.is-claimed {
+  border-color: rgba(106, 194, 155, 0.48);
+  background: linear-gradient(135deg, rgba(106, 194, 155, 0.14) 0%, rgba(16, 22, 26, 0.96) 72%);
+}
+.rail-ref-ico {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: rgba(214, 184, 117, 0.16);
+  border: 1px solid rgba(214, 184, 117, 0.34);
+  color: #e8cb88;
+}
+.rail-ref-btn.is-claimed .rail-ref-ico {
+  background: rgba(106, 194, 155, 0.16);
+  border-color: rgba(106, 194, 155, 0.4);
+  color: #8ee2bd;
+}
+.rail-ref-ico svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+}
+.rail-ref-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rail-ref-title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #f6e7c5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rail-ref-sub {
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: #a4b0be;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rail-ref-badge {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #f2d79a;
+  background: rgba(214, 184, 117, 0.16);
+  border: 1px solid rgba(214, 184, 117, 0.32);
+}
+.rail-ref-btn.is-claimed .rail-ref-badge {
+  color: #9be7c5;
+  background: rgba(106, 194, 155, 0.16);
+  border-color: rgba(106, 194, 155, 0.38);
+}
+
+/* Compactación vertical del sidebar en ventanas cortas (900x720) -> 0 scroll y footer en 1 línea */
+@media (max-height: 780px) {
+  .rail { padding-top: 10px; padding-bottom: 10px; }
+  .brand { padding-bottom: 6px; margin-bottom: 4px; }
+  .nav { gap: 1px; }
+  .nav button { padding: 5px 10px; min-height: 30px; }
+  .rail-foot { padding-top: 8px; }
+  .rail-ref-wrap { margin-bottom: 8px; padding-bottom: 8px; }
+  .rail-ref-btn { padding: 6px 9px; gap: 8px; }
+  .rail-ref-ico { flex: 0 0 24px; width: 24px; height: 24px; }
+  .rail-profile-row { padding: 6px 8px; }
+  .rail-build { padding-top: 6px; }
+}
+@media (max-width: 920px) {
+  .rail { padding-inline: 12px; }
+}
+
+/* Tarjeta de referidos en Cuenta (columna izquierda) */
+.account-ref-card {
+  border-radius: 12px;
+  border: 1px solid rgba(214, 184, 117, 0.34);
+  background: linear-gradient(160deg, rgba(214, 184, 117, 0.09) 0%, #12171e 58%, #0e1318 100%);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.account-ref-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.account-ref-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #e2c482;
+}
+.account-ref-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f3dc9f;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(214, 184, 117, 0.14);
+  border: 1px solid rgba(214, 184, 117, 0.32);
+}
+.account-ref-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f4ece0;
+}
+.account-ref-desc {
+  margin: 0;
+  line-height: 1.48;
+  color: #b4beca;
+}
+.account-ref-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.account-ref-status {
+  color: #9ba7b5;
+  flex: 1 1 auto;
+}
+.account-ref-cta {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 14px;
+}
+
+/* Barra segmentada 10/10 (100% CSP-safe, sin inline styles) */
+.ref-segments {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
+}
+.ref-seg {
+  display: block;
+  height: 9px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background 180ms ease, border-color 180ms ease;
+}
+.ref-segments.is-compact .ref-seg {
+  height: 7px;
+}
+.ref-seg.is-filled {
+  background: linear-gradient(180deg, #e7c882 0%, #c19749 100%);
+  border-color: rgba(244, 217, 152, 0.7);
+}
+.ref-seg.is-pending {
+  background: rgba(214, 184, 117, 0.28);
+  border-color: rgba(214, 184, 117, 0.45);
+}
+
+/* Modal de Referidos */
+.referral-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 8, 13, 0.78);
+  backdrop-filter: blur(8px);
+}
+.referral-backdrop[hidden] {
+  display: none;
+}
+.referral-modal {
+  position: relative;
+  width: min(600px, calc(100vw - 36px));
+  max-height: calc(100vh - 44px);
+  overflow-y: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(214, 184, 117, 0.42);
+  background: linear-gradient(180deg, #161c24 0%, #0e1218 100%);
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.68);
+  padding: 24px 26px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.referral-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cfd7e0;
+  font-size: 18px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+.referral-close:hover {
+  border-color: rgba(214, 184, 117, 0.45);
+  background: rgba(214, 184, 117, 0.14);
+  color: #f6e7c4;
+}
+.referral-head {
+  padding-right: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.referral-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #dfc07b;
+}
+.referral-head h2 {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.22;
+  color: #f6efe2;
+}
+.referral-lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #aeb8c6;
+}
+.referral-lead strong {
+  color: #f1ddb0;
+}
+.referral-gate {
+  border-radius: 12px;
+  border: 1px solid rgba(214, 184, 117, 0.3);
+  background: rgba(12, 16, 22, 0.85);
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.referral-gate .relic-google-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.referral-gate-copy {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.referral-gate-copy strong {
+  font-size: 14px;
+  color: #f2eadc;
+}
+.referral-gate-copy small {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #9ba7b5;
+}
+.referral-loading {
+  padding: 20px;
+  text-align: center;
+}
+.referral-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.referral-banner {
+  border-radius: 11px;
+  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.referral-banner.is-success {
+  border: 1px solid rgba(106, 194, 155, 0.5);
+  background: rgba(106, 194, 155, 0.12);
+}
+.referral-banner.is-success strong {
+  color: #9debc9;
+  font-size: 13.5px;
+}
+.referral-banner.is-warn {
+  border: 1px solid rgba(224, 148, 86, 0.5);
+  background: rgba(224, 148, 86, 0.12);
+}
+.referral-banner.is-warn strong {
+  color: #f4c08f;
+  font-size: 13.5px;
+}
+.referral-progress-card,
+.referral-share-card,
+.referral-apply-card,
+.referral-friends-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(11, 15, 20, 0.82);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.referral-progress-head,
+.referral-friends-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.referral-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9aa6b5;
+}
+.referral-count-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+.referral-count-line strong {
+  font-size: 22px;
+  color: #f4d896;
+}
+.referral-count-line span {
+  font-size: 13px;
+  color: #b7c1ce;
+}
+.referral-pending-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #e5cb8d;
+  background: rgba(214, 184, 117, 0.12);
+  border: 1px solid rgba(214, 184, 117, 0.3);
+}
+.referral-rule-note {
+  margin: 0;
+  font-size: 11.5px;
+  color: #8f9ba9;
+}
+.referral-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(214, 184, 117, 0.25);
+  background: rgba(7, 10, 15, 0.9);
+}
+.referral-copy-val {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: #d7dfe9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.referral-copy-val.is-code-font {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f3d796;
+}
+.referral-copy-btn {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.referral-apply-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.referral-apply-row .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.referral-code-input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.referral-feedback {
+  margin: 8px 0 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.referral-feedback.is-err {
+  border: 1px solid rgba(224, 102, 102, 0.45);
+  background: rgba(224, 102, 102, 0.12);
+  color: #f4b2b2;
+}
+.referral-feedback.is-ok {
+  border: 1px solid rgba(106, 194, 155, 0.45);
+  background: rgba(106, 194, 155, 0.12);
+  color: #a6ebd0;
+}
+.referral-my-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(214, 184, 117, 0.28);
+  background: rgba(214, 184, 117, 0.08);
+}
+.referral-my-status-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.referral-my-status-copy strong {
+  font-size: 13px;
+  color: #f2e5c9;
+}
+.referral-my-status-copy small {
+  font-size: 12px;
+  color: #aab5c2;
+  line-height: 1.4;
+}
+.referral-cannot-apply {
+  margin: 0;
+  color: #8f9ba9;
+}
+.referral-friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.referral-friend-empty {
+  font-size: 12px;
+  color: #8894a2;
+  padding: 6px 2px;
+}
+.referral-friend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+.referral-friend-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.referral-friend-meta strong {
+  font-size: 12.5px;
+  color: #eae3d6;
+}
+.referral-friend-meta small {
+  font-size: 11px;
+  color: #93a0ae;
+}
+.referral-status-pill {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.referral-status-pill.is-activated {
+  color: #9ceac8;
+  background: rgba(106, 194, 155, 0.14);
+  border: 1px solid rgba(106, 194, 155, 0.4);
+}
+.referral-status-pill.is-pending {
+  color: #ecd091;
+  background: rgba(214, 184, 117, 0.14);
+  border: 1px solid rgba(214, 184, 117, 0.36);
+}
+.referral-status-pill.is-review {
+  color: #9fc5f2;
+  background: rgba(114, 166, 232, 0.14);
+  border: 1px solid rgba(114, 166, 232, 0.38);
+}
+.referral-status-pill.is-rejected {
+  color: #f1a8a8;
+  background: rgba(224, 102, 102, 0.14);
+  border: 1px solid rgba(224, 102, 102, 0.38);
+}

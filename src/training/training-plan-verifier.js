@@ -49,10 +49,54 @@ function inferPlanRule(item = {}) {
   const title = String(item.title || '');
   const detail = String(item.detail || '');
   const metric = String(item.metric || '');
+  const titleNorm = normalizeSlug(title);
   const hay = normalizeSlug(`${title} ${detail} ${metric}`);
 
+  // 0. Reglas explícitas tienen prioridad absoluta (nunca pisadas por texto descriptivo en `detail`)
+  if (explicitType === 'stage_grade') {
+    let stageId = String(item.stageId || '').toLowerCase();
+    if (!stageId) {
+      if (titleNorm.includes('alta edad')) stageId = 'dark';
+      else if (titleNorm.includes('feudal')) stageId = 'feudal';
+      else if (titleNorm.includes('castillos')) stageId = 'castle';
+      else if (titleNorm.includes('imperial')) stageId = 'imperial';
+    }
+    const stageLabel = stageId === 'dark' ? 'Alta Edad' : stageId === 'feudal' ? 'Edad Feudal' : stageId === 'castle' ? 'Edad de los Castillos' : stageId === 'imperial' ? 'Edad Imperial' : 'esa edad';
+    if (stageId) {
+      return {
+        type: 'stage_grade',
+        stageId,
+        threshold: 75,
+        targetLabel: `Lograr nota A o S (≥ 75) en ${stageLabel}`,
+      };
+    }
+  }
+  if (explicitType === 'vs_civ') {
+    const targetCivName = String(item.civName || item.civSlug || '').trim();
+    const targetCivNorm = normalizeSlug(item.civSlug || targetCivName);
+    if (targetCivNorm) {
+      return {
+        type: 'vs_civ',
+        targetCiv: targetCivNorm,
+        targetCivName: targetCivName || targetCivNorm,
+        targetLabel: `Ganar una partida real contra ${targetCivName || targetCivNorm}`,
+      };
+    }
+  }
+  if (explicitType === 'on_map') {
+    const targetMap = String(item.mapName || '').trim();
+    if (targetMap) {
+      return {
+        type: 'on_map',
+        targetMap: normalizeSlug(targetMap),
+        targetMapName: targetMap,
+        targetLabel: `Ganar una partida real en ${targetMap}`,
+      };
+    }
+  }
+
   // 1. Explicit or inferred TC Idle Dark Age
-  if (explicitType === 'tc_idle_dark' || (hay.includes('alta edad') && (hay.includes('cu') || hay.includes('centro urbano') || hay.includes('aldeano') || hay.includes('pausa') || hay.includes('idle')))) {
+  if (explicitType === 'tc_idle_dark' || (titleNorm.includes('alta edad') && (titleNorm.includes('cu') || titleNorm.includes('centro urbano') || titleNorm.includes('aldeano') || titleNorm.includes('pausa') || titleNorm.includes('idle') || titleNorm.includes('inactividad')))) {
     const baseSec = Number.isFinite(Number(item.ruleTarget)) ? Number(item.ruleTarget) : parseSecondsFromText(`${metric} ${detail}`);
     const threshold = Number.isFinite(baseSec) && baseSec > 8 ? Math.max(6, Math.min(18, Math.round(baseSec * 0.78))) : 15;
     return {
@@ -63,7 +107,7 @@ function inferPlanRule(item = {}) {
   }
 
   // 2. TC Idle Feudal
-  if (explicitType === 'tc_idle_feudal' || (hay.includes('feudal') && (hay.includes('cu') || hay.includes('centro urbano') || hay.includes('aldeano') || hay.includes('pausa') || hay.includes('idle')))) {
+  if (explicitType === 'tc_idle_feudal' || (titleNorm.includes('feudal') && (titleNorm.includes('cu') || titleNorm.includes('centro urbano') || titleNorm.includes('aldeano') || titleNorm.includes('pausa') || titleNorm.includes('idle') || titleNorm.includes('inactividad')))) {
     const baseSec = Number.isFinite(Number(item.ruleTarget)) ? Number(item.ruleTarget) : parseSecondsFromText(`${metric} ${detail}`);
     const threshold = Number.isFinite(baseSec) && baseSec > 10 ? Math.max(8, Math.min(22, Math.round(baseSec * 0.80))) : 18;
     return {
@@ -74,7 +118,7 @@ function inferPlanRule(item = {}) {
   }
 
   // 3. Biggest continuous TC gap (e.g. "Tu Centro Urbano estuvo detenido 44 s seguidos")
-  if (explicitType === 'tc_gap' || (hay.includes('detenido') && hay.includes('seguidos')) || (hay.includes('pausa') && hay.includes('centro urbano'))) {
+  if (explicitType === 'tc_gap' || (titleNorm.includes('detenido') && titleNorm.includes('seguidos')) || (titleNorm.includes('pausa') && titleNorm.includes('centro urbano'))) {
     const baseSec = parseSecondsFromText(`${title} ${metric} ${detail}`);
     const threshold = Number.isFinite(baseSec) && baseSec > 16 ? Math.max(12, Math.min(28, Math.round(baseSec * 0.70))) : 25;
     return {
@@ -84,77 +128,16 @@ function inferPlanRule(item = {}) {
     };
   }
 
-  // 4. Double-Bit Axe delay
-  if (explicitType === 'dba_delay' || hay.includes('hacha de doble filo') || hay.includes('hacha madera')) {
-    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
-    const threshold = Number.isFinite(baseSec) && baseSec > 12 ? Math.max(10, Math.min(25, Math.round(baseSec * 0.75))) : 25;
-    return {
-      type: 'dba_delay',
-      threshold,
-      targetLabel: `Hacha de doble filo en ≤ ${threshold} s tras Feudal`,
-    };
-  }
-
-  // 5. Bow Saw delay
-  if (explicitType === 'bow_saw' || hay.includes('sierra de arco')) {
-    return {
-      type: 'bow_saw',
-      threshold: 40,
-      targetLabel: 'Investigar Sierra de arco en ≤ 40 s tras Castillos',
-    };
-  }
-
-  // 6. Feudal arrival time
-  if (explicitType === 'feudal_time' || hay.includes('llegada a edad feudal') || (hay.includes('feudal') && /\d{1,2}:\d{2}/.test(`${metric} ${detail}`))) {
-    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
-    const threshold = Number.isFinite(baseSec) && baseSec > 480 ? Math.max(540, Math.round(baseSec - 12)) : 600;
-    return {
-      type: 'feudal_time',
-      threshold,
-      targetLabel: `Llegar a Edad Feudal en ≤ ${fmtClock(threshold)}`,
-    };
-  }
-
-  // 7. Castle arrival time
-  if (explicitType === 'castle_time' || hay.includes('llegada a edad de los castillos') || (hay.includes('castillos') && /\d{1,2}:\d{2}/.test(`${metric} ${detail}`))) {
-    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
-    const threshold = Number.isFinite(baseSec) && baseSec > 800 ? Math.max(930, Math.round(baseSec - 20)) : 1080;
-    return {
-      type: 'castle_time',
-      threshold,
-      targetLabel: `Llegar a Castillos en ≤ ${fmtClock(threshold)}`,
-    };
-  }
-
-  // 8. Effective eAPM
-  if (explicitType === 'eapm' || hay.includes('eapm') || hay.includes('ritmo efectivo')) {
-    const baseVal = parseNumberFromText(`${metric} ${detail}`);
-    const threshold = Number.isFinite(baseVal) && baseVal > 15 ? Math.round(baseVal + 4) : 45;
-    return {
-      type: 'eapm',
-      threshold,
-      targetLabel: `Alcanzar ≥ ${threshold} eAPM efectivos`,
-    };
-  }
-
-  // 9. Town Bell habit
-  if (explicitType === 'no_town_bell' || hay.includes('campana urbana') || hay.includes('town bell')) {
-    return {
-      type: 'no_town_bell',
-      threshold: 0,
-      targetLabel: 'Terminar la partida con 0 usos de Campana urbana',
-    };
-  }
-
-  // 10. Specific Age stage grade improvement ("Mejorar Edad Feudal", "Mejorar Alta Edad", etc.)
-  if (explicitType === 'stage_grade' || hay.startsWith('mejorar ')) {
+  // 4. Specific Age stage grade improvement ("Mejorar Edad Feudal", "Mejorar Alta Edad", etc.)
+  // Evaluar ANTES de keywords genéricos del `detail` (ej. "Hacha de doble filo ✓" en una nota de Edad Feudal)
+  if (!explicitType && titleNorm.startsWith('mejorar ')) {
     let stageId = String(item.stageId || '').toLowerCase();
     let stageLabel = 'esa edad';
     if (!stageId) {
-      if (hay.includes('alta edad')) { stageId = 'dark'; stageLabel = 'Alta Edad'; }
-      else if (hay.includes('feudal')) { stageId = 'feudal'; stageLabel = 'Edad Feudal'; }
-      else if (hay.includes('castillos')) { stageId = 'castle'; stageLabel = 'Edad de los Castillos'; }
-      else if (hay.includes('imperial')) { stageId = 'imperial'; stageLabel = 'Edad Imperial'; }
+      if (titleNorm.includes('alta edad')) { stageId = 'dark'; stageLabel = 'Alta Edad'; }
+      else if (titleNorm.includes('feudal')) { stageId = 'feudal'; stageLabel = 'Edad Feudal'; }
+      else if (titleNorm.includes('castillos')) { stageId = 'castle'; stageLabel = 'Edad de los Castillos'; }
+      else if (titleNorm.includes('imperial')) { stageId = 'imperial'; stageLabel = 'Edad Imperial'; }
     } else {
       stageLabel = stageId === 'dark' ? 'Alta Edad' : stageId === 'feudal' ? 'Edad Feudal' : stageId === 'castle' ? 'Edad de los Castillos' : 'Edad Imperial';
     }
@@ -168,9 +151,83 @@ function inferPlanRule(item = {}) {
     }
   }
 
-  // 11. Win against a specific Rival Civ ("Practicar contra Indostanos" / "contra <Civ>")
+  // 5. Double-Bit Axe delay
+  if (explicitType === 'dba_delay' || titleNorm.includes('hacha de doble filo') || titleNorm.includes('hacha madera') || (!titleNorm.startsWith('mejorar ') && (hay.includes('hacha de doble filo') || hay.includes('hacha madera')))) {
+    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
+    const threshold = Number.isFinite(baseSec) && baseSec > 12 ? Math.max(10, Math.min(25, Math.round(baseSec * 0.75))) : 25;
+    return {
+      type: 'dba_delay',
+      threshold,
+      targetLabel: `Hacha de doble filo en ≤ ${threshold} s tras Feudal`,
+    };
+  }
+
+  // 6. Bow Saw delay
+  if (explicitType === 'bow_saw' || titleNorm.includes('sierra de arco') || hay.includes('sierra de arco')) {
+    return {
+      type: 'bow_saw',
+      threshold: 40,
+      targetLabel: 'Investigar Sierra de arco en ≤ 40 s tras Castillos',
+    };
+  }
+
+  // 7. Feudal arrival time
+  if (explicitType === 'feudal_time' || titleNorm.includes('llegada a edad feudal') || titleNorm.includes('pase a edad feudal') || titleNorm.includes('pase feudal') || (titleNorm.includes('feudal') && /\d{1,2}:\d{2}/.test(`${metric} ${detail}`))) {
+    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
+    const threshold = Number.isFinite(baseSec) && baseSec > 480 ? Math.max(540, Math.round(baseSec - 12)) : 600;
+    return {
+      type: 'feudal_time',
+      threshold,
+      targetLabel: `Llegar a Edad Feudal en ≤ ${fmtClock(threshold)}`,
+    };
+  }
+
+  // 8. Castle arrival time
+  if (explicitType === 'castle_time' || titleNorm.includes('llegada a edad de los castillos') || titleNorm.includes('pase a edad de los castillos') || titleNorm.includes('pase castillos') || (titleNorm.includes('castillos') && /\d{1,2}:\d{2}/.test(`${metric} ${detail}`))) {
+    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
+    const threshold = Number.isFinite(baseSec) && baseSec > 800 ? Math.max(930, Math.round(baseSec - 20)) : 1080;
+    return {
+      type: 'castle_time',
+      threshold,
+      targetLabel: `Llegar a Castillos en ≤ ${fmtClock(threshold)}`,
+    };
+  }
+
+  // 9. Effective eAPM
+  if (explicitType === 'eapm' || titleNorm.includes('eapm') || titleNorm.includes('ritmo efectivo') || hay.includes('eapm') || hay.includes('ritmo efectivo')) {
+    const baseVal = parseNumberFromText(`${metric} ${detail}`);
+    const threshold = Number.isFinite(baseVal) && baseVal > 15 ? Math.round(baseVal + 4) : 45;
+    return {
+      type: 'eapm',
+      threshold,
+      targetLabel: `Alcanzar ≥ ${threshold} eAPM efectivos`,
+    };
+  }
+
+  // 10. Town Bell habit
+  if (explicitType === 'no_town_bell' || hay.includes('campana urbana') || hay.includes('town bell')) {
+    return {
+      type: 'no_town_bell',
+      threshold: 0,
+      targetLabel: 'Terminar la partida con 0 usos de Campana urbana',
+    };
+  }
+
+  // 11. Fallback TC Idle Dark / Feudal detected via `hay`
+  if (hay.includes('alta edad') && (hay.includes('cu') || hay.includes('centro urbano') || hay.includes('pausa') || hay.includes('idle'))) {
+    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
+    const threshold = Number.isFinite(baseSec) && baseSec > 8 ? Math.max(6, Math.min(18, Math.round(baseSec * 0.78))) : 15;
+    return { type: 'tc_idle_dark', threshold, targetLabel: `Pausa de CU en Alta Edad ≤ ${threshold} s` };
+  }
+  if (hay.includes('feudal') && (hay.includes('cu') || hay.includes('centro urbano') || hay.includes('pausa') || hay.includes('idle'))) {
+    const baseSec = parseSecondsFromText(`${metric} ${detail}`);
+    const threshold = Number.isFinite(baseSec) && baseSec > 10 ? Math.max(8, Math.min(22, Math.round(baseSec * 0.80))) : 18;
+    return { type: 'tc_idle_feudal', threshold, targetLabel: `Pausa de CU en Feudal ≤ ${threshold} s` };
+  }
+
+  // 12. Win against a specific Rival Civ ("Practicar contra Indostanos" / "contra <Civ>")
   const civMatch = /(?:contra|vs\.?)\s+([a-záéíóúñ\s]{3,24})$/i.exec(title.trim());
-  if (explicitType === 'vs_civ' || item.civSlug || (hay.includes('rival') && civMatch)) {
+  if (item.civSlug || (hay.includes('rival') && civMatch)) {
     const targetCivName = String(item.civName || (civMatch && civMatch[1]) || '').trim();
     const targetCivNorm = normalizeSlug(item.civSlug || targetCivName);
     if (targetCivNorm) {
@@ -183,9 +240,9 @@ function inferPlanRule(item = {}) {
     }
   }
 
-  // 12. Win on a specific Map ("Mejorar Mapa: Arabia")
+  // 13. Win on a specific Map ("Mejorar Mapa: Arabia")
   const mapMatch = /mapa:\s*([a-záéíóúñ\s]{3,28})/i.exec(title);
-  if (explicitType === 'on_map' || item.mapName || mapMatch) {
+  if (item.mapName || mapMatch) {
     const targetMap = String(item.mapName || (mapMatch && mapMatch[1]) || '').trim();
     if (targetMap) {
       return {
@@ -197,7 +254,7 @@ function inferPlanRule(item = {}) {
     }
   }
 
-  // 13. Blacksmith / army upgrades
+  // 14. Blacksmith / army upgrades
   if (explicitType === 'army_upgrades' || hay.includes('herreria') || hay.includes('mejoras militares') || hay.includes('armadura')) {
     return {
       type: 'army_upgrades',
@@ -205,12 +262,39 @@ function inferPlanRule(item = {}) {
     };
   }
 
-  // 14. Default verifiable goal: Win or achieve strong execution (≥ 75) in a real subsequent match
+  // 15. Default verifiable goal: Win or achieve strong execution (≥ 75) in a real subsequent match
   return {
     type: 'win_clean',
     threshold: 75,
     targetLabel: 'Ganar o lograr nota ≥ 75 en una partida posterior (≥ 12 min)',
   };
+}
+
+/**
+ * Clave canónica de deduplicación semántica para «Mi Plan».
+ * Evita agregar objetivos duplicados o equivalentes desde Central, Postmatch o Progreso
+ * aunque cambie la redacción o el umbral numérico en el título.
+ */
+function planRuleKey(rule, item = {}) {
+  const r = rule && rule.type ? rule : inferPlanRule(item);
+  if (r.type === 'stage_grade') return `rule:stage_grade:${normalizeSlug(r.stageId || 'any')}`;
+  if (r.type === 'vs_civ') return `rule:vs_civ:${normalizeSlug(r.targetCiv || r.targetCivName || 'any')}`;
+  if (r.type === 'on_map') return `rule:on_map:${normalizeSlug(r.targetMap || r.targetMapName || 'any')}`;
+  if (r.type && r.type !== 'win_clean') return `rule:${r.type}`;
+  const cleanTitle = normalizeSlug(
+    String(item.title || '')
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/\d+(?:[.,:]\d+)?\s*(?:s|seg|m|min|%|eapm)?/gi, ' ')
+  );
+  return `title:${cleanTitle || normalizeSlug(item.title || item.id || 'item')}`;
+}
+
+function defaultTabForPlanRule(rule) {
+  const type = rule?.type || '';
+  if (['feudal_time', 'castle_time', 'tc_idle_dark', 'dba_delay'].includes(type)) return 'orders';
+  if (['vs_civ', 'on_map'].includes(type)) return 'matchups';
+  if (type === 'army_upgrades') return 'arena';
+  return 'perf';
 }
 
 function recordTimestampMs(record) {
@@ -478,6 +562,8 @@ function evaluatePlanQueueAgainstRecord(queue = [], record) {
 
 module.exports = {
   inferPlanRule,
+  planRuleKey,
+  defaultTabForPlanRule,
   evaluateSinglePlanItem,
   evaluatePlanQueueAgainstRecord,
 };

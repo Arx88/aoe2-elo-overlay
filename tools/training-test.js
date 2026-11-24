@@ -590,6 +590,45 @@ const CIV_TECH = require('../src/civ-tech.json').civilizations;
   const lockedWpDash = ctrlWp.buildDashboard({ profileId: 777, unlocked: false, plan: 'free', records: week22 });
   assert.equal(lockedWpDash.highElo.weeklyProgress, undefined, 'Locked Free dashboard must NOT leak weeklyProgress');
   try { fs.unlinkSync(tmpFreeWp); } catch (_) {}
+
+  // Regression: semantic deduplication in Mi Plan + stage_grade rule preservation + no jump to Build Orders + no allowH2 WebSocket bug
+  const { inferPlanRule, planRuleKey } = require('../src/training/training-plan-verifier');
+  const stageRule = inferPlanRule({
+    source: 'Postmatch',
+    title: 'Mejorar Edad Feudal',
+    detail: '12m en Feudal · Hacha de doble filo ✓',
+    metric: 'S',
+  });
+  assert.equal(stageRule.type, 'stage_grade', 'Mejorar Edad Feudal must resolve to stage_grade, never hijacked by detail text');
+  assert.equal(stageRule.stageId, 'feudal');
+
+  const tmpDedup = path.join(os.tmpdir(), `relic-dedup-${Date.now()}.json`);
+  const ctrlDedup = createTrainingController({ stateFile: tmpDedup, saveCustomBuilds: () => {} });
+  const q1 = ctrlDedup.addQueueItem({
+    profileId: 888,
+    item: { source: 'Progreso', title: 'Reducir pausa del CU en Edad Feudal (≤ 28 s)', detail: '38 s', ruleType: 'tc_idle_feudal' },
+  });
+  assert.equal(q1.duplicate, false);
+  assert.equal(q1.trainingQueue.length, 1);
+  // Adding equivalent goal from Postmatch with different title/threshold MUST NOT duplicate!
+  const q2 = ctrlDedup.addQueueItem({
+    profileId: 888,
+    item: { source: 'Postmatch', title: 'Inactividad por Centro Urbano (Feudal)', detail: '41 s', ruleType: 'tc_idle_feudal' },
+  });
+  assert.equal(q2.duplicate, true, 'Duplicate active rule across different sources/titles must be blocked');
+  assert.equal(q2.trainingQueue.length, 1);
+  assert.equal(q2.itemId, q1.itemId);
+  assert.equal(planRuleKey({ type: 'tc_idle_feudal' }), 'rule:tc_idle_feudal');
+  try { fs.unlinkSync(tmpDedup); } catch (_) {}
+
+  // Regression: #trTrainBottleneckBtn MUST open Mi Plan ('plan'), NEVER jump to Build Orders ('orders')
+  const trainingUiSrc = fs.readFileSync(path.join(__dirname, '..', 'ui', 'training-ui.js'), 'utf8');
+  const bnBlock = trainingUiSrc.slice(trainingUiSrc.indexOf('#trTrainBottleneckBtn'), trainingUiSrc.indexOf('#trTrainBottleneckBtn') + 900);
+  assert.ok(bnBlock.includes("switchSubtab('plan')"), '#trTrainBottleneckBtn must navigate to Mi Plan (plan), not Build Orders');
+
+  // Regression: main.js MUST NEVER enable allowH2: true on undici global dispatcher (breaks WebSocket Prematch 1002/1006)
+  const mainSrc = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  assert.ok(!/setGlobalDispatcher\([\s\S]{0,240}allowH2\s*:\s*true/.test(mainSrc), 'main.js must NOT set allowH2: true on global dispatcher (breaks WebSocket Prematch)');
 }
 
 console.log('Entrenamiento v5 (Beta · Ultra): 410 preguntas 7 niveles, 3080 matchups antisimétricos + UU, 15 PNGs Herrería globales, bloqueo 24h, cola Mi Plan, Radar real, Weekly real, CSP y nomenclatura oficial AoE2:DE OK.');

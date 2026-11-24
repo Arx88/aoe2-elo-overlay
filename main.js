@@ -20,7 +20,10 @@ const http = require('node:http');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-// Mantener conexiones TLS/HTTP2 calientes (30s keep-alive) para reutilizar sockets entre APIs.
+// Mantener conexiones TLS/HTTP1.1 calientes (30s keep-alive) para reutilizar sockets entre APIs.
+// IMPORTANTE: NO activar `allowH2: true` en el dispatcher global de Undici porque el WebSocket
+// nativo de Node/Electron hereda este dispatcher y falla el upgrade 101 (código 1002/1006)
+// contra wss://socket.aoe2companion.com, rompiendo la detección de Prematch.
 try {
   const undici = require('undici');
   if (undici && typeof undici.Agent === 'function' && typeof undici.setGlobalDispatcher === 'function') {
@@ -28,7 +31,6 @@ try {
       keepAliveTimeout: 30_000,
       keepAliveMaxTimeout: 60_000,
       connections: 12,
-      allowH2: true,
     }));
   }
 } catch {
@@ -49,7 +51,11 @@ const {
   hideLobbyCivs,
 } = require('./src/aoe');
 const { fetchCentralDashboard, hydrateCentralEwMode, mergeRecentMatches } = require('./src/central');
-const { detectProfile, getActiveSteamId, getActiveSteamIdAsync, resolveSteamId, listAccounts } = require('./src/detect');
+const { detectProfile, getActiveSteamId, getActiveSteamIdAsync, resolveSteamId, listAccounts, collectLocalPlatformIdHashes } = require('./src/detect');
+let verifiedLocalDetection = null;
+let cachedReferralsState = null;
+let referralRetryTimer = null;
+let referralActivating = false;
 let lastActiveSteamId = null;
 let lastSteamCheckAt = 0;
 const { CIV_SLUGS, CIV_ALIASES, civSlug } = require('./src/civs');
@@ -707,16 +713,106 @@ async function fetchCurrentAuthState() {
   return cachedAuthProfile;
 }
 
+function broadcastReferralsState(data) {
+  if (data) cachedReferralsState = data;
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.webContents.send('referrals:update', data);
+  }
+}
+
+async function fetchCurrentReferralsState() {
+  const apiUrl = licenseApiUrl();
+  const sessionToken = loadSessionToken();
+  if (!apiUrl) return { ok: false, error: 'Servidor no configurado.' };
+  if (!sessionToken) {
+    cachedReferralsState = null;
+    return { ok: false, authRequired: true, error: 'Iniciá sesión con Google para ver tu programa de referidos.' };
+  }
+  const allLocalPlatformIdHashes = verifiedLocalDetection?.localProof?.allLocalPlatformIdHashes
+    || collectLocalPlatformIdHashes();
+  const res = await licenseClient.fetchMyReferrals({ apiUrl, sessionToken, allLocalPlatformIdHashes });
+  if (!res.ok) {
+    return { ok: false, unauthorized: Boolean(res.unauthorized), code: res.code || null, error: res.error };
+  }
+  cachedReferralsState = res.data;
+  broadcastReferralsState(res.data);
+  if (res.data?.myReferral?.status === 'pending') {
+    const waitSec = Math.max(0, Number(res.data.myReferral.dwellRemainingSeconds || 0));
+    scheduleReferralActivationAttempt(waitSec > 0 ? (waitSec + 2) * 1000 : 1200);
+  }
+  return { ok: true, referrals: res.data };
+}
+
+function scheduleReferralActivationAttempt(delayMs = 5000) {
+  clearTimeout(referralRetryTimer);
+  referralRetryTimer = setTimeout(() => {
+    referralRetryTimer = null;
+    tryAutoActivatePendingReferral().catch(() => {});
+  }, Math.max(1000, Math.min(delayMs, 10 * 60 * 1000)));
+  referralRetryTimer.unref?.();
+}
+
+async function tryAutoActivatePendingReferral({ force = false } = {}) {
+  if (referralActivating) return { ok: false, busy: true };
+  const apiUrl = licenseApiUrl();
+  const sessionToken = loadSessionToken();
+  if (!apiUrl || !sessionToken) return { ok: false, authRequired: true };
+  if (!force && cachedReferralsState?.myReferral?.status !== 'pending') {
+    return { ok: false, skipped: true };
+  }
+  referralActivating = true;
+  try {
+    if (!verifiedLocalDetection?.localProof) {
+      const detected = await detectProfile(log).catch(() => null);
+      if (detected && detected.localProof) {
+        verifiedLocalDetection = detected;
+      }
+    }
+    const aoeProof = verifiedLocalDetection?.localProof || null;
+    if (!aoeProof) {
+      return {
+        ok: false,
+        code: 'aoe-profile-required',
+        error: 'Abrí Age of Empires II: DE o iniciá Steam en esta PC para detectar tu perfil automáticamente y activar el referido.',
+      };
+    }
+    const res = await licenseClient.activateReferral({ apiUrl, sessionToken, aoeProof });
+    if (res.ok && res.data?.status === 'activated') {
+      log(`referido activado automáticamente (AoE2 profile ${res.data.aoeProfileId || 'ok'})`);
+      await fetchCurrentReferralsState().catch(() => {});
+      await syncRemoteLicense('referral-activated').catch(() => {});
+      return { ok: true, data: res.data };
+    }
+    const errCode = res.code || res.data?.error || null;
+    if (errCode === 'activation-dwell-pending') {
+      const waitSec = Math.max(15, Number(res.data?.retryAfterSeconds || 30));
+      scheduleReferralActivationAttempt((waitSec + 2) * 1000);
+      return { ok: false, pending: true, code: errCode, error: res.error, retryAfterSeconds: waitSec };
+    }
+    if (res.data?.retryable) {
+      scheduleReferralActivationAttempt(90 * 1000);
+    } else if (res.data?.status === 'pending_review' || res.data?.status === 'rejected' || res.data?.status === 'expired') {
+      await fetchCurrentReferralsState().catch(() => {});
+    }
+    return { ok: false, code: errCode, error: res.error, data: res.data };
+  } finally {
+    referralActivating = false;
+  }
+}
+
 async function syncRemoteLicense(reason = 'startup') {
   const apiUrl = licenseApiUrl();
   if (!apiUrl) return remoteLicenseState;
   const sessionToken = loadSessionToken();
+  const allLocalPlatformIdHashes = verifiedLocalDetection?.localProof?.allLocalPlatformIdHashes
+    || collectLocalPlatformIdHashes();
   const res = await licenseClient.checkRemoteEntitlement({
     apiUrl,
     profileId: profileId || null,
     alias: playerAlias || '',
     appVersion: app.getVersion(),
     sessionToken,
+    allLocalPlatformIdHashes,
     publicKeys: PRODUCT_PUBLIC_KEYS || {},
   });
   remoteLicenseState = { ...res, lastCheckAt: Date.now(), checkReason: reason };
@@ -3605,6 +3701,12 @@ function registerIpc() {
       if (!detected) {
         return { ok: false, error: 'No encontré ninguna cuenta de AoE2 en esta PC. Escribí tu nombre o tu ID.' };
       }
+      if (detected.localProof) {
+        verifiedLocalDetection = detected;
+        if (cachedReferralsState?.myReferral?.status === 'pending') {
+          scheduleReferralActivationAttempt(2000);
+        }
+      }
       persistConfig({ profileId: null, autoProfileId: Number(detected.profileId), autoAlias: detected.alias || null });
       setRuntimeProfile(detected.profileId, detected.alias);
       log(`detección pedida desde configuración: ${detected.alias || 'sin alias'} (${detected.profileId})`);
@@ -4344,6 +4446,41 @@ function registerIpc() {
     return { ok: true, trial: res.data, product: productState(), auth };
   });
 
+  ipcMain.handle('referrals:me', async () => {
+    const out = await fetchCurrentReferralsState();
+    return out;
+  });
+
+  ipcMain.handle('referrals:apply', async (_event, rawCode) => {
+    const apiUrl = licenseApiUrl();
+    const sessionToken = loadSessionToken();
+    if (!apiUrl) return { ok: false, error: 'Servidor de licencias no configurado.' };
+    if (!sessionToken) {
+      return { ok: false, authRequired: true, code: 'auth-required', error: 'Iniciá sesión con Google para ingresar un código de referido.' };
+    }
+    const allLocalPlatformIdHashes = verifiedLocalDetection?.localProof?.allLocalPlatformIdHashes
+      || collectLocalPlatformIdHashes();
+    const res = await licenseClient.applyReferralCode({
+      apiUrl,
+      sessionToken,
+      code: String(rawCode || '').trim(),
+      allLocalPlatformIdHashes,
+    });
+    if (!res.ok) {
+      return { ok: false, unauthorized: Boolean(res.unauthorized), code: res.code || null, error: res.error };
+    }
+    const latest = await fetchCurrentReferralsState().catch(() => null);
+    const dwellSec = Math.max(60, Number(res.data?.dwellSeconds || 60));
+    scheduleReferralActivationAttempt((dwellSec + 2) * 1000);
+    return { ok: true, applied: res.data, referrals: latest?.referrals || cachedReferralsState };
+  });
+
+  ipcMain.handle('referrals:activate', async () => {
+    const act = await tryAutoActivatePendingReferral({ force: true });
+    const latest = await fetchCurrentReferralsState().catch(() => null);
+    return { ...act, referrals: latest?.referrals || cachedReferralsState };
+  });
+
   function trainingAccessContext() {
     const prod = productState();
     const unlocked = allowsFeature(prod, 'trainingHub');
@@ -4648,6 +4785,7 @@ function registerIpc() {
             syncRemoteLicense('google-login'),
           ]);
           broadcastAuthState(auth);
+          fetchCurrentReferralsState().catch(() => {});
           if (settingsWin && !settingsWin.isDestroyed()) {
             if (settingsWin.isMinimized()) settingsWin.restore();
             settingsWin.focus();
@@ -4681,6 +4819,9 @@ function registerIpc() {
       await licenseClient.logoutRemoteSession({ apiUrl: licenseApiUrl(), sessionToken: token }).catch(() => {});
     }
     clearSessionToken();
+    cachedReferralsState = null;
+    clearTimeout(referralRetryTimer);
+    referralRetryTimer = null;
     productSession = { accountId: null, entitlementToken: null };
     await syncRemoteLicense('logout').catch(() => {});
     refreshAccessPresentation();
@@ -5806,9 +5947,17 @@ async function bootstrap() {
     startPolling();
     startLive();
   }
+  // Precargar huella de hardware en segundo plano (SMBIOS + placa + disco, sin bloquear arranque)
+  licenseClient.initHardwareProfile().catch(() => {});
   if (needsAutoDetect) {
     startupDetectPromise = detectProfile(log)
       .then((detected) => {
+        if (detected && detected.localProof) {
+          verifiedLocalDetection = detected;
+          if (cachedReferralsState?.myReferral?.status === 'pending') {
+            scheduleReferralActivationAttempt(2500);
+          }
+        }
         if (detected && Number(detected.profileId) > 0) {
           persistConfig({ autoProfileId: Number(detected.profileId), autoAlias: detected.alias || null });
           const changed = Number(profileId) !== Number(detected.profileId);

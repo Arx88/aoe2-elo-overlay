@@ -14,12 +14,14 @@
 
 const crypto = require('node:crypto');
 const os = require('node:os');
-const { execFileSync } = require('node:child_process');
+const { execFile, execFileSync } = require('node:child_process');
 const { verifyEntitlement } = require('./product');
 
 const DEFAULT_API_URL = process.env.AOE2_LICENSE_API_URL || 'https://aoe2-helper-licensing.aoe2helper-api.workers.dev';
 const CHECK_TIMEOUT_MS = 7000;
 const MACHINE_SALT = 'aoe2-helper-machine-v1:';
+const HW_SALT = 'relic-hw-v1:';
+const OS_SALT = 'relic-os-v1:';
 
 // Claves públicas Ed25519 de producción (seguro incluirlas en el cliente;
 // la clave privada vive únicamente en Cloudflare Workers Secrets).
@@ -27,7 +29,185 @@ const RELEASE_PUBLIC_KEYS = Object.freeze({
   'prod-2026-01': '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAhLSwWYjc/3usRFveaFNY+HNgql6Bht3lQj7ca/1YYdI=\n-----END PUBLIC KEY-----',
 });
 
+const OEM_PLACEHOLDER_PATTERNS = [
+  /^0+$/,
+  /^f+$/i,
+  /^0{8}-0{4}-0{4}-0{4}-0{12}$/,
+  /^f{8}-f{4}-f{4}-f{4}-f{12}$/i,
+  /^default(\s+string)?$/i,
+  /^to\s+be\s+filled/i,
+  /^system\s+(serial|product|manufacturer)/i,
+  /^not\s+(specified|applicable|available)/i,
+  /^(none|n\/a|na|unknown|invalid|oem|chassis|standard|1234567890?)$/i,
+];
+
+const VM_BIOS_PATTERNS = [
+  /vmware/i,
+  /virtualbox/i,
+  /innotek/i,
+  /\bqemu\b/i,
+  /\bbochs\b/i,
+  /parallels/i,
+  /\bxen\b/i,
+  /\bkvm\b/i,
+  /\bbhyve\b/i,
+  /virtual\s+machine/i,
+  /microsoft\s+corporation.*virtual/i,
+];
+
 let cachedMachineHash = null;
+let cachedHardwareProfile = null;
+let hwInitPromise = null;
+
+function sanitizeHwToken(raw) {
+  const s = String(raw || '').trim().replace(/^\{|\}$/g, '').trim();
+  if (!s || s.length < 4) return '';
+  const low = s.toLowerCase();
+  if (OEM_PLACEHOLDER_PATTERNS.some((re) => re.test(low))) return '';
+  return s.toUpperCase();
+}
+
+function queryRegValueSync(keyPath, valueName) {
+  if (process.platform !== 'win32') return '';
+  try {
+    const out = execFileSync('reg', ['query', keyPath, '/v', valueName], {
+      encoding: 'utf8',
+      timeout: 1200,
+      windowsHide: true,
+    });
+    const re = new RegExp(`${valueName}\\s+REG_\\w+\\s+(.+)`, 'i');
+    const m = re.exec(out);
+    return m ? m[1].trim() : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function detectVmFromBiosStrings(biosStrings = []) {
+  const joined = biosStrings.filter(Boolean).join(' | ');
+  if (!joined) return { isVm: false, vmReason: null };
+  for (const re of VM_BIOS_PATTERNS) {
+    if (re.test(joined)) {
+      return { isVm: true, vmReason: `bios:${re.source}` };
+    }
+  }
+  return { isVm: false, vmReason: null };
+}
+
+function buildSyncHardwareProfile() {
+  const machineHash = getMachineHash();
+  const regLastConfig = sanitizeHwToken(queryRegValueSync('HKLM\\SYSTEM\\HardwareConfig', 'LastConfig'));
+  const regMachineGuid = sanitizeHwToken(queryRegValueSync('HKLM\\SOFTWARE\\Microsoft\\Cryptography', 'MachineGuid'));
+  const regSqmId = sanitizeHwToken(queryRegValueSync('HKLM\\SOFTWARE\\Microsoft\\SQMClient', 'MachineId'));
+  const regHwProfile = sanitizeHwToken(
+    queryRegValueSync('HKLM\\SYSTEM\\CurrentControlSet\\Control\\IDConfigDB\\Hardware Profiles\\0001', 'HwProfileGuid')
+  );
+  const biosStrings = [
+    queryRegValueSync('HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS', 'SystemManufacturer'),
+    queryRegValueSync('HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS', 'SystemProductName'),
+    queryRegValueSync('HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS', 'BaseBoardManufacturer'),
+    queryRegValueSync('HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS', 'BaseBoardProduct'),
+    queryRegValueSync('HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS', 'BIOSVendor'),
+  ].filter(Boolean);
+  const vm = detectVmFromBiosStrings(biosStrings);
+
+  const osTokens = [regMachineGuid, regSqmId, regHwProfile].filter(Boolean);
+  const osInstallHash = crypto
+    .createHash('sha256')
+    .update(`${OS_SALT}${osTokens.length ? osTokens.join('|') : `${os.platform()}|${os.arch()}|${os.hostname()}`}`)
+    .digest('hex');
+
+  const hwTokens = [regLastConfig].filter(Boolean);
+  const hwHash = crypto
+    .createHash('sha256')
+    .update(`${HW_SALT}${hwTokens.length ? hwTokens.join('|') : `fallback:${osInstallHash}`}`)
+    .digest('hex');
+
+  return {
+    machineHash,
+    hwHash,
+    osInstallHash,
+    hwStrength: hwTokens.length ? 'full' : 'degraded',
+    isVm: vm.isVm,
+    vmReason: vm.vmReason,
+    _regLastConfig: regLastConfig,
+    _biosStrings: biosStrings,
+    _cimReady: false,
+  };
+}
+
+function queryWindowsCimAsync() {
+  if (process.platform !== 'win32') return Promise.resolve(null);
+  const psScript = [
+    "$ErrorActionPreference='SilentlyContinue'",
+    "$u=(Get-CimInstance Win32_ComputerSystemProduct | Select-Object -First 1 -ExpandProperty UUID)",
+    "$b=(Get-CimInstance Win32_BaseBoard | Select-Object -First 1 -ExpandProperty SerialNumber)",
+    "$d=(Get-Partition -DriveLetter C | Get-Disk | Select-Object -First 1 -ExpandProperty SerialNumber)",
+    "$m=(Get-CimInstance Win32_ComputerSystem | Select-Object -First 1)",
+    "@{uuid=$u;board=$b;disk=$d;mfg=$m.Manufacturer;model=$m.Model} | ConvertTo-Json -Compress",
+  ].join('; ');
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
+      { encoding: 'utf8', timeout: 4000, windowsHide: true },
+      (err, stdout) => {
+        if (err || !stdout) return resolve(null);
+        try {
+          const parsed = JSON.parse(String(stdout).trim());
+          resolve(parsed && typeof parsed === 'object' ? parsed : null);
+        } catch (_) {
+          resolve(null);
+        }
+      }
+    );
+  });
+}
+
+function getHardwareProfile() {
+  if (!cachedHardwareProfile) {
+    cachedHardwareProfile = buildSyncHardwareProfile();
+  }
+  return {
+    machineHash: cachedHardwareProfile.machineHash,
+    hwHash: cachedHardwareProfile.hwHash,
+    osInstallHash: cachedHardwareProfile.osInstallHash,
+    hwStrength: cachedHardwareProfile.hwStrength,
+    isVm: Boolean(cachedHardwareProfile.isVm),
+    vmReason: cachedHardwareProfile.vmReason || null,
+  };
+}
+
+async function initHardwareProfile() {
+  if (cachedHardwareProfile && cachedHardwareProfile._cimReady) {
+    return getHardwareProfile();
+  }
+  if (!hwInitPromise) {
+    hwInitPromise = (async () => {
+      const base = cachedHardwareProfile || buildSyncHardwareProfile();
+      cachedHardwareProfile = base;
+      const cim = await queryWindowsCimAsync();
+      if (cim) {
+        const smbiosUuid = sanitizeHwToken(cim.uuid) || base._regLastConfig || '';
+        const boardSerial = sanitizeHwToken(cim.board);
+        const diskSerial = sanitizeHwToken(cim.disk);
+        const hwParts = [smbiosUuid, boardSerial, diskSerial].filter(Boolean);
+        if (hwParts.length > 0) {
+          base.hwHash = crypto.createHash('sha256').update(`${HW_SALT}${hwParts.join('|')}`).digest('hex');
+          base.hwStrength = 'full';
+        }
+        const vm = detectVmFromBiosStrings([...(base._biosStrings || []), cim.mfg, cim.model]);
+        if (vm.isVm) {
+          base.isVm = true;
+          base.vmReason = vm.vmReason;
+        }
+      }
+      base._cimReady = true;
+      return getHardwareProfile();
+    })().catch(() => getHardwareProfile());
+  }
+  return hwInitPromise;
+}
 
 function getWindowsMachineGuid() {
   if (process.platform !== 'win32') return '';
@@ -73,9 +253,14 @@ function validateApiUrl(raw) {
 function getDeviceInfo() {
   const host = String(os.hostname() || '').trim().slice(0, 80);
   const osInfo = `${os.platform()} ${os.release()} (${os.arch()})`.slice(0, 60);
+  const hw = getHardwareProfile();
   return {
-    machineHash: getMachineHash(),
-    deviceName: host || `PC-${getMachineHash().slice(0, 6).toUpperCase()}`,
+    machineHash: hw.machineHash,
+    hwHash: hw.hwHash,
+    osInstallHash: hw.osInstallHash,
+    hwStrength: hw.hwStrength,
+    isVm: hw.isVm,
+    deviceName: host || `PC-${hw.machineHash.slice(0, 6).toUpperCase()}`,
     osInfo,
   };
 }
@@ -118,6 +303,9 @@ async function exchangeGoogleCode({
         code: String(code || '').trim(),
         redirectUri: String(redirectUri || '').trim(),
         machineHash: dev.machineHash,
+        hwHash: dev.hwHash,
+        osInstallHash: dev.osInstallHash,
+        isVm: dev.isVm,
         deviceName: dev.deviceName,
         osInfo: dev.osInfo,
         appVersion: String(appVersion || '0.0.0').slice(0, 32),
@@ -149,6 +337,8 @@ function buildGoogleAuthStartUrl({
   const url = new URL(`${base}/v1/auth/google/start`);
   url.searchParams.set('port', String(port));
   url.searchParams.set('machineHash', dev.machineHash);
+  if (dev.hwHash) url.searchParams.set('hwHash', dev.hwHash);
+  if (dev.osInstallHash) url.searchParams.set('osInstallHash', dev.osInstallHash);
   url.searchParams.set('deviceName', dev.deviceName);
   url.searchParams.set('osInfo', dev.osInfo);
   url.searchParams.set('appVersion', String(appVersion || '0.0.0').slice(0, 32));
@@ -165,6 +355,7 @@ async function checkRemoteEntitlement({
   alias = '',
   appVersion = '0.0.0',
   sessionToken = null,
+  allLocalPlatformIdHashes = [],
   publicKeys = RELEASE_PUBLIC_KEYS,
   fetchImpl = globalThis.fetch,
   now = Date.now(),
@@ -195,6 +386,10 @@ async function checkRemoteEntitlement({
         profileId: pid,
         alias: String(alias || '').trim().slice(0, 80),
         machineHash: dev.machineHash,
+        hwHash: dev.hwHash,
+        osInstallHash: dev.osInstallHash,
+        isVm: dev.isVm,
+        allLocalPlatformIdHashes: Array.isArray(allLocalPlatformIdHashes) ? allLocalPlatformIdHashes.slice(0, 20) : [],
         deviceName: dev.deviceName,
         osInfo: dev.osInfo,
         appVersion: String(appVersion || '0.0.0').slice(0, 32),
@@ -317,7 +512,7 @@ async function submitRemoteFeedback({
   }
 }
 
-async function authedJsonRequest({ apiUrl = DEFAULT_API_URL, path, method = 'GET', sessionToken, body = null, fetchImpl = globalThis.fetch }) {
+async function authedJsonRequest({ apiUrl = DEFAULT_API_URL, path, method = 'GET', sessionToken, body = null, extraHeaders = {}, fetchImpl = globalThis.fetch }) {
   const base = validateApiUrl(apiUrl);
   if (!base) return { ok: false, error: 'Servicio no configurado.' };
   if (!sessionToken || typeof sessionToken !== 'string') return { ok: false, unauthorized: true, error: 'Sin sesión iniciada.' };
@@ -325,7 +520,7 @@ async function authedJsonRequest({ apiUrl = DEFAULT_API_URL, path, method = 'GET
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
   try {
-    const headers = { accept: 'application/json', authorization: `Bearer ${sessionToken.trim()}` };
+    const headers = { accept: 'application/json', authorization: `Bearer ${sessionToken.trim()}`, ...(extraHeaders || {}) };
     const init = { method, headers, signal: controller.signal };
     if (body != null) {
       headers['content-type'] = 'application/json';
@@ -333,9 +528,9 @@ async function authedJsonRequest({ apiUrl = DEFAULT_API_URL, path, method = 'GET
     }
     const res = await fetchImpl(`${base}${path}`, init);
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) return { ok: false, unauthorized: true, error: 'Sesión vencida o cerrada.' };
-    if (!res.ok) return { ok: false, status: res.status, error: data.error || `HTTP ${res.status}`, data };
-    return { ok: true, data };
+    if (res.status === 401) return { ok: false, unauthorized: true, error: data.message || 'Sesión vencida o cerrada.', code: data.error || 'auth-required', data };
+    if (!res.ok) return { ok: false, status: res.status, error: data.message || data.error || `HTTP ${res.status}`, code: data.error || null, data };
+    return { ok: true, status: res.status, data };
   } catch (err) {
     return { ok: false, error: err?.name === 'AbortError' ? 'Tiempo de espera agotado.' : 'No se pudo conectar con el servidor.' };
   } finally {
@@ -400,10 +595,65 @@ async function claimUltraTrial(opts) {
   });
 }
 
+async function fetchMyReferrals({ allLocalPlatformIdHashes = [], ...opts } = {}) {
+  const hw = await initHardwareProfile();
+  const extraHeaders = {
+    'x-relic-machine': hw.machineHash,
+    'x-relic-hw': hw.hwHash,
+    'x-relic-os': hw.osInstallHash,
+  };
+  if (Array.isArray(allLocalPlatformIdHashes) && allLocalPlatformIdHashes.length) {
+    extraHeaders['x-relic-aoe-hashes'] = allLocalPlatformIdHashes.slice(0, 20).join(',');
+  }
+  return authedJsonRequest({
+    ...opts,
+    path: '/v1/referrals/me',
+    method: 'GET',
+    extraHeaders,
+  });
+}
+
+async function applyReferralCode({ code, allLocalPlatformIdHashes = [], ...opts } = {}) {
+  const hw = await initHardwareProfile();
+  return authedJsonRequest({
+    ...opts,
+    path: '/v1/referrals/apply',
+    method: 'POST',
+    body: {
+      code: String(code || '').trim(),
+      machineHash: hw.machineHash,
+      hwHash: hw.hwHash,
+      osInstallHash: hw.osInstallHash,
+      hwStrength: hw.hwStrength,
+      isVm: hw.isVm,
+      allLocalPlatformIdHashes: Array.isArray(allLocalPlatformIdHashes) ? allLocalPlatformIdHashes.slice(0, 20) : [],
+    },
+  });
+}
+
+async function activateReferral({ aoeProof = null, ...opts } = {}) {
+  const hw = await initHardwareProfile();
+  return authedJsonRequest({
+    ...opts,
+    path: '/v1/referrals/activate',
+    method: 'POST',
+    body: {
+      machineHash: hw.machineHash,
+      hwHash: hw.hwHash,
+      osInstallHash: hw.osInstallHash,
+      hwStrength: hw.hwStrength,
+      isVm: hw.isVm,
+      aoeProof,
+    },
+  });
+}
+
 module.exports = {
   DEFAULT_API_URL,
   RELEASE_PUBLIC_KEYS,
   getMachineHash,
+  getHardwareProfile,
+  initHardwareProfile,
   getDeviceInfo,
   validateApiUrl,
   buildGoogleAuthStartUrl,
@@ -418,5 +668,8 @@ module.exports = {
   createCheckoutOrder,
   getCheckoutOrderStatus,
   claimUltraTrial,
+  fetchMyReferrals,
+  applyReferralCode,
+  activateReferral,
   submitRemoteFeedback,
 };

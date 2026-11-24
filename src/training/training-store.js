@@ -11,7 +11,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { inferPlanRule } = require('./training-plan-verifier');
+const { inferPlanRule, planRuleKey, defaultTabForPlanRule } = require('./training-plan-verifier');
 
 const SCHEMA_VERSION = 3;
 const MAX_PROCESSED_MATCHES = 200;
@@ -233,6 +233,31 @@ class TrainingStore {
     if (!Array.isArray(p.completedLog)) p.completedLog = [];
     if (!Array.isArray(p.processedMatchIds)) p.processedMatchIds = [];
     if (!Array.isArray(p.trainingQueue)) p.trainingQueue = [];
+    // Normalizar claves semánticas y depurar duplicados activos ya guardados en disco
+    if (p.trainingQueue.length) {
+      const seenActiveKeys = new Set();
+      const deduped = [];
+      let changed = false;
+      for (const entry of p.trainingQueue) {
+        if (!entry || !entry.title) { changed = true; continue; }
+        const rule = entry.verifyRule && entry.verifyRule.type ? entry.verifyRule : inferPlanRule(entry);
+        const rKey = planRuleKey(rule, entry);
+        if (!entry.ruleKey) { entry.ruleKey = rKey; changed = true; }
+        if (!entry.done) {
+          if (seenActiveKeys.has(rKey)) {
+            changed = true;
+            continue;
+          }
+          seenActiveKeys.add(rKey);
+        }
+        deduped.push(entry);
+      }
+      if (changed) {
+        p.trainingQueue = deduped;
+        this._dirty = true;
+        this._scheduleFlush();
+      }
+    }
     return p;
   }
 
@@ -309,47 +334,66 @@ class TrainingStore {
   addTrainingQueueItem(profileId, item = {}) {
     const p = this.getProfile(profileId);
     const title = String(item.title || '').trim().slice(0, 120);
-    if (!title) return p.trainingQueue;
-    const rawId = String(item.id || `${item.source || 'relic'}_${title.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 48)}`);
+    if (!title) return { duplicate: false, itemId: null, trainingQueue: p.trainingQueue };
     const nowTs = Number.isFinite(Number(item.createdAt)) ? Number(item.createdAt) : Date.now();
-    const verifyRule = item.verifyRule || inferPlanRule(item);
-    const existing = p.trainingQueue.find((x) => x.id === rawId);
-    if (existing) {
-      existing.done = false;
-      existing.autoVerified = false;
-      existing.verifiedEvidence = null;
-      existing.verifiedMatchId = null;
-      existing.verifyRule = verifyRule;
-      existing.detail = String(item.detail || existing.detail || '').trim().slice(0, 220);
-      existing.metric = String(item.metric || existing.metric || '').trim().slice(0, 48);
-      existing.createdAt = nowTs;
-      existing.updatedAt = nowTs;
-    } else {
-      p.trainingQueue = [
-        {
-          id: rawId,
-          source: String(item.source || 'Postmatch').trim().slice(0, 24),
-          title,
-          detail: String(item.detail || '').trim().slice(0, 220),
-          metric: String(item.metric || '').trim().slice(0, 48),
-          civSlug: String(item.civSlug || '').trim().toLowerCase().slice(0, 32),
-          targetTab: ['arena', 'orders', 'matchups', 'perf'].includes(item.targetTab) ? item.targetTab : 'orders',
-          verifyRule,
-          done: false,
-          autoVerified: false,
-          verifiedEvidence: null,
-          verifiedMatchId: null,
-          attemptsAfterPin: 0,
-          lastCheckedDisplay: null,
-          checkedMatchIds: [],
-          createdAt: nowTs,
-          addedAt: nowTs,
-        },
-        ...p.trainingQueue,
-      ].slice(0, 30);
+    const verifyRule = item.verifyRule && item.verifyRule.type ? item.verifyRule : inferPlanRule(item);
+    const ruleKey = planRuleKey(verifyRule, item);
+    const rawId = String(item.id || `${ruleKey.replace(/[^a-z0-9:_-]+/gi, '_')}`);
+
+    // Bloqueo estricto de duplicados activos: mismo ID o misma clave semántica de objetivo
+    const existingActive = p.trainingQueue.find((x) => {
+      if (!x || x.done) return false;
+      if (x.id === rawId) return true;
+      const xRule = x.verifyRule && x.verifyRule.type ? x.verifyRule : inferPlanRule(x);
+      return (x.ruleKey || planRuleKey(xRule, x)) === ruleKey;
+    });
+    if (existingActive) {
+      return {
+        duplicate: true,
+        itemId: existingActive.id,
+        existing: existingActive,
+        trainingQueue: p.trainingQueue,
+      };
     }
+
+    const defaultTab = defaultTabForPlanRule(verifyRule);
+    const targetTab = ['arena', 'orders', 'matchups', 'perf'].includes(item.targetTab)
+      ? item.targetTab
+      : defaultTab;
+
+    // Si existía un item archivado/cumplido con el mismo id, generamos un id único para el nuevo intento
+    const idTaken = p.trainingQueue.some((x) => x && x.id === rawId);
+    const finalId = idTaken ? `${rawId}_${nowTs}` : rawId;
+
+    p.trainingQueue = [
+      {
+        id: finalId,
+        ruleKey,
+        source: String(item.source || 'Postmatch').trim().slice(0, 24),
+        title,
+        detail: String(item.detail || '').trim().slice(0, 220),
+        metric: String(item.metric || '').trim().slice(0, 48),
+        civSlug: String(item.civSlug || '').trim().toLowerCase().slice(0, 32),
+        targetTab,
+        verifyRule,
+        done: false,
+        autoVerified: false,
+        verifiedEvidence: null,
+        verifiedMatchId: null,
+        attemptsAfterPin: 0,
+        lastCheckedDisplay: null,
+        checkedMatchIds: [],
+        createdAt: nowTs,
+        addedAt: nowTs,
+      },
+      ...p.trainingQueue,
+    ].slice(0, 30);
     this.touch(profileId);
-    return p.trainingQueue;
+    return {
+      duplicate: false,
+      itemId: finalId,
+      trainingQueue: p.trainingQueue,
+    };
   }
 
   saveEvaluatedTrainingQueue(profileId, updatedQueue = []) {

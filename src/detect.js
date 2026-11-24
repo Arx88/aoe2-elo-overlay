@@ -15,9 +15,85 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { execFile, execFileSync } = require('node:child_process');
 
 const { getJson } = require('./aoe');
+
+function sha256Hex(raw) {
+  return crypto.createHash('sha256').update(String(raw || '')).digest('hex');
+}
+
+function parseAllLoginUsersVdf(text) {
+  if (!text || typeof text !== 'string') return [];
+  const blockRe = /"(7656119\d{10})"\s*\{([^}]*)\}/g;
+  const out = [];
+  let m;
+  while ((m = blockRe.exec(text)) !== null) {
+    out.push(m[1]);
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * Recolecta hashes SHA-256 de TODAS las cuentas Steam/Xbox locales vistas en esta PC
+ * (loginusers.vdf + carpetas de Age of Empires 2 DE) para bloqueo antifraude anti-smurf.
+ */
+function collectLocalPlatformIdHashes(extraEntries = []) {
+  const hashes = new Set();
+  const add = (platform, id) => {
+    const cleanId = String(id || '').trim();
+    if (!platform || !cleanId) return;
+    hashes.add(sha256Hex(`${platform}:${cleanId}`));
+  };
+  for (const entry of extraEntries) {
+    if (entry && entry.platform && entry.id) add(entry.platform, entry.id);
+  }
+  if (process.platform === 'win32') {
+    const pathOut = queryRegistry('HKCU\\Software\\Valve\\Steam', 'SteamPath');
+    const steamPaths = [
+      parseRegSz(pathOut, 'SteamPath'),
+      'C:\\Program Files (x86)\\Steam',
+      'C:\\Program Files\\Steam',
+    ].filter(Boolean);
+    for (const base of [...new Set(steamPaths)]) {
+      try {
+        const vdfPath = path.join(base, 'config', 'loginusers.vdf');
+        if (!fs.existsSync(vdfPath)) continue;
+        const ids = parseAllLoginUsersVdf(fs.readFileSync(vdfPath, 'utf8'));
+        for (const sid of ids) add('steam', sid);
+      } catch (_) {}
+    }
+  }
+  for (const acc of listAccounts()) {
+    const isSteam = /^7656119\d{10}$/.test(acc.id);
+    add(isSteam ? 'steam' : 'xbox', acc.id);
+  }
+  return Array.from(hashes).slice(0, 20);
+}
+
+function buildLocalProof({ platform, platformId, source, accounts = [] }) {
+  const cleanId = String(platformId || '').trim();
+  const matchedAcc = accounts.find((a) => String(a.id) === cleanId) || null;
+  let hasSavegameDir = false;
+  if (matchedAcc && matchedAcc.dir) {
+    try {
+      const sgDir = path.join(matchedAcc.dir, 'savegame');
+      if (fs.existsSync(sgDir)) {
+        const files = fs.readdirSync(sgDir);
+        hasSavegameDir = files.some((f) => /\.aoe2record$/i.test(f));
+      }
+    } catch (_) {}
+  }
+  return {
+    platform,
+    platformId: cleanId,
+    source,
+    hasProfileDir: Boolean(matchedAcc),
+    hasSavegameDir,
+    allLocalPlatformIdHashes: collectLocalPlatformIdHashes([{ platform, id: cleanId }]),
+  };
+}
 
 const WE_BASE = process.env.AOE_WE_BASE || 'https://aoe-api.worldsedgelink.com';
 const STEAM_ID64_BASE = 76561197960265728n;
@@ -249,6 +325,7 @@ async function resolveSteamId(steamId) {
  * Game Pass / Xbox), cae a las carpetas locales ordenadas por partida reciente.
  */
 async function detectProfile(log = () => {}) {
+  const accounts = listAccounts();
   // 1) Prioridad absoluta: sesión actual de Steam (no bloqueante)
   const activeSteam = await getActiveSteamIdAsync(log);
   if (activeSteam && activeSteam.steamId) {
@@ -259,7 +336,16 @@ async function detectProfile(log = () => {}) {
           `cuenta Steam activa ${activeFound.alias || activeSteam.steamId} → profile_id ${activeFound.profileId} ` +
             `(${activeSteam.source})`,
         );
-        return activeFound;
+        const proofSource = activeSteam.source === 'steam-active-process' ? 'steam-active' : 'steam-vdf';
+        return {
+          ...activeFound,
+          localProof: buildLocalProof({
+            platform: 'steam',
+            platformId: activeSteam.steamId,
+            source: proofSource,
+            accounts,
+          }),
+        };
       }
       log(`la cuenta de Steam activa (${activeSteam.steamId}) no devolvió perfil de AoE2; pruebo carpetas locales`);
     } catch (err) {
@@ -268,7 +354,6 @@ async function detectProfile(log = () => {}) {
   }
 
   // 2) Fallback: carpetas locales de AoE2 DE (Xbox/Game Pass o Steam sin sesión)
-  const accounts = listAccounts();
   if (!accounts.length) {
     log(`no encontré carpetas de cuenta en: ${accountRoots().join(' | ')}`);
     return null;
@@ -282,7 +367,16 @@ async function detectProfile(log = () => {}) {
       try {
         const found = await resolveAccountName(`${prefix}${account.id}`);
         if (found) {
-          resolved.push(found);
+          const platform = prefix === '/steam/' ? 'steam' : 'xbox';
+          resolved.push({
+            ...found,
+            localProof: buildLocalProof({
+              platform,
+              platformId: account.id,
+              source: 'local-folder',
+              accounts,
+            }),
+          });
           log(
             `cuenta ${found.alias || account.id} → profile_id ${found.profileId} ` +
               `(${prefix}${account.id})`,
@@ -307,6 +401,7 @@ module.exports = {
   accountIdToSteamId64,
   parseRegDword,
   parseLoginUsersVdf,
+  collectLocalPlatformIdHashes,
   listAccounts,
   accountRoots,
   resolveSteamId,

@@ -533,6 +533,7 @@ function paintPostMatch(payload) {
   postMatchReportEl.innerHTML = TacticalUI.renderPostMatch(report, postMatchAccess);
   applyDataWidths(postMatchReportEl);
   bindPostMatchTabs(postMatchReportEl);
+  syncAllTrainPinButtons();
 }
 
 function smartScrollAndPulse(targetEl, { alwaysScroll = false } = {}) {
@@ -1057,6 +1058,7 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
   }
   applyDataWidths(centralDashboardEl);
   bindCentralInteractions();
+  syncAllTrainPinButtons();
   if (focusAttribute) {
     centralDashboardEl.querySelector(`[${focusAttribute}="${CSS.escape(focusValue)}"]`)?.focus({ preventScroll: true });
   }
@@ -2172,6 +2174,11 @@ autoBtn.addEventListener('click', async () => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  const referralBackdrop = el('referralBackdrop');
+  if (referralBackdrop && !referralBackdrop.hidden) {
+    closeReferralModal();
+    return;
+  }
   const feedbackModal = el('feedbackModal');
   if (feedbackModal && !feedbackModal.hidden) {
     closeFeedbackModal();
@@ -3520,6 +3527,74 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && checkoutBackdropEl && !checkoutBackdropEl.hidden) closeCheckoutModal();
 });
 
+let latestTrainingQueue = [];
+
+function normalizePinSlug(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function findMatchingQueueItemForButton(btn, queue = latestTrainingQueue) {
+  if (!btn || !Array.isArray(queue) || !queue.length) return null;
+  const active = queue.filter((q) => q && !q.done);
+  if (!active.length) return null;
+  const qid = btn.dataset.tpQueueId || '';
+  if (qid) {
+    const byId = active.find((q) => q.id === qid);
+    if (byId) return byId;
+  }
+  const ruleType = String(btn.dataset.tpRule || '').trim();
+  const stageId = normalizePinSlug(btn.dataset.tpStage || '');
+  const civNorm = normalizePinSlug(btn.dataset.tpCiv || btn.dataset.tpCivName || '');
+  const mapNorm = normalizePinSlug(btn.dataset.tpMap || '');
+  const titleNorm = normalizePinSlug(btn.dataset.tpTitle || '');
+
+  return active.find((q) => {
+    const qr = q.verifyRule || {};
+    if (ruleType) {
+      if (ruleType === 'stage_grade' && stageId) {
+        if (qr.type === 'stage_grade' && normalizePinSlug(qr.stageId) === stageId) return true;
+      } else if (ruleType === 'vs_civ' && civNorm) {
+        if (qr.type === 'vs_civ' && normalizePinSlug(qr.targetCiv || qr.targetCivName) === civNorm) return true;
+      } else if (ruleType === 'on_map' && mapNorm) {
+        if (qr.type === 'on_map' && normalizePinSlug(qr.targetMap || qr.targetMapName) === mapNorm) return true;
+      } else if (qr.type === ruleType || q.ruleKey === `rule:${ruleType}`) {
+        return true;
+      }
+    }
+    if (titleNorm && normalizePinSlug(q.title) === titleNorm) return true;
+    return false;
+  }) || null;
+}
+
+function syncAllTrainPinButtons(queue = latestTrainingQueue) {
+  if (Array.isArray(queue)) latestTrainingQueue = queue;
+  document.querySelectorAll('[data-train-pin]').forEach((btn) => {
+    const hit = findMatchingQueueItemForButton(btn, latestTrainingQueue);
+    const labelSpan = btn.querySelector('span');
+    if (hit) {
+      btn.classList.add('is-pinned');
+      btn.dataset.tpQueueId = hit.id;
+      btn.setAttribute('aria-pressed', 'true');
+      btn.title = 'En Mi Plan · Se verificará automáticamente en tus próximas partidas (tocá para quitar)';
+      if (labelSpan) labelSpan.textContent = '✓ En Mi Plan';
+    } else {
+      btn.classList.remove('is-pinned');
+      delete btn.dataset.tpQueueId;
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)';
+      if (labelSpan && /Mi Plan/i.test(labelSpan.textContent || '')) {
+        labelSpan.textContent = 'Fijar en Mi Plan';
+      }
+    }
+  });
+}
+
 // Delegado global "Pesita en círculo" (favorito de entrenamiento) -> Mi Plan con verificación automática en partidas reales
 document.addEventListener('click', async (ev) => {
   const btn = ev.target?.closest?.('[data-train-pin]');
@@ -3531,10 +3606,16 @@ document.addEventListener('click', async (ev) => {
   if (btn.classList.contains('is-pinned') && btn.dataset.tpQueueId && typeof window.settings?.trainingQueueRemove === 'function') {
     const rem = await window.settings.trainingQueueRemove(btn.dataset.tpQueueId).catch(() => null);
     if (rem?.ok) {
-      btn.classList.remove('is-pinned');
-      delete btn.dataset.tpQueueId;
-      btn.setAttribute('aria-pressed', 'false');
-      btn.title = 'Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)';
+      if (Array.isArray(rem.trainingQueue)) {
+        syncAllTrainPinButtons(rem.trainingQueue);
+        if (trainingUi && typeof trainingUi.applyRealtimeUpdate === 'function') {
+          trainingUi.applyRealtimeUpdate({ trainingQueue: rem.trainingQueue });
+        }
+      } else {
+        btn.classList.remove('is-pinned');
+        delete btn.dataset.tpQueueId;
+        btn.setAttribute('aria-pressed', 'false');
+      }
       if (typeof UiSfx === 'object') UiSfx.play('tap');
       setStatus('Quitado de «Mi Plan».');
     }
@@ -3547,7 +3628,7 @@ document.addEventListener('click', async (ev) => {
     title: btn.dataset.tpTitle || '',
     detail: btn.dataset.tpDetail || '',
     metric: btn.dataset.tpMetric || '',
-    targetTab: btn.dataset.tpTab || 'orders',
+    targetTab: btn.dataset.tpTab || '',
     ruleType: btn.dataset.tpRule || '',
     stageId: btn.dataset.tpStage || '',
     civSlug: btn.dataset.tpCiv || '',
@@ -3557,12 +3638,23 @@ document.addEventListener('click', async (ev) => {
   if (!payload.title) return;
   const res = await window.settings.trainingQueueAdd(payload).catch(() => null);
   if (res?.ok) {
-    btn.classList.add('is-pinned');
     if (res.itemId) btn.dataset.tpQueueId = res.itemId;
-    btn.setAttribute('aria-pressed', 'true');
-    btn.title = 'En Mi Plan · Se verificará automáticamente en tus próximas partidas (tocá para quitar)';
-    if (typeof UiSfx === 'object') UiSfx.play('confirm');
-    setStatus(`Agregado a Mi Plan · Relic lo verificará automáticamente en tus próximas partidas.`);
+    if (Array.isArray(res.trainingQueue)) {
+      syncAllTrainPinButtons(res.trainingQueue);
+      if (trainingUi && typeof trainingUi.applyRealtimeUpdate === 'function') {
+        trainingUi.applyRealtimeUpdate({ trainingQueue: res.trainingQueue });
+      }
+    } else {
+      btn.classList.add('is-pinned');
+      btn.setAttribute('aria-pressed', 'true');
+    }
+    if (res.duplicate) {
+      if (typeof UiSfx === 'object') UiSfx.play('tap');
+      setStatus('Este objetivo ya está activo en «Mi Plan».');
+    } else {
+      if (typeof UiSfx === 'object') UiSfx.play('confirm');
+      setStatus('Agregado a Mi Plan · Relic lo verificará automáticamente en tus próximas partidas.');
+    }
   } else if (res?.error === 'ultra-required') {
     setStatus('Disponible en Plan Ultra · Guardá focos de mejora en Mi Plan.');
   }
@@ -3604,6 +3696,9 @@ function showPlanVerifiedToast(completedItems = []) {
 
 if (typeof window.settings?.onTraining === 'function') {
   window.settings.onTraining((payload) => {
+    if (Array.isArray(payload?.trainingQueue)) {
+      syncAllTrainPinButtons(payload.trainingQueue);
+    }
     if (trainingUi && typeof trainingUi.applyRealtimeUpdate === 'function') {
       trainingUi.applyRealtimeUpdate(payload);
     }
@@ -3611,6 +3706,11 @@ if (typeof window.settings?.onTraining === 'function') {
       showPlanVerifiedToast(payload.newlyCompletedPlanItems);
     }
   });
+}
+if (typeof window.settings?.trainingGet === 'function') {
+  window.settings.trainingGet().then((res) => {
+    if (Array.isArray(res?.trainingQueue)) syncAllTrainPinButtons(res.trainingQueue);
+  }).catch(() => {});
 }
 
 // Minimalist editorial Pro/Ultra upgrade modal when clicking locked features on a Free account
@@ -3933,3 +4033,396 @@ document.addEventListener('click', (ev) => {
 }, true);
 
 syncPlanPricingUi();
+
+/* ==================== PROGRAMA DE REFERIDOS (UI + MODAL + SYNC) ==================== */
+let latestReferralsState = null;
+
+function setRefSegments(container, activatedCount = 0, pendingCount = 0, goal = 10) {
+  if (!container) return;
+  const segs = container.querySelectorAll('.ref-seg');
+  const filled = Math.max(0, Math.min(goal, Number(activatedCount) || 0));
+  const pend = Math.max(0, Math.min(goal - filled, Number(pendingCount) || 0));
+  segs.forEach((seg, idx) => {
+    seg.classList.toggle('is-filled', idx < filled);
+    seg.classList.toggle('is-pending', idx >= filled && idx < filled + pend);
+  });
+}
+
+function formatReferralDate(ms) {
+  if (!ms) return '';
+  try {
+    return new Date(ms).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch (_) {
+    return '';
+  }
+}
+
+function paintReferralsSummary(data) {
+  const railBtn = el('railReferralBtn');
+  const railSub = el('railRefSub');
+  const railBadge = el('railRefBadge');
+  const accCount = el('accRefCountBadge');
+  const accSegs = el('accRefSegments');
+  const accStatus = el('accRefStatusText');
+
+  if (!data || !data.ok) {
+    if (railBtn) railBtn.classList.remove('is-claimed');
+    if (railSub) railSub.textContent = 'Traé 10 amigos';
+    if (railBadge) railBadge.textContent = '0/10';
+    if (accCount) accCount.textContent = '0 / 10';
+    setRefSegments(accSegs, 0, 0, 10);
+    if (accStatus) accStatus.textContent = 'Iniciá sesión con Google para obtener tu código de referido.';
+    return;
+  }
+
+  const goal = Number(data.goal || 10);
+  const activated = Number(data.activatedCount || 0);
+  const pending = Number(data.pendingCount || 0) + Number(data.pendingReviewCount || 0);
+  const claimed = Boolean(data.rewardClaimed);
+  const blocked = Boolean(data.rewardMachineBlocked);
+
+  if (railBtn) railBtn.classList.toggle('is-claimed', claimed);
+  if (railBadge) railBadge.textContent = claimed ? '✓ Ultra' : `${Math.min(activated, goal)}/${goal}`;
+  if (railSub) {
+    railSub.textContent = claimed
+      ? 'Mes gratis acreditado'
+      : blocked
+        ? 'Recompensa usada en esta PC'
+        : (pending > 0 ? `${pending} pendiente${pending === 1 ? '' : 's'}` : 'Traé 10 amigos');
+  }
+
+  if (accCount) accCount.textContent = claimed ? '✓ Completado' : `${Math.min(activated, goal)} / ${goal}`;
+  setRefSegments(accSegs, claimed ? goal : activated, claimed ? 0 : pending, goal);
+  if (accStatus) {
+    if (claimed) {
+      accStatus.textContent = data.rewardExpiresAt
+        ? `¡1 mes gratis de Ultra activado! Vigente hasta ${formatReferralDate(data.rewardExpiresAt)}.`
+        : '¡1 mes gratis de Relic Ultra ya acreditado en tu cuenta!';
+    } else if (blocked) {
+      accStatus.textContent = data.rewardMachineBlockedMessage || 'Esta PC ya recibió anteriormente la recompensa única.';
+    } else if (activated > 0) {
+      const left = Math.max(0, goal - activated);
+      accStatus.textContent = `Te faltan ${left} ${left === 1 ? 'amigo activado' : 'amigos activados'} para desbloquear 1 mes gratis de Ultra.`;
+    } else {
+      accStatus.textContent = `Tu código: ${data.code || '—'} · Compartilo con tus amigos de AoE2:DE.`;
+    }
+  }
+}
+
+function paintReferralModal(data, { signedOut = false, loading = false, errorMsg = null } = {}) {
+  const signedOutBox = el('referralSignedOutBox');
+  const loadingBox = el('referralLoadingBox');
+  const mainBody = el('referralMainBody');
+  const claimedBanner = el('referralClaimedBanner');
+  const claimedDetail = el('referralClaimedDetail');
+  const blockedBanner = el('referralBlockedBanner');
+  const blockedDetail = el('referralBlockedDetail');
+  const countBig = el('referralCountBig');
+  const pendingChip = el('referralPendingChip');
+  const segsEl = el('referralSegments');
+  const shareUrlEl = el('referralShareUrl');
+  const codeValEl = el('referralCodeVal');
+  const applyFormWrap = el('referralApplyFormWrap');
+  const myStatusBox = el('referralMyStatusBox');
+  const myStatusTitle = el('referralMyStatusTitle');
+  const myStatusDesc = el('referralMyStatusDesc');
+  const verifyNowBtn = el('referralVerifyNowBtn');
+  const cannotApplyEl = el('referralCannotApplyMsg');
+  const friendsListEl = el('referralFriendsList');
+
+  if (signedOutBox) signedOutBox.hidden = !signedOut;
+  if (loadingBox) loadingBox.hidden = !loading;
+  if (mainBody) mainBody.hidden = signedOut || loading || !data;
+
+  if (signedOut || loading || !data) {
+    if (errorMsg && loadingBox && !signedOut) {
+      loadingBox.hidden = false;
+      loadingBox.innerHTML = `<span class="mini">${escapeHtml(errorMsg)}</span>`;
+    }
+    return;
+  }
+
+  const goal = Number(data.goal || 10);
+  const activated = Number(data.activatedCount || 0);
+  const pending = Number(data.pendingCount || 0) + Number(data.pendingReviewCount || 0);
+  const claimed = Boolean(data.rewardClaimed);
+  const blocked = Boolean(data.rewardMachineBlocked);
+
+  if (claimedBanner) claimedBanner.hidden = !claimed;
+  if (claimed && claimedDetail) {
+    claimedDetail.textContent = data.rewardExpiresAt
+      ? `Acreditado el ${formatReferralDate(data.rewardClaimedAt)} · Tu plan Ultra queda activo hasta el ${formatReferralDate(data.rewardExpiresAt)}.`
+      : 'Recompensa única de 1 mes de Relic Ultra acreditada en tu cuenta.';
+  }
+  if (blockedBanner) blockedBanner.hidden = claimed || !blocked;
+  if (blocked && blockedDetail) {
+    blockedDetail.textContent = data.rewardMachineBlockedMessage || 'Esta PC ya recibió anteriormente el mes gratis de Relic Ultra por referidos.';
+  }
+
+  if (countBig) countBig.textContent = `${Math.min(activated, goal)} / ${goal}`;
+  if (pendingChip) {
+    pendingChip.hidden = pending <= 0;
+    pendingChip.textContent = `${pending} ${pending === 1 ? 'pendiente' : 'pendientes'}`;
+  }
+  setRefSegments(segsEl, claimed ? goal : activated, claimed ? 0 : pending, goal);
+
+  if (shareUrlEl) shareUrlEl.textContent = data.shareUrl || '—';
+  if (codeValEl) codeValEl.textContent = data.code || '—';
+
+  const myRef = data.myReferral || null;
+  if (myRef) {
+    if (applyFormWrap) applyFormWrap.hidden = true;
+    if (cannotApplyEl) cannotApplyEl.hidden = true;
+    if (myStatusBox) myStatusBox.hidden = false;
+    if (myStatusTitle) {
+      myStatusTitle.textContent = myRef.status === 'activated'
+        ? `✓ Invitación de ${myRef.inviterLabel} activada`
+        : myRef.status === 'pending_review'
+          ? `Invitación de ${myRef.inviterLabel} en revisión automática`
+          : myRef.status === 'pending'
+            ? `Código ${myRef.code} aplicado (${myRef.inviterLabel})`
+            : `Código ${myRef.code} no validado`;
+    }
+    if (myStatusDesc) {
+      myStatusDesc.textContent = myRef.status === 'activated'
+        ? 'Tu cuenta ya quedó verificada y sumó 1 referido válido para tu amigo.'
+        : myRef.status === 'pending_review'
+          ? 'Tu activación está en verificación automática de seguridad.'
+          : myRef.status === 'pending'
+            ? 'Abrí Age of Empires II: DE (o iniciá Steam) con Relic abierto para completar tu activación gratuita automáticamente.'
+            : (myRef.rejectMessage || 'La invitación no cumplió las condiciones antifraude o venció.');
+    }
+    if (verifyNowBtn) verifyNowBtn.hidden = myRef.status !== 'pending';
+  } else if (data.canApplyCode) {
+    if (applyFormWrap) applyFormWrap.hidden = false;
+    if (myStatusBox) myStatusBox.hidden = true;
+    if (cannotApplyEl) cannotApplyEl.hidden = true;
+  } else {
+    if (applyFormWrap) applyFormWrap.hidden = true;
+    if (myStatusBox) myStatusBox.hidden = true;
+    if (cannotApplyEl) {
+      cannotApplyEl.hidden = false;
+      cannotApplyEl.textContent = data.cannotApplyMessage || 'Los códigos de referido aplican solo para cuentas nuevas (< 72 h).';
+    }
+  }
+
+  if (friendsListEl) {
+    const friends = Array.isArray(data.friends) ? data.friends : [];
+    if (!friends.length) {
+      friendsListEl.innerHTML = '<div class="referral-friend-empty">Todavía no tenés invitados registrados. Compartí tu enlace o código arriba para empezar.</div>';
+    } else {
+      friendsListEl.innerHTML = friends.map((f) => {
+        const pillCls = f.status === 'activated'
+          ? 'is-activated'
+          : f.status === 'pending_review'
+            ? 'is-review'
+            : f.status === 'pending'
+              ? 'is-pending'
+              : 'is-rejected';
+        const pillTxt = f.status === 'activated'
+          ? 'Activado ✓'
+          : f.status === 'pending_review'
+            ? 'En revisión'
+            : f.status === 'pending'
+              ? 'Pendiente'
+              : (f.status === 'expired' ? 'Vencido' : 'Rechazado');
+        const sub = f.status === 'activated' && f.activatedAt
+          ? `Activado el ${formatReferralDate(f.activatedAt)}`
+          : f.status === 'rejected' && f.rejectMessage
+            ? f.rejectMessage
+            : (f.appliedAt ? `Ingresó el ${formatReferralDate(f.appliedAt)}` : '');
+        return `<div class="referral-friend-row">
+          <div class="referral-friend-meta">
+            <strong>${escapeHtml(f.label || 'Jugador')}</strong>
+            ${sub ? `<small>${escapeHtml(sub)}</small>` : ''}
+          </div>
+          <span class="referral-status-pill ${pillCls}">${escapeHtml(pillTxt)}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+function setReferralFeedback(message, tone = 'err') {
+  const box = el('referralApplyFeedback');
+  if (!box) return;
+  if (!message) {
+    box.hidden = true;
+    box.textContent = '';
+    box.classList.remove('is-err', 'is-ok');
+    return;
+  }
+  box.hidden = false;
+  box.textContent = message;
+  box.classList.toggle('is-err', tone === 'err');
+  box.classList.toggle('is-ok', tone === 'ok');
+}
+
+async function loadReferralsState({ showLoading = false } = {}) {
+  if (typeof window.settings?.referralsGet !== 'function') return null;
+  if (showLoading) paintReferralModal(null, { loading: true });
+  const res = await window.settings.referralsGet().catch(() => null);
+  if (!res) {
+    paintReferralModal(null, { errorMsg: 'No se pudo consultar el servidor de referidos.' });
+    return null;
+  }
+  if (res.authRequired || res.unauthorized) {
+    latestReferralsState = null;
+    paintReferralsSummary(null);
+    paintReferralModal(null, { signedOut: true });
+    return null;
+  }
+  if (!res.ok || !res.referrals) {
+    paintReferralModal(null, { errorMsg: res.error || 'No se pudo cargar tu estado de referidos.' });
+    return null;
+  }
+  latestReferralsState = res.referrals;
+  paintReferralsSummary(res.referrals);
+  paintReferralModal(res.referrals);
+  return res.referrals;
+}
+
+function openReferralModal() {
+  const bd = el('referralBackdrop');
+  if (!bd) return;
+  bd.hidden = false;
+  setReferralFeedback('');
+  if (typeof UiSfx === 'object') UiSfx.play('tap');
+  if (latestReferralsState) {
+    paintReferralModal(latestReferralsState);
+    loadReferralsState({ showLoading: false });
+  } else {
+    loadReferralsState({ showLoading: true });
+  }
+}
+
+function closeReferralModal() {
+  const bd = el('referralBackdrop');
+  if (bd) bd.hidden = true;
+}
+
+el('railReferralBtn')?.addEventListener('click', openReferralModal);
+el('accOpenReferralBtn')?.addEventListener('click', openReferralModal);
+el('referralCloseBtn')?.addEventListener('click', closeReferralModal);
+el('referralBackdrop')?.addEventListener('click', (e) => {
+  if (e.target === el('referralBackdrop')) closeReferralModal();
+});
+el('referralRefreshBtn')?.addEventListener('click', () => {
+  loadReferralsState({ showLoading: false });
+});
+
+el('referralSignInBtn')?.addEventListener('click', async () => {
+  const btn = el('referralSignInBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await window.settings?.authGoogleLogin?.();
+    if (res?.ok) {
+      await loadReferralsState({ showLoading: true });
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+});
+
+async function copyReferralText(text, btn, defaultLabel) {
+  const clean = String(text || '').trim();
+  if (!clean || clean === '—') return;
+  try {
+    await navigator.clipboard.writeText(clean);
+    if (typeof UiSfx === 'object') UiSfx.play('confirm');
+    if (btn) {
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => { btn.textContent = defaultLabel; }, 1600);
+    }
+  } catch (_) {
+    setStatus('No se pudo copiar al portapapeles.');
+  }
+}
+
+el('referralCopyLinkBtn')?.addEventListener('click', () => {
+  copyReferralText(el('referralShareUrl')?.textContent, el('referralCopyLinkBtn'), 'Copiar enlace');
+});
+el('referralCopyCodeBtn')?.addEventListener('click', () => {
+  copyReferralText(el('referralCodeVal')?.textContent, el('referralCopyCodeBtn'), 'Copiar código');
+});
+
+el('referralApplyBtn')?.addEventListener('click', async () => {
+  const input = el('referralCodeInput');
+  const btn = el('referralApplyBtn');
+  const code = String(input?.value || '').trim();
+  if (!code) {
+    setReferralFeedback('Ingresá el código de referido que te compartió tu amigo.', 'err');
+    return;
+  }
+  setReferralFeedback('');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await window.settings?.referralsApply?.(code);
+    if (!res?.ok) {
+      setReferralFeedback(res?.error || 'No se pudo aplicar el código de referido.', 'err');
+      if (typeof UiSfx === 'object') UiSfx.play('error');
+      return;
+    }
+    if (input) input.value = '';
+    if (typeof UiSfx === 'object') UiSfx.play('confirm');
+    if (res.referrals) {
+      latestReferralsState = res.referrals;
+      paintReferralsSummary(res.referrals);
+      paintReferralModal(res.referrals);
+    } else {
+      await loadReferralsState({ showLoading: false });
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+});
+
+el('referralVerifyNowBtn')?.addEventListener('click', async () => {
+  const btn = el('referralVerifyNowBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Verificando…';
+  }
+  try {
+    const res = await window.settings?.referralsActivate?.();
+    if (res?.referrals) {
+      latestReferralsState = res.referrals;
+      paintReferralsSummary(res.referrals);
+      paintReferralModal(res.referrals);
+    }
+    if (res?.ok) {
+      if (typeof UiSfx === 'object') UiSfx.play('confirm');
+      setStatus('¡Cuenta de referido verificada correctamente!');
+    } else if (res?.error) {
+      setStatus(res.error);
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Verificar ahora';
+    }
+  }
+});
+
+if (typeof window.settings?.onReferrals === 'function') {
+  window.settings.onReferrals((data) => {
+    latestReferralsState = data || null;
+    paintReferralsSummary(latestReferralsState);
+    const bd = el('referralBackdrop');
+    if (bd && !bd.hidden) {
+      if (latestReferralsState) paintReferralModal(latestReferralsState);
+      else paintReferralModal(null, { signedOut: true });
+    }
+  });
+}
+
+if (typeof window.settings?.referralsGet === 'function') {
+  window.settings.referralsGet().then((res) => {
+    if (res?.ok && res.referrals) {
+      latestReferralsState = res.referrals;
+      paintReferralsSummary(res.referrals);
+    } else {
+      paintReferralsSummary(null);
+    }
+  }).catch(() => {});
+}

@@ -1,3 +1,11 @@
+## v3.2.1 · Fix de Prematch en vivo, Entrenamiento sin duplicados y Programa de Referidos
+
+- **Overlay de Prematch restaurado en tiempo real:** corrección crítica en el agente global de red (`undici`) que bloqueaba el handshake de los WebSockets de matchmaking y salas personalizadas con código `1006`, y mejora en el carril rápido (`FastLane`) para detectar partidas apareadas sin perder el estado global.
+- **Entrenamiento → Mi Plan más limpio y sin duplicados:** fijar un cuello de botella desde **Progreso** ahora te lleva directamente a **Mi Plan** (ya no salta a Build Orders), los accesos muestran su destino real y la deduplicación semántica impide agregar dos veces el mismo objetivo aunque cambie la redacción o la pantalla de origen.
+- **Nuevo Programa de Referidos (10 invitados activados → 1 mes gratis de Relic Ultra):** acceso dedicado **«Ganá 1 mes Ultra»** en la barra lateral, tarjeta en **Cuenta** y modal interactivo con progreso 10/10, enlace/código propio y protección antifraude por hardware, red e identidad real de AoE2:DE (recompensa única por cuenta y por PC).
+
+---
+
 ## v3.2.0 · Progreso de alto rendimiento, Balance Semanal real, Arena v6 verificada y optimización integral
 
 - **Entrenamiento → Progreso rediseñado con arte coherente con Central:** nueva consola de telemetría con selector de partidas, diagnóstico de cuello de botella con pérdida exacta en aldeanos, **Ejecución por Edades en 3 etapas cronológicas ilustradas** (**I · Alta Edad Media**, **II · Edad Feudal** y **III · Castillos y Combate**), libro de 6 fundamentos con barras divergentes y curva partida a partida.

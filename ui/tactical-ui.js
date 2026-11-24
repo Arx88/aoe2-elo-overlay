@@ -1206,7 +1206,7 @@
     }
     return out;
   }
-  function trainDumbbellBtn({ source = 'Relic', title = '', detail = '', metric = '', tab = 'orders', ruleType = '', stageId = '', civSlug = '', civName = '', mapName = '', compact = false } = {}) {
+  function trainDumbbellBtn({ source = 'Relic', title = '', detail = '', metric = '', tab = '', ruleType = '', stageId = '', civSlug = '', civName = '', mapName = '', compact = false } = {}) {
     if (!title) return '';
     return `<button type="button" class="train-pin-btn${compact ? ' is-compact' : ''}" data-train-pin="1" data-tp-source="${esc(source)}" data-tp-title="${esc(title)}" data-tp-detail="${esc(detail)}" data-tp-metric="${esc(metric)}" data-tp-tab="${esc(tab)}"${ruleType ? ` data-tp-rule="${esc(ruleType)}"` : ''}${stageId ? ` data-tp-stage="${esc(stageId)}"` : ''}${civSlug ? ` data-tp-civ="${esc(civSlug)}"` : ''}${civName ? ` data-tp-civ-name="${esc(civName)}"` : ''}${mapName ? ` data-tp-map="${esc(mapName)}"` : ''} title="Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)" aria-label="Agregar a Mi Plan: ${esc(title)}"><svg class="train-pin-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7.5v9M17.5 7.5v9M4 9.5v5M20 9.5v5M6.5 12h11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
   }
