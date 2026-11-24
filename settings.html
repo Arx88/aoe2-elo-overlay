@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="arte-aperturas.css" />
     <link rel="stylesheet" href="arte-overlay.css" />
     <link rel="stylesheet" href="wizard.css" />
+    <link rel="stylesheet" href="training.css" />
   </head>
   <body>
     <div id="appBootLoader" class="app-boot-loader" role="status" aria-live="polite">
@@ -56,7 +57,7 @@
             <img class="product-icon" src="assets/icons/eye.png" alt="">
             <span data-i18n="nav.overlay">Prematch</span>
           </button>
-          <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Durante</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
+          <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Batalla</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
           <button class="nav-item" data-page="postmatch" type="button"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span data-i18n="nav.postmatch">Postmatch</span></button>
           <span class="rail-nav-sep" aria-hidden="true"></span>
           <button class="nav-item" data-page="training" type="button"><img class="product-icon" src="assets/icons/target.png" alt="" draggable="false"><span data-i18n="nav.training">Entrenamiento</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
@@ -427,7 +428,7 @@
 
           <!-- ============ POSTMATCH ============ -->
           <section class="page" data-page="postmatch">
-            <details class="pm-config-details ux-panel">
+            <details class="pm-config-details ux-panel" open>
               <summary><span data-i18n="postmatchPage.configSummary">Configurar Postmatch</span><em class="ux-panel-count">5</em></summary>
               <div class="block pm-config-block pm-config-cols">
                 <div class="pm-config-col">
@@ -456,38 +457,9 @@
             <div id="postMatchReport" class="postmatch-report" aria-live="polite"></div><template id="emptyPostmatchState"><div class="empty-report"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><h3 data-i18n="postmatchPage.emptyTitle">Tu próxima partida marca el comienzo.</h3><p data-i18n="postmatchPage.emptyDesc">Al terminar, el informe aparecerá acá y en el overlay.</p></div></template>
           </section>
 
-          <!-- ============ ENTRENAMIENTO (BETA) ============ -->
+          <!-- ============ ENTRENAMIENTO (BETA · EXCLUSIVO ULTRA) ============ -->
           <section class="page" data-page="training">
-            <div class="training-hero">
-              <div class="training-hero-copy">
-                <span class="eyebrow">MODO ENTRENAMIENTO · BETA</span>
-                <h2>Práctica guiada y objetivos tácticos</h2>
-                <p>Entrená tus tiempos de edad, órdenes de construcción y hábitos de partida con seguimiento real sobre tus replays de Age of Empires II: DE.</p>
-              </div>
-              <div class="training-ages-strip" aria-hidden="true">
-                <img src="assets/icons/ages/dark.png" width="38" height="38" alt="" draggable="false" />
-                <img src="assets/icons/ages/feudal.png" width="38" height="38" alt="" draggable="false" />
-                <img src="assets/icons/ages/castle.png" width="38" height="38" alt="" draggable="false" />
-                <img src="assets/icons/ages/imperial.png" width="38" height="38" alt="" draggable="false" />
-              </div>
-            </div>
-            <div class="training-modules-grid">
-              <article class="training-card">
-                <span class="eyebrow">PRÓXIMAMENTE EN BETA</span>
-                <h3>Tiempos de Edad y Build Orders</h3>
-                <p>Practicá subidas a Edad Feudal y Edad de los Castillos con metas por mapa (Arabia, Arena, Nómada) comparadas contra tu propia curva real.</p>
-              </article>
-              <article class="training-card">
-                <span class="eyebrow">PRÓXIMAMENTE EN BETA</span>
-                <h3>Cero inactividad de Centro Urbano</h3>
-                <p>Desafíos progresivos para reducir tus segundos de Centro Urbano inactivo y mejorar tu ritmo económico temprano.</p>
-              </article>
-              <article class="training-card">
-                <span class="eyebrow">PRÓXIMAMENTE EN BETA</span>
-                <h3>Objetivos por Matchup y Civilización</h3>
-                <p>Metas concretas generadas desde tus puntos débiles en Central y Postmatch para entrenar con foco cada sesión.</p>
-              </article>
-            </div>
+            <div id="trainingRoot" aria-live="polite"></div>
           </section>
 
           <!-- ============ PLAN Y ACCESO ============ -->
@@ -554,7 +526,7 @@
               <article class="plan-card pro ultra-featured" data-plan-card="promax">
                 <div class="plan-ribbon" data-i18n="plansPage.ultraRibbon">★ EXPERIENCIA COMPLETA · MÁS ELEGIDO</div>
                 <div class="plan-card-top">
-                  <span class="eyebrow" data-i18n="plansPage.promaxEyebrow">PREMATCH · DURANTE · POSTMATCH</span>
+                  <span class="eyebrow" data-i18n="plansPage.promaxEyebrow">PREMATCH · BATALLA · POSTMATCH</span>
                   <div class="plan-title-row">
                     <h3>Ultra</h3>
                     <span class="plan-current-badge" hidden data-i18n="plansPage.currentBadge">PLAN ACTUAL</span>
@@ -566,17 +538,17 @@
                     <span class="plan-price-sub" id="ultraPriceSub" data-i18n="plansPage.ultraSubPrice">USD · Solo +$1 sobre Pro</span>
                   </div>
                   <span class="plan-annual-save is-gold" id="ultraAnnualSave" hidden>$28.99 / año · Ahorrás $6.89</span>
-                  <p class="plan-lead" data-i18n="plansPage.promaxDesc">Prematch completo, guía Durante la partida, Postmatch v6 y Central de 200 partidas.</p>
+                  <p class="plan-lead" data-i18n="plansPage.promaxDesc">Prematch completo, guía de Batalla, Postmatch y Central de 200 partidas.</p>
                   <div class="plan-stage-pills">
                     <span class="stage-pill is-on is-gold">Prematch</span>
-                    <span class="stage-pill is-on is-gold" data-i18n="nav.tactics">Durante</span>
-                    <span class="stage-pill is-on is-gold">Postmatch v6</span>
+                    <span class="stage-pill is-on is-gold" data-i18n="nav.tactics">Batalla</span>
+                    <span class="stage-pill is-on is-gold">Postmatch</span>
                     <span class="stage-pill is-on is-gold">200 pj</span>
                   </div>
                 </div>
                 <ul id="proMaxFeatures" class="plan-feature-list"></ul>
                 <div class="plan-card-foot">
-                  <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Durante, Postmatch y Central ampliado.</span>
+                  <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Batalla, Postmatch y Central ampliado.</span>
                   <button type="button" class="btn gold plan-cta-btn is-ultra" data-plan-checkout="promax">Elegir Ultra →</button>
                   <button type="button" id="claimUltraTrialBtn" class="btn plan-trial-btn">Probar Ultra 24 h gratis</button>
                   <span id="claimUltraTrialStatus" class="plan-trial-status" role="status" aria-live="polite" hidden></span>
@@ -970,6 +942,7 @@
     <script src="ui/i18n.js"></script>
     <script src="ui/sfx.js"></script>
     <script src="ui/tactical-ui.js"></script>
+    <script src="ui/training-ui.js"></script>
     <script src="settings.js"></script>
   </body>
 </html>

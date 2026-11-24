@@ -387,6 +387,12 @@ function renderProduct(product) {
   if (commerceTitle) commerceTitle.textContent = t('plansPage.subsTitle', 'Suscripciones');
   if (accountCommerce) accountCommerce.disabled = !(commerce.account && commerce.account.enabled);
   if (checkoutCommerce) checkoutCommerce.disabled = !(commerce.checkout && commerce.checkout.enabled);
+  if (typeof trainingUi !== 'undefined' && trainingUi && activePage === 'training') {
+    trainingUi.refresh();
+  }
+  if (typeof syncLockedPageShowcases === 'function') {
+    syncLockedPageShowcases(product);
+  }
 }
 
 function getEmptyPostmatchHtml() {
@@ -529,7 +535,13 @@ function bindPostMatchTabs(container) {
       b.setAttribute('aria-selected', String(on));
     });
     panes.forEach((pane) => {
-      pane.classList.toggle('is-active', pane.dataset.pmPane === target);
+      const on = pane.dataset.pmPane === target;
+      pane.classList.toggle('is-active', on);
+      if (on) {
+        pane.classList.remove('pm-anim-in');
+        void pane.offsetWidth;
+        pane.classList.add('pm-anim-in');
+      }
     });
     applyDataWidths(container);
   };
@@ -2158,7 +2170,7 @@ const PAGE_META = {
   player: { index: '01 / CUENTA', title: 'Cuenta de jugador', sub: 'Tu cuenta en el juego y tus últimas partidas.' },
   central: { index: '02 / CENTRAL', title: 'Central de estadísticas', sub: 'Tu evolución y el historial de cada modo.' },
   overlay: { index: '03 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida · vista previa en vivo.' },
-  tactics: { index: '04 / DURANTE', title: 'Elegí cómo responder.', sub: 'Oportunidades por civilización, historial y composición observada.' },
+  tactics: { index: '03 / BATALLA', title: 'Batalla', sub: 'Guía de civilización, build order y oportunidades en partida.' },
   postmatch: { index: '05 / POSTMATCH', title: 'Aprendé de cada partida.', sub: 'Tus últimas 10 partidas, resultado y evolución detallada.' },
   training: { index: '06 / ENTRENAMIENTO', title: 'Entrenamiento', sub: 'Práctica guiada de aperturas, tiempos de edad y objetivos tácticos.' },
   skins: { index: '07 / APARIENCIA', title: 'Tu panel, a tu manera.', sub: 'Cómo se ve el overlay sobre el juego.' },
@@ -2206,8 +2218,23 @@ function goTo(page) {
     tacticsLoadedAt = Date.now();
     loadTactics();
   }
+  if (page === 'training' && trainingUi) {
+    trainingUi.load();
+  }
   if (pagesEl) pagesEl.scrollTop = 0;
 }
+
+const trainingUi = (typeof TrainingUI === 'object' && typeof TrainingUI.createTrainingControllerUi === 'function' && el('trainingRoot'))
+  ? TrainingUI.createTrainingControllerUi({
+      container: el('trainingRoot'),
+      goTo,
+      onClaimTrial: () => {
+        goTo('plans');
+        const btn = el('claimUltraTrialBtn');
+        if (btn && !btn.hidden) btn.click();
+      },
+    })
+  : null;
 
 for (const button of navButtons) button.addEventListener('click', () => goTo(button.dataset.page));
 document.querySelectorAll('[data-goto]').forEach((btn) => {
@@ -3446,5 +3473,386 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && checkoutBackdropEl && !checkoutBackdropEl.hidden) closeCheckoutModal();
 });
+
+// Delegado global "Pesita en círculo" (favorito de entrenamiento) -> Mi Plan con verificación automática en partidas reales
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target?.closest?.('[data-train-pin]');
+  if (!btn) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  // Si ya estaba iluminada, tocar de nuevo la quita de Mi Plan (igual que una estrella de favoritos)
+  if (btn.classList.contains('is-pinned') && btn.dataset.tpQueueId && typeof window.settings?.trainingQueueRemove === 'function') {
+    const rem = await window.settings.trainingQueueRemove(btn.dataset.tpQueueId).catch(() => null);
+    if (rem?.ok) {
+      btn.classList.remove('is-pinned');
+      delete btn.dataset.tpQueueId;
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)';
+      if (typeof UiSfx === 'object') UiSfx.play('tap');
+      setStatus('Quitado de «Mi Plan».');
+    }
+    return;
+  }
+
+  if (typeof window.settings?.trainingQueueAdd !== 'function') return;
+  const payload = {
+    source: btn.dataset.tpSource || 'Relic',
+    title: btn.dataset.tpTitle || '',
+    detail: btn.dataset.tpDetail || '',
+    metric: btn.dataset.tpMetric || '',
+    targetTab: btn.dataset.tpTab || 'orders',
+    ruleType: btn.dataset.tpRule || '',
+    stageId: btn.dataset.tpStage || '',
+    civSlug: btn.dataset.tpCiv || '',
+    civName: btn.dataset.tpCivName || '',
+    mapName: btn.dataset.tpMap || '',
+  };
+  if (!payload.title) return;
+  const res = await window.settings.trainingQueueAdd(payload).catch(() => null);
+  if (res?.ok) {
+    btn.classList.add('is-pinned');
+    if (res.itemId) btn.dataset.tpQueueId = res.itemId;
+    btn.setAttribute('aria-pressed', 'true');
+    btn.title = 'En Mi Plan · Se verificará automáticamente en tus próximas partidas (tocá para quitar)';
+    if (typeof UiSfx === 'object') UiSfx.play('confirm');
+    setStatus(`Agregado a Mi Plan · Relic lo verificará automáticamente en tus próximas partidas.`);
+  } else if (res?.error === 'ultra-required') {
+    setStatus('Disponible en Plan Ultra · Guardá focos de mejora en Mi Plan.');
+  }
+});
+
+// Notificación automática cuando una partida real posterior cumple un objetivo de Mi Plan
+function showPlanVerifiedToast(completedItems = []) {
+  if (!Array.isArray(completedItems) || !completedItems.length) return;
+  document.querySelector('#planVerifiedToast')?.remove();
+  const first = completedItems[0];
+  const more = completedItems.length > 1 ? ` (+${completedItems.length - 1} más)` : '';
+  const toast = document.createElement('div');
+  toast.id = 'planVerifiedToast';
+  toast.className = 'plan-verified-toast';
+  toast.setAttribute('role', 'status');
+  toast.innerHTML = `<div class="pvt-badge">✓</div>
+    <div class="pvt-copy">
+      <span>¡CUMPLISTE TU PLAN EN PARTIDA REAL!</span>
+      <strong>${escapeHtml(first.title)}${escapeHtml(more)}</strong>
+      <small>${escapeHtml(first.verifiedEvidence || 'Verificado automáticamente en tu última partida.')}</small>
+      <div class="pvt-actions">
+        <button type="button" class="btn gold" id="pvtOpenPlanBtn">Ver Mi Plan →</button>
+      </div>
+    </div>
+    <button type="button" class="pvt-close" id="pvtCloseBtn" aria-label="Cerrar">×</button>`;
+  document.body.appendChild(toast);
+  if (typeof UiSfx === 'object') UiSfx.play('confirm');
+  const dismiss = () => toast.remove();
+  toast.querySelector('#pvtCloseBtn')?.addEventListener('click', dismiss);
+  toast.querySelector('#pvtOpenPlanBtn')?.addEventListener('click', () => {
+    dismiss();
+    goTo('training');
+    if (trainingUi && typeof trainingUi.switchSubtab === 'function') {
+      trainingUi.switchSubtab('plan');
+    }
+  });
+  setTimeout(() => { if (toast.isConnected) toast.remove(); }, 12000);
+}
+
+if (typeof window.settings?.onTraining === 'function') {
+  window.settings.onTraining((payload) => {
+    if (trainingUi && typeof trainingUi.applyRealtimeUpdate === 'function') {
+      trainingUi.applyRealtimeUpdate(payload);
+    }
+    if (Array.isArray(payload?.newlyCompletedPlanItems) && payload.newlyCompletedPlanItems.length) {
+      showPlanVerifiedToast(payload.newlyCompletedPlanItems);
+    }
+  });
+}
+
+// Minimalist editorial Pro/Ultra upgrade modal when clicking locked features on a Free account
+function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDesc = '' } = {}) {
+  document.querySelector('#relicUpgradeBackdrop')?.remove();
+  const isPro = String(tier || '').toLowerCase() === 'pro';
+  const tierLabel = isPro ? 'Relic Pro' : 'Relic Ultra';
+  const heroArt = isPro ? 'assets/art/prematch-estandartes.webp' : 'assets/art/central-hero.jpg';
+
+  const cleanFeature = String(featureName || '')
+    .replace(/^Ver tus?\s+/i, '')
+    .replace(/^Ver\s+/i, '')
+    .replace(/^Desbloqueá tus?\s+/i, '')
+    .replace(/^Desbloqueá\s+/i, '')
+    .trim();
+  const capFeature = cleanFeature ? cleanFeature.charAt(0).toUpperCase() + cleanFeature.slice(1) : '';
+
+  const headline = capFeature || (isPro ? 'Conocé a tu rival antes de empezar' : 'Llevá tu juego un paso más allá');
+  const lead = featureDesc
+    ? `${featureDesc} ${isPro ? 'Incluido en Relic Pro.' : 'Podés probar Ultra gratis 24 horas.'}`
+    : (isPro
+      ? 'Forma parte de Relic Pro. Lectura completa de rivales e historial desde el minuto cero.'
+      : 'Forma parte de Relic Ultra. Probalo gratis durante 24 horas y decidí con tus partidas.');
+
+  const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoShield = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoEye = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
+  const icoStar = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.4 6.7 19.1l1-5.8-4.2-4.1 5.9-.9L12 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  const perks = isPro
+    ? [
+        { ico: icoEye, text: 'Lectura completa de aperturas y civs del rival' },
+        { ico: icoShield, text: 'Recomendador de civilización según mapa' },
+        { ico: icoTrend, text: 'Historial ampliado y métricas en Central' },
+      ]
+    : [
+        { ico: icoTrend, text: 'Postmatch y evolución real con metas automáticas' },
+        { ico: icoList, text: 'Build orders en vivo con bonos de civilización' },
+        { ico: icoStar, text: 'Diagnósticos de Central, Matchups y Arena' },
+      ];
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'relicUpgradeBackdrop';
+  backdrop.className = 'relic-upgrade-backdrop';
+  backdrop.setAttribute('role', 'dialog');
+  backdrop.setAttribute('aria-modal', 'true');
+  backdrop.innerHTML = `<div class="relic-upgrade-stage is-art-right${isPro ? ' is-pro' : ''}">
+    <img class="rum-art" src="${heroArt}" alt="" draggable="false" />
+    <div class="rum-scrim" aria-hidden="true"></div>
+    <button type="button" class="rum-close" id="rumCloseBtn" aria-label="Cerrar">×</button>
+    <div class="rum-copy">
+      <span class="rum-eyebrow">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
+        ${escapeHtml(tierLabel)}
+      </span>
+      <h3>${escapeHtml(headline)}</h3>
+      <p class="rum-lead">${escapeHtml(lead)}</p>
+      <div class="rum-rule" aria-hidden="true"></div>
+      <ul class="rum-list">
+        ${perks.map((p) => `<li>${p.ico}<span>${escapeHtml(p.text)}</span></li>`).join('')}
+      </ul>
+      <div class="rum-actions">
+        ${!isPro ? '<button type="button" class="rum-cta" id="rumTrialBtn">Probar 24 h gratis</button>' : '<button type="button" class="rum-cta" id="rumPlansBtn">Ver Plan Pro</button>'}
+        ${!isPro ? '<button type="button" class="rum-link" id="rumPlansBtn">Ver planes <span aria-hidden="true">→</span></button>' : '<button type="button" class="rum-link" id="rumDismissBtn">Ahora no</button>'}
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(backdrop);
+
+  const close = () => {
+    document.removeEventListener('keydown', onEsc);
+    backdrop.remove();
+  };
+  const onEsc = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onEsc);
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  backdrop.querySelector('#rumCloseBtn')?.addEventListener('click', close);
+  backdrop.querySelector('#rumDismissBtn')?.addEventListener('click', close);
+  backdrop.querySelector('#rumPlansBtn')?.addEventListener('click', () => { close(); goTo('plans'); });
+  backdrop.querySelector('#rumTrialBtn')?.addEventListener('click', () => {
+    close();
+    goTo('plans');
+    const trialBtn = el('claimUltraTrialBtn');
+    if (trialBtn && !trialBtn.disabled) trialBtn.click();
+  });
+}
+
+function buildPageLockStageHtml({ tier = 'ultra', art = 'assets/art/postmatch-v3-cabecera.webp', artRight = true, eyebrow = 'Relic Ultra', title = '', lead = '', perks = [], primaryLabel = 'Probar 24 h gratis', secondaryLabel = 'Ver planes', isTrial = true, compact = false } = {}) {
+  const isPro = tier === 'pro';
+  const crownSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>';
+  const cls = `relic-upgrade-stage${isPro ? ' is-pro' : ''}${artRight ? ' is-art-right' : ''}${compact ? ' is-compact-stage' : ''}`;
+  return `<div class="page-lock-veil">
+    <div class="${cls}">
+      <img class="rum-art" src="${art}" alt="" draggable="false" />
+      <div class="rum-scrim" aria-hidden="true"></div>
+      <div class="rum-copy">
+        <span class="rum-eyebrow">${crownSvg}${escapeHtml(eyebrow)}</span>
+        <h3>${escapeHtml(title)}</h3>
+        <p class="rum-lead">${escapeHtml(lead)}</p>
+        <div class="rum-rule" aria-hidden="true"></div>
+        <ul class="rum-list">
+          ${perks.map((p) => `<li>${p.ico}<span>${escapeHtml(p.text)}</span></li>`).join('')}
+        </ul>
+        <div class="rum-actions">
+          <button type="button" class="rum-cta" data-page-lock-action="${isTrial ? 'trial' : 'plans'}">${escapeHtml(primaryLabel)}</button>
+          <button type="button" class="rum-link" data-page-lock-action="plans">${escapeHtml(secondaryLabel)} <span aria-hidden="true">→</span></button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindPageLockActions(rootNode) {
+  if (!rootNode) return;
+  rootNode.querySelectorAll('[data-page-lock-action="plans"]').forEach((btn) => {
+    btn.addEventListener('click', () => goTo('plans'));
+  });
+  rootNode.querySelectorAll('[data-page-lock-action="trial"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      goTo('plans');
+      const trialBtn = el('claimUltraTrialBtn');
+      if (trialBtn && !trialBtn.disabled) trialBtn.click();
+    });
+  });
+}
+
+function syncLockedPageShowcases(product) {
+  const access = product?.featureAccess || {};
+  const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoShield = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoEye = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
+  const icoStar = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.4 6.7 19.1l1-5.8-4.2-4.1 5.9-.9L12 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  // 1. Postmatch (Ultra)
+  const pmPage = document.querySelector('section.page[data-page="postmatch"]');
+  if (pmPage) {
+    const pmLocked = !access.postMatch;
+    pmPage.classList.toggle('is-page-locked', pmLocked);
+    pmPage.querySelector(':scope > .page-lock-veil')?.remove();
+    pmPage.querySelector('.pm-locked-preview')?.remove();
+    if (pmLocked) {
+      // Rich illustrative blurred telemetry backdrop when user has no report loaded yet
+      if (postMatchReportEl && !lastPostMatchPayload?.report) {
+        const preview = document.createElement('div');
+        preview.className = 'pm-locked-preview';
+        preview.setAttribute('aria-hidden', 'true');
+        preview.innerHTML = `<div class="pm-lp-hero">
+          <div><span class="pm-lp-tag">VICTORIA · ARABIA · RM 1V1</span><h4>Francos vs Mayas · 32:14</h4></div>
+          <div class="pm-lp-grade">A+</div>
+        </div>
+        <div class="pm-lp-kpis">
+          <div><span>Feudal</span><b>09:52</b></div>
+          <div><span>Castillos</span><b>19:38</b></div>
+          <div><span>CU inactivo</span><b>0:19</b></div>
+          <div><span>eAPM</span><b>54</b></div>
+        </div>
+        <div class="pm-lp-bars">
+          <div><span>Economía</span><i></i></div>
+          <div><span>Ritmo de edades</span><i></i></div>
+          <div><span>Combate y eficiencia</span><i></i></div>
+        </div>`;
+        postMatchReportEl.appendChild(preview);
+      }
+      const wrap = document.createElement('div');
+      wrap.innerHTML = buildPageLockStageHtml({
+        tier: 'ultra',
+        art: 'assets/art/postmatch-v3-cabecera.webp',
+        artRight: true,
+        eyebrow: 'Relic Ultra',
+        title: 'Revisá cada partida apenas termina',
+        lead: 'Probalo gratis durante 24 horas y mirá tus tiempos, economía y focos reales de mejora.',
+        perks: [
+          { ico: icoTrend, text: 'Tiempos de Edad, inactividad del CU y comparativa ELO' },
+          { ico: icoStar, text: 'Resumen flotante automático al terminar cada partida' },
+          { ico: icoList, text: 'Focos detectados enviados directo a tu plan de Entrenamiento' },
+        ],
+        primaryLabel: 'Probar 24 h gratis',
+        secondaryLabel: 'Ver planes',
+        isTrial: true,
+      });
+      const veil = wrap.firstElementChild;
+      pmPage.appendChild(veil);
+      bindPageLockActions(veil);
+    }
+  }
+
+  // 2. Batalla / Tactics (Pro + Ultra)
+  const tacPage = document.querySelector('section.page[data-page="tactics"]');
+  if (tacPage) {
+    const tacLocked = !access.civHelp && !access.smartBuildOrder;
+    tacPage.classList.toggle('is-page-locked', tacLocked);
+    tacPage.querySelector(':scope > .page-lock-veil')?.remove();
+    if (tacLocked) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = buildPageLockStageHtml({
+        tier: 'ultra',
+        art: 'assets/art/wizard-umbral.webp',
+        artRight: true,
+        eyebrow: 'Relic Pro · Ultra',
+        title: 'Ayuda táctica en batalla',
+        lead: 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego. Probá Ultra gratis 24 horas.',
+        perks: [
+          { ico: icoShield, text: 'Bonos, unidades fuertes y debilidades de ambas civs' },
+          { ico: icoList, text: 'Smart Build Order en pantalla según tu civ y mapa' },
+          { ico: icoStar, text: 'Overlay discreto pensado para no distraerte en partida' },
+        ],
+        primaryLabel: 'Probar 24 h gratis',
+        secondaryLabel: 'Ver planes',
+        isTrial: true,
+      });
+      const veil = wrap.firstElementChild;
+      tacPage.appendChild(veil);
+      bindPageLockActions(veil);
+    }
+  }
+
+  // 3. Prematch / Overlay — centered full-page blurred Pro showcase on Free (dismissible to tweak the 1 free timer)
+  const ovPage = document.querySelector('section.page[data-page="overlay"]');
+  if (ovPage) {
+    const prematchLocked = !access.rivalCivs && ovPage.dataset.freeVeilDismissed !== '1';
+    ovPage.classList.toggle('is-page-locked', prematchLocked);
+    ovPage.querySelector(':scope > .page-lock-veil')?.remove();
+    ovPage.querySelector('details.pm-config-details')?.classList.remove('is-section-locked');
+    ovPage.querySelector('details.pm-config-details > .page-lock-veil')?.remove();
+    if (prematchLocked) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = buildPageLockStageHtml({
+        tier: 'pro',
+        art: 'assets/art/prematch-estandartes.webp',
+        artRight: true,
+        eyebrow: 'Relic Pro',
+        title: 'Conocé a tu rival antes de empezar',
+        lead: 'Sumá lectura completa de rivales, historial de cruces y recomendador de civilización desde el minuto cero.',
+        perks: [
+          { ico: icoEye, text: 'Últimas 5 civs, mapa favorito y aperturas del rival' },
+          { ico: icoShield, text: 'Recomendador de civilización según el mapa y tu oponente' },
+          { ico: icoTrend, text: 'Enfrentamientos previos y balance de equipos en TG' },
+        ],
+        primaryLabel: 'Ver Plan Pro',
+        secondaryLabel: 'Probar Ultra 24 h',
+        isTrial: false,
+      });
+      const veil = wrap.firstElementChild;
+      const secBtn = veil.querySelector('.rum-link');
+      if (secBtn) secBtn.dataset.pageLockAction = 'trial';
+      // Subtle close button so Free users can still reach their 1 free "Ocultar al iniciar" slider
+      const stage = veil.querySelector('.relic-upgrade-stage');
+      if (stage) {
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'rum-close';
+        closeBtn.setAttribute('aria-label', 'Ver ajustes gratuitos');
+        closeBtn.title = 'Ver ajuste gratuito de tiempo';
+        closeBtn.textContent = '×';
+        closeBtn.addEventListener('click', () => {
+          ovPage.dataset.freeVeilDismissed = '1';
+          ovPage.classList.remove('is-page-locked');
+          veil.remove();
+        });
+        stage.appendChild(closeBtn);
+      }
+      ovPage.appendChild(veil);
+      bindPageLockActions(veil);
+    }
+  }
+}
+
+document.addEventListener('click', (ev) => {
+  const lockedRow = ev.target?.closest?.('.row.feature-locked');
+  if (lockedRow) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const tier = String(lockedRow.dataset.tier || 'ULTRA').toLowerCase() === 'pro' ? 'pro' : 'ultra';
+    const featureName = lockedRow.querySelector('.rname')?.textContent?.trim() || '';
+    const featureDesc = lockedRow.querySelector('.rdesc')?.textContent?.trim() || '';
+    openFriendlyUpgradeModal({ tier, featureName, featureDesc });
+    return;
+  }
+  const veilBtn = ev.target?.closest?.('.cx-ultra-veil, [data-goto-plan="1"]');
+  if (veilBtn && !ev.target.closest('#relicUpgradeBackdrop')) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const tier = String(veilBtn.dataset.upgradeTier || 'ultra').toLowerCase();
+    const ctx = veilBtn.dataset.upgradeContext || '';
+    openFriendlyUpgradeModal({ tier, featureName: ctx });
+  }
+}, true);
 
 syncPlanPricingUi();

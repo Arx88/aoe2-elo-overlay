@@ -159,7 +159,7 @@
     const choices = m.civSampleGames;
     const civCoverage = Number.isFinite(choices) && choices > 0
       ? `<p class="intel-muted">Civilización identificada en <b>${number(choices)}</b> de ${number(m.sampleGames)} partidas revisadas.</p>`
-      : '<p class="intel-muted">Sin elecciones de civ verificadas en la muestra.</p>';
+      : '<p class="intel-muted">Sin elecciones de civ suficientes en la muestra.</p>';
     return section(tr('postmatch.mapRecordIn', `En ${locMap(m.name || mapName) || 'este mapa'}`, { map: locMap(m.name || mapName) || mapName }),
       `<p class="intel-statline"><b>${value}</b> · ${esc(tr('prematch.mapWinsLine', `${number(wins)} victorias ${resultLabel} en ${number(known)} resultados conocidos`, { wins: number(wins), who: resultLabel, known: number(known) }))}${report.partial ? ' · parcial' : ''}</p>` +
       (detail ? civCoverage : ''), 'map', '', 'rivalFavorites');
@@ -528,9 +528,55 @@
   function buildGuide(guide) {
     return `<ol class="build-checkpoints">${(guide.checkpoints || []).map((point, i) => `<li><span class="build-index">${i + 1}</span><div class="build-icons">${(point.icons || []).map((key) => `<span class="build-resource ${esc(key)}" title="${esc(RESOURCE_LABELS[key] || key)}">${icon(key)}<small>${esc(RESOURCE_LABELS[key] || key)}</small></span>`).join('')}</div><p>${esc(point.text)}</p></li>`).join('')}</ol>`;
   }
+  function fmtBoClock(sec) {
+    const s = Math.max(0, Math.round(Number(sec || 0)));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+  function renderArmedBuildOrder(payload) {
+    const st = payload.currentStep || {};
+    const nx = payload.nextStep || null;
+    const alloc = st.alloc || { food: 6, wood: 0, gold: 0, stone: 0 };
+    const stepNum = Number(payload.activeStepIdx || 0) + 1;
+    const total = Number(payload.totalSteps || 1);
+    const iconsHtml = (st.icons || ['villager']).map((key) => `<span class="build-resource ${esc(key)}" title="${esc(RESOURCE_LABELS[key] || key)}">${icon(key)}</span>`).join('');
+    const nextDelta = nx ? Math.max(0, Number(nx.gameSec || 0) - Number(payload.elapsedGameSec || 0)) : 0;
+    const windowSteps = (payload.steps || []).slice(Math.max(0, stepNum - 1), Math.min(total, stepNum + 2));
+
+    return `<section class="smart-build is-armed-bo">
+      <header>
+        ${icon('age')}
+        <div>
+          <span>${payload.liveTestActive ? 'ORDEN EN PRUEBA · OVERLAY EN VIVO' : 'ORDEN ARMADA EN PARTIDA'} · ${civLabel(payload.ownCiv)}</span>
+          <h3>${esc(payload.name || 'Orden personalizada')}</h3>
+        </div>
+        <b>${fmtBoClock(payload.elapsedGameSec)} · POB ${esc(st.pop || '—')}</b>
+      </header>
+      <div class="bo-live-alloc">
+        <span class="bo-alloc-pill is-food">${icon('food')}<small>Comida</small><b>${Number(alloc.food || 0)}</b></span>
+        <span class="bo-alloc-pill is-wood">${icon('wood')}<small>Madera</small><b>${Number(alloc.wood || 0)}</b></span>
+        <span class="bo-alloc-pill is-gold">${icon('gold')}<small>Oro</small><b>${Number(alloc.gold || 0)}</b></span>
+        <span class="bo-alloc-pill is-stone">${icon('stone')}<small>Piedra</small><b>${Number(alloc.stone || 0)}</b></span>
+      </div>
+      <div class="bo-step-current">
+        <div class="bo-step-head">
+          <span class="bo-step-badge">PASO ${stepNum}/${total} · ${fmtBoClock(st.gameSec)}</span>
+          <div class="build-icons">${iconsHtml}</div>
+        </div>
+        <strong>${esc(st.title || st.text || '')}</strong>
+        ${st.note ? `<p>${esc(st.note)}</p>` : ''}
+      </div>
+      ${nx ? `<div class="bo-step-next"><span>Siguiente (${fmtBoClock(nx.gameSec)} · Pob ${esc(nx.pop || '—')}): <b>${esc(nx.title || nx.text || '')}</b></span><i>en ${fmtBoClock(nextDelta)}</i></div>` : ''}
+      <ol class="build-checkpoints bo-mini-list">${windowSteps.map((item, idx) => {
+        const realIdx = Math.max(0, stepNum - 1) + idx + 1;
+        const isCur = realIdx === stepNum;
+        return `<li class="${isCur ? 'is-active' : ''}"><span class="build-index">${realIdx}</span><p><b>${fmtBoClock(item.gameSec)} (${esc(item.pop)})</b> · ${esc(item.title || item.text || '')}</p></li>`;
+      }).join('')}</ol>
+    </section>`;
+  }
   function renderSmartBuildOrder(payload, { library = false } = {}) {
     if (!payload) return '';
     if (payload.status === 'locked') return note('Smart Build Order', payload.message);
+    if (payload.kind === 'custom-armed') return renderArmedBuildOrder(payload);
     const guide = payload.selected;
     const selected = guide ? `<section class="smart-build"><header>${icon(guide.icon)}<div><span>${esc(tr('tactics.suggestedPlan', 'PLAN SUGERIDO'))} · ${civLabel(payload.ownCiv)}</span><h3>${esc(guide.label)}</h3></div><b>Smart Build Order</b></header><p class="build-reference">${esc(payload.referenceLabel)}</p>${buildGuide(guide)}<p class="build-condition">${esc(guide.condition)}</p>${library ? `<p class="build-reference">${(payload.reasons || []).map(esc).join(' ')} ${(guide.caveats || []).map(esc).join(' ')}</p>` : ''}</section>`
       : note('Smart Build Order', payload.reasons?.[0] || tr('tactics.waitingCivContext', 'Esperando una civilización y un contexto compatibles.'));
@@ -873,7 +919,7 @@
     if (options.rivalH2H) content.push(h2hBlock(r));
     const compactIdentity = options.rosterDetails !== false && state?.players?.length === 2 &&
       Number.isFinite(Number(player?.profileId)) && state.players.some((row) => row.profileId === player.profileId);
-    return `<article class="intel-rival">${compactIdentity ? '' : `<header class="intel-identity"><div><h3>${esc(name)}</h3></div>${options.rosterDetails === false ? '' : `<p>${civLabel(civ, tr('prematch.noCivYet', 'Civilización sin confirmar'))}</p>`}</header>`}<div class="intel-rival-content">${content.join('')}</div><footer class="intel-source">${options.rosterDetails === false ? esc(tr('prematch.h2hTitle', 'Historial entre ambos')) : `${esc(tr('prematch.source', 'Historial: Companion · Replays: AoE2Insights'))}${r && r.partial ? ' · partial' : ''}`}</footer></article>`;
+    return `<article class="intel-rival">${compactIdentity ? '' : `<header class="intel-identity"><div><h3>${esc(name)}</h3></div>${options.rosterDetails === false ? '' : `<p>${civLabel(civ, tr('prematch.noCivYet', 'Civilización sin confirmar'))}</p>`}</header>`}<div class="intel-rival-content">${content.join('')}</div><footer class="intel-source">${options.rosterDetails === false ? esc(tr('prematch.h2hTitle', 'Historial entre ambos')) : `${esc(tr('prematch.source', 'Historial de partidas · Replays analizados'))}${r && r.partial ? ' · parcial' : ''}`}</footer></article>`;
   }
   function clock(seconds) { return Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '—'; }
   function combatBlock(combat) {
@@ -1160,6 +1206,11 @@
     }
     return out;
   }
+  function trainDumbbellBtn({ source = 'Relic', title = '', detail = '', metric = '', tab = 'orders', ruleType = '', stageId = '', civSlug = '', civName = '', mapName = '', compact = false } = {}) {
+    if (!title) return '';
+    return `<button type="button" class="train-pin-btn${compact ? ' is-compact' : ''}" data-train-pin="1" data-tp-source="${esc(source)}" data-tp-title="${esc(title)}" data-tp-detail="${esc(detail)}" data-tp-metric="${esc(metric)}" data-tp-tab="${esc(tab)}"${ruleType ? ` data-tp-rule="${esc(ruleType)}"` : ''}${stageId ? ` data-tp-stage="${esc(stageId)}"` : ''}${civSlug ? ` data-tp-civ="${esc(civSlug)}"` : ''}${civName ? ` data-tp-civ-name="${esc(civName)}"` : ''}${mapName ? ` data-tp-map="${esc(mapName)}"` : ''} title="Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)" aria-label="Agregar a Mi Plan: ${esc(title)}"><svg class="train-pin-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7.5v9M17.5 7.5v9M4 9.5v5M20 9.5v5M6.5 12h11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+  }
+
   function renderEnginePostMatch(report, access) {
     const c = report.context || {}, result = report.result || {}, eng = report.engine || {};
     const self = eng.self || {}, rival = eng.rival || null;
@@ -1251,7 +1302,7 @@
           : '';
     const focusObj = eng.narrative?.focus || eng.focus;
     const focusShort = focusObj
-      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${postmatchEmblem('focus')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(focusObj.title)}</b><p>${esc(focusObj.detail)}</p></div></div>` : '';
+      ? `<div class="pm-focus"><span class="pm-icon-tile is-gold sm">${postmatchEmblem('focus')}</span><div><span>${esc(tr('postmatch.nextFocus', 'Foco próxima partida'))}</span><b>${esc(focusObj.title)}</b><p>${esc(focusObj.detail)}</p></div>${trainDumbbellBtn({ source: 'Postmatch', title: focusObj.title, detail: focusObj.detail || '', tab: 'orders' })}</div>` : '';
 
     // 1. Spotlight horizontal de Apertura detectada + nota S–D + consejo concreto
     const stageDeltas = evo?.stageDeltas || {};
@@ -1308,7 +1359,11 @@
             </div>
             ${stampHtml}
           </div>
-          <div class="pm-stage-meta"><span>${esc(cleanStageMetric(s))}</span>${deltaChip}</div>
+          <div class="pm-stage-meta">
+            <span>${esc(cleanStageMetric(s))}</span>
+            ${deltaChip}
+            ${ready ? trainDumbbellBtn({ source: 'Postmatch', title: `Mejorar ${locAge(s.id, s.label)}`, detail: s.tip || cleanStageMetric(s), metric: s.grade || '', tab: 'orders', ruleType: 'stage_grade', stageId: s.id, compact: true }) : ''}
+          </div>
         </article>`;
       }).join('')}</section>` : '';
 
@@ -1385,7 +1440,10 @@
             <div class="pm-issue-top"><b>${esc(n.title)}</b></div>
             ${n.detail ? `<p>${esc(n.detail)}</p>` : ''}
           </div>
-          ${metricChip ? `<div class="pm-medal-stat">${metricChip}</div>` : ''}
+          <div class="pm-medal-stat">
+            ${metricChip}
+            ${trainDumbbellBtn({ source: 'Postmatch', title: n.title, detail: n.detail || '', metric: n.metric || '', tab: 'orders', compact: true })}
+          </div>
         </article>`;
       }).join('')
       : `<div class="pm-issue-clean">${reportIcon('shield')}<span>${esc(tr('postmatch.noCriticalIssues', 'Sin cuellos de botella críticos detectados en esta partida.'))}</span></div>`;
@@ -2159,12 +2217,19 @@
 
   function wrapUltraGate(innerHtml, { locked = false, ctaLabel = '', compact = false } = {}) {
     if (!locked) return innerHtml;
-    const label = ctaLabel || tr('central.ultraUnlockDefault', 'Ver análisis completo');
+    const rawLabel = ctaLabel || tr('central.ultraUnlockDefault', 'Ver este análisis en detalle');
+    const softLabel = String(rawLabel)
+      .replace(/^Desbloqueá tu\s+/i, 'Ver tu ')
+      .replace(/^Desbloqueá tus\s+/i, 'Ver tus ')
+      .replace(/^Desbloqueá\s+/i, 'Ver ');
     return `<div class="cx-ultra-gate${compact ? ' is-compact' : ''}">
       <div class="cx-ultra-blur" aria-hidden="true" inert>${innerHtml}</div>
-      <button type="button" class="cx-ultra-veil" data-goto-plan="1">
-        <span class="cx-ultra-badge">ULTRA</span>
-        <strong>${esc(label)}</strong>
+      <button type="button" class="cx-ultra-veil" data-goto-plan="1" data-upgrade-tier="ultra" data-upgrade-context="${esc(softLabel)}">
+        <span class="cx-ultra-pill">
+          <svg class="cx-ultra-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
+          <span>Incluido en Ultra</span>
+        </span>
+        <strong>${esc(softLabel)}</strong>
       </button>
     </div>`;
   }
@@ -2311,6 +2376,7 @@
             <strong>${esc(f.title)}</strong>
             ${tags}
             <b class="cx-diag-f-metric">${esc(f.metric || '')}</b>
+            ${f.tone === 'loss' ? trainDumbbellBtn({ source: 'Central · Civ', title: f.title, detail: f.takeaway || f.detail || '', metric: f.metric || '', tab: 'matchups', compact: true }) : ''}
           </div>
           <p>${esc(f.detail || '')}</p>
           ${f.takeaway ? `<small class="cx-diag-takeaway">${esc(f.takeaway)}</small>` : ''}
@@ -2341,7 +2407,7 @@
       const localizedMaps = (bd.maps || []).map((r) => ({ ...r, rawLabel: r.label, label: locMap(r.label) || r.label }));
       tabBody = renderMiniBars(localizedMaps, 'Sin suficientes partidas con mapa registrado.', { withMapThumb: true });
     } else if (tabKey === 'phases') tabBody = renderMiniBars(bd.phases, 'Sin duraciones suficientes (reloj in-game).');
-    else if (tabKey === 'openings') tabBody = renderMiniBars(bd.openings, 'Sin aperturas detectadas en AoE2Insights para esta civ.');
+    else if (tabKey === 'openings') tabBody = renderMiniBars(bd.openings, 'Sin aperturas detectadas en replays para esta civ.');
     else {
       const p = bd.pace || {};
       tabBody = p.sample > 0
@@ -2451,11 +2517,14 @@
     } else if (diag.findings && diag.findings.length) {
       findingsHtml = `<div class="cx-diag-findings">${diag.findings.map((f) => {
         const arrow = f.tone === 'loss' ? '▼' : '▲';
+        const mapFindTitle = locMapFindingText(f.title, f.civNames);
+        const mapFindDetail = locMapFindingText(f.takeaway || f.detail || '', f.civNames);
         return `<article class="cx-diag-finding is-${esc(f.tone)}">
           <div class="cx-diag-f-top">
             <span class="cx-diag-arrow">${arrow}</span>
-            <strong>${esc(locMapFindingText(f.title, f.civNames))}</strong>
+            <strong>${esc(mapFindTitle)}</strong>
             <b class="cx-diag-f-metric">${esc(f.metric || '')}</b>
+            ${f.tone === 'loss' ? trainDumbbellBtn({ source: 'Central · Mapa', title: mapFindTitle, detail: mapFindDetail, metric: f.metric || '', tab: 'orders', compact: true }) : ''}
           </div>
           <p>${esc(locMapFindingText(f.detail || '', f.civNames))}</p>
           ${f.takeaway ? `<small class="cx-diag-takeaway">${esc(locMapFindingText(f.takeaway, f.civNames))}</small>` : ''}
@@ -3073,35 +3142,120 @@
       }
     }
 
-    // D. Zona de Confort de ELO (P20–P80) & Termómetro por Parche
+    // D. Estabilidad de Ladder & Rendimiento por Parche (editorial, zero nested boxes, zero overlapping SVG text)
     const ecp = disc.eloComfortAndPatch;
     if (ecp && (ecp.comfort || ecp.patches?.length)) {
       const cf = ecp.comfort;
-      const comfortHtml = cf ? `<div class="cx-comfort-kpis">
-        <div class="cx-ckpi"><span>Zona estable (P20–P80)</span><b class="gold">${number(cf.p20)}–${number(cf.p80)}</b><small>${number(cf.sample)} partidas</small></div>
-        <div class="cx-ckpi"><span>Próxima barrera</span><b>${number(cf.nextBarrier)}</b><small>a +${number(cf.distToBarrier)} ELO</small></div>
-        <div class="cx-ckpi"><span>Mayor remontada</span><b class="win">+${number(cf.maxComeback)}</b><small>desde piso</small></div>
-        <div class="cx-ckpi"><span>Mayor caída libre</span><b class="loss">−${number(cf.maxDrawdown)}</b><small>drawdown máx.</small></div>
+      let rangeBlockHtml = '';
+      if (cf) {
+        const lo = Math.min(cf.minRating ?? cf.p20, cf.p20, cf.current) - 10;
+        const hi = Math.max(cf.peak ?? cf.p80, cf.p80, cf.current) + 10;
+        const span = Math.max(30, hi - lo);
+        const W = 600;
+        const xOf = (val) => +((Math.max(0, Math.min(1, (val - lo) / span)) * (W - 12)) + 6).toFixed(1);
+        const xP20 = xOf(cf.p20);
+        const xP80 = xOf(cf.p80);
+        const xCur = xOf(cf.current);
+        const xPeak = xOf(cf.peak);
+        const medVal = cf.median ?? Math.round((cf.p20 + cf.p80) / 2);
+        const xMed = xOf(medVal);
+        const bandW = Math.max(10, +(xP80 - xP20).toFixed(1));
+        const recentHtml = cf.recentDelta
+          ? `<span class="cx-elo-delta ${cf.recentDelta > 0 ? 'win' : 'loss'}">${cf.recentDelta > 0 ? '+' : ''}${cf.recentDelta} últ. ${cf.recentLookback || 10}</span>`
+          : '';
+
+        rangeBlockHtml = `<div class="cx-elo-band">
+          <div class="cx-elo-hero">
+            <div class="cx-elo-now">
+              <strong class="mono">${number(cf.current)}</strong>
+              <span class="cx-elo-status">${esc(cf.zoneStatus || 'En tu zona habitual')}</span>
+              ${recentHtml}
+            </div>
+            <div class="cx-elo-peak-meta">
+              <span>Pico <b class="mono">${number(cf.peak)}</b></span>
+              <span class="cx-elo-sep" aria-hidden="true">·</span>
+              <span>${number(cf.sample)} pj</span>
+            </div>
+          </div>
+
+          <svg class="cx-elo-track-svg" viewBox="0 0 ${W} 18" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="0" y="7" width="${W}" height="4" rx="2" fill="rgba(255,255,255,0.08)"></rect>
+            <rect x="${xP20}" y="5" width="${bandW}" height="8" rx="4" fill="rgba(223,190,120,0.34)"></rect>
+            <rect x="${xP20}" y="4" width="2" height="10" rx="1" fill="rgba(242,215,153,0.72)"></rect>
+            <rect x="${+(xP20 + bandW - 2).toFixed(1)}" y="4" width="2" height="10" rx="1" fill="rgba(242,215,153,0.72)"></rect>
+            <rect x="${+(xMed - 0.75).toFixed(1)}" y="3" width="1.5" height="12" fill="rgba(255,255,255,0.32)"></rect>
+            <rect x="${+(xPeak - 1.25).toFixed(1)}" y="2" width="2.5" height="14" rx="1.25" fill="#78d8a6"></rect>
+            <rect x="${+(xCur - 3.5).toFixed(1)}" y="1" width="7" height="16" rx="3.5" fill="#faf0d4" stroke="#0c1016" stroke-width="1.6"></rect>
+          </svg>
+
+          <div class="cx-elo-axis">
+            <span>Piso <b class="mono">${number(cf.p20)}</b></span>
+            <span>Mediana <b class="mono">${number(medVal)}</b></span>
+            <span>Techo <b class="mono">${number(cf.p80)}</b></span>
+          </div>
+        </div>`;
+      }
+
+      const comfortStatsHtml = cf ? `<dl class="cx-comfort-metrics">
+        <div><dt>Zona habitual</dt><dd class="gold mono">${number(cf.p20)}–${number(cf.p80)}</dd><small>${number(cf.bandWidth ?? (cf.p80 - cf.p20))} ELO</small></div>
+        <div><dt>Próxima meta</dt><dd class="mono">${number(cf.nextBarrier)}</dd><small>a +${number(cf.distToBarrier)}</small></div>
+        <div><dt>Mayor subida</dt><dd class="win mono">+${number(cf.maxComeback)}</dd><small>desde mínimo</small></div>
+        <div><dt>Mayor caída</dt><dd class="loss mono">−${number(cf.maxDrawdown)}</dd><small>desde pico</small></div>
+      </dl>` : '';
+
+      const patchHtml = ecp.patches?.length ? `<div class="cx-patch-table">
+        <div class="cx-pt-head">
+          <span>Parches recientes</span>
+          <small>${ecp.patches.length} ${ecp.patches.length === 1 ? 'versión' : 'versiones'}</small>
+        </div>
+        <div class="cx-pt-rows">${ecp.patches.map((p) => {
+          const wrTone = p.winRate >= 55 ? 'win' : p.winRate < 46 ? 'loss' : 'neutral';
+          const barCls = wrTone === 'win' ? 'bar-emerald' : wrTone === 'loss' ? 'bar-rose' : 'bar-gold';
+          const deltaHtml = p.deltaVsPrev != null && p.deltaVsPrev !== 0
+            ? `<span class="cx-pt-delta ${p.deltaVsPrev > 0 ? 'win' : 'loss'}">${p.deltaVsPrev > 0 ? '+' : '−'}${Math.abs(p.deltaVsPrev)}%</span>`
+            : '';
+          const markHtml = p.isLatest
+            ? '<span class="cx-pt-mark is-now">actual</span>'
+            : (p.isBest ? '<span class="cx-pt-mark is-best">mejor</span>' : '');
+          const civLabel = p.topCiv ? (locCiv(p.topCiv) || p.topCiv) : '';
+          const civHtml = p.topCiv
+            ? `<span class="cx-pt-civ" title="${esc(civLabel)}">${civBadge(p.topCiv)}<span class="cx-pt-civ-name">${esc(civLabel)}</span></span>`
+            : '';
+          return `<div class="cx-pt-row">
+            <div class="cx-pt-id">
+              <b class="mono">#${esc(p.patch)}</b>
+              ${markHtml}
+            </div>
+            <div class="cx-pt-bar-col">
+              <div class="cx-pt-track" aria-hidden="true"><i class="${barCls}" data-w="${Math.max(6, Math.min(100, p.winRate))}"></i></div>
+            </div>
+            <div class="cx-pt-nums">
+              <b class="${wrTone} mono">${p.winRate}%</b>
+              <small class="mono">${number(p.wins)}–${number(p.losses)}</small>
+              ${deltaHtml}
+            </div>
+            ${civHtml}
+          </div>`;
+        }).join('')}</div>
       </div>` : '';
-      const patchHtml = ecp.patches?.length ? `<div class="cx-patch-strip">
-        <span class="central-mini-k">TERMÓMETRO POR PARCHE · REPLAYS ANALIZADOS</span>
-        <div class="cx-patch-pills">${ecp.patches.map((p) => `<span class="cx-patch-pill">
-          <b>#${esc(p.patch)}</b>
-          <em class="${p.winRate >= 55 ? 'win' : p.winRate < 46 ? 'loss' : ''}">${p.winRate}%</em>
-          <small>${p.games} pj${p.topCiv ? ` · ${esc(locCiv(p.topCiv) || p.topCiv)}` : ''}</small>
-        </span>`).join('')}</div>
-      </div>` : '';
+
       const comfortEyebrow = cf?.modeLabel
-        ? `ESTABILIDAD DE LADDER (${cf.modeLabel.toUpperCase()}) Y PARCHES`
+        ? `ESTABILIDAD DE LADDER · ${cf.modeLabel.toUpperCase()}`
         : 'ESTABILIDAD DE LADDER Y PARCHES';
+      const stabilityInline = cf?.stabilityLabel
+        ? `<span class="cx-stability-inline is-${esc(cf.stabilityTone || 'gold')}">${esc(cf.stabilityLabel)}${cf.avgSwing ? ` · ±${cf.avgSwing}/pj` : ''}</span>`
+        : '';
+
       cards.push(`<section class="cx-card cx-curious-card cx-comfort-card">
         <header class="cx-card-head">
           <div>
             <span class="cx-eyebrow">${esc(comfortEyebrow)}</span>
-            <h3>Zona de Confort de ELO y Termómetro por Parche</h3>
+            <h3>Rango de ELO y parches</h3>
           </div>
+          ${stabilityInline}
         </header>
-        ${comfortHtml}
+        ${rangeBlockHtml}
+        ${comfortStatsHtml}
         ${patchHtml}
       </section>`);
     }
@@ -3218,6 +3372,7 @@
         <div class="cx-acad-h-stat">
           <b class="cx-acad-h-val">${esc(h.valueText)}</b>
           ${deltaPill}
+          ${trainDumbbellBtn({ source: 'Central · Hábito', title: h.label, detail: h.subText || '', metric: h.valueText || '', tab: 'orders', compact: true })}
         </div>
       </div>`;
     }).join('');
@@ -3232,6 +3387,7 @@
             <p>${esc(pf.detail)}</p>
           </div>
           <div class="cx-acad-focus-pct"><b>${pf.pct}%</b><small>frecuencia</small></div>
+          ${trainDumbbellBtn({ source: 'Central · Academia', title: pf.title, detail: pf.detail || '', metric: `${pf.pct}% freq.`, tab: 'orders' })}
         </div>`
       : '';
 
@@ -3282,13 +3438,27 @@
     const renderFactorRow = (f, kind) => {
       const sign = f.netElo > 0 ? '+' : '';
       const tone = kind === 'gain' ? 'win' : 'loss';
+      const titleLoc = localizeFactorTitle(f.title);
+      const pinBtn = kind === 'leak'
+        ? trainDumbbellBtn({
+            source: 'Central · ELO',
+            title: `Mejorar ${titleLoc}`,
+            detail: `${f.winRate}% WR (${number(f.wins)}V-${number(f.losses)}D)`,
+            metric: `${sign}${f.netElo} ELO`,
+            tab: String(f.id || '').startsWith('vs-op-') ? 'matchups' : 'orders',
+            ruleType: String(f.id || '').startsWith('map-') ? 'on_map' : '',
+            mapName: String(f.id || '').startsWith('map-') ? titleLoc.replace(/^Mapa:\s*/i, '') : '',
+            compact: true,
+          })
+        : '';
       return `<div class="cx-elo-row is-${tone}">
         ${factorIconHtml(f)}
         <div class="cx-elo-copy">
-          <strong>${esc(localizeFactorTitle(f.title))}</strong>
+          <strong>${esc(titleLoc)}</strong>
           <small>${f.winRate}% WR · ${number(f.wins)}V-${number(f.losses)}D (${number(f.games)} pj)</small>
         </div>
         <b class="cx-elo-impact is-${tone}">${sign}${f.netElo} <small>ELO</small></b>
+        ${pinBtn}
       </div>`;
     };
 
@@ -3324,7 +3494,7 @@
     const attributionCard = hasAttribution ? `<section class="cx-card cx-elo-card" id="cxEloAttributionCard">
       <header class="cx-card-head">
         <div>
-          <span class="cx-eyebrow">IMPACTO REAL EN ELO · ${esc(modeLabel)}</span>
+          <span class="cx-eyebrow">IMPACTO EN ELO · ${esc(modeLabel)}</span>
           <h3>${hasBoth ? 'Motores y fugas de ELO' : (gains.length ? 'Principales motores de ELO' : 'Principales fugas de ELO')}</h3>
           <p class="cx-card-context">Saldo neto ajustado por ELO del rival sobre ${number(intel.totalMatches)} partidas${!hasBoth && gains.length ? ' · sin fugas estructurales detectadas' : ''}</p>
         </div>
@@ -3341,7 +3511,7 @@
       return `<div class="cx-vs-op-row">
         <div class="cx-vs-op-top">
           <strong>vs ${esc(op.opening)} <small>${number(op.games)} pj</small></strong>
-          <span class="cx-entity-stat">${ant}<small>${number(op.wins)}V-${number(op.losses)}D</small> <b class="${tone}">${op.winRate}%</b></span>
+          <span class="cx-entity-stat">${ant}<small>${number(op.wins)}V-${number(op.losses)}D</small> <b class="${tone}">${op.winRate}%</b>${op.winRate < 50 ? trainDumbbellBtn({ source: 'Central · Apertura', title: `Responder a ${op.opening}`, detail: `${op.winRate}% WR (${number(op.wins)}V-${number(op.losses)}D)`, metric: `${op.winRate}% WR`, tab: 'orders', compact: true }) : ''}</span>
         </div>
         <div class="central-bar-track sm has-mid" aria-hidden="true"><i class="bar-${barTone}" data-w="${Math.max(4, Math.min(100, op.winRate))}"></i></div>
       </div>`;
@@ -3349,7 +3519,10 @@
 
     const renderCivPills = (list, tone) => list.map((c) => {
       const cName = locCiv(c.civ) || c.civ;
-      return `<span class="cx-matchup-pill is-${tone}">${civBadge(c.civ)}<span class="cx-mp-text"><b>${esc(cName)}</b><small>${c.winRate}% · ${c.wins}V-${c.losses}D</small></span></span>`;
+      const pin = tone === 'loss'
+        ? trainDumbbellBtn({ source: 'Central · Rival', title: `Practicar contra ${cName}`, detail: `${c.winRate}% WR (${c.wins}V-${c.losses}D)`, metric: `${c.winRate}%`, tab: 'matchups', ruleType: 'vs_civ', civSlug: c.civ, civName: cName, compact: true })
+        : '';
+      return `<span class="cx-matchup-pill is-${tone}">${civBadge(c.civ)}<span class="cx-mp-text"><b>${esc(cName)}</b><small>${c.winRate}% · ${c.wins}V-${c.losses}D</small></span>${pin}</span>`;
     }).join('');
 
     const sessionHtml = session ? `<div class="cx-session-col">
@@ -3728,7 +3901,7 @@
 
     const cov = mode.insightsCoverage || null;
     const covSub = cov && cov.totalInsightsReplays > 0
-      ? `${number(cov.totalInsightsReplays)} replays en AoE2Insights${cov.coveragePct != null && cov.officialTotal > 0 ? ` · cobertura ${cov.coveragePct}% de últ. ${cov.officialTotal} pj` : ''}${cov.isPartial ? ' · muestra parcial de replays' : ''}`
+      ? `${number(cov.totalInsightsReplays)} replays analizados${cov.coveragePct != null && cov.officialTotal > 0 ? ` · cobertura ${cov.coveragePct}% de últ. ${cov.officialTotal} pj` : ''}${cov.isPartial ? ' · muestra parcial de replays' : ''}`
       : '';
 
     const insightsRow = (bvnRows || extraHighlights || openingsCompact || durationHtml) ? `<div class="cx-grid-2" id="cxSectionInsights">

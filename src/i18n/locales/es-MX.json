@@ -45,7 +45,7 @@
   "nav": {
     "player": "Cuenta",
     "overlay": "Prematch",
-    "tactics": "Durante",
+    "tactics": "Batalla",
     "postmatch": "Postmatch",
     "training": "Entrenamiento",
     "skins": "Apariencia",
@@ -66,8 +66,8 @@
       "sub": "Qué muestra el overlay al encontrar partida."
     },
     "tactics": {
-      "index": "03 / DURANTE",
-      "title": "Durante la partida",
+      "index": "03 / BATALLA",
+      "title": "Batalla",
       "sub": "Guía de civilización, build order y oportunidades."
     },
     "postmatch": {
@@ -288,10 +288,10 @@
     "proPrice": "$1.99",
     "proDesc": "Todo lo de Free + análisis Prematch completo del rival antes de jugar.",
     "proIncludes": "Incluye Free + Prematch completo.",
-    "promaxEyebrow": "PREMATCH · DURANTE · POSTMATCH",
+    "promaxEyebrow": "PREMATCH · BATALLA · POSTMATCH",
     "promaxPrice": "$2.99",
-    "promaxDesc": "Prematch completo, guía Durante la partida y motor de análisis Postmatch.",
-    "promaxIncludes": "Incluye Free, Prematch, Durante y Postmatch.",
+    "promaxDesc": "Prematch completo, guía de Batalla y análisis Postmatch.",
+    "promaxIncludes": "Incluye Free, Prematch, Batalla y Postmatch.",
     "subsTitle": "Suscripciones",
     "subsStatus": "La contratación todavía no está habilitada.",
     "manageBtn": "Gestionar cuenta",
@@ -587,7 +587,7 @@
     "likelyCivs": "Sus civs más jugadas",
     "counterSuggested": "Counter-pick sugerido",
     "noCivYet": "Civilización sin confirmar",
-    "source": "Historial: Companion · Replays: AoE2Insights",
+    "source": "Historial de partidas · Replays analizados",
     "profile": "Perfil",
     "ladder": "Ladder",
     "peak": "Pico",

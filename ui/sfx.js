@@ -24,28 +24,15 @@
     if (saved === '0' || saved === 'false') enabled = false;
   } catch (_) { /* ignore */ }
 
-  function scheduleSuspend() {
-    if (idleSuspendTimer) clearTimeout(idleSuspendTimer);
-    idleSuspendTimer = setTimeout(() => {
-      idleSuspendTimer = null;
-      if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
-    }, 10000);
-  }
-
   function ensureCtx() {
     if (!enabled) return null;
     const AudioCtx = root.AudioContext || root.webkitAudioContext;
     if (!AudioCtx) return null;
     if (!ctx) ctx = new AudioCtx();
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-    scheduleSuspend();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     return ctx;
-  }
-
-  if (typeof root.addEventListener === 'function') {
-    root.addEventListener('blur', () => {
-      if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
-    });
   }
 
   function ensureNoise(ac) {
@@ -198,6 +185,20 @@
         velvetTone(587.33, 587.33, 0.22, 0.011, 0.005, 1900); // D5
         velvetTone(880.0, 880.0, 0.30, 0.0095, 0.048, 2200);  // A5
         velvetTone(1174.66, 1174.66, 0.28, 0.0045, 0.088, 2600); // D6 halo
+      } else if (kind === 'paceTick') {
+        hapticTick(1850, 2.6, 0.010, 0.028, 0);
+        velvetTone(660, 660, 0.065, 0.036, 0.002, 2000, 'sine');
+      } else if (kind === 'paceSplit') {
+        hapticTick(2100, 2.8, 0.011, 0.032, 0);
+        velvetTone(587.33, 587.33, 0.14, 0.045, 0.002, 2100, 'triangle');
+        velvetTone(880.0, 880.0, 0.22, 0.042, 0.065, 2400, 'sine');
+      } else if (kind === 'quizHit') {
+        hapticTick(2200, 2.8, 0.010, 0.028, 0);
+        velvetTone(523.25, 523.25, 0.12, 0.044, 0, 2100, 'sine');
+        velvetTone(783.99, 783.99, 0.20, 0.042, 0.055, 2500, 'sine');
+      } else if (kind === 'quizMiss') {
+        hapticTick(1100, 2.2, 0.012, 0.030, 0);
+        velvetTone(290, 205, 0.18, 0.048, 0, 1300, 'triangle');
       } else if (kind === 'soft') {
         hapticTick(1520, 2.2, 0.0095, 0.011, 0);
       }
@@ -218,6 +219,8 @@
     '.pm-stage-card', '.pm-medal-card', '.pm-issue-card',
     '.cx-kpi', '.cx-lm-metric', '.rm-card', '.theme',
     '.social-player-chip', '.rail-profile-card', '.cx-entity-row',
+    '.tr-subtab', '.tr-ans-card', '.tr-action-chip', '.tr-step-row',
+    '.tr-mode-pill', '.tr-replay-pill', '.tr-nemesis-pill', '.tr-war-switch',
   ].join(', ');
 
   const HOVER_SELECTOR = [
@@ -226,7 +229,9 @@
     '.btn', '.rail-profile-card', '.rail-gear', '.pm-tab',
     '.pm-stage-card', '.pm-medal-card', '.rm-card', '.theme',
     '.result', '.prefs-lang-item', '.prefs-pop-link', '.acct-subtab',
-    '.winbtn',
+    '.winbtn', '.tr-subtab', '.tr-ans-card', '.tr-action-chip',
+    '.tr-step-adj', '.tr-step-row', '.tr-mode-pill', '.tr-replay-pill',
+    '.tr-nemesis-pill', '.tr-war-switch', '.tr-mission-card',
   ].join(', ');
 
   function attachAutoListeners(doc) {
@@ -253,18 +258,24 @@
     target.addEventListener('click', (ev) => {
       const btn = ev.target && ev.target.closest && ev.target.closest(CLICK_SELECTOR);
       if (!btn || btn.disabled) return;
-      if (btn.classList.contains('nav-item') || btn.classList.contains('rail-gear') || btn.classList.contains('rail-profile-card')) {
+      if (btn.classList.contains('tr-ans-card')) {
+        return; // Arena answer cards play dedicated quizHit / quizMiss cue
+      } else if (btn.classList.contains('nav-item') || btn.classList.contains('rail-gear') || btn.classList.contains('rail-profile-card')) {
         play('tab');
       } else if (
         btn.classList.contains('cx-subtab') || btn.classList.contains('cx-mode-tab') ||
         btn.classList.contains('cx-sort-btn') || btn.classList.contains('pm-tab') ||
-        btn.classList.contains('acct-subtab')
+        btn.classList.contains('acct-subtab') || btn.classList.contains('tr-subtab') ||
+        btn.classList.contains('tr-mode-pill') || btn.classList.contains('tr-replay-pill') ||
+        btn.classList.contains('tr-cat-tab')
       ) {
         play('subtab');
       } else if (
         btn.classList.contains('cx-entity-row') || btn.classList.contains('rm-card') ||
         btn.classList.contains('result') || btn.classList.contains('social-player-chip') ||
-        btn.classList.contains('theme')
+        btn.classList.contains('theme') || btn.classList.contains('tr-action-chip') ||
+        btn.classList.contains('tr-step-row') || btn.classList.contains('tr-step-adj') ||
+        btn.classList.contains('tr-nemesis-pill')
       ) {
         play('select');
       } else if (
@@ -309,6 +320,16 @@
     isEnabled: () => enabled,
     setEnabled,
     attachAutoListeners,
+    hover: () => play('hover'),
+    soft: () => play('soft'),
+    select: () => play('select'),
+    tab: () => play('tab'),
+    subtab: () => play('subtab'),
+    confirm: () => play('confirm'),
+    paceTick: () => play('paceTick'),
+    paceSplit: () => play('paceSplit'),
+    quizHit: () => play('quizHit'),
+    quizMiss: () => play('quizMiss'),
   };
 
   if (typeof module === 'object' && module.exports) module.exports = api;

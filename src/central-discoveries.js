@@ -1561,30 +1561,61 @@ function computeEloComfortAndPatch({ fullRatingSeries = [], unifiedMatches = [],
   let comfort = null;
   if (pts.length >= 12) {
     const p20 = percentile(pts, 0.2);
+    const median = percentile(pts, 0.5);
     const p80 = percentile(pts, 0.8);
+    const minRating = Math.min(...pts);
     const current = Number(ladder?.rating) || pts[pts.length - 1];
     const peak = Math.max(Number(ladder?.peak) || 0, ...pts);
     let runPeak = pts[0];
     let maxDrawdown = 0;
     let runMin = pts[0];
     let maxComeback = 0;
-    for (const v of pts) {
+    let totalSwing = 0;
+    for (let i = 0; i < pts.length; i += 1) {
+      const v = pts[i];
       if (v > runPeak) runPeak = v;
       if (runPeak - v > maxDrawdown) maxDrawdown = runPeak - v;
       if (v < runMin) runMin = v;
       if (v - runMin > maxComeback) maxComeback = v - runMin;
+      if (i > 0) totalSwing += Math.abs(v - pts[i - 1]);
     }
+    const bandWidth = Math.max(0, Math.round(p80 - p20));
+    const avgSwing = pts.length > 1 ? Math.round(totalSwing / (pts.length - 1)) : 0;
+    const recentLookback = Math.min(10, pts.length - 1);
+    const recentDelta = recentLookback > 0 ? Math.round(current - pts[pts.length - 1 - recentLookback]) : 0;
     const nextBarrier = (Math.floor(current / 100) + 1) * 100;
+
+    let stabilityLabel = 'Estable';
+    let stabilityTone = 'gold';
+    if (bandWidth <= 65) { stabilityLabel = 'Muy estable'; stabilityTone = 'win'; }
+    else if (bandWidth <= 120) { stabilityLabel = 'Estable'; stabilityTone = 'gold'; }
+    else if (bandWidth <= 185) { stabilityLabel = 'Oscilante'; stabilityTone = 'neutral'; }
+    else { stabilityLabel = 'Volátil'; stabilityTone = 'loss'; }
+
+    let zoneStatus = 'Dentro de tu zona habitual';
+    if (peak - current <= 15) zoneStatus = 'En tu pico histórico';
+    else if (current > p80) zoneStatus = `Por encima de tu techo habitual (+${Math.round(current - p80)} ELO)`;
+    else if (current < p20) zoneStatus = `Debajo de tu piso habitual (−${Math.round(p20 - current)} ELO)`;
+
     comfort = {
       sample: pts.length,
       modeLabel: comfortModeLabel || null,
-      p20,
-      p80,
-      current,
-      peak,
-      distToPeak: Math.max(0, peak - current),
+      minRating: Math.round(minRating),
+      p20: Math.round(p20),
+      median: Math.round(median),
+      p80: Math.round(p80),
+      bandWidth,
+      avgSwing,
+      recentDelta,
+      recentLookback,
+      stabilityLabel,
+      stabilityTone,
+      zoneStatus,
+      current: Math.round(current),
+      peak: Math.round(peak),
+      distToPeak: Math.max(0, Math.round(peak - current)),
       nextBarrier,
-      distToBarrier: Math.max(1, nextBarrier - current),
+      distToBarrier: Math.max(1, Math.round(nextBarrier - current)),
       maxDrawdown: Math.round(maxDrawdown),
       maxComeback: Math.round(maxComeback),
     };
@@ -1594,20 +1625,54 @@ function computeEloComfortAndPatch({ fullRatingSeries = [], unifiedMatches = [],
   for (const m of (Array.isArray(unifiedMatches) ? unifiedMatches : [])) {
     if (typeof m.won !== 'boolean' || !Number.isFinite(Number(m.patch)) || Number(m.patch) <= 0) continue;
     const pId = String(m.patch);
-    const cur = byPatch.get(pId) || { patch: Number(m.patch), games: 0, wins: 0, civs: new Map() };
+    const cur = byPatch.get(pId) || { patch: Number(m.patch), games: 0, wins: 0, civs: new Map(), civWins: new Map(), eloNet: 0, hasElo: false };
     cur.games += 1;
     if (m.won) cur.wins += 1;
-    if (m.civ) cur.civs.set(m.civ, (cur.civs.get(m.civ) || 0) + 1);
+    if (m.civ) {
+      cur.civs.set(m.civ, (cur.civs.get(m.civ) || 0) + 1);
+      if (m.won) cur.civWins.set(m.civ, (cur.civWins.get(m.civ) || 0) + 1);
+    }
+    const diff = Number(m.ratingDiff ?? m.eloChange);
+    if (Number.isFinite(diff) && Math.abs(diff) <= 100) {
+      cur.eloNet += diff;
+      cur.hasElo = true;
+    }
     byPatch.set(pId, cur);
   }
-  const patches = [...byPatch.values()]
-    .filter((p) => p.games >= 5)
+  const rawPatches = [...byPatch.values()]
+    .filter((p) => p.games >= 4)
     .sort((a, b) => b.patch - a.patch)
-    .slice(0, 5)
-    .map((p) => {
-      const topCiv = [...p.civs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-      return { patch: p.patch, games: p.games, wins: p.wins, losses: p.games - p.wins, winRate: pct(p.wins, p.games), topCiv };
-    });
+    .slice(0, 5);
+
+  const patches = rawPatches.map((p, idx) => {
+    const topEntry = [...p.civs.entries()].sort((a, b) => b[1] - a[1])[0] || null;
+    const topCiv = topEntry ? topEntry[0] : null;
+    const topCivGames = topEntry ? topEntry[1] : 0;
+    const topCivWr = topCiv && topCivGames > 0 ? pct(p.civWins.get(topCiv) || 0, topCivGames) : null;
+    const winRate = pct(p.wins, p.games);
+    const prev = rawPatches[idx + 1] || null;
+    const prevWr = prev ? pct(prev.wins, prev.games) : null;
+    return {
+      patch: p.patch,
+      isLatest: idx === 0,
+      games: p.games,
+      wins: p.wins,
+      losses: p.games - p.wins,
+      winRate,
+      deltaVsPrev: prevWr != null ? (winRate - prevWr) : null,
+      eloNet: p.hasElo ? Math.round(p.eloNet) : null,
+      topCiv,
+      topCivWr,
+    };
+  });
+
+  if (patches.length >= 2) {
+    let bestIdx = 0;
+    for (let i = 1; i < patches.length; i += 1) {
+      if (patches[i].winRate > patches[bestIdx].winRate) bestIdx = i;
+    }
+    if (patches[bestIdx].winRate >= 52) patches[bestIdx].isBest = true;
+  }
 
   if (!comfort && !patches.length) return null;
   return { comfort, patches, patchesSource: patches.length ? 'insights' : null };

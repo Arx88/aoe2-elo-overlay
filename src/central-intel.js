@@ -346,7 +346,7 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
       verdict: 'sample',
       verdictLabel: 'Muestra chica',
       confidenceLabel: `${games}/${neededGames} partidas con detalle`,
-      summaryLine: `Solo tenés ${games} partida${games === 1 ? '' : 's'} con detalle en ${mapName}; se necesitan al menos ${neededGames} para diagnosticar habilidad real sin ruido.`,
+      summaryLine: `Tenés ${games} partida${games === 1 ? '' : 's'} en ${mapName}; se necesitan al menos ${neededGames} para un diagnóstico confiable.`,
       sample: sampleInfo,
       bestCivHere: (bestCivHere && bestCivHere.games >= 4) ? { civ: bestCivHere.label, slug: bestCivHere.slug, winRate: bestCivHere.winRate, games: bestCivHere.games } : null,
       findings: [],

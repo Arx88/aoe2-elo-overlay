@@ -45,7 +45,7 @@
   "nav": {
     "player": "Account",
     "overlay": "Prematch",
-    "tactics": "In-Game",
+    "tactics": "Battle",
     "postmatch": "Postmatch",
     "training": "Training",
     "skins": "Appearance",
@@ -66,8 +66,8 @@
       "sub": "What the overlay shows when a match is found."
     },
     "tactics": {
-      "index": "03 / IN-GAME",
-      "title": "In-Game",
+      "index": "03 / BATTLE",
+      "title": "Battle",
       "sub": "Civilization help, build order guide, and matchup opportunities."
     },
     "postmatch": {
@@ -288,10 +288,10 @@
     "proPrice": "$1.99",
     "proDesc": "Everything in Free + full Prematch opponent intelligence before the game.",
     "proIncludes": "Includes Free + full Prematch.",
-    "promaxEyebrow": "PREMATCH · IN-GAME · POSTMATCH",
+    "promaxEyebrow": "PREMATCH · BATTLE · POSTMATCH",
     "promaxPrice": "$2.99",
-    "promaxDesc": "Full Prematch, In-Game tactical guide, and Postmatch replay analysis engine.",
-    "promaxIncludes": "Includes Free, Prematch, In-Game, and Postmatch.",
+    "promaxDesc": "Full Prematch, Battle tactical guide, and Postmatch replay analysis.",
+    "promaxIncludes": "Includes Free, Prematch, Battle, and Postmatch.",
     "subsTitle": "Subscriptions",
     "subsStatus": "Online checkout is not enabled yet.",
     "manageBtn": "Manage account",
@@ -587,7 +587,7 @@
     "likelyCivs": "Most played civs",
     "counterSuggested": "Suggested counter-pick",
     "noCivYet": "Unconfirmed civ",
-    "source": "History: Companion · Replays: AoE2Insights",
+    "source": "Match history · Analyzed replays",
     "profile": "Profile",
     "ladder": "Ladder",
     "peak": "Peak",

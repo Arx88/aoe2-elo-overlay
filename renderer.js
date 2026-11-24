@@ -571,8 +571,12 @@ function applyVisibility() {
   scoutInfoEl.hidden = true;
   const reviewing = Boolean(postMatchEnabled && postMatchPayload && !ongoing && !moving);
   if (postMatchEl) postMatchEl.hidden = !reviewing;
-  if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(ongoing && !isPrematchPhase && !moving && smartBuildOrderEnabled &&
-    buildOrderPayload && String(buildOrderPayload.matchId) === String(lastState.match?.matchId));
+  const isArmedLiveTest = Boolean(buildOrderPayload && buildOrderPayload.liveTestActive && !moving);
+  const isArmedMatch = Boolean(ongoing && !isPrematchPhase && !moving && buildOrderPayload &&
+    (smartBuildOrderEnabled || buildOrderPayload.isArmedCustom) &&
+    String(buildOrderPayload.matchId) === String(lastState.match?.matchId));
+  document.body.classList.toggle('bo-live-test', isArmedLiveTest && !ongoing);
+  if (smartBuildOrderEl) smartBuildOrderEl.hidden = !(isArmedLiveTest || isArmedMatch);
   panel.classList.toggle('reviewing', reviewing);
   analysisEl.hidden = analysisStage() == null;
 
@@ -864,7 +868,7 @@ function rivalOpeningsBlock(report, pending) {
       title,
       `<div class="rival-empty">Analizando replays del rival${mapName ? ` en ${mapName}` : ''}${mode ? ` (${mode.label})` : ''}…</div>`,
       'openings',
-      'AoE2Insights',
+      'Replays',
     );
   }
   if (openings && openings.modeUnavailable) {
@@ -872,7 +876,7 @@ function rivalOpeningsBlock(report, pending) {
       title,
       '<div class="rival-empty">Partida sin ladder rankeado: para no mezclar modos (EW no es RM), no se muestran aperturas.</div>',
       'openings',
-      'AoE2Insights',
+      'Replays',
     );
   }
   // Sin replays no hay bloque: el informe ya lo dice UNA vez en «EN ESTE MAPA».
@@ -1897,7 +1901,7 @@ function renderScouting() {
   });
   // Sin mapa ni modo: ya están en la cabecera del ELO y en la de esta misma
   // sección. Repetirlos acá era el tercer "MegaRandom" de la pantalla.
-  const foot = ['AoE2Insights · aperturas de replays analizados'];
+  const foot = ['Aperturas de replays analizados'];
   // Si algún estilo cayó al modo completo, se declara UNA vez acá en vez de
   // alargar el caption de una sola tarjeta y desalinear las dos columnas.
   if (entries.some(({ tip }) => tip && tip.style && tip.style.scope === 'modo')) {

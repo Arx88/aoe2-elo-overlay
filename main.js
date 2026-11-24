@@ -80,8 +80,9 @@ const {
 } = require('./src/postmatch');
 const { fetchReplayTelemetry } = require('./src/replay');
 const { COMMAND_ADAPTER_VERSION } = require('./src/replay-analysis');
-const { createProductStateCache, effectivePreferences } = require('./src/product');
+const { createProductStateCache, effectivePreferences, allowsFeature } = require('./src/product');
 const { buildSmartBuildOrder } = require('./src/build-orders');
+const { createTrainingController } = require('./src/training');
 const { detectSmurfsForPlayers } = require('./src/smurf');
 const { createMinimizeController, GameWindowWatcher } = require('./src/game-window');
 const { projectOverlayState, projectRivalPayload, projectScoutPayload } = require('./src/presentation');
@@ -575,6 +576,9 @@ const statsCache = new ReplayCache(path.join(DATA_DIR, 'replay-cache.json'), (..
 const performanceStore = new PerformanceStore({
   filePath: path.join(DATA_DIR, 'performance-history.json'),
   log,
+});
+const trainingController = createTrainingController({
+  storePath: path.join(DATA_DIR, 'training-state.json'),
 });
 // El token y la cuenta viven en memoria durante la sesión. El renderer nunca
 // recibe la credencial; solo el estado serializado del producto.
@@ -1448,12 +1452,30 @@ function tacticalPayload() {
   return { ...scoutPayload, status: pending ? 'loading' : 'ready', automatic: true };
 }
 
+let liveArmedBuildTimer = null;
+
 function buildOrderPayload() {
-  if (!productState().featureAccess.smartBuildOrder) return { status: 'locked', enabled: false,
-    message: 'Smart Build Order está incluido en Ultra.', guides: [], selected: null };
+  const prod = productState();
+  if (!prod.featureAccess.smartBuildOrder && !allowsFeature(prod, 'trainingHub')) {
+    return { status: 'locked', enabled: false, message: 'Smart Build Order está incluido en Ultra.', guides: [], selected: null };
+  }
   const ongoing = lastGood?.status === 'ongoing';
+  const inLobby = Boolean(ongoing && (lastGood?.phase === 'lobby' || lastGood?.previewPhase === 'prematch'));
+  const pid = runtimeProfileId();
   const own = ongoing ? (lastGood.players || []).find((player) => player.isYou ||
-    Number(player.profileId) === Number(runtimeProfileId())) : null;
+    Number(player.profileId) === Number(pid)) : null;
+
+  if (allowsFeature(prod, 'trainingHub')) {
+    const armedPayload = trainingController.getArmedOverlayPayload({
+      profileId: pid,
+      ongoing: Boolean(ongoing && !inLobby),
+      matchId: ongoing ? lastGood.match?.matchId : 'live-test',
+      ownCiv: own?.civ || null,
+      mapName: ongoing ? lastGood.match?.mapName : null,
+    });
+    if (armedPayload) return armedPayload;
+  }
+
   const sameMatch = ongoing && scoutPayload && String(scoutPayload.matchId) === String(lastGood.match?.matchId);
   const opportunityStages = sameMatch ? (scoutPayload.tips || []).flatMap((tip) => tip.opportunityStages || []) : [];
   return { ...buildSmartBuildOrder({ ownCiv: own?.civ,
@@ -1465,8 +1487,41 @@ function buildOrderPayload() {
 
 function sendBuildOrder() {
   const payload = buildOrderPayload();
-  send('overlay:build-order', payload.enabled && payload.ongoing ? payload : null);
+  const shouldShow = Boolean(
+    payload && (
+      payload.liveTestActive ||
+      (payload.isArmedCustom && payload.ongoing) ||
+      (payload.enabled && payload.ongoing)
+    )
+  );
+  send('overlay:build-order', shouldShow ? payload : null);
   if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('build-order:update', payload);
+}
+
+function syncLiveArmedBuildTimer() {
+  const pid = runtimeProfileId();
+  const prof = trainingController.store.getProfile(pid);
+  const needTimer = Boolean(
+    trainingController.liveOverlayState?.testActive ||
+    (lastGood?.status === 'ongoing' && prof?.armedBuildOrderId)
+  );
+  if (needTimer && !liveArmedBuildTimer) {
+    liveArmedBuildTimer = setInterval(() => {
+      const stillNeeded = Boolean(
+        trainingController.liveOverlayState?.testActive ||
+        (lastGood?.status === 'ongoing' && trainingController.store.getProfile(runtimeProfileId())?.armedBuildOrderId)
+      );
+      if (!stillNeeded) {
+        clearInterval(liveArmedBuildTimer);
+        liveArmedBuildTimer = null;
+      }
+      sendBuildOrder();
+    }, 1000);
+    if (liveArmedBuildTimer.unref) liveArmedBuildTimer.unref();
+  } else if (!needTimer && liveArmedBuildTimer) {
+    clearInterval(liveArmedBuildTimer);
+    liveArmedBuildTimer = null;
+  }
 }
 
 function sendScout(payload) {
@@ -4148,6 +4203,203 @@ function registerIpc() {
     return { ok: true, trial: res.data, product: productState(), auth };
   });
 
+  function trainingAccessContext() {
+    const prod = productState();
+    const unlocked = allowsFeature(prod, 'trainingHub');
+    const cachedDisk = typeof readCachedDiskProfile === 'function' ? readCachedDiskProfile() : null;
+    let pid = profileId || config.profileId || config.autoProfileId || cachedDisk?.profileId || null;
+    let records = pid ? performanceStore.listReadOnly(pid) : [];
+    if (!records.length) {
+      const all = performanceStore.listReadOnly();
+      if (Array.isArray(all) && all.length) {
+        if (!pid && all[0]?.profileId) pid = all[0].profileId;
+        records = all;
+      }
+    }
+    return { prod, unlocked, pid, records };
+  }
+
+  ipcMain.handle('training:get', () => {
+    const { prod, unlocked, pid, records } = trainingAccessContext();
+    return trainingController.buildDashboard({
+      profileId: pid,
+      records,
+      unlocked,
+      plan: prod.plan || 'free',
+    });
+  });
+
+  ipcMain.handle('training:mission-action', (_event, payload = {}) => {
+    const { unlocked, pid, records } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    const missions = trainingController.advanceOrRerollMission({
+      profileId: pid,
+      familyId: String(payload?.familyId || ''),
+      action: payload?.action === 'reroll' ? 'reroll' : 'advance',
+      records,
+    });
+    return { ok: true, missions };
+  });
+
+  ipcMain.handle('training:pacer-select', (_event, payload = {}) => {
+    const { unlocked, pid, records } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    const pacer = trainingController.selectPacer({
+      profileId: pid,
+      buildKey: payload?.buildKey,
+      civ: payload?.civ,
+      clockSpeed: Number(payload?.clockSpeed),
+      soundEnabled: payload?.soundEnabled,
+      records,
+    });
+    return { ok: true, pacer };
+  });
+
+  ipcMain.handle('training:pacer-complete', (_event, payload = {}) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    trainingController.recordPacerRun(pid, payload || {});
+    return { ok: true };
+  });
+
+  ipcMain.handle('training:queue-add', (_event, payload = {}) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.addQueueItem({ profileId: pid, item: payload || {} });
+  });
+
+  ipcMain.handle('training:queue-toggle', (_event, itemId) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.toggleQueueItem({ profileId: pid, itemId: String(itemId || '') });
+  });
+
+  ipcMain.handle('training:queue-remove', (_event, itemId) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.removeQueueItem({ profileId: pid, itemId: String(itemId || '') });
+  });
+
+  ipcMain.handle('training:arena-status', () => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return { ok: true, arena: trainingController.getArenaState({ profileId: pid }) };
+  });
+
+  ipcMain.handle('training:arena-next', (_event, payload = {}) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.getNextArenaQuestion({
+      profileId: pid,
+      level: payload?.level != null ? Number(payload.level) : null,
+    });
+  });
+
+  ipcMain.handle('training:arena-answer', (_event, payload = {}) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.submitArenaAnswer({
+      profileId: pid,
+      questionId: String(payload?.questionId || ''),
+      selectedOptionId: payload?.selectedOptionId != null ? String(payload.selectedOptionId) : null,
+      timedOut: Boolean(payload?.timedOut),
+    });
+  });
+
+  ipcMain.handle('training:arena-start', (_event, payload = {}) => {
+    const { unlocked, pid, records } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.startArena({
+      profileId: pid,
+      mode: String(payload?.mode || 'mixed'),
+      count: Number(payload?.count || 5),
+      records,
+    });
+  });
+
+  ipcMain.handle('training:arena-finish', (_event, payload = {}) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.finishArena({
+      profileId: pid,
+      mode: String(payload?.mode || 'mixed'),
+      answered: Number(payload?.answered || 0),
+      correct: Number(payload?.correct || 0),
+      bestStreak: Number(payload?.bestStreak || 0),
+    });
+  });
+
+  ipcMain.handle('training:build-save', (_event, payload = {}) => {
+    const { unlocked, pid, records } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    const res = trainingController.saveCustomBuild({
+      profileId: pid,
+      build: payload?.build,
+      armNow: Boolean(payload?.armNow),
+      records,
+    });
+    syncLiveArmedBuildTimer();
+    sendBuildOrder();
+    return res;
+  });
+
+  ipcMain.handle('training:build-extract', () => {
+    const { unlocked, pid, records } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    const res = trainingController.extractCustomBuildFromReplay({
+      profileId: pid,
+      records,
+    });
+    sendBuildOrder();
+    return res;
+  });
+
+  ipcMain.handle('training:build-delete', (_event, buildId) => {
+    const { unlocked, pid, records } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    const res = trainingController.deleteCustomBuild({
+      profileId: pid,
+      buildId: String(buildId || ''),
+      records,
+    });
+    syncLiveArmedBuildTimer();
+    sendBuildOrder();
+    return res;
+  });
+
+  ipcMain.handle('training:build-arm', (_event, payload = {}) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    const res = trainingController.controlLiveOverlay({
+      profileId: pid,
+      buildId: payload?.buildId,
+      armed: payload?.armed,
+      testNow: payload?.testNow,
+      action: payload?.action,
+      clockSpeed: payload?.clockSpeed,
+    });
+    if (res.liveTestActive && win && !win.isDestroyed()) {
+      win.setAlwaysOnTop(true, 'screen-saver');
+      if (!win.isVisible()) win.showInactive();
+    }
+    syncLiveArmedBuildTimer();
+    sendBuildOrder();
+    return res;
+  });
+
+  ipcMain.handle('training:high-elo-config', (_event, payload = {}) => {
+    const { unlocked, pid, records } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.updateHighEloConfig({
+      profileId: pid,
+      selectedMatchId: payload?.selectedMatchId,
+      myCivSlug: payload?.myCivSlug,
+      rivalCivSlug: payload?.rivalCivSlug,
+      mapSlug: payload?.mapSlug,
+      records,
+    });
+  });
+
   ipcMain.handle('settings:language', (_event, rawLang) => {
     const next = i18n.normalizeLocale(rawLang);
     if (!next) return { ok: false, language: i18n.getLocale(config.language) };
@@ -4816,7 +5068,24 @@ async function publishPostMatch(match, options = {}) {
 
   if (!isCurrent()) return null;
   if (telemetry && persist && fetchingReplay && !error) {
-    performanceStore.recordMatch(match, targetProfileId, telemetry);
+    const savedRec = performanceStore.recordMatch(match, targetProfileId, telemetry);
+    try {
+      const prod = productState();
+      if (allowsFeature(prod, 'trainingHub') && savedRec) {
+        const allRecs = performanceStore.listReadOnly(targetProfileId);
+        const trRes = trainingController.handleNewReplayRecord({
+          profileId: targetProfileId,
+          record: savedRec,
+          records: allRecs,
+          unlocked: true,
+        });
+        if (trRes.changed && settingsWin && !settingsWin.isDestroyed()) {
+          settingsWin.webContents.send('training:update', trRes);
+        }
+      }
+    } catch (trErr) {
+      log(`training verify error: ${trErr.message}`);
+    }
   }
   paint();
   if (allowAutoHide && fetchingReplay) schedulePostMatchHide();
@@ -4873,6 +5142,8 @@ function emit(state) {
     lastOngoingMatchId = ongoingId;
     clearRivalReports();
     clearScoutTips();
+    trainingController.notifyMatchStarted({ profileId: runtimeProfileId(), matchId: ongoingId, startedAt: Date.now() });
+    syncLiveArmedBuildTimer();
     // Asegurar que Windows DWM mantenga el overlay por encima del juego al detectar partida nueva.
     if (win && !win.isDestroyed() && !manuallyHiddenByHotkey && !(minimizeController && minimizeController.isHiddenByMinimized())) {
       win.setAlwaysOnTop(true, 'screen-saver');
@@ -5595,6 +5866,7 @@ if (!gotLock) {
     flushConfigSync();
     statsCache.flush();
     performanceStore.flush();
+    trainingController.flush();
     flushLogsSync();
     globalShortcut.unregisterAll();
     clearInterval(timer);

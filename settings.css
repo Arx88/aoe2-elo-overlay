@@ -3639,40 +3639,51 @@ button.cx-lm-metric.is-jumpable {
   position: absolute;
   inset: 0;
   width: 100%;
-  border: 1px solid rgba(209, 176, 108, 0.34);
+  border: none;
   border-radius: 10px;
-  background: radial-gradient(circle at 50% 45%, rgba(24, 28, 36, 0.72), rgba(11, 14, 19, 0.88));
+  background: radial-gradient(circle at 50% 48%, rgba(12, 16, 23, 0.56), rgba(8, 11, 16, 0.78));
+  backdrop-filter: blur(3px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 14px;
+  gap: 6px;
+  padding: 16px;
   cursor: pointer;
   color: #f4eee0;
   text-align: center;
-  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+  transition: background 180ms ease;
 }
 .cx-ultra-veil:hover {
-  border-color: rgba(235, 202, 126, 0.72);
-  background: radial-gradient(circle at 50% 45%, rgba(34, 38, 48, 0.62), rgba(13, 17, 23, 0.84));
+  background: radial-gradient(circle at 50% 48%, rgba(16, 21, 30, 0.48), rgba(10, 14, 20, 0.74));
 }
-.cx-ultra-badge {
+.cx-ultra-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #dfbe78;
   font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #16130b;
-  background: linear-gradient(135deg, #f2d896, #c69f4f);
-  box-shadow: 0 3px 12px rgba(209, 176, 108, 0.34);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.cx-ultra-crown {
+  width: 12px;
+  height: 12px;
+  color: #dfbe78;
 }
 .cx-ultra-veil strong {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #f3ead4;
+  font-size: 13.5px;
+  font-weight: 560;
+  color: #edf2f7;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+  transition: color 150ms ease;
+}
+.cx-ultra-veil:hover strong {
+  color: #f7e6bf;
 }
 
 /* ============ v2.8.0 POLISH: WIDER LAYOUT, CLEAN SVG AXIS TEXT, PHASE INTRO & VISIBLE CONFIG ============ */
@@ -3844,8 +3855,12 @@ body[data-theme="pergamino"] .opening-art .pm-grade-stamp {
 
 /* 5. Locked Pro/Ultra toggles must look non-interactive (matches .feature-locked from settings.js) */
 .row.feature-locked {
-  cursor: default !important;
-  opacity: 0.72;
+  cursor: pointer !important;
+  opacity: 0.78;
+}
+.row.feature-locked input,
+.row.feature-locked select {
+  pointer-events: none !important;
 }
 .row.feature-locked:hover .rname {
   color: #e4e7e6 !important;
@@ -8337,4 +8352,994 @@ select.field,
   font-size: 12.5px;
   color: #8f9dab;
   line-height: 1.5;
+}
+
+
+/* ==================== APP-WIDE MICRO-ANIMATIONS & TRAINING QUEUE PIN ==================== */
+@keyframes relicSheenSweep {
+  from { transform: translateX(-140%) skewX(-24deg); }
+  to { transform: translateX(260%) skewX(-24deg); }
+}
+
+/* Smooth tactile elevation across Central, Postmatch, Prematch, Durante, Apariencia, Planes, Actualizaciones */
+.cx-card,
+.cx-diag-finding,
+.cx-acad-focus-strip,
+.pm-ins-card,
+.pm-focus,
+.pm-opening-bar,
+.pm-recent-card,
+.plan-card,
+.theme,
+.ux-panel,
+.nav-item {
+  transition: transform 190ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 200ms ease, background-color 160ms ease;
+}
+
+.cx-card:hover,
+.pm-ins-card:hover,
+.pm-recent-card:hover,
+.plan-card:hover,
+.theme:hover {
+  transform: translateY(-3px);
+  border-color: rgba(214, 184, 117, 0.42);
+}
+
+.pm-recent-card:active,
+.theme:active,
+.btn:active,
+.cx-subtab:active,
+.cx-sort-btn:active,
+.nav-item:active {
+  transform: scale(0.975);
+}
+
+.rail-nav {
+  overflow-x: hidden;
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.045);
+}
+.nav-item:hover .nav-ic,
+.nav-item:hover svg {
+  transform: scale(1.08);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn.gold {
+  position: relative;
+  overflow: hidden;
+}
+.btn.gold::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 36%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  transform: translateX(-140%) skewX(-24deg);
+  pointer-events: none;
+}
+.btn.gold:hover::after {
+  animation: relicSheenSweep 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Minimalist Circular Dumbbell ("Pesita") Pin Icon inside Central, Postmatch & Progreso */
+@keyframes trainPinGlowPop {
+  0% { transform: scale(0.88); }
+  55% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+
+.train-pin-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 184, 117, 0.28);
+  background: rgba(14, 19, 27, 0.72);
+  color: rgba(214, 184, 117, 0.68);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 6px;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 180ms ease;
+}
+.train-pin-btn.is-compact {
+  width: 24px;
+  height: 24px;
+}
+.train-pin-ico {
+  width: 14px;
+  height: 14px;
+  display: block;
+  pointer-events: none;
+}
+.train-pin-btn.is-compact .train-pin-ico {
+  width: 12px;
+  height: 12px;
+}
+.train-pin-btn:hover {
+  transform: scale(1.09);
+  border-color: rgba(242, 215, 153, 0.80);
+  background: rgba(214, 184, 117, 0.18);
+  color: #fae8b8;
+  box-shadow: 0 0 10px rgba(242, 215, 153, 0.28);
+}
+.train-pin-btn.is-pinned {
+  border-color: #f6dc9b;
+  background: radial-gradient(circle, rgba(242, 215, 153, 0.38) 0%, rgba(214, 184, 117, 0.16) 100%);
+  color: #fff6dc;
+  box-shadow: 0 0 12px rgba(242, 215, 153, 0.55), inset 0 0 6px rgba(255, 244, 214, 0.35);
+  animation: trainPinGlowPop 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Auto-Verified "Mi Plan" Celebration Toast */
+.plan-verified-toast {
+  position: fixed;
+  right: 22px;
+  bottom: 42px;
+  z-index: 120;
+  max-width: 390px;
+  padding: 14px 16px;
+  border-radius: 13px;
+  background: linear-gradient(165deg, rgba(24, 36, 31, 0.98) 0%, rgba(12, 18, 22, 0.99) 100%);
+  border: 1px solid rgba(120, 216, 166, 0.62);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72), 0 0 24px rgba(120, 216, 166, 0.16);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  animation: relicPageEnter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.plan-verified-toast .pvt-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(120, 216, 166, 0.20);
+  border: 1.5px solid #78d8a6;
+  color: #9ff1c5;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.plan-verified-toast .pvt-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.plan-verified-toast .pvt-copy span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #78d8a6;
+  text-transform: uppercase;
+}
+.plan-verified-toast .pvt-copy strong {
+  font-size: 13.5px;
+  color: #faf0d4;
+}
+.plan-verified-toast .pvt-copy small {
+  font-size: 12px;
+  color: #b7c6d2;
+  line-height: 1.38;
+}
+.plan-verified-toast .pvt-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.plan-verified-toast .pvt-close {
+  background: transparent;
+  border: none;
+  color: #8f9dab;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 5px;
+}
+.plan-verified-toast .pvt-close:hover {
+  color: #faf0d4;
+}
+
+/* ==================== CENTRAL UNIFIED UNDERLINE TABS (COHESIVE WITH ENTRENAMIENTO) ==================== */
+.page[data-page="central"] .cx-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 18px;
+  background: rgba(10, 14, 19, 0.72);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.page[data-page="central"] .cx-mode-bar::-webkit-scrollbar { display: none; }
+
+.page[data-page="central"] .cx-mode-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 14px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: #96a4b0;
+  font-size: 13px;
+  font-weight: 660;
+  white-space: nowrap;
+  box-shadow: none;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+.page[data-page="central"] .cx-mode-tab:hover {
+  color: #eef3f8;
+  background: rgba(255, 255, 255, 0.035);
+  border-bottom-color: rgba(242, 215, 153, 0.32);
+}
+.page[data-page="central"] .cx-mode-tab.is-active {
+  color: #faf0d4;
+  border-bottom-color: #f2d799;
+  background: linear-gradient(180deg, rgba(214, 184, 117, 0.11), rgba(214, 184, 117, 0.02));
+  box-shadow: none;
+}
+.page[data-page="central"] .cx-mode-tab b {
+  font-size: 11px;
+  font-weight: 760;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b7c4ce;
+}
+.page[data-page="central"] .cx-mode-tab.is-active b {
+  background: rgba(214, 184, 117, 0.20);
+  color: #f6e1ae;
+}
+
+/* Central Section Sub-tabs (Resumen · Civs y Mapas · Mejora y ELO) — Sleek Entrenamiento Underline Style */
+.page[data-page="central"] .cx-subnav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: transparent;
+  box-shadow: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.page[data-page="central"] .cx-subnav::-webkit-scrollbar { display: none; }
+.page[data-page="central"] .cx-subtab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 10px 16px 11px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: #9ba8b5;
+  box-shadow: none;
+  flex: 0 0 auto;
+}
+.page[data-page="central"] .cx-subtab::before,
+.page[data-page="central"] .cx-subtab::after { display: none; }
+.page[data-page="central"] .cx-subtab + .cx-subtab { border-left: 0; }
+.page[data-page="central"] .cx-subtab:hover:not(.is-active) {
+  background: rgba(255, 255, 255, 0.035);
+  color: #eef3f8;
+  transform: none;
+}
+.page[data-page="central"] .cx-subtab.is-active {
+  background: linear-gradient(180deg, rgba(214, 184, 117, 0.10), rgba(214, 184, 117, 0.02));
+  border-bottom-color: #f2d799;
+  box-shadow: none;
+}
+.page[data-page="central"] .cx-subtab-ico {
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+}
+.page[data-page="central"] .cx-subtab.is-active .cx-subtab-ico {
+  background: transparent;
+  border: 0;
+}
+.page[data-page="central"] .cx-subtab-ico .product-icon {
+  width: 18px;
+  height: 18px;
+}
+.page[data-page="central"] .cx-subtab-copy {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.page[data-page="central"] .cx-subtab-copy strong {
+  font-size: 13.5px;
+  font-weight: 680;
+}
+.page[data-page="central"] .cx-subtab-copy small {
+  display: none;
+}
+.page[data-page="central"] .cx-subtab-badge {
+  padding: 2px 7px;
+  font-size: 10.5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+}
+
+/* ==================== EDITORIAL ELO RANGE & PATCHES (ZERO NESTED BOXES, ZERO OVERLAP) ==================== */
+.page[data-page="central"] .cx-comfort-card {
+  container-type: inline-size;
+  gap: 18px;
+  padding: 20px 22px;
+}
+.page[data-page="central"] .cx-comfort-card .win { color: #78d8a6; }
+.page[data-page="central"] .cx-comfort-card .loss { color: #ef8a81; }
+.page[data-page="central"] .cx-stability-inline {
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #dfbe78;
+  letter-spacing: 0.01em;
+}
+.page[data-page="central"] .cx-stability-inline.is-win { color: #7fdca8; }
+.page[data-page="central"] .cx-stability-inline.is-loss { color: #ef9188; }
+
+.page[data-page="central"] .cx-elo-band {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.page[data-page="central"] .cx-elo-hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page[data-page="central"] .cx-elo-now {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.page[data-page="central"] .cx-elo-now strong {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: #f6f1e6;
+}
+.page[data-page="central"] .cx-elo-status {
+  font-size: 12.5px;
+  color: #9ba8b5;
+}
+.page[data-page="central"] .cx-elo-delta {
+  font-size: 11.5px;
+  font-weight: 680;
+}
+.page[data-page="central"] .cx-elo-peak-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: #8b99a7;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-elo-peak-meta b {
+  color: #7fdca8;
+  font-weight: 680;
+}
+.page[data-page="central"] .cx-elo-sep {
+  opacity: 0.45;
+}
+
+.page[data-page="central"] .cx-elo-track-svg {
+  width: 100%;
+  height: 18px;
+  display: block;
+  overflow: visible;
+}
+
+.page[data-page="central"] .cx-elo-axis {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11.5px;
+  color: #7e8d9b;
+}
+.page[data-page="central"] .cx-elo-axis b {
+  color: #cfd8e1;
+  font-weight: 620;
+  margin-left: 3px;
+}
+
+.page[data-page="central"] .cx-comfort-metrics {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+@container (min-width: 560px) {
+  .page[data-page="central"] .cx-comfort-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px 18px;
+  }
+}
+.page[data-page="central"] .cx-comfort-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-comfort-metrics dt {
+  font-size: 11px;
+  color: #7e8d9b;
+  font-weight: 500;
+}
+.page[data-page="central"] .cx-comfort-metrics dd {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 680;
+  color: #eef3f8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-comfort-metrics dd.gold { color: #ebd091; }
+.page[data-page="central"] .cx-comfort-metrics small {
+  font-size: 11px;
+  color: #6e7d8b;
+}
+
+.page[data-page="central"] .cx-patch-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page[data-page="central"] .cx-pt-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.page[data-page="central"] .cx-pt-head span {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8493a1;
+}
+.page[data-page="central"] .cx-pt-head small {
+  font-size: 11px;
+  color: #6e7d8b;
+}
+.page[data-page="central"] .cx-pt-rows {
+  display: flex;
+  flex-direction: column;
+}
+.page[data-page="central"] .cx-pt-row {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) minmax(56px, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.page[data-page="central"] .cx-pt-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.page[data-page="central"] .cx-pt-id {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-pt-id b {
+  font-size: 12px;
+  font-weight: 600;
+  color: #d6e0e9;
+}
+.page[data-page="central"] .cx-pt-mark {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+.page[data-page="central"] .cx-pt-mark.is-now { color: #dfbe78; }
+.page[data-page="central"] .cx-pt-mark.is-best { color: #7fdca8; }
+
+.page[data-page="central"] .cx-pt-track {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.page[data-page="central"] .cx-pt-track > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.page[data-page="central"] .cx-pt-track > i.bar-emerald { background: #6fd19c; }
+.page[data-page="central"] .cx-pt-track > i.bar-rose { background: #e5837a; }
+.page[data-page="central"] .cx-pt-track > i.bar-gold { background: #d9bc7a; }
+
+.page[data-page="central"] .cx-pt-nums {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 7px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-pt-nums b {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.page[data-page="central"] .cx-pt-nums small {
+  font-size: 11px;
+  color: #7e8d9b;
+}
+.page[data-page="central"] .cx-pt-delta {
+  font-size: 11px;
+  font-weight: 650;
+}
+.page[data-page="central"] .cx-pt-civ {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #a6b4c1;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-pt-civ .civ-badge {
+  width: 17px !important;
+  height: 17px !important;
+}
+.page[data-page="central"] .cx-pt-civ-name {
+  display: none;
+}
+@container (min-width: 520px) {
+  .page[data-page="central"] .cx-pt-civ-name {
+    display: inline;
+  }
+}
+
+/* ==================== MINIMALIST EDITORIAL APP-WIDE UPGRADE MODAL ==================== */
+.relic-upgrade-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  background: rgba(5, 8, 13, 0.80);
+  backdrop-filter: blur(10px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  animation: relicPageEnter 180ms ease-out both;
+}
+.relic-upgrade-stage {
+  position: relative;
+  width: min(820px, 100%);
+  min-height: 440px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #090d13;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 36px 90px rgba(0, 0, 0, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.rum-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left center;
+  pointer-events: none;
+  user-select: none;
+}
+.rum-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(9, 13, 19, 0.0) 0%, rgba(9, 13, 19, 0.16) 34%, rgba(9, 13, 19, 0.86) 54%, rgba(9, 13, 19, 0.96) 70%, #090d13 100%),
+    linear-gradient(180deg, rgba(9, 13, 19, 0.12) 0%, rgba(9, 13, 19, 0.0) 24%, rgba(9, 13, 19, 0.0) 76%, rgba(9, 13, 19, 0.44) 100%);
+}
+.relic-upgrade-stage.is-art-right {
+  justify-content: flex-start;
+}
+.relic-upgrade-stage.is-art-right .rum-art {
+  object-position: right center;
+}
+.relic-upgrade-stage.is-art-right .rum-scrim {
+  background:
+    linear-gradient(90deg, #090d13 0%, rgba(9, 13, 19, 0.96) 34%, rgba(9, 13, 19, 0.84) 52%, rgba(9, 13, 19, 0.14) 72%, rgba(9, 13, 19, 0.0) 100%),
+    linear-gradient(180deg, rgba(9, 13, 19, 0.12) 0%, rgba(9, 13, 19, 0.0) 24%, rgba(9, 13, 19, 0.0) 76%, rgba(9, 13, 19, 0.44) 100%);
+}
+.relic-upgrade-stage.is-art-right .rum-copy {
+  padding: 38px 24px 36px 42px;
+}
+.relic-upgrade-stage.is-compact-stage {
+  min-height: 368px;
+}
+.relic-upgrade-stage.is-compact-stage .rum-copy {
+  padding: 28px 24px 28px 38px;
+}
+
+/* ==================== UNIFIED BLURRED LOCKED PAGES (POSTMATCH, DURANTE, PREMATCH) ==================== */
+.pages:has(.page.active.is-page-locked) {
+  overflow-y: hidden !important;
+  padding-top: 20px !important;
+  padding-bottom: 20px !important;
+}
+.page.is-page-locked {
+  position: relative;
+  height: calc(100vh - 248px);
+  min-height: 468px;
+  max-height: calc(100vh - 248px);
+  overflow: hidden;
+}
+.page.is-page-locked > *:not(.page-lock-veil) {
+  filter: blur(5.5px) saturate(0.88) brightness(0.72);
+  opacity: 0.66;
+  pointer-events: none;
+  user-select: none;
+}
+.page-lock-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+}
+.page-lock-veil .relic-upgrade-stage {
+  width: min(860px, 94%);
+  min-height: 438px;
+  box-shadow: 0 32px 84px rgba(0, 0, 0, 0.84), 0 0 0 1px rgba(223, 190, 120, 0.08);
+  animation: relicModalPop 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.page-lock-veil .relic-upgrade-stage.is-compact-stage {
+  width: min(840px, 96%);
+  min-height: 364px;
+}
+
+details.is-section-locked {
+  position: relative;
+  overflow: hidden;
+  min-height: 406px;
+}
+details.is-section-locked > *:not(.page-lock-veil) {
+  filter: blur(5px) saturate(0.85) brightness(0.72);
+  opacity: 0.62;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Illustrative blurred Postmatch backdrop when Free user has no analyzed match yet */
+.pm-locked-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 20px 22px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #151c25 0%, #0e131a 100%);
+  border: 1px solid rgba(214, 184, 117, 0.22);
+}
+.pm-lp-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pm-lp-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #78d8a6;
+}
+.pm-lp-hero h4 {
+  margin: 4px 0 0;
+  font-size: 20px;
+  color: #f6f1e6;
+}
+.pm-lp-grade {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: #f6e1ae;
+  background: rgba(214, 184, 117, 0.18);
+  border: 1px solid rgba(214, 184, 117, 0.44);
+}
+.pm-lp-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.pm-lp-kpis div { display: flex; flex-direction: column; gap: 3px; }
+.pm-lp-kpis span { font-size: 11px; color: #8c9aa7; }
+.pm-lp-kpis b { font-size: 18px; color: #f4ebd2; }
+.pm-lp-bars { display: flex; flex-direction: column; gap: 10px; }
+.pm-lp-bars div { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 14px; font-size: 12px; color: #b7c4d0; }
+.pm-lp-bars i {
+  display: block;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d9bc7a 0%, #78d8a6 78%, rgba(255, 255, 255, 0.08) 78%);
+}
+
+/* ==================== TRAINING-GRADE SMOOTH MOTION IN CENTRAL & POSTMATCH ==================== */
+@keyframes relicViewIn {
+  from { opacity: 0.94; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes relicCardRise {
+  from { opacity: 0.94; transform: translateY(9px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes relicModalPop {
+  from { opacity: 0.96; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Central view & staggered cards entrance */
+.page[data-page="central"] .cx-dashboard,
+.page[data-page="central"] .cx-view-pane,
+.page[data-page="central"] .cx-swap {
+  animation: relicViewIn 210ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.page[data-page="central"] .cx-card,
+.page[data-page="central"] .cx-hero-card,
+.page[data-page="central"] .cx-spot,
+.page[data-page="central"] .cx-kpi-tile {
+  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1), border-color 170ms ease, box-shadow 170ms ease;
+}
+.page[data-page="central"] .cx-hero-card { animation: relicCardRise 220ms cubic-bezier(0.22, 1, 0.36, 1) 10ms both; }
+.page[data-page="central"] .cx-grid-2 > *:nth-child(1),
+.page[data-page="central"] .cx-spot-grid > *:nth-child(1),
+.page[data-page="central"] .cx-kpi-grid > *:nth-child(1) { animation: relicCardRise 220ms cubic-bezier(0.22, 1, 0.36, 1) 15ms both; }
+.page[data-page="central"] .cx-grid-2 > *:nth-child(2),
+.page[data-page="central"] .cx-spot-grid > *:nth-child(2),
+.page[data-page="central"] .cx-kpi-grid > *:nth-child(2) { animation: relicCardRise 240ms cubic-bezier(0.22, 1, 0.36, 1) 45ms both; }
+.page[data-page="central"] .cx-grid-2 > *:nth-child(3),
+.page[data-page="central"] .cx-spot-grid > *:nth-child(3),
+.page[data-page="central"] .cx-kpi-grid > *:nth-child(3) { animation: relicCardRise 260ms cubic-bezier(0.22, 1, 0.36, 1) 75ms both; }
+.page[data-page="central"] .cx-grid-2 > *:nth-child(4),
+.page[data-page="central"] .cx-spot-grid > *:nth-child(4),
+.page[data-page="central"] .cx-kpi-grid > *:nth-child(4) { animation: relicCardRise 280ms cubic-bezier(0.22, 1, 0.36, 1) 105ms both; }
+.page[data-page="central"] .cx-grid-2 > *:nth-child(n+5),
+.page[data-page="central"] .cx-spot-grid > *:nth-child(n+5),
+.page[data-page="central"] .cx-kpi-grid > *:nth-child(n+5) { animation: relicCardRise 300ms cubic-bezier(0.22, 1, 0.36, 1) 130ms both; }
+
+.page[data-page="central"] .cx-spot:hover,
+.page[data-page="central"] .rm-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(242, 215, 153, 0.42);
+}
+
+/* Postmatch view, tab panes & staggered cards entrance */
+.page[data-page="postmatch"] .postmatch-report,
+.page[data-page="postmatch"] .pm-pane.is-active,
+.page[data-page="postmatch"] .pm-anim-in {
+  animation: relicViewIn 210ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.page[data-page="postmatch"] .pm-card,
+.page[data-page="postmatch"] .pm-stage-card,
+.page[data-page="postmatch"] .pm-finding,
+.page[data-page="postmatch"] .pm-kpi,
+.page[data-page="postmatch"] .rm-card {
+  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1), border-color 170ms ease, box-shadow 170ms ease;
+}
+.page[data-page="postmatch"] .pm-card:nth-child(1),
+.page[data-page="postmatch"] .pm-kpi:nth-child(1),
+.page[data-page="postmatch"] .pm-stage-card:nth-child(1),
+.page[data-page="postmatch"] .postmatch-recent-strip .rm-card:nth-child(1) { animation: relicCardRise 210ms cubic-bezier(0.22, 1, 0.36, 1) 10ms both; }
+.page[data-page="postmatch"] .pm-card:nth-child(2),
+.page[data-page="postmatch"] .pm-kpi:nth-child(2),
+.page[data-page="postmatch"] .pm-stage-card:nth-child(2),
+.page[data-page="postmatch"] .postmatch-recent-strip .rm-card:nth-child(2) { animation: relicCardRise 230ms cubic-bezier(0.22, 1, 0.36, 1) 35ms both; }
+.page[data-page="postmatch"] .pm-card:nth-child(3),
+.page[data-page="postmatch"] .pm-kpi:nth-child(3),
+.page[data-page="postmatch"] .pm-stage-card:nth-child(3),
+.page[data-page="postmatch"] .postmatch-recent-strip .rm-card:nth-child(3) { animation: relicCardRise 250ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both; }
+.page[data-page="postmatch"] .pm-card:nth-child(4),
+.page[data-page="postmatch"] .pm-kpi:nth-child(4),
+.page[data-page="postmatch"] .pm-stage-card:nth-child(4),
+.page[data-page="postmatch"] .postmatch-recent-strip .rm-card:nth-child(4) { animation: relicCardRise 270ms cubic-bezier(0.22, 1, 0.36, 1) 85ms both; }
+.page[data-page="postmatch"] .pm-card:nth-child(n+5),
+.page[data-page="postmatch"] .pm-kpi:nth-child(n+5),
+.page[data-page="postmatch"] .pm-stage-card:nth-child(n+5),
+.page[data-page="postmatch"] .postmatch-recent-strip .rm-card:nth-child(n+5) { animation: relicCardRise 290ms cubic-bezier(0.22, 1, 0.36, 1) 110ms both; }
+
+.page[data-page="postmatch"] .pm-stage-card:hover,
+.page[data-page="postmatch"] .pm-finding:hover,
+.page[data-page="postmatch"] .rm-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(242, 215, 153, 0.42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page[data-page="central"] *,
+  .page[data-page="postmatch"] *,
+  .page-lock-veil .relic-upgrade-stage {
+    animation: none !important;
+  }
+}
+
+.rum-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #cbd5df;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color 140ms ease;
+}
+.rum-close:hover {
+  color: #f6f1e6;
+}
+.rum-copy {
+  position: relative;
+  z-index: 2;
+  width: 49%;
+  padding: 38px 40px 36px 24px;
+  display: flex;
+  flex-direction: column;
+}
+.rum-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #dfbe78;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 11px;
+}
+.relic-upgrade-stage.is-pro .rum-eyebrow {
+  color: #8fdab7;
+}
+.rum-eyebrow svg {
+  width: 13px;
+  height: 13px;
+}
+.rum-copy h3 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 640;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  color: #f6f1e6;
+}
+.rum-lead {
+  margin: 11px 0 0;
+  font-size: 13px;
+  color: #9ba8b5;
+  line-height: 1.55;
+}
+.rum-rule {
+  height: 1px;
+  margin: 20px 0 16px;
+  background: linear-gradient(90deg, rgba(223, 190, 120, 0.34), rgba(255, 255, 255, 0.06) 70%, transparent);
+}
+.relic-upgrade-stage.is-pro .rum-rule {
+  background: linear-gradient(90deg, rgba(143, 218, 183, 0.34), rgba(255, 255, 255, 0.06) 70%, transparent);
+}
+.rum-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rum-list li {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 13px;
+  color: #dce4ec;
+  line-height: 1.35;
+}
+.rum-list li svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #d6b672;
+  opacity: 0.92;
+}
+.relic-upgrade-stage.is-pro .rum-list li svg {
+  color: #8fdab7;
+}
+.rum-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 26px;
+}
+.rum-cta {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(180deg, #e7ca88 0%, #c9a255 100%);
+  color: #12100c;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+.rum-cta:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+.relic-upgrade-stage.is-pro .rum-cta {
+  background: linear-gradient(180deg, #9fe3c3 0%, #6ac29b 100%);
+  color: #0b1611;
+}
+.rum-link {
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  color: #b4c0cc;
+  font-size: 13px;
+  font-weight: 560;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 150ms ease;
+}
+.rum-link:hover {
+  color: #f3dfb0;
+}
+@media (max-width: 720px) {
+  .relic-upgrade-stage { min-height: 500px; align-items: flex-end; }
+  .rum-art { object-position: center top; }
+  .rum-scrim {
+    background: linear-gradient(180deg, rgba(9, 13, 19, 0.05) 0%, rgba(9, 13, 19, 0.72) 48%, #090d13 70%);
+  }
+  .rum-copy { width: 100%; padding: 26px; }
 }

@@ -1,3 +1,14 @@
+## v3.1.0 · Entrenamiento completo, Batalla, Central renovada y popups minimalistas
+
+- **Entrenamiento (Beta · Relic Ultra):** navegación limpia en 5 pestañas (**Progreso**, **Mi Plan**, **Build Orders**, **Matchups** y **Arena**) con gráfico de araña, curva de evolución por indicador, creador/editor de Build Orders con bonos de civilización y campaña de 7 unidades con 410 desafíos.
+- **Mi Plan con seguimiento automático y botón de pesita:** tocá el nuevo ícono minimalista de pesita en **Central**, **Postmatch** o **Progreso** para agendar focos de entrenamiento; Relic evalúa automáticamente tus próximas partidas y te avisa cuando cumplís cada objetivo.
+- **Sección «Durante» renombrada a «Batalla»:** identidad unificada en barra lateral, cabeceras, popups y planes.
+- **Central renovada:** pestañas con subrayado dorado unificadas con Entrenamiento, rediseño editorial de **Estabilidad de Ladder y Parches** (rango visual de ELO, métricas limpias y tabla de parches sin solapamientos) y corrección del scroll horizontal en la barra lateral.
+- **Popups de plan minimalistas:** vistas centradas sobre fondo borroso sin scroll en **Prematch**, **Batalla**, **Postmatch** y **Entrenamiento**, con las ilustraciones oscuras de Relic y prueba gratuita de 24 horas en Ultra.
+- **Animaciones suaves en Central y Postmatch:** entrada escalonada de tarjetas, transiciones fluidas al cambiar de pestaña y micro-elevación interactiva.
+
+---
+
 ## v2.11.0 · Datos coherentes en Central, 200 partidas por modo, Postmatch v6 y ventanas Pro / Ultra
 
 - **Central con datos oficiales sin sesgo:** los winrates, mapas, civilizaciones, colores, roles de equipo y Motores/Fugas de ELO se calculan sobre tus partidas oficiales de AoE2 Companion. AoE2Insights solo aporta aperturas y eAPM, con su cobertura declarada.
