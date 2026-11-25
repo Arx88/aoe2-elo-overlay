@@ -157,7 +157,14 @@
     "tabPlan": "Plan & key",
     "signInRail": "Sign in",
     "signInRailSub": "Google · sync your plan",
-    "authDesc": "Sync your plan, manage active PCs, and redeem prepaid keys."
+    "authDesc": "Sync your plan, manage active PCs, and redeem prepaid keys.",
+    "pageTitle": "Player account",
+    "searchingAccount": "Looking for your account…",
+    "startupGroup": "Application startup",
+    "startupPageTitle": "Opening screen on launch",
+    "startupPageDesc": "Choose whether to open the Welcome briefing or jump straight into Central.",
+    "startupWelcome": "Welcome page",
+    "startupCentral": "Straight to Central"
   },
   "overlay": {
     "wf1Title": "Read your rival",
@@ -323,7 +330,13 @@
     "ultraRibbon": "★ COMPLETE ARSENAL · MOST POPULAR",
     "ultraSubPrice": "USD · Full Tactical Suite",
     "redeemTitle": "Redeem prepaid key",
-    "redeemSignInHint": "Sign in with Google to redeem a key and link your plan to your account."
+    "redeemSignInHint": "Sign in with Google to redeem a key and link your plan to your account.",
+    "cycleMonthly": "Monthly",
+    "cycleAnnual": "Annual",
+    "billingNote": "Prices in USD · Card on Annual plan · USDT/USDC on Monthly & Annual",
+    "ctaPro": "Continue with Pro",
+    "ctaUltra": "Choose Ultra →",
+    "ctaTrial": "Try Ultra free for 24h"
   },
   "skins": {
     "designGroup": "Panel theme",
@@ -407,7 +420,11 @@
     "civTipTitle": "Civ guide enabled",
     "civTipBody": "The card hides after {time}. If you prefer more time to read it in-game, you can extend it to 0:40.",
     "civTipNo": "No, thanks",
-    "civTipYes": "Extend visibility to 40 seconds"
+    "civTipYes": "Extend visibility to 40 seconds",
+    "copy": "Copy",
+    "refresh": "Refresh",
+    "apply": "Apply",
+    "verify": "Verify"
   },
   "hud": {
     "starting": "Starting…",
@@ -872,6 +889,98 @@
     "sending": "Sending feedback…",
     "sent": "Thanks! Your feedback was sent.",
     "error": "Could not send feedback right now.",
-    "desc": "Report bugs or suggest improvements for Relic."
+    "desc": "Report bugs or suggest improvements for Relic.",
+    "attachDiag": "Attach technical diagnostics (recent log lines, no personal data)"
+  },
+  "prefs": {
+    "soundsOn": "UI sounds · On",
+    "soundsOff": "UI sounds · Muted",
+    "welcomeOn": "Home on startup · On",
+    "welcomeOff": "Home on startup · Hidden"
+  },
+  "checkout": {
+    "payUsdc": "Pay with USDC (Polygon)",
+    "autoActivateNote": "Automatic activation on your Google account as soon as payment confirms.",
+    "useKey": "Already have a prepaid key? Redeem it here →"
+  },
+  "referrals": {
+    "bannerTitle": "Earn 1 free month of Relic Ultra",
+    "openBtn": "Open referrals →",
+    "eyebrow": "RELIC ULTRA · 30 DAYS FREE",
+    "modalTitle": "Invite 10 friends and unlock Ultra",
+    "modalLead": "Earn 1 point for each friend who installs and opens Relic on their PC.",
+    "copyLink": "Copy invite link",
+    "invitedList": "YOUR INVITES",
+    "haveCode": "HAVE A CODE?"
+  },
+  "welcome": {
+    "newsTag": {
+      "novedad": "News",
+      "actualizacion": "Update",
+      "torneo": "Tournament",
+      "aviso": "Notice"
+    },
+    "newsMore": "Learn more",
+    "newsAria": "Relic announcement",
+    "activity7d": "Last 7 days",
+    "metaSyncing": "Syncing global ladder stats…",
+    "counterLabel": "HOW TO COUNTER {civ} (#1)",
+    "counterSrc": "Pro 1v1 Data",
+    "goldTitle": "YOUR GOLD THIS WEEK",
+    "noMatchesYet": "No matches yet",
+    "goldWeekUnit": "gold gathered this week",
+    "goldRecentUnit": "gold across your recent matches",
+    "goldEmptyHint": "Every match you play with Relic running automatically adds your gold to this treasury.",
+    "goldAutoHint": "Updates automatically after every match.",
+    "goldRankNext": "{gold} more for {next}",
+    "goldRankMax": "Top weekly rank reached",
+    "weeklyRecord": "WEEKLY RECORD",
+    "villagers": "Villagers",
+    "created": "created",
+    "army": "Military",
+    "units": "units",
+    "castlesFarms": "Castles · Farms",
+    "built": "built",
+    "peakEapm": "Peak eAPM",
+    "streakHot": "Win streak",
+    "streakCold": "Recent losses",
+    "maps": "Maps",
+    "lastDays": "Last {days} days",
+    "victim": "Favorite victim",
+    "nemesis": "Nemesis",
+    "mostPlayedMap": "Most played map:",
+    "noRecentMatches": "Play a few ranked matches to uncover your signature civilization and map this week.",
+    "weeklyBrief": "Weekly summary",
+    "ctaCentral": "Open Central",
+    "ctaTrain": "Train today",
+    "ctaTechTree": "Tech Tree",
+    "globalKicker": "GLOBAL META · AGE OF EMPIRES II: DE",
+    "globalTitle": "What dominates the ladder this week",
+    "mostPlayed": "MOST PLAYED",
+    "highestWr": "HIGHEST WINRATE",
+    "recentTerrain": "YOUR RECENT GROUND",
+    "openCentral": "Open diagnostic in Central",
+    "factOfDay": "DAILY CODEX",
+    "trainingSession": "TRAINING SESSION",
+    "labActive": "Training lab active",
+    "trainingModule": "Training Module",
+    "goTraining": "Go to Training",
+    "defaultNewsTitle": "Relic v3.2 · Weekly highlights",
+    "defaultNewsBody": "Global 56-civilization meta, Pro 1v1 counters, weekly gold rank, and hardened security.",
+    "newsChannel": "RELIC NEWS",
+    "goldTodayTip": "Gold gathered in your matches today",
+    "today": "today",
+    "goldLastTip": "Gold gathered in your latest analyzed match",
+    "lastMatchShort": "last"
+  },
+  "expiredModal": {
+    "eyebrow": "RELIC ULTRA · ACCESS ENDED",
+    "title": "Your Relic Ultra trial has ended",
+    "lead": "Your account returned to the Free plan, and all your match history and replays remain intact. Upgrade today to instantly unlock advanced Central, Postmatch, Matchups, and Training.",
+    "offerPill": "ANNUAL PLAN OFFER · −20%",
+    "offerTitle": "Save 20% when you choose the annual plan today",
+    "offerSub": "Instant activation on your Google account · Card or USDT/USDC",
+    "ctaAnnual": "View annual offer (−20%) →",
+    "ctaFree": "Continue on Free for now"
   }
 }

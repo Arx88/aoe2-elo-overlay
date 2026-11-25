@@ -95,6 +95,8 @@ const { createMinimizeController, GameWindowWatcher } = require('./src/game-wind
 const { projectOverlayState, projectRivalPayload, projectScoutPayload } = require('./src/presentation');
 const i18n = require('./src/i18n');
 const licenseClient = require('./src/license-client');
+const { createDiagnosticReporter, rotateLogFileIfOversized } = require('./src/diagnostics');
+const welcomeHome = require('./src/welcome-home');
 
 // Empaquetada, __dirname vive dentro del app.asar (solo lectura): config y log
 // van a %APPDATA%\AoE2 ELO Overlay\. En desarrollo quedan junto al código.
@@ -109,6 +111,8 @@ const DATA_DIR = ISOLATED ? path.join(app.getPath('temp'), 'aoe2-elo-overlay-dev
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const LOG_PATH = path.join(DATA_DIR, 'overlay.log');
 const CENTRAL_CACHE_PATH = path.join(DATA_DIR, 'central-cache.json');
+const GLOBAL_META_CACHE_PATH = path.join(DATA_DIR, 'global-meta-cache.json');
+const ANNOUNCEMENT_CACHE_PATH = path.join(DATA_DIR, 'relic-announcement-cache.json');
 // Emblema dorado (recortado y normalizado por tools/make-icon.py) es el icono oficial:
 // ventanas, bandeja, configuración, exe y accesos directos usan el mismo arte.
 // En Windows empaquetado, LoadImageW no puede leer .ico dentro de app.asar: resolvemos
@@ -187,6 +191,8 @@ const DEFAULT_CONFIG = {
   smurfDetector: false,
   // Ocultar overlay si Age of Empires II: DE queda minimizado por más de 5 segundos.
   hideWhenMinimized: false,
+  // Mostrar el panel efímero de bienvenida (Inicio) al abrir Relic.
+  showWelcomeHome: true,
   // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
   // nueva, la descarga e instala sola (nunca en media partida). Apagada de
   // fábrica: se activa desde la pestaña Updater.
@@ -203,6 +209,7 @@ const DEFAULT_CONFIG = {
   // Idioma elegido en el wizard inicial o en Ajustes → Cuenta (en, es-ES, es-MX, zh-CN).
   language: null,
   wizardCompleted: false,
+  autoDiagnostics: true,
   debug: false,
 };
 
@@ -224,20 +231,10 @@ const ARGV = process.argv.slice(1);
 // Beta explícita de desarrollo. Nunca la decide el renderer ni un selector de
 // plan: sin este argumento y sin credencial firmada, el producto es Free.
 const BETA_ACCESS = !app.isPackaged && ARGV.includes('--beta');
-// Acceso Pro temporal por clave compartida. Es una medida de transición:
-// cuando exista la suscripción real, se elimina este bloque y su handler.
-const ACCESS_KEY_HASH = '42e50ac2e6a98e6a2a7b7a1047da204365e666b81af65d70931349e0936ff2cf';
-function normalizeAccessKey(raw) {
-  return String(raw || '').trim().toUpperCase();
-}
-function accessKeyMatches(raw) {
-  const digest = crypto.createHash('sha256').update(normalizeAccessKey(raw)).digest();
-  const expected = Buffer.from(ACCESS_KEY_HASH, 'hex');
-  return digest.length === expected.length && crypto.timingSafeEqual(digest, expected);
-}
+// Seguridad (C-02): eliminado el acceso offline por hash local (`ACCESS_KEY_HASH` / `accessKeyGrant`).
+// Todo canje de claves y suscripciones pasa exclusivamente por el servidor con firma Ed25519.
 function hasAccessKeyGrant() {
-  if (remoteLicenseState && (remoteLicenseState.revoked === true || remoteLicenseState.paywallEnabled === true)) return false;
-  return String(config.accessKeyGrant || '') === ACCESS_KEY_HASH;
+  return false;
 }
 const DEMO_ARG = ARGV.find((arg) => arg === '--demo' || arg.startsWith('--demo='));
 const DEMO = Boolean(DEMO_ARG);
@@ -618,12 +615,16 @@ function postMatchHideMs() {
   return secs > 0 ? secs * 1000 : 0;
 }
 
-/** Claves públicas de licencia, si esta distribución las incluye. */
+/** Claves públicas de licencia: en producción (app.isPackaged) SOLO se aceptan
+ * las claves compiladas en el binario (C-01), ignorando archivos en %APPDATA% y variables de entorno. */
 function loadProductPublicKeys() {
-  const merged = { ...(licenseClient.RELEASE_PUBLIC_KEYS || {}) };
+  const pinned = Object.freeze({ ...(licenseClient.RELEASE_PUBLIC_KEYS || {}) });
+  if (app.isPackaged) {
+    return Object.keys(pinned).length ? pinned : null;
+  }
+  const merged = { ...pinned };
   const candidates = [
     process.env.AOE2_PRODUCT_KEYS_PATH,
-    path.join(DATA_DIR, 'product-public-keys.json'),
     path.join(__dirname, 'product-public-keys.json'),
   ].filter(Boolean);
   for (const file of candidates) {
@@ -634,17 +635,20 @@ function loadProductPublicKeys() {
       /* sin claves externas */
     }
   }
-  return Object.keys(merged).length ? merged : null;
+  return Object.keys(merged).length ? Object.freeze(merged) : null;
 }
 const PRODUCT_PUBLIC_KEYS = loadProductPublicKeys();
 const SESSION_TOKEN_PATH = path.join(DATA_DIR, 'session.enc');
 let remoteLicenseState = { status: 'unconfigured', lastCheckAt: null, reason: null, revoked: false };
 let remoteLicenseTimer = null;
+let remoteLicenseErrorStreak = 0;
 let cachedAuthProfile = null;
 let activeAuthServer = null;
 
 function licenseApiUrl() {
-  return process.env.AOE2_LICENSE_API_URL || config.licenseApiUrl || licenseClient.DEFAULT_API_URL;
+  // Seguridad (C-01): en producción la URL de licencias es inmutable y HTTPS oficial.
+  if (app.isPackaged) return licenseClient.DEFAULT_API_URL;
+  return process.env.AOE2_LICENSE_API_URL || licenseClient.DEFAULT_API_URL;
 }
 
 function loadSessionToken() {
@@ -656,6 +660,8 @@ function loadSessionToken() {
       if (!safeStorage || !safeStorage.isEncryptionAvailable()) return null;
       return safeStorage.decryptString(Buffer.from(raw.slice(6), 'base64'));
     }
+    // Seguridad (M-03): en producción con DPAPI disponible no aceptar tokens en texto plano.
+    if (app.isPackaged && safeStorage && safeStorage.isEncryptionAvailable()) return null;
     return raw;
   } catch {
     return null;
@@ -670,8 +676,10 @@ function saveSessionToken(token) {
     if (safeStorage && safeStorage.isEncryptionAvailable()) {
       const enc = safeStorage.encryptString(clean).toString('base64');
       fs.writeFileSync(SESSION_TOKEN_PATH, `dpapi:${enc}`, 'utf8');
-    } else {
+    } else if (!app.isPackaged) {
       fs.writeFileSync(SESSION_TOKEN_PATH, clean, 'utf8');
+    } else {
+      log('aviso: Windows DPAPI no disponible; la sesión se mantiene solo en memoria.');
     }
   } catch (err) {
     log(`no pude guardar la sesión cifrada: ${err.message}`);
@@ -817,16 +825,35 @@ async function syncRemoteLicense(reason = 'startup') {
   });
   remoteLicenseState = { ...res, lastCheckAt: Date.now(), checkReason: reason };
   if (res.status === 'verified' && res.token && res.accountId) {
+    remoteLicenseErrorStreak = 0;
     productSession = { accountId: res.accountId, entitlementToken: res.token };
     log(`licencia remota verificada (${res.plan}) · ${reason}`);
     refreshAccessPresentation();
   } else if (res.revoked || res.status === 'free' || res.status === 'invalid-signature') {
+    if (res.status !== 'invalid-signature') remoteLicenseErrorStreak = 0;
     const hadAccess = Boolean(productSession.entitlementToken || config.accessKeyGrant);
     if ((res.revoked || res.paywallEnabled) && config.accessKeyGrant) persistConfig({ accessKeyGrant: null });
     productSession = { accountId: null, entitlementToken: null };
     if (hadAccess || res.revoked || res.paywallEnabled || res.status === 'invalid-signature') {
       log(`acceso remoto retirado (${res.reason || res.status}) · ${reason}`);
       refreshAccessPresentation();
+    }
+    if (res.status === 'invalid-signature') {
+      diagnosticReporter.report({
+        kind: 'license_error',
+        fingerprint: `license:invalid-sig:${res.reason || 'unknown'}`,
+        summary: `Firma de licencia inválida (${res.reason || 'unknown'}) · ${reason}`,
+      }).catch(() => {});
+    }
+  } else if (res.status === 'network-error' || res.status === 'http-error' || res.status === 'error') {
+    remoteLicenseErrorStreak += 1;
+    if (remoteLicenseErrorStreak >= 3) {
+      remoteLicenseErrorStreak = 0;
+      diagnosticReporter.report({
+        kind: 'license_error',
+        fingerprint: `license:${res.status}:${res.reason || 'err'}`,
+        summary: `3 fallos seguidos verificando licencia (${res.status} · ${res.reason || 'error'})`,
+      }).catch(() => {});
     }
   }
   return remoteLicenseState;
@@ -843,10 +870,11 @@ function scheduleRemoteLicenseChecks() {
 function productState() {
   const product = resolveProductState({
     betaAccess: BETA_ACCESS,
-    accessKeyGranted: hasAccessKeyGrant(),
+    accessKeyGranted: false,
     entitlementToken: productSession.entitlementToken,
     accountId: productSession.accountId,
     profileId,
+    machineHash: licenseClient.getMachineHash(),
     publicKeys: PRODUCT_PUBLIC_KEYS,
     billing: config.commerce || {},
   });
@@ -896,7 +924,7 @@ function refreshAccessPresentation(product = productState()) {
   sendView(true);
   broadcastPostMatch();
   if (settingsWin && !settingsWin.isDestroyed()) {
-    settingsWin.webContents.send('product:update', product);
+    settingsWin.webContents.send('product:update', { ...product, remoteLicense: remoteLicenseState });
     settingsWin.webContents.send('tactics:update', tacticalPayload());
     if (!allowsFeature(product, 'trainingHub')) {
       settingsWin.webContents.send('training:update', { unlocked: false, plan: product.plan || 'free' });
@@ -909,9 +937,24 @@ function clamp(value, min, max) {
 }
 
 let logBuffer = [];
+let recentLogLines = [];
+let wsDisconnectStreak = 0;
+let wsDisconnectWindowAt = 0;
 let logFlushTimer = null;
 let logDirReady = false;
 let logFlushing = false;
+
+const diagnosticReporter = createDiagnosticReporter({
+  submitFn: (payload) => licenseClient.submitRemoteDiagnostic({ apiUrl: licenseApiUrl(), ...payload }),
+  getMetaFn: () => ({
+    appVersion: app.getVersion(),
+    profileId,
+    alias: playerAlias || '',
+  }),
+  getLogTailFn: () => recentLogLines.join('\n'),
+  logFn: (msg) => log(msg),
+  enabledFn: () => !DEV_SESSION && config.autoDiagnostics !== false,
+});
 
 function flushLogsSync() {
   clearTimeout(logFlushTimer);
@@ -953,11 +996,41 @@ async function flushLogsAsync() {
   }
 }
 
+function redactSecretsForLog(raw) {
+  return String(raw || '')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]{12,}/gi, 'Bearer [REDACTED]')
+    .replace(/\bv1\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b/g, 'v1.[REDACTED]')
+    .replace(/([?&](?:token|session|access_token|secret)=)[^&\s]+/gi, '$1[REDACTED]');
+}
+
 function log(...args) {
   const stamp = new Date().toISOString().slice(11, 19);
-  const line = `[${stamp}] ${args.join(' ')}`;
+  const text = redactSecretsForLog(args.join(' '));
+  const line = `[${stamp}] ${text}`;
   console.log(line);
+  recentLogLines.push(line);
+  if (recentLogLines.length > 120) recentLogLines.shift();
   logBuffer.push(`${line}\n`);
+
+  // Rastrear caídas reiteradas del WebSocket de prematch (ej. código 1006 / sin respuesta)
+  if (/socket\s+\w+\s*:\s*(?:cerrado\s*\(código\s*1006\)|15s sin respuesta|error\b)/i.test(text)) {
+    const now = Date.now();
+    if (now - wsDisconnectWindowAt > 5 * 60 * 1000) {
+      wsDisconnectStreak = 0;
+      wsDisconnectWindowAt = now;
+    }
+    wsDisconnectStreak += 1;
+    if (wsDisconnectStreak === 3) {
+      diagnosticReporter.report({
+        kind: 'ws_disconnect',
+        fingerprint: 'ws:prematch-1006',
+        summary: `Prematch WebSocket desconectado repetidamente (${text.slice(0, 120)})`,
+      }).catch(() => {});
+    }
+  } else if (/socket\s+\w+\s*:\s*conectado/i.test(text)) {
+    wsDisconnectStreak = 0;
+  }
+
   if (logBuffer.length >= 25) {
     flushLogsAsync().catch(() => {});
   } else if (!logFlushTimer) {
@@ -969,12 +1042,26 @@ function log(...args) {
 // Sin esto, cualquier excepción o promesa rechazada sin capturar mata el
 // proceso en silencio (la app "se cierra sola" y el log no dice por qué).
 process.on('uncaughtException', (err) => {
-  log(`CRASH · excepción no capturada: ${(err && (err.stack || err.message)) || err}`);
+  const detail = (err && (err.stack || err.message)) || String(err);
+  log(`CRASH · excepción no capturada: ${detail}`);
   flushLogsSync();
+  diagnosticReporter.report({
+    kind: 'crash',
+    fingerprint: `crash:uncaught:${String(err?.name || 'Error')}:${String(err?.message || '').slice(0, 48)}`,
+    summary: `Excepción no capturada: ${String(err?.message || err).slice(0, 180)}`,
+    extraDetail: detail,
+  }).catch(() => {});
 });
 process.on('unhandledRejection', (reason) => {
-  log(`CRASH · promesa rechazada sin capturar: ${(reason && (reason.stack || reason.message)) || reason}`);
+  const detail = (reason && (reason.stack || reason.message)) || String(reason);
+  log(`CRASH · promesa rechazada sin capturar: ${detail}`);
   flushLogsSync();
+  diagnosticReporter.report({
+    kind: 'crash',
+    fingerprint: `crash:rejection:${String(reason?.message || reason).slice(0, 48)}`,
+    summary: `Promesa rechazada: ${String(reason?.message || reason).slice(0, 180)}`,
+    extraDetail: detail,
+  }).catch(() => {});
 });
 
 // Marca el final REAL del proceso. Si en el log la última línea es un latido y
@@ -2272,12 +2359,58 @@ function quitApp(reason) {
   app.quit();
 }
 
+const TRUSTED_APP_HTML_URLS = new Set(
+  ['index.html', 'settings.html'].map((name) => {
+    try {
+      return require('node:url').pathToFileURL(path.join(__dirname, name)).href.toLowerCase();
+    } catch {
+      return '';
+    }
+  }).filter(Boolean)
+);
+
+function isTrustedAppFileUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  try {
+    const u = new URL(rawUrl);
+    if (u.protocol !== 'file:') return false;
+    const base = `${u.protocol}//${u.host}${u.pathname}`.toLowerCase();
+    return TRUSTED_APP_HTML_URLS.has(base);
+  } catch {
+    return false;
+  }
+}
+
+function isTrustedIpcEvent(event) {
+  if (!event || !event.sender) return false;
+  const senderId = event.sender.id;
+  const knownIds = [];
+  if (win && !win.isDestroyed() && win.webContents) knownIds.push(win.webContents.id);
+  if (settingsWin && !settingsWin.isDestroyed() && settingsWin.webContents) knownIds.push(settingsWin.webContents.id);
+  if (!knownIds.includes(senderId)) return false;
+  const frameUrl = (event.senderFrame && event.senderFrame.url) || (typeof event.sender.getURL === 'function' ? event.sender.getURL() : '');
+  return isTrustedAppFileUrl(frameUrl);
+}
+
+const hardenedSessions = new WeakSet();
 function hardenWebContents(wc) {
   if (!wc) return;
   wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+  // Seguridad (M-04): bloquear navegación fuera de los archivos HTML propios de la app.
   wc.on('will-navigate', (event, targetUrl) => {
-    if (!String(targetUrl || '').startsWith('file://')) event.preventDefault();
+    if (!isTrustedAppFileUrl(targetUrl)) {
+      log(`[seguridad] navegación bloqueada: ${String(targetUrl || '').slice(0, 120)}`);
+      event.preventDefault();
+    }
   });
+  // Seguridad (M-04): denegar por defecto permisos de cámara, micrófono, geolocalización, etc.
+  if (wc.session && !hardenedSessions.has(wc.session)) {
+    hardenedSessions.add(wc.session);
+    try {
+      wc.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+      wc.session.setPermissionCheckHandler(() => false);
+    } catch { /* ignore */ }
+  }
   if (app.isPackaged) {
     wc.on('before-input-event', (event, input) => {
       const key = String(input.key || '').toLowerCase();
@@ -2553,9 +2686,30 @@ function openSettings() {
   settingsWin.webContents.on('did-fail-load', (_event, code, description) =>
     log(`la configuración no cargó: ${description} (${code})`),
   );
-  settingsWin.webContents.on('render-process-gone', (_event, details) =>
-    log(`la configuración se cerró: ${details.reason}`),
-  );
+  settingsWin.webContents.on('render-process-gone', (_event, details) => {
+    log(`la configuración se cerró: ${details.reason}`);
+    diagnosticReporter.report({
+      kind: 'crash',
+      fingerprint: `renderer:settings:${details.reason || 'gone'}`,
+      summary: `Ventana principal cerrada inesperadamente (${details.reason || 'gone'})`,
+    }).catch(() => {});
+  });
+  settingsWin.on('unresponsive', () => {
+    log('ventana de configuración sin responder (unresponsive)');
+    diagnosticReporter.report({
+      kind: 'crash',
+      fingerprint: 'renderer:settings:unresponsive',
+      summary: 'Ventana principal congelada (unresponsive)',
+    }).catch(() => {});
+  });
+  settingsWin.on('responsive', () => {
+    log('ventana de configuración volvió a responder');
+  });
+  settingsWin.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    if (level >= 2 && message) {
+      log(`[config:err] ${message} (${sourceId || ''}:${line || 0})`);
+    }
+  });
 
   settingsWin.once('ready-to-show', () => {
     if (!settingsWin) return;
@@ -3587,6 +3741,24 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
 }
 
 function registerIpc() {
+  // Seguridad (A-01): validar origen (senderFrame + webContents propio) en TODOS los handlers IPC.
+  const rawHandle = ipcMain.handle.bind(ipcMain);
+  const rawOn = ipcMain.on.bind(ipcMain);
+  ipcMain.handle = (channel, listener) => rawHandle(channel, (event, ...args) => {
+    if (!isTrustedIpcEvent(event)) {
+      log(`[seguridad] IPC handle rechazado (${channel})`);
+      throw new Error('unauthorized-ipc-sender');
+    }
+    return listener(event, ...args);
+  });
+  ipcMain.on = (channel, listener) => rawOn(channel, (event, ...args) => {
+    if (!isTrustedIpcEvent(event)) {
+      log(`[seguridad] IPC event rechazado (${channel})`);
+      return;
+    }
+    return listener(event, ...args);
+  });
+
   ipcMain.on('postmatch:dismiss', () => dismissPostMatch('cerrado desde el overlay'));
 
   ipcMain.on('overlay:height', (_event, height) => {
@@ -3629,6 +3801,7 @@ function registerIpc() {
     tgBalance: Boolean(config.tgBalance),
     smurfDetector: Boolean(config.smurfDetector),
     hideWhenMinimized: Boolean(config.hideWhenMinimized),
+    showWelcomeHome: config.showWelcomeHome !== false,
     autoUpdate: Boolean(config.autoUpdate),
     postMatch: config.postMatch !== false,
     postMatchPopup: config.postMatchPopup !== false,
@@ -3755,8 +3928,152 @@ function registerIpc() {
     return { ok: true, hideWhenMinimized: enabled };
   });
 
+  ipcMain.handle('settings:showWelcomeHome', (_event, raw) => {
+    const enabled = Boolean(raw);
+    persistConfig({ showWelcomeHome: enabled });
+    return { ok: true, showWelcomeHome: enabled };
+  });
+
+  let cachedTechTreeData = null;
+  let cachedUnitArtSlugs = null;
+  let welcomeMetaRefreshPromise = null;
+  let welcomeAnnouncementRefreshPromise = null;
+
+  function getAvailableUnitArtSlugs() {
+    if (cachedUnitArtSlugs) return cachedUnitArtSlugs;
+    const set = new Set();
+    try {
+      const dir = path.join(__dirname, 'assets', 'units');
+      if (fs.existsSync(dir)) {
+        for (const f of fs.readdirSync(dir)) {
+          if (f.endsWith('.webp')) set.add(f.slice(0, -5).toLowerCase());
+        }
+      }
+    } catch { /* ignore */ }
+    cachedUnitArtSlugs = set;
+    return set;
+  }
+
+  function buildWelcomeSnapshot(globalMeta, announcement = undefined) {
+    let centralCacheRaw = null;
+    try {
+      if (fs.existsSync(CENTRAL_CACHE_PATH)) {
+        centralCacheRaw = JSON.parse(fs.readFileSync(CENTRAL_CACHE_PATH, 'utf8'));
+      }
+    } catch { /* ignore */ }
+    let trainingDashboard = null;
+    let performanceRecords = [];
+    try {
+      const { prod, unlocked, pid, records } = trainingAccessContext();
+      performanceRecords = Array.isArray(records) ? records : [];
+      trainingDashboard = trainingController.buildDashboard({
+        profileId: pid,
+        records: performanceRecords,
+        unlocked,
+        plan: prod.plan || 'free',
+      });
+    } catch { /* ignore */ }
+    let techTreeData = cachedTechTreeData;
+    if (!techTreeData) {
+      try {
+        techTreeData = JSON.parse(fs.readFileSync(path.join(__dirname, 'src', 'training', 'techtree-data.json'), 'utf8'));
+        cachedTechTreeData = techTreeData;
+      } catch { /* ignore */ }
+    }
+    const resolvedAnnouncement = announcement !== undefined
+      ? announcement
+      : (welcomeHome.readAnnouncementCache(ANNOUNCEMENT_CACHE_PATH)?.data || null);
+    return welcomeHome.buildWelcomePayload({
+      globalMeta,
+      announcement: resolvedAnnouncement,
+      centralCacheRaw,
+      performanceRecords,
+      profileId,
+      alias: playerAlias || cachedAuthProfile?.displayName || null,
+      trainingDashboard,
+      techTreeData,
+      availableUnitSlugs: getAvailableUnitArtSlugs(),
+      showWelcomeHome: config.showWelcomeHome !== false,
+      matchActive: Boolean(intro && intro.engaged),
+    });
+  }
+
+  function pushWelcomeUpdate() {
+    if (!settingsWin || settingsWin.isDestroyed()) return;
+    try {
+      const cached = welcomeHome.readGlobalMetaCache(GLOBAL_META_CACHE_PATH);
+      const cachedAnn = welcomeHome.readAnnouncementCache(ANNOUNCEMENT_CACHE_PATH);
+      settingsWin.webContents.send('welcome:update', buildWelcomeSnapshot(cached ? cached.data : null, cachedAnn ? cachedAnn.data : null));
+    } catch { /* ignore */ }
+  }
+
+  ipcMain.handle('welcome:open-announcement-url', async () => {
+    const ann = welcomeHome.readAnnouncementCache(ANNOUNCEMENT_CACHE_PATH)?.data;
+    if (!ann || !ann.enabled || !ann.ctaUrl) return { ok: false };
+    try {
+      const u = new URL(ann.ctaUrl);
+      if (u.protocol !== 'https:') return { ok: false };
+      await shell.openExternal(u.toString());
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
+  });
+
+  ipcMain.handle('welcome:get', async (_event, opts = {}) => {
+    await ensureProfileReady();
+    const force = Boolean(opts && opts.force);
+    const cached = welcomeHome.readGlobalMetaCache(GLOBAL_META_CACHE_PATH);
+    const cachedAnn = welcomeHome.readAnnouncementCache(ANNOUNCEMENT_CACHE_PATH);
+    const initial = buildWelcomeSnapshot(cached ? cached.data : null, cachedAnn ? cachedAnn.data : null);
+
+    if (force || !cached || !cached.fresh) {
+      if (!welcomeMetaRefreshPromise) {
+        welcomeMetaRefreshPromise = welcomeHome
+          .fetchGlobalMeta({
+            apiUrl: licenseApiUrl(),
+            cachePath: GLOBAL_META_CACHE_PATH,
+            force: true,
+          })
+          .then((freshMeta) => {
+            if (freshMeta && settingsWin && !settingsWin.isDestroyed()) {
+              const latestAnn = welcomeHome.readAnnouncementCache(ANNOUNCEMENT_CACHE_PATH);
+              settingsWin.webContents.send('welcome:update', buildWelcomeSnapshot(freshMeta, latestAnn ? latestAnn.data : null));
+            }
+            return freshMeta;
+          })
+          .catch(() => null)
+          .finally(() => {
+            welcomeMetaRefreshPromise = null;
+          });
+      }
+    }
+    if (force || !cachedAnn || !cachedAnn.fresh) {
+      if (!welcomeAnnouncementRefreshPromise) {
+        welcomeAnnouncementRefreshPromise = welcomeHome
+          .fetchAnnouncement({
+            apiUrl: licenseApiUrl(),
+            cachePath: ANNOUNCEMENT_CACHE_PATH,
+            force: true,
+          })
+          .then((freshAnn) => {
+            if (settingsWin && !settingsWin.isDestroyed()) {
+              const latestMeta = welcomeHome.readGlobalMetaCache(GLOBAL_META_CACHE_PATH);
+              settingsWin.webContents.send('welcome:update', buildWelcomeSnapshot(latestMeta ? latestMeta.data : null, freshAnn));
+            }
+            return freshAnn;
+          })
+          .catch(() => null)
+          .finally(() => {
+            welcomeAnnouncementRefreshPromise = null;
+          });
+      }
+    }
+    return initial;
+  });
+
   ipcMain.handle('feedback:submit', async (_event, payload = {}) => {
-    const apiUrl = process.env.AOE2_LICENSE_API_URL || config.licenseApiUrl || licenseClient.DEFAULT_API_URL;
+    const apiUrl = licenseApiUrl();
     const plan = productState().plan || 'free';
     const result = await licenseClient.submitRemoteFeedback({
       apiUrl,
@@ -3770,7 +4087,19 @@ function registerIpc() {
       locale: i18n.getLocale(config.language),
     });
     log(`feedback enviado: ${result.ok ? `ok (id=${result.id ?? '—'})` : result.error}`);
-    return result;
+    let diagnosticsAttached = false;
+    if (result.ok && payload.attachDiagnostics !== false) {
+      const cat = String(payload.category || 'other').slice(0, 20);
+      const shortMsg = String(payload.message || '').replace(/\s+/g, ' ').trim().slice(0, 170);
+      const diagRes = await diagnosticReporter.report({
+        kind: 'user_report',
+        manual: true,
+        fingerprint: `user:${cat}:${result.id || Date.now()}`,
+        summary: `[${cat}${result.id ? ` #${result.id}` : ''}] ${shortMsg}`,
+      }).catch(() => ({ ok: false }));
+      diagnosticsAttached = Boolean(diagRes && diagRes.ok);
+    }
+    return { ...result, diagnosticsAttached };
   });
 
   // Las dos opciones nuevas. Se aplican EN CALIENTE: si hay una partida en
@@ -3957,6 +4286,7 @@ function registerIpc() {
       dismissPostMatch('postmatch desactivado', { force: true });
       if (settingsWin && !settingsWin.isDestroyed()) {
         settingsWin.webContents.send('postmatch:update', postMatchPayload());
+        pushWelcomeUpdate();
       }
     } else {
       broadcastPostMatch();
@@ -4322,25 +4652,19 @@ function registerIpc() {
     }
   });
 
-  // Clave temporal de acceso Pro. La validación ocurre en main y solo se
-  // persiste el hash de la clave; el renderer nunca decide el plan.
-  ipcMain.handle('settings:activate-access-key', (_event, rawKey) => {
-    if (remoteLicenseState && (remoteLicenseState.paywallEnabled === true || remoteLicenseState.revoked === true)) {
-      return { ok: false, error: 'Las claves de prueba antiguas están desactivadas. Requiere acceso activo en el servidor.', product: productState() };
-    }
-    if (!normalizeAccessKey(rawKey)) {
-      return { ok: false, error: 'Ingresá la clave de acceso.', product: productState() };
-    }
-    if (!accessKeyMatches(rawKey)) {
-      return { ok: false, error: 'La clave de acceso no es válida.', product: productState() };
-    }
-    persistConfig({ accessKeyGrant: ACCESS_KEY_HASH });
-    refreshAccessPresentation();
-    log('acceso de prueba ProMax activado con clave');
-    return { ok: true, product: productState() };
-  });
+  // Seguridad (C-02): canje local por hash deshabilitado permanentemente.
+  // Las claves prepagas se canjean exclusivamente en el servidor mediante `auth:redeemKey`.
+  ipcMain.handle('settings:activate-access-key', () => ({
+    ok: false,
+    error: 'Las claves locales están desactivadas. Iniciá sesión con Google y canjeá tu clave en el servidor.',
+    product: productState(),
+  }));
 
+  // Seguridad (C-01): inyección manual de tokens deshabilitada en builds de producción.
   ipcMain.handle('settings:activate-license', (_event, rawAccount, rawToken) => {
+    if (app.isPackaged) {
+      return { ok: false, error: 'La activación manual no está disponible en producción. Iniciá sesión con tu cuenta.', product: productState() };
+    }
     const accountId = String(rawAccount || '').trim();
     const token = String(rawToken || '').trim();
     if (!accountId || !token) {
@@ -4360,6 +4684,7 @@ function registerIpc() {
         'not-yet-valid': 'La credencial todavía no es válida.',
         'account-mismatch': 'La credencial no corresponde a esa cuenta.',
         'profile-mismatch': 'La credencial está asociada a otro perfil de AoE2.',
+        'device-mismatch': 'La credencial pertenece a otro equipo.',
         'invalid-claims': 'La credencial tiene datos inválidos.',
       };
       productSession = previousSession;
@@ -4667,6 +4992,21 @@ function registerIpc() {
     return { ...res, buildOrderHelperEnabled: Boolean(viewConfig().smartBuildOrder) };
   });
 
+  ipcMain.handle('training:techtree-get', () => {
+    const { unlocked } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    try {
+      if (!cachedTechTreeData) {
+        const raw = fs.readFileSync(path.join(__dirname, 'src', 'training', 'techtree-data.json'), 'utf8');
+        cachedTechTreeData = JSON.parse(raw);
+      }
+      return { ok: true, data: cachedTechTreeData };
+    } catch (err) {
+      log(`error cargando techtree-data.json: ${err.message}`);
+      return { ok: false, error: 'No se pudo cargar el árbol de tecnología.' };
+    }
+  });
+
   ipcMain.handle('training:high-elo-config', (_event, payload = {}) => {
     const { unlocked, pid, records } = trainingAccessContext();
     if (!unlocked) return { ok: false, error: 'ultra-required' };
@@ -4741,7 +5081,6 @@ function registerIpc() {
           }
           const code = parsed.searchParams.get('code');
           const returnedState = parsed.searchParams.get('state');
-          const directToken = parsed.searchParams.get('token');
           const errParam = parsed.searchParams.get('error');
           const redirectBrowser = (ok, extra = {}) => {
             const cleanBase = licenseClient.validateApiUrl(apiUrl);
@@ -4767,15 +5106,19 @@ function registerIpc() {
             done({ ok: false, error: friendlyErr });
             return;
           }
-          let sessionToken = directToken;
+          // Seguridad (M-01): jamás aceptar `?token=` directo en query; exigir siempre `code` + `state` exacto.
+          const stateBuf = Buffer.from(String(returnedState || ''), 'utf8');
+          const expBuf = Buffer.from(expectedState, 'utf8');
+          const stateOk = stateBuf.length === expBuf.length && crypto.timingSafeEqual(stateBuf, expBuf);
+          if (!code || !stateOk) {
+            redirectBrowser(false, { error: 'Estado OAuth inválido. Volvé a intentarlo desde Relic.' });
+            done({ ok: false, error: 'Estado OAuth inválido.' });
+            return;
+          }
+          let sessionToken = null;
           let sessionEmail = '';
-          let deviceLimit = parsed.searchParams.get('deviceLimit') === '1';
-          if (!sessionToken && code) {
-            if (returnedState !== expectedState) {
-              redirectBrowser(false, { error: 'Estado OAuth inválido. Volvé a intentarlo desde Relic.' });
-              done({ ok: false, error: 'Estado OAuth inválido.' });
-              return;
-            }
+          let deviceLimit = false;
+          {
             const { port } = server.address();
             const allLocalPlatformIdHashes = verifiedLocalDetection?.localProof?.allLocalPlatformIdHashes
               || collectLocalPlatformIdHashes();
@@ -4789,8 +5132,15 @@ function registerIpc() {
               allLocalPlatformIdHashes,
             });
             if (!exchanged.ok || !exchanged.sessionToken) {
-              redirectBrowser(false, { error: exchanged.error || 'No se pudo validar con Google.' });
-              done({ ok: false, error: exchanged.error || 'No se pudo validar con Google.' });
+              const errMsg = exchanged.error || 'No se pudo validar con Google.';
+              log(`login con Google falló en exchange: ${errMsg}`);
+              diagnosticReporter.report({
+                kind: 'auth_error',
+                fingerprint: `auth:google-exchange:${errMsg.slice(0, 40)}`,
+                summary: `Google OAuth exchange falló: ${errMsg}`,
+              }).catch(() => {});
+              redirectBrowser(false, { error: errMsg });
+              done({ ok: false, error: errMsg });
               return;
             }
             sessionToken = exchanged.sessionToken;
@@ -4817,6 +5167,13 @@ function registerIpc() {
           }
           done({ ok: true, auth, deviceLimit, product: productState() });
         } catch (err) {
+          log(`login con Google falló en callback local: ${err.message}`);
+          diagnosticReporter.report({
+            kind: 'auth_error',
+            fingerprint: `auth:callback:${String(err?.message || 'error').slice(0, 40)}`,
+            summary: `Callback OAuth local falló: ${String(err?.message || err).slice(0, 160)}`,
+            extraDetail: err?.stack || '',
+          }).catch(() => {});
           res.writeHead(500);
           res.end();
           done({ ok: false, error: err.message });
@@ -6079,12 +6436,8 @@ if (!gotLock) {
   app.quit();
 } else {
   app.whenReady().then(() => {
-    // Log acotado: no crece sin control entre sesiones.
-    try {
-      if (fs.statSync(LOG_PATH).size > 512 * 1024) fs.writeFileSync(LOG_PATH, '');
-    } catch {
-      /* el archivo todavía no existe */
-    }
+    // Log acotado: si supera 1,5 MB se recorta conservando los últimos 400 KB.
+    rotateLogFileIfOversized(LOG_PATH, 1_500_000, 400_000);
 
     // La bandeja va ANTES de crear ventanas: si algo falla en bootstrap, igual
     // queda una forma de reabrir la config y de salir limpiamente.

@@ -157,7 +157,14 @@
     "tabPlan": "Plan y clave",
     "signInRail": "Iniciar sesión",
     "signInRailSub": "Google · sincroniza tu plan",
-    "authDesc": "Sincroniza tu plan, gestiona tus PCs activos y canjea claves prepagas."
+    "authDesc": "Sincroniza tu plan, gestiona tus PCs activos y canjea claves prepagas.",
+    "pageTitle": "Cuenta de jugador",
+    "searchingAccount": "Buscando tu cuenta…",
+    "startupGroup": "Inicio de la aplicación",
+    "startupPageTitle": "Pantalla al abrir Relic",
+    "startupPageDesc": "Elige si prefieres ver el resumen de Inicio o entrar directo a Central.",
+    "startupWelcome": "Página de bienvenida",
+    "startupCentral": "Directo a Central"
   },
   "overlay": {
     "wf1Title": "Lee al rival",
@@ -323,7 +330,13 @@
     "ultraRibbon": "★ EXPERIENCIA COMPLETA · MÁS ELEGIDO",
     "ultraSubPrice": "USD · Arsenal táctico total",
     "redeemTitle": "Canjear clave prepago",
-    "redeemSignInHint": "Inicia sesión con Google para canjear una clave y vincular tu plan a tu cuenta."
+    "redeemSignInHint": "Inicia sesión con Google para canjear una clave y vincular tu plan a tu cuenta.",
+    "cycleMonthly": "Mensual",
+    "cycleAnnual": "Anual",
+    "billingNote": "Precios en USD · Tarjeta en plan Anual · USDT/USDC en Mensual y Anual",
+    "ctaPro": "Continuar con Pro",
+    "ctaUltra": "Elegir Ultra →",
+    "ctaTrial": "Probar Ultra 24 h gratis"
   },
   "skins": {
     "designGroup": "Diseño del panel",
@@ -407,7 +420,11 @@
     "civTipTitle": "Ayuda de civ activada",
     "civTipBody": "La tarjeta se oculta a los {time}. Si prefieres leerla con calma durante la partida, puedes dejarla visible hasta los 0:40.",
     "civTipNo": "No, gracias",
-    "civTipYes": "Aumentar visibilidad a 40 segundos"
+    "civTipYes": "Aumentar visibilidad a 40 segundos",
+    "copy": "Copiar",
+    "refresh": "Actualizar",
+    "apply": "Aplicar",
+    "verify": "Verificar"
   },
   "hud": {
     "starting": "Iniciando…",
@@ -872,6 +889,98 @@
     "sending": "Enviando feedback…",
     "sent": "¡Gracias! Tu feedback se ha enviado correctamente.",
     "error": "No se pudo enviar el feedback ahora mismo.",
-    "desc": "Reporta errores o propón mejoras para Relic."
+    "desc": "Reporta errores o propón mejoras para Relic.",
+    "attachDiag": "Adjuntar diagnóstico técnico (últimas líneas del registro, sin datos personales)"
+  },
+  "prefs": {
+    "soundsOn": "Sonidos de interfaz · Activos",
+    "soundsOff": "Sonidos de interfaz · Silenciados",
+    "welcomeOn": "Inicio al abrir · Activo",
+    "welcomeOff": "Inicio al abrir · Oculto"
+  },
+  "checkout": {
+    "payUsdc": "Pagar con USDC (Polygon)",
+    "autoActivateNote": "Activación automática en tu cuenta Google en cuanto se confirma el pago.",
+    "useKey": "¿Ya tienes una clave prepago? Canjéala aquí →"
+  },
+  "referrals": {
+    "bannerTitle": "Gana 1 mes gratis de Relic Ultra",
+    "openBtn": "Abrir referidos →",
+    "eyebrow": "RELIC ULTRA · 30 DÍAS GRATIS",
+    "modalTitle": "Invita a 10 amigos y desbloquea Ultra",
+    "modalLead": "Sumas 1 punto por cada amigo que instale y abra Relic en su PC.",
+    "copyLink": "Copiar enlace de invitación",
+    "invitedList": "TUS INVITADOS",
+    "haveCode": "¿TIENES CÓDIGO?"
+  },
+  "welcome": {
+    "newsTag": {
+      "novedad": "Novedad",
+      "actualizacion": "Actualización",
+      "torneo": "Torneo",
+      "aviso": "Aviso"
+    },
+    "newsMore": "Ver más",
+    "newsAria": "Noticia de Relic",
+    "activity7d": "Últimos 7 días",
+    "metaSyncing": "Sincronizando estadísticas globales de la clasificación…",
+    "counterLabel": "CÓMO FRENAR A {civ} (#1)",
+    "counterSrc": "Datos Pro 1v1",
+    "goldTitle": "TU ORO ESTA SEMANA",
+    "noMatchesYet": "Sin partidas todavía",
+    "goldWeekUnit": "de oro reunido esta semana",
+    "goldRecentUnit": "de oro en tus últimas partidas",
+    "goldEmptyHint": "Cada vez que juegas una partida con Relic abierto, se suma automáticamente todo el oro que reuniste.",
+    "goldAutoHint": "Se actualiza solo cada vez que terminas una partida.",
+    "goldRankNext": "Faltan {gold} para {next}",
+    "goldRankMax": "Rango máximo semanal",
+    "weeklyRecord": "RÉCORD DE LA SEMANA",
+    "villagers": "Aldeanos",
+    "created": "creados",
+    "army": "Ejército",
+    "units": "unidades",
+    "castlesFarms": "Castillos · Granjas",
+    "built": "construidos",
+    "peakEapm": "Pico eAPM",
+    "streakHot": "Racha activa",
+    "streakCold": "Últimas derrotas",
+    "maps": "Mapas",
+    "lastDays": "Últimos {days} días",
+    "victim": "Víctima",
+    "nemesis": "Némesis",
+    "mostPlayedMap": "Mapa más jugado:",
+    "noRecentMatches": "Juega unas partidas clasificatorias para descubrir tu civilización y mapa protagonista de la semana.",
+    "weeklyBrief": "Resumen de la semana",
+    "ctaCentral": "Entrar a Central",
+    "ctaTrain": "Entrenar hoy",
+    "ctaTechTree": "Árbol de tecnología",
+    "globalKicker": "META GLOBAL · AGE OF EMPIRES II: DE",
+    "globalTitle": "Qué domina la comunidad esta semana",
+    "mostPlayed": "MÁS JUGADA",
+    "highestWr": "MAYOR WINRATE",
+    "recentTerrain": "TU TERRENO RECIENTE",
+    "openCentral": "Abrir diagnóstico en Central",
+    "factOfDay": "DATO DEL DÍA",
+    "trainingSession": "SESIÓN DE ENTRENAMIENTO",
+    "labActive": "Laboratorio activo",
+    "trainingModule": "Módulo de Entrenamiento",
+    "goTraining": "Ir a Entrenamiento",
+    "defaultNewsTitle": "Relic v3.2 · Novedades de la semana",
+    "defaultNewsBody": "Meta global de 56 civilizaciones, counters Pro 1v1, rango semanal de oro y seguridad reforzada.",
+    "newsChannel": "NOTICIA DE RELIC",
+    "goldTodayTip": "Oro reunido en tus partidas de hoy",
+    "today": "hoy",
+    "goldLastTip": "Oro reunido en tu última partida analizada",
+    "lastMatchShort": "última"
+  },
+  "expiredModal": {
+    "eyebrow": "RELIC ULTRA · ACCESO FINALIZADO",
+    "title": "Tu prueba de Relic Ultra terminó",
+    "lead": "Tu cuenta volvió al plan Free, pero todo tu historial y tus repeticiones siguen intactos. Activa hoy tu plan y recupera al instante Central avanzado, Postmatch, Matchups y Entrenamiento.",
+    "offerPill": "OFERTA PLAN ANUAL · −20 %",
+    "offerTitle": "Ahorra 20 % contratando el plan anual hoy",
+    "offerSub": "Activación instantánea con tu cuenta de Google · Tarjeta o USDT/USDC",
+    "ctaAnnual": "Ver oferta anual (−20 %) →",
+    "ctaFree": "Seguir en Free por ahora"
   }
 }

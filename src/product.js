@@ -154,9 +154,18 @@ function verifyEntitlement(token, options = {}) {
       return rejected('profile-mismatch');
     }
   }
+  if (payload.mid != null) {
+    if (typeof payload.mid !== 'string' || !payload.mid ||
+        typeof options.machineHash !== 'string' || !options.machineHash ||
+        payload.mid !== options.machineHash) {
+      return rejected('device-mismatch');
+    }
+  } else if (options.requireDeviceBinding === true) {
+    return rejected('device-unbound');
+  }
   const normalizedPlan = payload.plan === 'ultra' ? 'promax' : payload.plan;
   return { valid: true, reason: null, plan: normalizedPlan, accountId: payload.sub,
-    expiresAt: payload.exp * 1000, issuedAt: payload.iat * 1000 };
+    machineHash: payload.mid || null, expiresAt: payload.exp * 1000, issuedAt: payload.iat * 1000 };
 }
 
 function validateCommerceUrl(raw, allowedHosts = []) {

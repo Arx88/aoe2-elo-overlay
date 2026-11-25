@@ -311,6 +311,42 @@
     let arenaTimeLeftMs = 28000;
     let arenaLockoutTimer = null;
     let arenaUnlockBanner = null;
+    let arenaLeavePenaltyMsg = null;
+
+    // Árbol de Tecnología Oficial AoE2:DE (carga perezosa al abrir la pestaña)
+    const techTreeCtrl = root.TechTreeUI && typeof root.TechTreeUI.createTechTreeController === 'function'
+      ? root.TechTreeUI.createTechTreeController({ onStateChange: () => render() })
+      : null;
+    let techTreeLoadPromise = null;
+
+    async function ensureTechTreeLoaded() {
+      if (!techTreeCtrl || techTreeCtrl.ui.data) return;
+      if (techTreeLoadPromise) return techTreeLoadPromise;
+      if (typeof root.settings?.trainingTechTreeGet !== 'function') {
+        techTreeCtrl.setError('Servicio de árbol no disponible.');
+        render();
+        return;
+      }
+      techTreeCtrl.setLoading(true);
+      render();
+      techTreeLoadPromise = root.settings.trainingTechTreeGet()
+        .then((res) => {
+          if (res?.ok && res.data) {
+            const prefCiv = state?.matchupWarRoom?.myCivSlug || state?.pacer?.selectedCiv || 'franks';
+            techTreeCtrl.setData(res.data, prefCiv);
+          } else {
+            techTreeCtrl.setError(res?.error || 'No se pudo cargar el árbol.');
+          }
+        })
+        .catch((err) => {
+          techTreeCtrl.setError(err?.message || 'Error al cargar el árbol.');
+        })
+        .finally(() => {
+          techTreeLoadPromise = null;
+          render();
+        });
+      return techTreeLoadPromise;
+    }
 
     function stopPacerClock() {
       if (pacerTimer) { clearInterval(pacerTimer); pacerTimer = null; }
@@ -339,8 +375,9 @@
             const res = await root.settings.trainingArenaStatus();
             if (res?.ok && res.arena) {
               state.arena = res.arena;
-              if (!state.arena.locked) await fetchNextArenaQuestion(state.arena.unlockedLevel);
-              else render();
+              arenaQuestion = null;
+              arenaAnswerResult = null;
+              render();
             }
           }
         }
@@ -386,6 +423,7 @@
       arenaAnswerResult = null;
       arenaPickedOptionId = null;
       arenaUnlockBanner = null;
+      arenaLeavePenaltyMsg = null;
       try {
         const reqLevel = levelOverride || arenaSelectedLevel || state?.arena?.selectedLevel || state?.arena?.unlockedLevel || 1;
         const res = await root.settings.trainingArenaNext({ level: reqLevel });
@@ -441,6 +479,42 @@
       }
       render();
       if (state?.arena?.locked) ensureLockoutCountdown();
+    }
+
+    /**
+     * Anti-trampa de Arena: la navegación queda siempre libre, pero si salís de Arena
+     * mientras hay una pregunta activa sin responder, se descarta la pregunta y perdés 1 vida.
+     */
+    async function handleLeaveArena() {
+      stopArenaTimer();
+      if (arenaQuestion && !arenaAnswerResult && !arenaSubmitting && !state?.arena?.locked) {
+        const abandonedId = arenaQuestion.id;
+        arenaQuestion = null;
+        arenaAnswerResult = null;
+        arenaPickedOptionId = null;
+        arenaUnlockBanner = null;
+        arenaLeavePenaltyMsg = 'Saliste de Arena durante una pregunta activa: perdiste 1 vida y se descartó el desafío.';
+        if (typeof root.settings?.trainingArenaAnswer === 'function' && abandonedId) {
+          arenaSubmitting = true;
+          try {
+            const res = await root.settings.trainingArenaAnswer({
+              questionId: abandonedId,
+              selectedOptionId: null,
+              timedOut: true,
+            });
+            if (res?.arena) state.arena = res.arena;
+            if (res?.rank) state.rank = res.rank;
+          } catch (_) { /* ignore */ } finally {
+            arenaSubmitting = false;
+          }
+        }
+        render();
+        if (state?.arena?.locked) ensureLockoutCountdown();
+      } else if (arenaQuestion && arenaAnswerResult) {
+        arenaQuestion = null;
+        arenaAnswerResult = null;
+        arenaPickedOptionId = null;
+      }
     }
 
     function computeActiveStep(recipe) {
@@ -699,6 +773,7 @@
       orders: 'Elegí o creá una build order visual para seguirla en vivo en el Overlay.',
       matchups: 'Elegí dos civilizaciones para ver en qué edad tenés ventaja y qué jugar.',
       arena: 'Desbloqueá las 7 unidades respondiendo desafíos de AoE2:DE (3 vidas por día).',
+      techtree: 'Explorá el árbol oficial de las 56 civilizaciones, compará brechas y revisá costos y estadísticas reales.',
     };
 
     function renderSubnav() {
@@ -733,6 +808,10 @@
               <span>Arena</span>
               <em class="tr-tab-pill${arena.locked ? ' is-warn' : ''}">${arenaTag}</em>
             </button>
+            <button type="button" class="tr-tab${activeSubtab === 'techtree' ? ' is-active' : ''}" data-tr-tab="techtree" role="tab" aria-selected="${activeSubtab === 'techtree'}">
+              <img src="assets/icons/aoe2/b_7.png" alt="" draggable="false" />
+              <span>Árbol de tecnología</span>
+            </button>
           </nav>
           <button type="button" class="tr-guide-icon-btn" id="trOpenGuideBtn" title="Abrir guía rápida">?</button>
         </div>
@@ -760,10 +839,13 @@
       };
       const pctProg = a.levelTarget > 0 ? Math.min(100, Math.round(((a.levelCorrectCount || 0) / a.levelTarget) * 100)) : 0;
 
+      const arenaQuestionActive = Boolean(arenaQuestion && !arenaAnswerResult && !a.locked);
+      const selectedCfg = levels.find((l) => l.level === curSelected) || activeCfg;
+
       const ladderHtml = levels.map((lv) => {
         const cls = lv.unitUnlocked ? ' is-unlocked' : lv.isCurrentTarget ? ' is-next' : lv.unlocked ? ' is-playable' : ' is-locked';
         const isSel = lv.level === curSelected ? ' is-selected' : '';
-        const clickable = lv.unlocked && !a.locked;
+        const clickable = lv.unlocked && !a.locked && !arenaQuestionActive;
         return `<button type="button" class="tr-unit-node${cls}${isSel}" ${clickable ? `data-tr-arena-level="${lv.level}"` : 'disabled'} title="Nivel ${lv.level} · ${esc(lv.unitName)} (${esc(lv.eloBand)})">
           <span class="tr-un-circle">
             <img src="${resolveAsset(lv.portrait, 'assets/brand/opening-v1.png')}" alt="" draggable="false" />
@@ -807,13 +889,17 @@
           </div>
         </section>`;
       } else if (!arenaQuestion) {
+        const penaltyHtml = arenaLeavePenaltyMsg
+          ? `<div class="tr-arena-penalty-note" role="status">${esc(arenaLeavePenaltyMsg)}</div>`
+          : '';
         stageContent = `<section class="tr-arena-summary">
-          <img class="tr-arena-summary-art" src="${resolveAsset(activeCfg.art, 'assets/art/prematch-estandartes.webp')}" alt="" draggable="false" />
-          <img class="tr-as-unit" src="${resolveAsset(activeCfg.portrait)}" alt="" draggable="false" />
-          <span class="eyebrow">CAMPAÑA DE UNIDADES · ${a.catalogTotal || 410} DESAFÍOS</span>
-          <h3>Nivel ${curSelected}/7 · ${esc(activeCfg.rankTitle)}</h3>
-          <p>Respondé correctamente para desbloquear <b>${esc(activeCfg.unitName)}</b>. Al tercer fallo del día la Arena se bloquea 24 h.</p>
-          <button type="button" class="btn gold tr-cta-sheen" id="trArenaPlayBtn">Comenzar Desafío →</button>
+          <img class="tr-arena-summary-art" src="${resolveAsset(selectedCfg.art || activeCfg.art, 'assets/art/prematch-estandartes.webp')}" alt="" draggable="false" />
+          <img class="tr-as-unit" src="${resolveAsset(selectedCfg.portrait || activeCfg.portrait)}" alt="" draggable="false" />
+          <span class="eyebrow">ARENA · NIVEL ${curSelected}/7 · ${a.catalogTotal || 410} DESAFÍOS</span>
+          <h3>${esc(selectedCfg.rankTitle || activeCfg.rankTitle)} · ${esc(selectedCfg.unitName || activeCfg.unitName)}</h3>
+          ${penaltyHtml}
+          <p>El tiempo arranca recién al tocar <b>Iniciar desafío</b>. Si salís de Arena con una pregunta activa, perdés <b>1 vida</b> y esa pregunta se descarta.</p>
+          <button type="button" class="btn gold tr-cta-sheen tr-arena-start-btn" id="trArenaPlayBtn">Iniciar desafío →</button>
         </section>`;
       } else {
         const q = arenaQuestion;
@@ -2742,9 +2828,8 @@
           return;
         }
         render();
-        if (activeSubtab === 'arena' && !state?.arena?.locked) {
-          if (!arenaQuestion) await fetchNextArenaQuestion();
-          else if (!arenaAnswerResult) beginQuestionTimer(arenaTimeLeftMs);
+        if (activeSubtab === 'arena' && !state?.arena?.locked && arenaQuestion && !arenaAnswerResult) {
+          beginQuestionTimer(arenaTimeLeftMs);
         }
       };
       container.querySelector('#trWelcomeStartBtn')?.addEventListener('click', () => closeWelcome('perf'));
@@ -2755,6 +2840,9 @@
       });
 
       container.querySelector('#trOpenGuideBtn')?.addEventListener('click', () => {
+        if (activeSubtab === 'arena' && arenaQuestion && !arenaAnswerResult && !state?.arena?.locked) {
+          return;
+        }
         stopArenaTimer();
         showWelcomeModal = true;
         render();
@@ -2815,9 +2903,14 @@
       container.querySelector('#trArenaNextQuestionBtn')?.addEventListener('click', () => fetchNextArenaQuestion(arenaSelectedLevel));
       container.querySelectorAll('[data-tr-arena-level]').forEach((btn) => {
         btn.addEventListener('click', () => {
+          if (arenaQuestion && !arenaAnswerResult && !state?.arena?.locked) return;
           const lvl = Number(btn.dataset.trArenaLevel || 1);
           arenaSelectedLevel = lvl;
-          fetchNextArenaQuestion(lvl);
+          arenaQuestion = null;
+          arenaAnswerResult = null;
+          arenaPickedOptionId = null;
+          arenaLeavePenaltyMsg = null;
+          render();
         });
       });
       container.querySelectorAll('[data-tr-ans-id]').forEach((btn) => {
@@ -3163,23 +3256,31 @@
       container.querySelector('#trLockPlanesBtn')?.addEventListener('click', () => {
         if (typeof navToPlanes === 'function') navToPlanes();
       });
+
+      if (activeSubtab === 'techtree' && techTreeCtrl) {
+        techTreeCtrl.bindEvents(container);
+      }
     }
 
     async function switchSubtab(tabId) {
       if (!state?.unlocked) return;
-      if (!['perf', 'orders', 'matchups', 'arena', 'plan'].includes(tabId)) return;
-      if (tabId !== 'arena') {
-        stopArenaTimer();
-      }
+      if (!['perf', 'orders', 'matchups', 'arena', 'techtree', 'plan'].includes(tabId)) return;
+      const leavingArena = activeSubtab === 'arena' && tabId !== 'arena';
       activeSubtab = tabId;
-      if (tabId === 'arena' && state?.unlocked && !state?.arena?.locked && !arenaQuestion && !arenaUnlockBanner) {
-        await fetchNextArenaQuestion(arenaSelectedLevel);
+      if (leavingArena) {
+        await handleLeaveArena();
+      }
+      if (tabId === 'techtree') {
+        if (techTreeCtrl && !techTreeCtrl.ui.data) {
+          ensureTechTreeLoaded();
+          return;
+        }
+        render();
         return;
       }
       render();
-      if (tabId === 'arena') {
-        if (state?.arena?.locked) ensureLockoutCountdown();
-        else if (arenaQuestion && !arenaAnswerResult && !showWelcomeModal) beginQuestionTimer(arenaTimeLeftMs);
+      if (tabId === 'arena' && state?.arena?.locked) {
+        ensureLockoutCountdown();
       }
     }
 
@@ -3216,10 +3317,20 @@
           ${renderOrdersView()}
           ${renderMatchupsView()}
           ${renderArenaView()}
+          ${techTreeCtrl ? techTreeCtrl.renderView(activeSubtab === 'techtree') : ''}
           ${renderPlanView()}
         </div>
       </div>`;
       bindEvents();
+      if (root.RelicSmoothMotion && typeof root.RelicSmoothMotion.syncGlideIndicator === 'function') {
+        const tabsRow = container.querySelector('.tr-tabs-row');
+        const activeTab = tabsRow?.querySelector('.tr-tab.is-active');
+        root.RelicSmoothMotion.syncGlideIndicator(tabsRow, activeTab, {
+          key: 'training-subtabs',
+          axis: 'x',
+          className: 'tr-glide-indicator',
+        });
+      }
     }
 
     function syncProduct(product, opts = {}) {
@@ -3261,9 +3372,8 @@
           arenaSelectedLevel = state.arena.selectedLevel;
         }
         render();
-        if (state.unlocked && activeSubtab === 'arena') {
-          if (state.arena?.locked) ensureLockoutCountdown();
-          else if (!arenaQuestion) await fetchNextArenaQuestion(arenaSelectedLevel);
+        if (state.unlocked && activeSubtab === 'arena' && state.arena?.locked) {
+          ensureLockoutCountdown();
         }
       }
     }
@@ -3310,6 +3420,7 @@
         if (state && !state.unlocked) render();
       },
       switchSubtab,
+      onLeavePage: handleLeaveArena,
       applyRealtimeUpdate,
       onRealtimeUpdate: applyRealtimeUpdate,
       stopAllTimers: () => {

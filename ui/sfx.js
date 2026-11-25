@@ -2,21 +2,20 @@
   'use strict';
 
   /**
-   * Motor de micro-sonidos táctiles premium para Relic (Web Audio 100% local, CSP-safe).
-   * - Hover aterciopelado ultra-discreto en elementos interactivos (con anti-spam).
-   * - Teclado estilo iPhone (clics orgánicos cálidos al escribir en buscadores e inputs,
-   *   con variación diferenciada para teclas normales, espacio, retroceso y Enter).
-   * - Secuencia de inicio minimalista (`bootLoad` + `bootReady`) y pulsos sutiles de carga (`progress`).
-   * - Cobertura uniforme en pestañas, sub-pestañas, filas Master-Detail, tarjetas, toggles y sliders.
+   * Motor acústico artesanal Obsidian-Gold para Relic (Web Audio 100 % local, CSP-safe).
+   *
+   * Filosofía sonora:
+   * - CERO pitidos agudos ("ti-ti-ti" chillones > 1000 Hz) y CERO spam en hover.
+   * - Cuerpo cálido en medios-graves (140–580 Hz) filtrado pasa-bajos (cutoff 480–900 Hz),
+   *   inspirado en hardware de precisión: dial de latón cepillado, madera amortiguada y fieltro.
+   * - Cada acción (menú lateral, subpestaña, clic fino, toggle, codex, unidad única, teclado)
+   *   tiene su propia firma acústica delicada, discreta y placentera.
    */
   const STORAGE_KEY = 'aoe2helper.uiSounds';
   let ctx = null;
-  let noiseBuf = null;
+  let warmNoiseBuf = null;
   let lastKeyAt = 0;
-  let lastHoverAt = 0;
   let lastSliderAt = 0;
-  let lastHoverEl = null;
-  let idleSuspendTimer = null;
   let enabled = true;
 
   try {
@@ -35,43 +34,85 @@
     return ctx;
   }
 
-  function ensureNoise(ac) {
-    if (noiseBuf && noiseBuf.sampleRate === ac.sampleRate) return noiseBuf;
-    const length = Math.floor(ac.sampleRate * 0.035);
+  /** Ruido marrón cálido (suavizado) para transientes orgánicos sin aspereza metálica. */
+  function ensureWarmNoise(ac) {
+    if (warmNoiseBuf && warmNoiseBuf.sampleRate === ac.sampleRate) return warmNoiseBuf;
+    const length = Math.floor(ac.sampleRate * 0.045);
     const buffer = ac.createBuffer(1, length, ac.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < length; i++) {
-      const env = Math.pow(1 - i / length, 3.4);
-      data[i] = (Math.random() * 2 - 1) * env;
+    let last = 0;
+    for (let i = 0; i < length; i += 1) {
+      const white = Math.random() * 2 - 1;
+      last = (last + 0.06 * white) / 1.06;
+      const env = Math.pow(1 - i / length, 2.8);
+      data[i] = last * 3.2 * env;
     }
-    noiseBuf = buffer;
-    return noiseBuf;
+    warmNoiseBuf = buffer;
+    return warmNoiseBuf;
   }
 
-  /** Pulso táctil ultra corto filtrado pasa-banda (cristal mate / háptico). */
-  function hapticTick(centerFreq, q, duration, gainPeak, delay = 0) {
+  /** Pulso orgánico grave/medio tipo "thock" amortiguado con fieltro (cero chillido). */
+  function feltTap(freqStart, freqEnd, duration, gainPeak, delay = 0, cutoff = 640) {
+    const ac = ensureCtx();
+    if (!ac) return;
+    const t0 = ac.currentTime + delay;
+
+    // Cuerpo tonal cálido (senoidal pura filtrada)
+    const osc = ac.createOscillator();
+    const lp = ac.createBiquadFilter();
+    const g = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freqStart, t0);
+    if (freqEnd !== freqStart) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(48, freqEnd), t0 + duration);
+    }
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(cutoff, t0);
+    lp.Q.setValueAtTime(0.65, t0);
+
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gainPeak, t0 + 0.0035);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+    osc.connect(lp);
+    lp.connect(g);
+    g.connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.015);
+  }
+
+  /** Micro-roce de aire / fieltro ultra suave (sin frecuencias agudas irritantes). */
+  function softBrush(centerFreq, q, duration, gainPeak, delay = 0) {
     const ac = ensureCtx();
     if (!ac) return;
     const t0 = ac.currentTime + delay;
     const src = ac.createBufferSource();
-    src.buffer = ensureNoise(ac);
-    const filter = ac.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(centerFreq, t0);
-    filter.Q.setValueAtTime(q, t0);
+    src.buffer = ensureWarmNoise(ac);
+
+    const bp = ac.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(centerFreq, t0);
+    bp.Q.setValueAtTime(q, t0);
+
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(Math.min(950, centerFreq * 1.45), t0);
+
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.linearRampToValueAtTime(gainPeak, t0 + 0.0014);
+    g.gain.linearRampToValueAtTime(gainPeak, t0 + 0.003);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-    src.connect(filter);
-    filter.connect(g);
+
+    src.connect(bp);
+    bp.connect(lp);
+    lp.connect(g);
     g.connect(ac.destination);
     src.start(t0);
-    src.stop(t0 + duration + 0.006);
+    src.stop(t0 + duration + 0.01);
   }
 
-  /** Nota cálida filtrada pasa-bajos, envolvente sedosa y volumen discreto. */
-  function velvetTone(freqStart, freqEnd, duration, gainPeak, delay = 0, cutoff = 1800, wave = 'sine') {
+  /** Nota cálida tipo Rhodes / marimba con fieltro (envolvente redonda, jamás estridente). */
+  function warmBell(freqStart, freqEnd, duration, gainPeak, delay = 0, cutoff = 820, wave = 'sine') {
     const ac = ensureCtx();
     if (!ac) return;
     const t0 = ac.currentTime + delay;
@@ -81,42 +122,22 @@
     osc.type = wave;
     osc.frequency.setValueAtTime(freqStart, t0);
     if (freqEnd !== freqStart) {
-      osc.frequency.exponentialRampToValueAtTime(Math.max(55, freqEnd), t0 + duration);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(60, freqEnd), t0 + duration);
     }
     lp.type = 'lowpass';
     lp.frequency.setValueAtTime(cutoff, t0);
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.linearRampToValueAtTime(gainPeak, t0 + Math.min(0.012, duration * 0.22));
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-    osc.connect(lp);
-    lp.connect(g);
-    g.connect(ac.destination);
-    osc.start(t0);
-    osc.stop(t0 + duration + 0.012);
-  }
+    lp.Q.setValueAtTime(0.55, t0);
 
-  /** Barrido armónico suave para secuencias de carga minimalistas. */
-  function shimmerSweep(freqStart, freqEnd, cutoffStart, cutoffEnd, duration, gainPeak, delay = 0) {
-    const ac = ensureCtx();
-    if (!ac) return;
-    const t0 = ac.currentTime + delay;
-    const osc = ac.createOscillator();
-    const lp = ac.createBiquadFilter();
-    const g = ac.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(freqStart, t0);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(80, freqEnd), t0 + duration);
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(cutoffStart, t0);
-    lp.frequency.exponentialRampToValueAtTime(Math.max(200, cutoffEnd), t0 + duration * 0.85);
+    const attack = Math.min(0.014, duration * 0.24);
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.linearRampToValueAtTime(gainPeak, t0 + duration * 0.25);
+    g.gain.linearRampToValueAtTime(gainPeak, t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
     osc.connect(lp);
     lp.connect(g);
     g.connect(ac.destination);
     osc.start(t0);
-    osc.stop(t0 + duration + 0.015);
+    osc.stop(t0 + duration + 0.02);
   }
 
   function play(kind) {
@@ -124,83 +145,106 @@
     try {
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       if (kind === 'hover') {
-        if (now - lastHoverAt < 58) return;
-        lastHoverAt = now;
-        const j = 0.96 + Math.random() * 0.08;
-        hapticTick(2850 * j, 3.4, 0.006, 0.0052, 0);
-        velvetTone(1240 * j, 1340 * j, 0.014, 0.0016, 0, 2200);
-      } else if (kind === 'key') {
-        // Tecla estilo iPhone: pulso cristalino nítido + cuerpo cálido muy corto
-        if (now - lastKeyAt < 34) return;
-        lastKeyAt = now;
-        const j = 0.94 + Math.random() * 0.12;
-        hapticTick(2250 * j, 2.6, 0.0075, 0.015, 0);
-        velvetTone(355 * j, 210 * j, 0.015, 0.011, 0, 1100);
-      } else if (kind === 'keySpace') {
-        if (now - lastKeyAt < 34) return;
-        lastKeyAt = now;
-        hapticTick(1780, 2.2, 0.009, 0.014, 0);
-        velvetTone(270, 175, 0.018, 0.012, 0, 900);
-      } else if (kind === 'keyBack') {
-        if (now - lastKeyAt < 34) return;
-        lastKeyAt = now;
-        hapticTick(1420, 2.4, 0.008, 0.012, 0);
-        velvetTone(250, 165, 0.016, 0.009, 0, 850);
-      } else if (kind === 'keyEnter') {
-        hapticTick(2050, 2.6, 0.009, 0.016, 0);
-        velvetTone(640, 860, 0.048, 0.0085, 0.002, 2000);
+        // Silencio elegante en hover: evita el molesto "ti-ti-ti" al mover el mouse por el menú
+        return;
       } else if (kind === 'tab') {
-        hapticTick(1650, 2.2, 0.011, 0.015, 0);
-        velvetTone(590, 520, 0.028, 0.0075, 0, 1500);
+        // Menú lateral: "thock" cálido de dial de precisión + armónico grave aterciopelado
+        feltTap(260, 128, 0.036, 0.024, 0, 520);
+        softBrush(520, 1.3, 0.020, 0.014, 0);
+        warmBell(293.66, 293.66, 0.085, 0.0085, 0.004, 620); // D4 cálido
       } else if (kind === 'subtab') {
-        hapticTick(2050, 2.6, 0.009, 0.012, 0);
-        velvetTone(740, 820, 0.026, 0.006, 0, 1900);
+        // Subpestañas y filtros: clic fino amortiguado de latón/madera
+        feltTap(340, 195, 0.026, 0.018, 0, 620);
+        softBrush(640, 1.5, 0.015, 0.010, 0);
+        warmBell(392.0, 415.3, 0.058, 0.0055, 0.003, 720); // G4 suave
       } else if (kind === 'select') {
-        hapticTick(1820, 2.5, 0.010, 0.013, 0);
-        velvetTone(620, 760, 0.042, 0.0075, 0.002, 1850);
-      } else if (kind === 'slider') {
-        if (now - lastSliderAt < 42) return;
-        lastSliderAt = now;
-        hapticTick(2500, 3.2, 0.0055, 0.0065, 0);
-      } else if (kind === 'toggleOn') {
-        hapticTick(1820, 2.5, 0.010, 0.012, 0);
-        velvetTone(587.33, 640, 0.036, 0.009, 0.002, 1950);
-        velvetTone(880, 880, 0.058, 0.008, 0.024, 2150);
-      } else if (kind === 'toggleOff') {
-        hapticTick(1280, 2.1, 0.010, 0.011, 0);
-        velvetTone(520, 400, 0.042, 0.008, 0.002, 1450);
-      } else if (kind === 'confirm') {
-        hapticTick(1950, 2.6, 0.010, 0.011, 0);
-        velvetTone(523.25, 523.25, 0.085, 0.010, 0.004, 1900);
-        velvetTone(783.99, 783.99, 0.12, 0.0085, 0.040, 2250);
-      } else if (kind === 'progress') {
-        shimmerSweep(440, 659.25, 520, 1450, 0.24, 0.009, 0);
-      } else if (kind === 'bootLoad') {
-        // Barrido minimalista cálido mientras se llena la barrita dorada de inicio
-        shimmerSweep(293.66, 440, 380, 1350, 0.48, 0.013, 0);
-        velvetTone(587.33, 659.25, 0.34, 0.0055, 0.10, 1600);
-      } else if (kind === 'bootReady') {
-        // Resolución satisfactoria Obsidian-Gold al abrirse la aplicación lista
-        hapticTick(2200, 3.0, 0.009, 0.008, 0);
-        velvetTone(587.33, 587.33, 0.22, 0.011, 0.005, 1900); // D5
-        velvetTone(880.0, 880.0, 0.30, 0.0095, 0.048, 2200);  // A5
-        velvetTone(1174.66, 1174.66, 0.28, 0.0045, 0.088, 2600); // D6 halo
-      } else if (kind === 'paceTick') {
-        hapticTick(1850, 2.6, 0.010, 0.028, 0);
-        velvetTone(660, 660, 0.065, 0.036, 0.002, 2000, 'sine');
-      } else if (kind === 'paceSplit') {
-        hapticTick(2100, 2.8, 0.011, 0.032, 0);
-        velvetTone(587.33, 587.33, 0.14, 0.045, 0.002, 2100, 'triangle');
-        velvetTone(880.0, 880.0, 0.22, 0.042, 0.065, 2400, 'sine');
-      } else if (kind === 'quizHit') {
-        hapticTick(2200, 2.8, 0.010, 0.028, 0);
-        velvetTone(523.25, 523.25, 0.12, 0.044, 0, 2100, 'sine');
-        velvetTone(783.99, 783.99, 0.20, 0.042, 0.055, 2500, 'sine');
-      } else if (kind === 'quizMiss') {
-        hapticTick(1100, 2.2, 0.012, 0.030, 0);
-        velvetTone(290, 205, 0.18, 0.048, 0, 1300, 'triangle');
+        // Selección de tarjeta o fila: toque táctil cálido y nítido
+        feltTap(300, 170, 0.028, 0.019, 0, 580);
+        warmBell(349.23, 392.0, 0.062, 0.0055, 0.003, 680);
       } else if (kind === 'soft') {
-        hapticTick(1520, 2.2, 0.0095, 0.011, 0);
+        // Botones discretos: toque mínimo de fieltro
+        feltTap(245, 145, 0.024, 0.015, 0, 500);
+        softBrush(480, 1.4, 0.014, 0.008, 0);
+      } else if (kind === 'slider') {
+        if (now - lastSliderAt < 48) return;
+        lastSliderAt = now;
+        feltTap(360, 250, 0.014, 0.008, 0, 620);
+      } else if (kind === 'toggleOn') {
+        // Interruptor encendido: dos notas cálidas en quinta suave
+        feltTap(280, 170, 0.024, 0.015, 0, 560);
+        warmBell(329.63, 329.63, 0.065, 0.009, 0.004, 720); // E4
+        warmBell(440.0, 440.0, 0.095, 0.008, 0.026, 780);   // A4
+      } else if (kind === 'toggleOff') {
+        // Interruptor apagado: descenso sereno y cálido
+        feltTap(230, 130, 0.026, 0.014, 0, 480);
+        warmBell(349.23, 277.18, 0.065, 0.0075, 0.004, 560);
+      } else if (kind === 'confirm') {
+        // Acción confirmada: acorde cálido en quinta perfecta
+        feltTap(275, 165, 0.028, 0.015, 0, 580);
+        warmBell(293.66, 293.66, 0.12, 0.011, 0.005, 760); // D4
+        warmBell(440.0, 440.0, 0.16, 0.0095, 0.036, 860);  // A4
+      } else if (kind === 'techOpen') {
+        // Abrir ficha de unidad/tecnología: tacto de pergamino + resonancia cálida
+        feltTap(290, 160, 0.030, 0.018, 0, 580);
+        softBrush(560, 1.4, 0.020, 0.011, 0);
+        warmBell(329.63, 349.23, 0.090, 0.0075, 0.005, 740);
+      } else if (kind === 'techUnique') {
+        // Unidad o tecnología única: acorde regio aterciopelado (D4 + A4 + D5 filtrado)
+        feltTap(295, 165, 0.032, 0.018, 0, 600);
+        warmBell(293.66, 293.66, 0.14, 0.010, 0.005, 740);
+        warmBell(440.0, 440.0, 0.17, 0.0085, 0.030, 840);
+        warmBell(587.33, 587.33, 0.19, 0.0055, 0.060, 920);
+      } else if (kind === 'techMuted') {
+        // Nodo no disponible: golpe suave en madera grave amortiguada
+        feltTap(195, 118, 0.042, 0.020, 0, 380);
+        softBrush(340, 1.2, 0.018, 0.008, 0);
+      } else if (kind === 'glide') {
+        // Salto / deslizamiento de edificio: susurro de aire sedoso
+        softBrush(460, 1.3, 0.032, 0.010, 0);
+        warmBell(261.63, 329.63, 0.075, 0.0045, 0, 620);
+      } else if (kind === 'key') {
+        // Teclado mecánico lubricado ("thock" cálido, nunca chasquido chillón)
+        if (now - lastKeyAt < 36) return;
+        lastKeyAt = now;
+        const j = 0.95 + Math.random() * 0.10;
+        feltTap(270 * j, 145 * j, 0.018, 0.013, 0, 560);
+        softBrush(760 * j, 1.8, 0.010, 0.008, 0);
+      } else if (kind === 'keySpace') {
+        if (now - lastKeyAt < 36) return;
+        lastKeyAt = now;
+        feltTap(210, 118, 0.022, 0.015, 0, 460);
+        softBrush(580, 1.5, 0.012, 0.008, 0);
+      } else if (kind === 'keyBack') {
+        if (now - lastKeyAt < 36) return;
+        lastKeyAt = now;
+        feltTap(195, 112, 0.020, 0.013, 0, 440);
+      } else if (kind === 'keyEnter') {
+        feltTap(290, 165, 0.026, 0.016, 0, 580);
+        warmBell(392.0, 440.0, 0.075, 0.007, 0.004, 740);
+      } else if (kind === 'progress') {
+        warmBell(293.66, 392.0, 0.20, 0.007, 0, 720, 'sine');
+      } else if (kind === 'bootLoad') {
+        warmBell(220.0, 293.66, 0.42, 0.010, 0, 680, 'sine');
+        warmBell(329.63, 392.0, 0.34, 0.0055, 0.09, 760, 'sine');
+      } else if (kind === 'bootReady') {
+        feltTap(260, 140, 0.032, 0.012, 0, 520);
+        warmBell(293.66, 293.66, 0.24, 0.011, 0.006, 740);
+        warmBell(440.0, 440.0, 0.30, 0.0095, 0.050, 840);
+        warmBell(587.33, 587.33, 0.32, 0.005, 0.095, 940);
+      } else if (kind === 'paceTick') {
+        feltTap(360, 220, 0.022, 0.022, 0, 680);
+        warmBell(440.0, 440.0, 0.075, 0.026, 0.003, 920);
+      } else if (kind === 'paceSplit') {
+        feltTap(320, 190, 0.024, 0.024, 0, 660);
+        warmBell(392.0, 392.0, 0.14, 0.032, 0.003, 900);
+        warmBell(587.33, 587.33, 0.20, 0.028, 0.060, 1050);
+      } else if (kind === 'quizHit') {
+        feltTap(310, 185, 0.024, 0.020, 0, 640);
+        warmBell(392.0, 392.0, 0.13, 0.030, 0, 900);
+        warmBell(587.33, 587.33, 0.20, 0.028, 0.055, 1050);
+      } else if (kind === 'quizMiss') {
+        feltTap(210, 128, 0.048, 0.026, 0, 440);
+        warmBell(246.94, 185.0, 0.17, 0.028, 0.004, 580, 'triangle');
       }
     } catch (_) { /* audio opcional */ }
   }
@@ -219,19 +263,9 @@
     '.pm-stage-card', '.pm-medal-card', '.pm-issue-card',
     '.cx-kpi', '.cx-lm-metric', '.rm-card', '.theme',
     '.social-player-chip', '.rail-profile-card', '.cx-entity-row',
-    '.tr-subtab', '.tr-ans-card', '.tr-action-chip', '.tr-step-row',
+    '.tr-tab', '.tr-subtab', '.tr-ans-card', '.tr-action-chip', '.tr-step-row',
     '.tr-mode-pill', '.tr-replay-pill', '.tr-nemesis-pill', '.tr-war-switch',
-  ].join(', ');
-
-  const HOVER_SELECTOR = [
-    '.nav-item', '.cx-subtab', '.cx-mode-tab', '.cx-sort-btn',
-    '.cx-entity-row', '.cx-kpi', '.cx-lm-metric', '.social-player-chip',
-    '.btn', '.rail-profile-card', '.rail-gear', '.pm-tab',
-    '.pm-stage-card', '.pm-medal-card', '.rm-card', '.theme',
-    '.result', '.prefs-lang-item', '.prefs-pop-link', '.acct-subtab',
-    '.winbtn', '.tr-subtab', '.tr-ans-card', '.tr-action-chip',
-    '.tr-step-adj', '.tr-step-row', '.tr-mode-pill', '.tr-replay-pill',
-    '.tr-nemesis-pill', '.tr-war-switch', '.tr-mission-card',
+    '.tt-pill', '.tt-mode-btn', '.tt-jump-pill', '.tt-scroll-btn',
   ].join(', ');
 
   function attachAutoListeners(doc) {
@@ -239,35 +273,28 @@
     if (!target || target._uiSfxBound) return;
     target._uiSfxBound = true;
 
-    // 1. Hover micro-tick sofisticado en todo elemento interactivo
-    target.addEventListener('pointerover', (ev) => {
-      const el = ev.target && ev.target.closest && ev.target.closest(HOVER_SELECTOR);
-      if (!el || el === lastHoverEl || el.disabled) return;
-      lastHoverEl = el;
-      play('hover');
-    }, true);
-
-    target.addEventListener('pointerout', (ev) => {
-      if (lastHoverEl && ev.target === lastHoverEl) {
-        const rel = ev.relatedTarget;
-        if (!rel || !lastHoverEl.contains(rel)) lastHoverEl = null;
-      }
-    }, true);
-
-    // 2. Clic diferenciado en toda la aplicación (cero zonas mudas)
+    // 1. Clic diferenciado cálido y refinado (sin spam en hover)
     target.addEventListener('click', (ev) => {
       const btn = ev.target && ev.target.closest && ev.target.closest(CLICK_SELECTOR);
       if (!btn || btn.disabled) return;
-      if (btn.classList.contains('tr-ans-card')) {
-        return; // Arena answer cards play dedicated quizHit / quizMiss cue
+      if (
+        btn.classList.contains('tr-ans-card') ||
+        btn.classList.contains('tt-node') ||
+        btn.classList.contains('tt-lane-head') ||
+        btn.classList.contains('tt-evo-step') ||
+        btn.classList.contains('tt-jump-pill') ||
+        btn.classList.contains('tt-scroll-btn')
+      ) {
+        return; // Estas piezas disparan su propia firma dedicada
       } else if (btn.classList.contains('nav-item') || btn.classList.contains('rail-gear') || btn.classList.contains('rail-profile-card')) {
         play('tab');
       } else if (
         btn.classList.contains('cx-subtab') || btn.classList.contains('cx-mode-tab') ||
         btn.classList.contains('cx-sort-btn') || btn.classList.contains('pm-tab') ||
-        btn.classList.contains('acct-subtab') || btn.classList.contains('tr-subtab') ||
-        btn.classList.contains('tr-mode-pill') || btn.classList.contains('tr-replay-pill') ||
-        btn.classList.contains('tr-cat-tab')
+        btn.classList.contains('acct-subtab') || btn.classList.contains('tr-tab') ||
+        btn.classList.contains('tr-subtab') || btn.classList.contains('tr-mode-pill') ||
+        btn.classList.contains('tr-replay-pill') || btn.classList.contains('tr-cat-tab') ||
+        btn.classList.contains('tt-pill') || btn.classList.contains('tt-mode-btn')
       ) {
         play('subtab');
       } else if (
@@ -288,7 +315,7 @@
       }
     }, true);
 
-    // 3. Toggles y selects
+    // 2. Toggles y selects
     target.addEventListener('change', (ev) => {
       const input = ev.target;
       if (!input) return;
@@ -296,13 +323,13 @@
       else if (input.tagName === 'SELECT') play('subtab');
     }, true);
 
-    // 4. Detent táctil en sliders (opacidad, tiempos)
+    // 3. Detent táctil suave en sliders
     target.addEventListener('input', (ev) => {
       const input = ev.target;
       if (input && input.type === 'range') play('slider');
     }, true);
 
-    // 5. Teclado táctil estilo iPhone al escribir en cualquier buscador o campo de texto
+    // 4. Teclado mecánico cálido al escribir en buscadores
     target.addEventListener('keydown', (ev) => {
       const el = ev.target;
       if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;

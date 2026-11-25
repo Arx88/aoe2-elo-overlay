@@ -103,7 +103,8 @@ body {
   }
 }
 
-/* Sin partida: un punto que respira confirma que el overlay sigue escuchando. */
+/* Sin partida: punto fijo de estado activo (sin animación infinita en ventana transparente
+   para mantener 0.0% de consumo CPU/GPU en segundo plano y en PCs sin placa de video). */
 #panel.idle #head::before {
   content: '';
   display: inline-block;
@@ -112,8 +113,8 @@ body {
   margin-right: 0.42rem;
   border-radius: 50%;
   background: var(--muted);
+  opacity: 0.72;
   vertical-align: middle;
-  animation: idle-breathe 2.4s ease-in-out infinite;
 }
 
 @keyframes idle-breathe {

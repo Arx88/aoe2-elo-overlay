@@ -22,6 +22,7 @@ update-channel.local.json
 
 # Ruido del sistema / editor
 .workbuddy-ai/
+.review-v2.2.0/
 Thumbs.db
 .DS_Store
 

@@ -2,6 +2,7 @@
   "appId": "com.local.aoe2elooverlay",
   "productName": "Relic",
   "asar": true,
+  "afterPack": "tools/apply-fuses.js",
   "asarUnpack": [
     "node_modules/aoe2rec-js/**/*",
     "assets/icon.ico",

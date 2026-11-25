@@ -2,10 +2,11 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; font-src 'self'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: https:; font-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Relic · Centro de mando</title>
     <link rel="preload" as="image" href="assets/art/wizard-umbral.webp" />
+    <link rel="preload" as="image" href="assets/art/referral-hero.jpg" />
     <link rel="preload" as="image" href="assets/brand/relic-icon.png" />
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="command.css" />
@@ -45,7 +46,9 @@
     <div class="shell">
       <aside class="rail">
         <div class="rail-brand">
-          <img class="rail-logo" src="assets/brand/relic-logo.png" alt="Relic" draggable="false" />
+          <button id="railHomeBtn" class="rail-brand-btn" type="button" title="Volver al Inicio de Relic" aria-label="Volver al Inicio de Relic">
+            <img class="rail-logo" src="assets/brand/relic-logo.png" alt="Relic" draggable="false" />
+          </button>
         </div>
 
         <nav class="rail-nav" aria-label="Secciones">
@@ -132,7 +135,8 @@
             <div class="prefs-pop-divider"></div>
             <div class="prefs-pop-actions">
               <button id="prefsFeedbackBtn" class="prefs-pop-link prefs-pop-feedback" type="button" data-i18n="feedback.openBtn">Enviar feedback</button>
-              <button id="prefsSoundBtn" class="prefs-pop-link" type="button">Sonidos de interfaz · Activos</button>
+              <button id="prefsSoundBtn" class="prefs-pop-link" type="button" data-i18n="prefs.soundsOn">Sonidos de interfaz · Activos</button>
+              <button id="prefsWelcomeBtn" class="prefs-pop-link" type="button" data-i18n="prefs.welcomeOn">Inicio al abrir · Activo</button>
               <button id="reopenWizardBtn" class="prefs-pop-link" type="button" data-i18n="account.reopenWizard">Abrir asistente inicial</button>
             </div>
           </div>
@@ -142,12 +146,17 @@
       <main class="content">
         <header class="content-head">
           <div class="page-eyebrow"><span id="pageIndex">01 / CUENTA</span><span class="session-badge" id="sessionBadge" hidden>CONFIGURACIÓN</span></div>
-          <h1 id="pageTitle">Cuenta de jugador</h1>
+          <h1 id="pageTitle" data-i18n="account.pageTitle">Cuenta de jugador</h1>
           <p id="pageSub">Tu cuenta en el juego y cómo cambiarla.</p>
           <div class="rule"></div>
         </header>
 
         <div class="pages">
+          <!-- ============ EPHEMERAL WELCOME HOME ============ -->
+          <section class="page" data-page="welcome">
+            <div id="welcomeRoot" class="wh-shell" aria-live="polite"></div>
+          </section>
+
           <!-- ============ ACCOUNT & PROFILE ============ -->
           <section class="page" data-page="player">
             <div class="acct-subtabs" role="tablist">
@@ -211,7 +220,7 @@
                 <span class="account-ref-pill">BENEFICIO ÚNICO · 1 VEZ</span>
                 <span id="accRefCountBadge" class="account-ref-count mono">0 / 10</span>
               </div>
-              <h3 class="account-ref-title">Ganá 1 mes gratis de Relic Ultra</h3>
+              <h3 class="account-ref-title" data-i18n="referrals.bannerTitle">Ganá 1 mes gratis de Relic Ultra</h3>
               <p class="mini account-ref-desc">Compartí Relic con 10 amigos nuevos. Para que cuenten, cada uno debe registrarse y activar su cuenta en su propia PC (al menos en versión Free).</p>
               <div id="accRefSegments" class="ref-segments is-compact" aria-hidden="true">
                 <i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i>
@@ -219,7 +228,7 @@
               </div>
               <div class="account-ref-foot">
                 <span id="accRefStatusText" class="mini account-ref-status">Compartí tu enlace o ingresá el código de un amigo.</span>
-                <button id="accOpenReferralBtn" class="btn gold account-ref-cta" type="button">Abrir referidos →</button>
+                <button id="accOpenReferralBtn" class="btn gold account-ref-cta" type="button" data-i18n="referrals.openBtn">Abrir referidos →</button>
               </div>
             </div>
 
@@ -230,7 +239,7 @@
               <div class="account-hero">
                 <div class="avatar" id="accountAvatar" aria-hidden="true"></div>
                 <div class="account-copy">
-                  <h2 class="account-name" id="currentName">Buscando tu cuenta…</h2>
+                  <h2 class="account-name" id="currentName" data-i18n="account.searchingAccount">Buscando tu cuenta…</h2>
                   <div class="account-meta">
                     <span id="currentId" class="mono"></span>
                     <span id="currentOrigin" class="chip" hidden></span>
@@ -247,7 +256,7 @@
             <div class="block">
               <div class="search-box" id="accountSearchBox">
                 <img class="product-icon" src="assets/icons/search.png" alt="" draggable="false">
-                <label class="sr-only" for="search">Nombre en el juego o profile ID</label><input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" data-i18n-placeholder="account.searchPlaceholder" autocomplete="off" spellcheck="false" />
+                <label class="sr-only" for="search" data-i18n="account.searchPlaceholder">Nombre en el juego o profile ID</label><input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" data-i18n-placeholder="account.searchPlaceholder" autocomplete="off" spellcheck="false" />
                 <span class="search-spinner" aria-hidden="true"></span>
                 <span id="searchState" class="search-state"></span>
               </div>
@@ -255,6 +264,18 @@
               <div class="search-hint">
                 <span id="searchHelp" data-i18n="account.searchHelp">Buscá por nombre o pegá tu profile ID.</span>
                 <button id="manualBtn" class="link-btn" type="button" hidden data-i18n="account.useManual">Usar ese ID</button>
+              </div>
+            </div>
+
+            <div class="group-head"><span data-i18n="account.startupGroup">Inicio de la aplicación</span><i></i></div>
+            <div class="startup-pref-card">
+              <div class="startup-pref-head">
+                <strong data-i18n="account.startupPageTitle">Pantalla al abrir Relic</strong>
+                <small data-i18n="account.startupPageDesc">Elegí si querés ver el resumen de Inicio o entrar directo a Central.</small>
+              </div>
+              <div class="startup-seg" role="group" aria-label="Pantalla inicial">
+                <button type="button" class="startup-seg-btn is-active" data-startup-page="welcome" aria-pressed="true" data-i18n="account.startupWelcome">Página de bienvenida</button>
+                <button type="button" class="startup-seg-btn" data-startup-page="central" aria-pressed="false" data-i18n="account.startupCentral">Directo a Central</button>
               </div>
             </div>
 
@@ -277,7 +298,7 @@
               <div class="central-search-wrap">
                 <div class="central-search-shell" id="centralSearchShell">
                   <span class="central-search-ic" aria-hidden="true"><img class="product-icon" src="assets/icons/search.png" alt="" draggable="false"></span>
-                  <label class="sr-only" for="centralSearch">Buscar jugador en Central</label>
+                  <label class="sr-only" for="centralSearch" data-i18n="central.searchPlaceholder">Buscar jugador en Central</label>
                   <input id="centralSearch" class="central-search-input" type="text" placeholder="Buscar jugador de AoE2 (ej. Hera, TheViper o #ID)…" data-i18n-placeholder="central.searchPlaceholder" autocomplete="off" spellcheck="false" />
                   <span class="search-spinner" aria-hidden="true"></span>
                   <span id="centralSearchState" class="central-search-state"></span>
@@ -502,10 +523,10 @@
           <section class="page" data-page="plans">
             <div class="plans-billing-bar" role="group" aria-label="Ciclo de facturación">
               <div class="plans-billing-switch">
-                <button type="button" class="plans-cycle-btn is-active" data-billing-cycle="monthly" aria-pressed="true">Mensual</button>
-                <button type="button" class="plans-cycle-btn" data-billing-cycle="annual" aria-pressed="false">Anual <span class="plans-save-pill">−20%</span></button>
+                <button type="button" class="plans-cycle-btn is-active" data-billing-cycle="monthly" aria-pressed="true" data-i18n="plansPage.cycleMonthly">Mensual</button>
+                <button type="button" class="plans-cycle-btn" data-billing-cycle="annual" aria-pressed="false"><span data-i18n="plansPage.cycleAnnual">Anual</span> <span class="plans-save-pill">−20%</span></button>
               </div>
-              <span class="plans-billing-note">Precios en USD · Tarjeta en plan Anual · USDT/USDC en Mensual y Anual</span>
+              <span class="plans-billing-note" data-i18n="plansPage.billingNote">Precios en USD · Tarjeta en plan Anual · USDT/USDC en Mensual y Anual</span>
             </div>
 
             <div class="plans-grid" id="plansGrid" data-billing-cycle="monthly">
@@ -555,7 +576,7 @@
                 <ul id="proFeatures" class="plan-feature-list"></ul>
                 <div class="plan-card-foot">
                   <span class="includes-free" data-i18n="plansPage.proIncludes">Incluye Free + Prematch completo.</span>
-                  <button type="button" class="btn plan-cta-btn" data-plan-checkout="pro">Continuar con Pro</button>
+                  <button type="button" class="btn plan-cta-btn" data-plan-checkout="pro" data-i18n="plansPage.ctaPro">Continuar con Pro</button>
                 </div>
               </article>
 
@@ -585,8 +606,8 @@
                 <ul id="proMaxFeatures" class="plan-feature-list"></ul>
                 <div class="plan-card-foot">
                   <span class="includes-free" data-i18n="plansPage.promaxIncludes">Incluye Free, Prematch, Batalla, Postmatch y Central ampliado.</span>
-                  <button type="button" class="btn gold plan-cta-btn is-ultra" data-plan-checkout="promax">Elegir Ultra →</button>
-                  <button type="button" id="claimUltraTrialBtn" class="btn plan-trial-btn">Probar Ultra 24 h gratis</button>
+                  <button type="button" class="btn gold plan-cta-btn is-ultra" data-plan-checkout="promax" data-i18n="plansPage.ctaUltra">Elegir Ultra →</button>
+                  <button type="button" id="claimUltraTrialBtn" class="btn plan-trial-btn" data-i18n="plansPage.ctaTrial">Probar Ultra 24 h gratis</button>
                   <span id="claimUltraTrialStatus" class="plan-trial-status" role="status" aria-live="polite" hidden></span>
                 </div>
               </article>
@@ -779,6 +800,10 @@
             <span data-i18n="feedback.contactLabel">Discord o Email (opcional)</span>
           </label>
           <input id="feedbackContact" class="field" type="text" maxlength="120" autocomplete="off" placeholder="Para responderte si hace falta (ej. usuario#0000 o correo)" data-i18n-placeholder="feedback.contactPlaceholder" />
+          <label class="feedback-diag-check" for="feedbackAttachDiag">
+            <input id="feedbackAttachDiag" type="checkbox" checked />
+            <span data-i18n="feedback.attachDiag">Adjuntar diagnóstico técnico (últimas líneas del log, sin datos personales)</span>
+          </label>
           <p class="feedback-meta-hint" data-i18n="feedback.metaHint">Se adjunta automáticamente tu versión de Relic, idioma y perfil activo.</p>
           <div id="feedbackStatus" class="feedback-status" role="status" aria-live="polite"></div>
           <div class="modal-actions">
@@ -960,7 +985,7 @@
           </div>
           <div class="checkout-deposit-addr-row">
             <code id="checkoutDepositAddr" class="checkout-deposit-addr">0x...</code>
-            <button type="button" id="checkoutCopyAddrBtn" class="btn checkout-copy-btn">Copiar</button>
+            <button type="button" id="checkoutCopyAddrBtn" class="btn checkout-copy-btn" data-i18n="common.copy">Copiar</button>
           </div>
           <p class="checkout-deposit-hint" id="checkoutDepositHint">Usá únicamente red Polygon (PoS). Tu plan se activa automáticamente al confirmarse.</p>
         </div>
@@ -968,9 +993,9 @@
         <ul class="checkout-perks" id="checkoutPerks"></ul>
 
         <div class="checkout-actions">
-          <button type="button" id="checkoutConfirmBtn" class="btn gold checkout-confirm-btn">Pagar con USDC (Polygon)</button>
-          <p class="checkout-preview-note" id="checkoutPreviewNote">Activación automática en tu cuenta Google apenas se confirma el pago.</p>
-          <button type="button" id="checkoutUseKeyBtn" class="checkout-key-link">¿Ya tenés una clave prepaga? Canjeala acá →</button>
+          <button type="button" id="checkoutConfirmBtn" class="btn gold checkout-confirm-btn" data-i18n="checkout.payUsdc">Pagar con USDC (Polygon)</button>
+          <p class="checkout-preview-note" id="checkoutPreviewNote" data-i18n="checkout.autoActivateNote">Activación automática en tu cuenta Google apenas se confirma el pago.</p>
+          <button type="button" id="checkoutUseKeyBtn" class="checkout-key-link" data-i18n="checkout.useKey">¿Ya tenés una clave prepaga? Canjeala acá →</button>
         </div>
       </div>
     </div>
@@ -983,9 +1008,9 @@
           <div class="referral-hero-scrim" aria-hidden="true"></div>
           <button type="button" id="referralCloseBtn" class="referral-close" aria-label="Cerrar">×</button>
           <div class="referral-head">
-            <span class="referral-eyebrow">RELIC ULTRA · 30 DÍAS GRATIS</span>
-            <h2 id="referralModalTitle">Invitá 10 amigos y desbloqueá Ultra</h2>
-            <p class="referral-lead">Sumás 1 punto por cada amigo que instale y abra Relic en su PC.</p>
+            <span class="referral-eyebrow" data-i18n="referrals.eyebrow">RELIC ULTRA · 30 DÍAS GRATIS</span>
+            <h2 id="referralModalTitle" data-i18n="referrals.modalTitle">Invitá 10 amigos y desbloqueá Ultra</h2>
+            <p class="referral-lead" data-i18n="referrals.modalLead">Sumás 1 punto por cada amigo que instale y abra Relic en su PC.</p>
           </div>
         </div>
 
@@ -1036,27 +1061,27 @@
                 <div class="referral-code-pill">
                   <span class="referral-code-lbl">CÓDIGO</span>
                   <code id="referralCodeVal" class="referral-copy-val is-code-font">—</code>
-                  <button type="button" id="referralCopyCodeBtn" class="btn referral-copy-btn">Copiar</button>
+                  <button type="button" id="referralCopyCodeBtn" class="btn referral-copy-btn" data-i18n="common.copy">Copiar</button>
                 </div>
-                <button type="button" id="referralCopyLinkBtn" class="btn gold referral-link-cta">Copiar enlace de invitación</button>
+                <button type="button" id="referralCopyLinkBtn" class="btn gold referral-link-cta" data-i18n="referrals.copyLink">Copiar enlace de invitación</button>
               </div>
               <code id="referralShareUrl" class="referral-share-url-hidden" hidden>—</code>
             </section>
 
             <section class="referral-friends-card" id="referralFriendsSection" hidden>
               <div class="referral-friends-head">
-                <span class="referral-kicker">TUS INVITADOS</span>
-                <button type="button" id="referralRefreshBtn" class="link-btn">Actualizar</button>
+                <span class="referral-kicker" data-i18n="referrals.invitedList">TUS INVITADOS</span>
+                <button type="button" id="referralRefreshBtn" class="link-btn" data-i18n="common.refresh">Actualizar</button>
               </div>
               <div id="referralFriendsList" class="referral-friends-list"></div>
             </section>
 
             <section class="referral-apply-card" id="referralApplySection">
               <div id="referralApplyFormWrap" class="referral-apply-inline">
-                <span class="referral-kicker">¿TENÉS CÓDIGO?</span>
+                <span class="referral-kicker" data-i18n="referrals.haveCode">¿TENÉS CÓDIGO?</span>
                 <div class="referral-apply-row">
                   <input id="referralCodeInput" class="field mono referral-code-input" type="text" placeholder="RELIC-XXXX-XXXX" maxlength="20" autocomplete="off" spellcheck="false" aria-label="Código de referido de un amigo" />
-                  <button type="button" id="referralApplyBtn" class="btn">Aplicar</button>
+                  <button type="button" id="referralApplyBtn" class="btn" data-i18n="common.apply">Aplicar</button>
                 </div>
                 <p id="referralApplyFeedback" class="referral-feedback" hidden role="status"></p>
               </div>
@@ -1065,7 +1090,7 @@
                   <strong id="referralMyStatusTitle">—</strong>
                   <small id="referralMyStatusDesc">—</small>
                 </div>
-                <button type="button" id="referralVerifyNowBtn" class="btn" hidden>Verificar</button>
+                <button type="button" id="referralVerifyNowBtn" class="btn" hidden data-i18n="common.verify">Verificar</button>
               </div>
               <p id="referralCannotApplyMsg" class="mini referral-cannot-apply" hidden></p>
             </section>
@@ -1076,10 +1101,13 @@
 
     <script src="ui/i18n.js"></script>
     <script src="ui/sfx.js"></script>
+    <script src="ui/smooth-motion.js"></script>
     <script src="ui/blacksmith-terms.js"></script>
     <script src="ui/aoe2-icons.js"></script>
     <script src="ui/tactical-ui.js"></script>
+    <script src="ui/techtree-ui.js"></script>
     <script src="ui/training-ui.js"></script>
+    <script src="ui/welcome-ui.js"></script>
     <script src="settings.js"></script>
   </body>
 </html>

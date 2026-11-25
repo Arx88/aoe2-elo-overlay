@@ -237,7 +237,7 @@ function paintPostmatchReference() {
     ? t('postmatchPage.modeHelpOn', 'Elegí qué referencia se muestra en el informe')
     : hasAccess
       ? t('postmatchPage.modeHelpOff', 'Activá «Comparar mi evolución» para elegir la referencia')
-      : t('postmatchPage.availableProMax', 'Disponible con ProMax.');
+      : t('postmatchPage.availableProMax', 'Disponible con Ultra.');
 }
 
 function renderProduct(product) {
@@ -406,6 +406,13 @@ function renderProduct(product) {
   } else if (typeof syncLockedPageShowcases === 'function') {
     syncLockedPageShowcases(product);
   }
+  const resolvedPlan = product?.plan || 'free';
+  if (resolvedPlan !== 'free') {
+    try { localStorage.removeItem('relic.expiredModalDismissedV1'); } catch { /* ignore */ }
+    pendingExpiredOfferLicense = null;
+  } else if (product?.remoteLicense?.reason === 'expired') {
+    queueExpiredOfferModal(product.remoteLicense);
+  }
 }
 
 function getEmptyPostmatchHtml() {
@@ -420,17 +427,30 @@ let selectedPostMatchId = null;
 
 function applyDataWidths(container) {
   if (!container) return;
+  const barsW = [...container.querySelectorAll('[data-w]')];
+  const barsH = [...container.querySelectorAll('[data-h]')];
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const apply = () => {
-    container.querySelectorAll('[data-w]').forEach((bar) => {
+    barsW.forEach((bar) => {
       const width = Math.max(0, Math.min(100, Number(bar.dataset.w) || 0));
+      bar.style.transition = '';
       bar.style.width = `${width}%`;
     });
-    container.querySelectorAll('[data-h]').forEach((bar) => {
+    barsH.forEach((bar) => {
       const height = Math.max(0, Math.min(100, Number(bar.dataset.h) || 0));
+      bar.style.transition = '';
       bar.style.height = `${height}%`;
     });
   };
-  if (typeof requestAnimationFrame === 'function') {
+  if (!reduced && typeof requestAnimationFrame === 'function') {
+    barsW.forEach((bar) => {
+      bar.style.transition = 'none';
+      bar.style.width = '0%';
+    });
+    barsH.forEach((bar) => {
+      bar.style.transition = 'none';
+      bar.style.height = '0%';
+    });
     requestAnimationFrame(() => requestAnimationFrame(apply));
   } else {
     apply();
@@ -531,8 +551,12 @@ function paintPostMatch(payload) {
     return;
   }
   postMatchReportEl.innerHTML = TacticalUI.renderPostMatch(report, postMatchAccess);
-  applyDataWidths(postMatchReportEl);
   bindPostMatchTabs(postMatchReportEl);
+  if (window.RelicSmoothMotion?.observeReveal) {
+    window.RelicSmoothMotion.observeReveal(postMatchReportEl);
+  } else {
+    applyDataWidths(postMatchReportEl);
+  }
   syncAllTrainPinButtons();
 }
 
@@ -567,6 +591,11 @@ function bindPostMatchTabs(container) {
         pane.classList.remove('pm-anim-in');
         void pane.offsetWidth;
         pane.classList.add('pm-anim-in');
+        if (window.RelicSmoothMotion?.observeReveal) {
+          window.RelicSmoothMotion.observeReveal(pane);
+        } else {
+          applyDataWidths(pane);
+        }
       }
     });
     applyDataWidths(container);
@@ -1056,7 +1085,11 @@ function paintCentral(payload, { preserveMode = false, animateSwap = false } = {
     void centralDashboardEl.offsetWidth;
     centralDashboardEl.classList.add('cx-swap');
   }
-  applyDataWidths(centralDashboardEl);
+  if (window.RelicSmoothMotion?.observeReveal) {
+    window.RelicSmoothMotion.observeReveal(centralDashboardEl);
+  } else {
+    applyDataWidths(centralDashboardEl);
+  }
   bindCentralInteractions();
   syncAllTrainPinButtons();
   if (focusAttribute) {
@@ -1878,6 +1911,16 @@ function finishBootLoader() {
   setTimeout(() => {
     if (typeof UiSfx === 'object') UiSfx.play('bootReady');
     loader.classList.add('is-done');
+    if (activePage === 'welcome' && welcomeHomeUi && typeof welcomeHomeUi.playChoreography === 'function') {
+      setTimeout(() => welcomeHomeUi.playChoreography({ force: true }), 90);
+    } else if (activePage === 'central' && centralDashboardEl && window.RelicSmoothMotion?.observeReveal) {
+      setTimeout(() => window.RelicSmoothMotion.observeReveal(centralDashboardEl), 90);
+    }
+    if (pendingExpiredOfferLicense) {
+      const lic = pendingExpiredOfferLicense;
+      pendingExpiredOfferLicense = null;
+      setTimeout(() => openExpiredOfferModal(lic), 520);
+    }
     setTimeout(() => { loader.hidden = true; }, 380);
   }, waitMs);
 }
@@ -1950,7 +1993,7 @@ async function loadCurrent() {
   }
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
   smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
-  if (info.product) renderProduct(info.product);
+  if (info.product) renderProduct({ ...info.product, remoteLicense: info.remoteLicense || info.product.remoteLicense });
   if (!initialBootDone && !info.profileId && window.settings?.auto) {
     try {
       const autoRes = await window.settings.auto();
@@ -1971,9 +2014,16 @@ async function loadCurrent() {
     : null;
   paintClock();
   syncWizardAccount(info);
+  showWelcomeHomePref = info.showWelcomeHome !== false;
+  paintWelcomeToggle();
+  if (!initialBootDone) {
+    const canShowWelcome = showWelcomeHomePref && info.wizardCompleted !== false && !matchStartedAt;
+    goTo(canShowWelcome ? 'welcome' : 'central');
+  }
   // Cargar bajo demanda la pestaña activa y revelar la app con todo ya cargado.
   try {
-    if (activePage === 'central') await loadCentral(false);
+    if (activePage === 'welcome') await loadWelcome(false);
+    else if (activePage === 'central') await loadCentral(false);
     else if (activePage === 'postmatch') await loadPostMatch();
     else if (activePage === 'tactics') await loadTactics();
   } finally {
@@ -2214,6 +2264,7 @@ document.addEventListener('keydown', (event) => {
    ============================================================ */
 const PAGE_ORDER = ['player', 'central', 'overlay', 'tactics', 'postmatch', 'training', 'skins', 'plans', 'updater'];
 const PAGE_META = {
+  welcome: { index: '00 / INICIO', title: 'Bienvenido a Relic', sub: 'Pulso global del ladder y tu resumen diario.' },
   player: { index: '01 / CUENTA', title: 'Cuenta de jugador', sub: 'Tu cuenta en el juego y tus últimas partidas.' },
   central: { index: '02 / CENTRAL', title: 'Central de estadísticas', sub: 'Tu evolución y el historial de cada modo.' },
   overlay: { index: '03 / PREMATCH', title: 'Prepará la partida.', sub: 'Qué se ve en cola y al entrar a la partida · vista previa en vivo.' },
@@ -2230,8 +2281,33 @@ let postmatchLoadedAt = 0;
 let tacticsLoadedAt = 0;
 document.body.dataset.page = activePage;
 
+function syncSidebarGlideIndicator(instant = false) {
+  if (typeof RelicSmoothMotion !== 'object' || typeof RelicSmoothMotion.syncGlideIndicator !== 'function') return;
+  const railNav = document.querySelector('.rail-nav');
+  if (!railNav) return;
+  const activeBtn = railNav.querySelector('.nav-item.active');
+  if (!activeBtn) {
+    const existing = railNav.querySelector('.rail-glide-indicator');
+    if (existing) existing.classList.add('is-hidden');
+    return;
+  }
+  const existing = railNav.querySelector('.rail-glide-indicator');
+  if (existing) existing.classList.remove('is-hidden');
+  RelicSmoothMotion.syncGlideIndicator(railNav, activeBtn, {
+    key: 'main-sidebar',
+    axis: 'y',
+    className: 'rail-glide-indicator',
+    instant,
+  });
+}
+
 function goTo(page) {
   if (!PAGE_META[page]) return;
+  const prevPage = activePage;
+  const changed = prevPage !== page;
+  if (prevPage === 'training' && page !== 'training' && trainingUi && typeof trainingUi.onLeavePage === 'function') {
+    trainingUi.onLeavePage();
+  }
   activePage = page;
   document.body.dataset.page = page;
   for (const button of navButtons) {
@@ -2240,6 +2316,7 @@ function goTo(page) {
     if (current) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
+  syncSidebarGlideIndicator(!changed);
   const railProfile = el('railUser');
   const navPlansBtn = el('navPlans');
   if (railProfile) {
@@ -2255,11 +2332,34 @@ function goTo(page) {
   pageTitle.textContent = (locTitle && locTitle !== `pages.${page}.title`) ? locTitle : PAGE_META[page].title;
   pageSub.textContent = (locSub && locSub !== `pages.${page}.sub`) ? locSub : PAGE_META[page].sub;
   pageIndex.textContent = (locIdx && locIdx !== `pages.${page}.index`) ? locIdx : PAGE_META[page].index;
+  if (changed) {
+    const headEl = document.querySelector('.content-head');
+    if (headEl) {
+      headEl.classList.remove('is-title-swap');
+      void headEl.offsetWidth;
+      headEl.classList.add('is-title-swap');
+    }
+  }
+  if (page === 'welcome') {
+    loadWelcome(false);
+    if (changed && initialBootDone && welcomeHomeUi && typeof welcomeHomeUi.playChoreography === 'function') {
+      welcomeHomeUi.playChoreography({ force: true });
+    }
+  }
   if (page === 'player') { paintPoll(); paintClock(); }
-  if (page === 'central') loadCentral(false);
-  if (page === 'postmatch' && (!lastPostMatchPayload || Date.now() - postmatchLoadedAt > 20000)) {
-    postmatchLoadedAt = Date.now();
-    loadPostMatch();
+  if (page === 'central') {
+    loadCentral(false);
+    if (changed && initialBootDone && centralDashboardEl && centralDashboardEl.children.length && window.RelicSmoothMotion?.observeReveal) {
+      requestAnimationFrame(() => window.RelicSmoothMotion.observeReveal(centralDashboardEl));
+    }
+  }
+  if (page === 'postmatch') {
+    if (!lastPostMatchPayload || Date.now() - postmatchLoadedAt > 20000) {
+      postmatchLoadedAt = Date.now();
+      loadPostMatch();
+    } else if (changed && postMatchReportEl && postMatchReportEl.children.length && window.RelicSmoothMotion?.observeReveal) {
+      requestAnimationFrame(() => window.RelicSmoothMotion.observeReveal(postMatchReportEl));
+    }
   }
   if (page === 'tactics' && (!lastTacticsPayload || Date.now() - tacticsLoadedAt > 20000)) {
     tacticsLoadedAt = Date.now();
@@ -2268,8 +2368,16 @@ function goTo(page) {
   if (page === 'training' && trainingUi) {
     trainingUi.load();
   }
-  if (pagesEl) pagesEl.scrollTop = 0;
+  if (pagesEl) {
+    if (typeof RelicSmoothMotion === 'object' && typeof RelicSmoothMotion.cancelVertState === 'function') {
+      RelicSmoothMotion.cancelVertState(pagesEl);
+    }
+    pagesEl.scrollTop = 0;
+  }
 }
+
+window.addEventListener('resize', () => syncSidebarGlideIndicator(true));
+requestAnimationFrame(() => syncSidebarGlideIndicator(true));
 
 const trainingUi = (typeof TrainingUI === 'object' && typeof TrainingUI.createTrainingControllerUi === 'function' && el('trainingRoot'))
   ? TrainingUI.createTrainingControllerUi({
@@ -2282,6 +2390,49 @@ const trainingUi = (typeof TrainingUI === 'object' && typeof TrainingUI.createTr
       },
     })
   : null;
+
+const welcomeHomeUi = (typeof WelcomeHomeUI === 'object' && typeof WelcomeHomeUI.createWelcomeHomeUi === 'function' && el('welcomeRoot'))
+  ? WelcomeHomeUI.createWelcomeHomeUi({
+      container: el('welcomeRoot'),
+      goTo,
+      openTechTree: async () => {
+        goTo('training');
+        if (trainingUi) {
+          await trainingUi.load();
+          if (typeof trainingUi.switchSubtab === 'function') {
+            trainingUi.switchSubtab('techtree');
+          }
+        }
+      },
+      openAnnouncementUrl: () => {
+        if (typeof window.settings?.welcomeOpenAnnouncementUrl === 'function') {
+          window.settings.welcomeOpenAnnouncementUrl();
+        }
+      },
+    })
+  : null;
+
+let showWelcomeHomePref = true;
+async function loadWelcome(force = false) {
+  if (!welcomeHomeUi || typeof window.settings?.welcomeGet !== 'function') return;
+  try {
+    const res = await window.settings.welcomeGet({ force });
+    if (res && res.ok) welcomeHomeUi.setData(res);
+  } catch { /* ignore */ }
+}
+
+if (typeof window.settings?.onWelcome === 'function') {
+  window.settings.onWelcome((payload) => {
+    if (welcomeHomeUi && payload && payload.ok) {
+      welcomeHomeUi.setData(payload);
+    }
+  });
+}
+
+el('railHomeBtn')?.addEventListener('click', () => {
+  if (typeof UiSfx === 'object') UiSfx.play('tab');
+  goTo('welcome');
+});
 
 for (const button of navButtons) button.addEventListener('click', () => goTo(button.dataset.page));
 document.querySelectorAll('[data-goto]').forEach((btn) => {
@@ -2632,6 +2783,7 @@ el('feedbackForm')?.addEventListener('submit', async (event) => {
       category: feedbackCategory,
       message,
       contact: (contactEl?.value || '').trim(),
+      attachDiagnostics: el('feedbackAttachDiag') ? Boolean(el('feedbackAttachDiag').checked) : true,
     });
     if (!res || !res.ok) {
       if (statusEl) {
@@ -2669,6 +2821,38 @@ el('prefsSoundBtn')?.addEventListener('click', () => {
   if (typeof UiSfx !== 'object') return;
   UiSfx.setEnabled(!UiSfx.isEnabled());
   paintSoundToggle();
+});
+
+function paintWelcomeToggle() {
+  const btn = el('prefsWelcomeBtn');
+  if (btn) {
+    btn.textContent = showWelcomeHomePref
+      ? t('prefs.welcomeOn', 'Inicio al abrir · Activo')
+      : t('prefs.welcomeOff', 'Inicio al abrir · Oculto');
+  }
+  document.querySelectorAll('[data-startup-page]').forEach((segBtn) => {
+    const isWelcome = segBtn.getAttribute('data-startup-page') === 'welcome';
+    const active = isWelcome === showWelcomeHomePref;
+    segBtn.classList.toggle('is-active', active);
+    segBtn.setAttribute('aria-pressed', String(active));
+  });
+}
+async function setStartupWelcomePref(nextVal) {
+  const clean = Boolean(nextVal);
+  if (showWelcomeHomePref === clean) return;
+  showWelcomeHomePref = clean;
+  paintWelcomeToggle();
+  if (typeof UiSfx === 'object') UiSfx.play('toggle');
+  if (typeof window.settings?.showWelcomeHome === 'function') {
+    await window.settings.showWelcomeHome(showWelcomeHomePref);
+  }
+}
+el('prefsWelcomeBtn')?.addEventListener('click', () => setStartupWelcomePref(!showWelcomeHomePref));
+document.querySelectorAll('[data-startup-page]').forEach((segBtn) => {
+  segBtn.addEventListener('click', () => {
+    const wantsWelcome = segBtn.getAttribute('data-startup-page') === 'welcome';
+    setStartupWelcomePref(wantsWelcome);
+  });
 });
 if (typeof UiSfx === 'object') {
   UiSfx.attachAutoListeners(document);
@@ -2882,7 +3066,6 @@ el('wizSearch')?.addEventListener('input', () => {
 paintThemes();
 paintOpacity(0.95);
 paintSearchHelp(false);
-goTo('central');
 loadCurrent();
 
 
@@ -3797,6 +3980,84 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
     goTo('plans');
     const trialBtn = el('claimUltraTrialBtn');
     if (trialBtn && !trialBtn.hidden && !trialBtn.disabled) trialBtn.click();
+  });
+}
+
+let pendingExpiredOfferLicense = null;
+let expiredModalShownThisSession = false;
+
+function getExpiredModalKey(remoteLic) {
+  const acct = remoteLic?.accountId || currentProfileId || 'user';
+  return `v1:${acct}`;
+}
+
+function queueExpiredOfferModal(remoteLic) {
+  if (!remoteLic || remoteLic.reason !== 'expired' || expiredModalShownThisSession) return;
+  const key = getExpiredModalKey(remoteLic);
+  try {
+    if (localStorage.getItem('relic.expiredModalDismissedV1') === key) return;
+  } catch { /* ignore */ }
+  if (!initialBootDone) {
+    pendingExpiredOfferLicense = remoteLic;
+  } else {
+    setTimeout(() => openExpiredOfferModal(remoteLic), 320);
+  }
+}
+
+function openExpiredOfferModal(remoteLic) {
+  if (expiredModalShownThisSession) return;
+  if (currentProduct && currentProduct.plan && currentProduct.plan !== 'free') return;
+  const key = getExpiredModalKey(remoteLic);
+  try {
+    if (localStorage.getItem('relic.expiredModalDismissedV1') === key) return;
+  } catch { /* ignore */ }
+  expiredModalShownThisSession = true;
+
+  document.querySelector('#relicUpgradeBackdrop')?.remove();
+  const backdrop = document.createElement('div');
+  backdrop.id = 'relicUpgradeBackdrop';
+  backdrop.className = 'relic-upgrade-backdrop';
+  backdrop.setAttribute('role', 'dialog');
+  backdrop.setAttribute('aria-modal', 'true');
+  backdrop.innerHTML = `<div class="relic-upgrade-stage is-art-right">
+    <img class="rum-art" src="assets/art/central-hero.jpg" alt="" draggable="false" />
+    <div class="rum-scrim" aria-hidden="true"></div>
+    <button type="button" class="rum-close" id="rumCloseBtn" aria-label="Cerrar">×</button>
+    <div class="rum-copy">
+      <span class="rum-eyebrow">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
+        ${escapeHtml(t('expiredModal.eyebrow', 'RELIC ULTRA · ACCESO FINALIZADO'))}
+      </span>
+      <h3>${escapeHtml(t('expiredModal.title', 'Tu prueba de Relic Ultra terminó'))}</h3>
+      <p class="rum-lead">${escapeHtml(t('expiredModal.lead', 'Tu cuenta volvió al plan Free, pero todo tu historial y tus replays siguen intactos. Activá hoy tu plan y recuperá al instante Central avanzado, Postmatch, Matchups y Entrenamiento.'))}</p>
+      <div class="rum-offer-banner">
+        <span class="rum-offer-pill">${escapeHtml(t('expiredModal.offerPill', 'OFERTA PLAN ANUAL · −20 %'))}</span>
+        <strong>${escapeHtml(t('expiredModal.offerTitle', 'Ahorrá 20 % contratando el plan anual hoy'))}</strong>
+        <small>${escapeHtml(t('expiredModal.offerSub', 'Activación instantánea con tu cuenta Google · Tarjeta o USDT/USDC'))}</small>
+      </div>
+      <div class="rum-actions">
+        <button type="button" class="rum-cta" id="rumExpiredAnnualBtn">${escapeHtml(t('expiredModal.ctaAnnual', 'Ver oferta anual (−20 %) →'))}</button>
+        <button type="button" class="rum-link" id="rumDismissBtn">${escapeHtml(t('expiredModal.ctaFree', 'Seguir en Free por ahora'))}</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(backdrop);
+
+  const dismiss = () => {
+    try { localStorage.setItem('relic.expiredModalDismissedV1', key); } catch { /* ignore */ }
+    document.removeEventListener('keydown', onEsc);
+    backdrop.remove();
+  };
+  const onEsc = (e) => { if (e.key === 'Escape') dismiss(); };
+  document.addEventListener('keydown', onEsc);
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismiss(); });
+  backdrop.querySelector('#rumCloseBtn')?.addEventListener('click', dismiss);
+  backdrop.querySelector('#rumDismissBtn')?.addEventListener('click', dismiss);
+  backdrop.querySelector('#rumExpiredAnnualBtn')?.addEventListener('click', () => {
+    dismiss();
+    goTo('plans');
+    const annualBtn = document.querySelector('.plans-cycle-btn[data-billing-cycle="annual"]');
+    if (annualBtn) annualBtn.click();
   });
 }
 

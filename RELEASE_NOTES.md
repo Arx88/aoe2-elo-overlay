@@ -1,3 +1,14 @@
+## v3.3.0 · Inicio editorial, Árbol Tecnológico 56 civs, animaciones al scroll, Arena anti-trampa y seguridad reforzada
+
+- **Nueva pantalla de Inicio editorial (Relic Home):** Rango de Oro (*Saqueador → Mansa Musa*) con conteo semanal y ganancia de hoy (`+X hoy`), tira de actividad de 7 días, **Meta global · Age of Empires II: DE** en vivo con counters empíricos Pro, récords de la semana, Víctima favorita / Némesis reciente y bloque de **Novedades de Relic** con imagen editorial. Podés elegir si abrir siempre en Bienvenida o directo en Central desde **Cuenta → Inicio de la aplicación**.
+- **Árbol Tecnológico completo de las 56 civilizaciones:** consulta interactiva local con las 56 unidades únicas, tecnologías, bonificaciones y comparativa rápida dentro de Entrenamiento, junto a iconos oficiales AoE2:DE re-afilados.
+- **Animaciones fluidas al desplazarte en Central y Postmatch:** los porcentajes, el gráfico radar de ADN, los anillos de winrate (*Tu Arma Secreta*, medidor de eAPM) y las barras se revelan suavemente a medida que bajás por la pantalla.
+- **Entrenamiento → Arena mejorada:** el cronómetro ya no corre solo al entrar (requiere tocar **Iniciar desafío →**), salir de la pestaña con una pregunta activa descuenta 1 vida para evitar consultas externas y se corrigió el botón al agotarse el tiempo.
+- **Popup de vencimiento con oferta y unificación a Ultra:** al finalizar la prueba gratuita de 24 horas, Relic muestra un aviso único con acceso directo al plan **Anual (−20%)** y todas las etiquetas visibles quedan unificadas bajo el nombre **Ultra**.
+- **Seguridad reforzada y diagnósticos sanitizados:** Electron Fuses con verificación de integridad ASAR (`RunAsNode=0`, `OnlyLoadAppFromAsar=1`), licencias Ed25519 vinculadas a dispositivo, diagnóstico técnico opcional sanitizado y guardián automático de traducciones completas en los 4 idiomas (`es-MX`, `es-ES`, `en`, `zh-CN`).
+
+---
+
 ## v3.2.2 · Matchups Pro con iconos oficiales, Referidos renovado, Progreso y Fix Login Gmail
 
 - **Inicio de sesión con Google reparado y más limpio:** optimización crítica en el servidor de cuentas (reducción de consultas DDL en frío de ~11 s a ~310 ms para LatAm/Argentina y blindaje de restricciones en D1), ampliación del timeout de intercambio OAuth a `20 s` y redirección automática HTTPS a Relic al finalizar para no dejar `127.0.0.1` visible en el navegador.

@@ -156,7 +156,8 @@ function initAutoUpdate(options = {}) {
   };
 
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Seguridad (C-03): jamás instalar silenciosamente al cerrar sin confirmación explícita del usuario.
+  autoUpdater.autoInstallOnAppQuit = false;
   // Un instalador web no aplica acá: siempre publicamos el NSIS completo.
   autoUpdater.disableWebInstaller = true;
 

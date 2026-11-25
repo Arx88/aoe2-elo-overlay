@@ -71,7 +71,8 @@ function fmtClockSec(sec) {
  */
 function symWinPct(winsOwn, games) {
   if (!games || games <= 0) return null;
-  const delta = roundSym(((winsOwn / games) - 0.5) * 100);
+  const diff = 2 * winsOwn - games; // entero exacto: diff(w, g) === -diff(g - w, g) sin deriva IEEE-754
+  const delta = roundSym((diff * 50) / games);
   return clamp(50 + delta, 0, 100);
 }
 

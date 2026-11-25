@@ -30,8 +30,9 @@ const INSIGHTS_BASE = 'https://www.aoe2insights.com/stats/api/match-ups/';
 const UA_COMPANION = 'aoe2-elo-overlay/3.2 (pro-matchup-compiler)';
 const UA_BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// Ventana de parches recientes (~8 meses desde marzo 2026)
-const PATCH_CUTOFF_MS = Date.parse('2026-03-15T00:00:00Z');
+// Ventana amplia de alto nivel (~18 meses desde junio 2025) para alcanzar >=10–50+ partidas Pro/+2000 por cruce
+const PATCH_CUTOFF_MS = Date.parse(process.env.PRO_CUTOFF_ISO || '2025-06-01T00:00:00Z');
+const DEEP_HARVEST_MODE = process.env.PRO_DEEP_HARVEST === '1';
 // Ventana real verificada de retención de archivos .aoe2record en Microsoft (21 días)
 const REPLAY_RETENTION_MS = 21 * 24 * 60 * 60 * 1000;
 
@@ -41,7 +42,7 @@ const CACHE_DIR = process.env.PRO_HARVEST_CACHE_DIR || path.join(
 );
 const OUTPUT_JSON = path.join(__dirname, '..', 'src', 'training', 'pro-matchup-data.json');
 
-const MAX_REPLAY_DOWNLOADS = Number(process.env.MAX_PRO_REPLAYS || 700);
+const MAX_REPLAY_DOWNLOADS = process.env.MAX_PRO_REPLAYS != null ? Number(process.env.MAX_PRO_REPLAYS) : 700;
 
 // Clasificación estricta de mapas terrestres estándar (1 TC en Alta Edad Media, cero agua/híbridos/nómada)
 const OPEN_MAP_PATTERNS = [
@@ -97,7 +98,7 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJsonRetry(url, { headers = {}, timeoutMs = 15000, retries = 3 } = {}) {
+async function fetchJsonRetry(url, { headers = {}, timeoutMs = 18000, retries = 5 } = {}) {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -105,14 +106,19 @@ async function fetchJsonRetry(url, { headers = {}, timeoutMs = 15000, retries = 
       const res = await fetch(url, { headers, signal: ctrl.signal });
       clearTimeout(timer);
       if (res.status === 429 || res.status >= 500) {
-        await sleep(1200 * (attempt + 1));
+        await sleep(2200 * (attempt + 1) + Math.floor(Math.random() * 500));
         continue;
       }
       if (!res.ok) return null;
-      return await res.json();
+      const text = await res.text();
+      if (!text || text.trim().startsWith('<')) {
+        await sleep(2500 * (attempt + 1));
+        continue;
+      }
+      return JSON.parse(text);
     } catch {
       clearTimeout(timer);
-      if (attempt < retries) await sleep(900 * (attempt + 1));
+      if (attempt < retries) await sleep(1500 * (attempt + 1));
     }
   }
   return null;
@@ -204,43 +210,60 @@ async function loadOrFetchLeaderboard() {
  */
 async function loadOrFetchMatches(roster) {
   const cacheFile = path.join(CACHE_DIR, 'matches.json');
+  const matchesById = new Map();
   if (fs.existsSync(cacheFile)) {
     const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-    if (cached && Array.isArray(cached.matches) && cached.matches.length >= 15000) {
-      console.log(`[2/5] Partidas cargadas de caché: ${cached.matches.length} partidas 1v1 RM válidas.`);
-      return cached.matches;
+    if (cached && Array.isArray(cached.matches)) {
+      for (const m of cached.matches) matchesById.set(m.matchId, m);
+      if (!DEEP_HARVEST_MODE && matchesById.size >= 15000) {
+        console.log(`[2/5] Partidas cargadas de caché: ${matchesById.size} partidas 1v1 RM válidas.`);
+        return [...matchesById.values()];
+      }
+      console.log(`[2/5] Semilla inicial de caché: ${matchesById.size} partidas. Ampliando profundidad Pro/+2000...`);
     }
   }
 
   const tierByPid = new Map(roster.map((p) => [p.profileId, p.tier]));
-  const matchesById = new Map();
 
   const batches = [];
   const t1 = roster.filter((p) => p.tier === 1);
   const t2 = roster.filter((p) => p.tier === 2);
   const t3 = roster.filter((p) => p.tier === 3);
 
-  // Tier 1 Pro: lotes chicos (3 jugadores) y hasta 14 páginas (~1400 partidas por lote) para cubrir los ~8 meses enteros
-  for (let i = 0; i < t1.length; i += 3) {
-    batches.push({ label: 'T1', ids: t1.slice(i, i + 3).map((p) => p.profileId), maxPages: 14 });
+  // Tier 1 Pro: lotes de 2 jugadores y hasta 28 páginas (~1400 partidas por Pro -> ~18 meses completos)
+  for (let i = 0; i < t1.length; i += 2) {
+    batches.push({ key: `T1_${i}`, label: 'T1', ids: t1.slice(i, i + 2).map((p) => p.profileId), maxPages: DEEP_HARVEST_MODE ? 28 : 14 });
   }
-  // Tier 2 (+2000): lotes de 8 jugadores, hasta 8 páginas
-  for (let i = 0; i < t2.length; i += 8) {
-    batches.push({ label: 'T2', ids: t2.slice(i, i + 8).map((p) => p.profileId), maxPages: 8 });
+  // Tier 2 (+2000): en modo profundo priorizamos los 360 jugadores +2000 de mayor ELO con lotes de 4 y hasta 20 páginas
+  const t2Pool = DEEP_HARVEST_MODE ? t2.slice(0, 360) : t2;
+  for (let i = 0; i < t2Pool.length; i += (DEEP_HARVEST_MODE ? 4 : 8)) {
+    batches.push({ key: `T2_${i}`, label: 'T2', ids: t2Pool.slice(i, i + (DEEP_HARVEST_MODE ? 4 : 8)).map((p) => p.profileId), maxPages: DEEP_HARVEST_MODE ? 20 : 8 });
   }
-  // Tier 3 (+1900): lotes de 10 jugadores, hasta 5 páginas
-  for (let i = 0; i < t3.length; i += 10) {
-    batches.push({ label: 'T3', ids: t3.slice(i, i + 10).map((p) => p.profileId), maxPages: 5 });
+  if (!DEEP_HARVEST_MODE) {
+    for (let i = 0; i < t3.length; i += 10) {
+      batches.push({ key: `T3_${i}`, label: 'T3', ids: t3.slice(i, i + 10).map((p) => p.profileId), maxPages: 5 });
+    }
   }
 
-  console.log(`[2/5] Cosechando historiales RM 1v1 en ${batches.length} lotes paralelos...`);
-  let completedBatches = 0;
+  const doneFile = path.join(CACHE_DIR, 'deep-harvest-done.json');
+  const doneKeys = new Set(
+    (DEEP_HARVEST_MODE && fs.existsSync(doneFile)) ? JSON.parse(fs.readFileSync(doneFile, 'utf8')) : []
+  );
+  const pendingBatches = batches.filter((b) => !doneKeys.has(b.key));
+  console.log(`[2/5] Cosechando historiales RM 1v1 en ${pendingBatches.length}/${batches.length} lotes pendientes (cutoff ${new Date(PATCH_CUTOFF_MS).toISOString().slice(0, 10)}, concurrencia=4)...`);
+  let completedBatches = batches.length - pendingBatches.length;
 
-  await runPool(batches, 6, async (batch) => {
+  await runPool(pendingBatches, DEEP_HARVEST_MODE ? 4 : 6, async (batch) => {
     const idsParam = batch.ids.join(',');
+    let batchOk = true;
     for (let page = 1; page <= batch.maxPages; page += 1) {
+      if (DEEP_HARVEST_MODE) await sleep(120);
       const url = `${COMPANION_BASE}/api/matches?profile_ids=${idsParam}&use_enums=true&per_page=100&page=${page}&leaderboard_ids=rm_1v1`;
-      const data = await fetchJsonRetry(url, { headers: { 'User-Agent': UA_COMPANION }, timeoutMs: 16000 });
+      const data = await fetchJsonRetry(url, { headers: { 'User-Agent': UA_COMPANION }, timeoutMs: 20000 });
+      if (!data) {
+        batchOk = false;
+        break;
+      }
       const rawList = Array.isArray(data) ? data : (data?.matches || []);
       if (!rawList.length) break;
 
@@ -315,9 +338,15 @@ async function loadOrFetchMatches(roster) {
       if (oldestInPage < PATCH_CUTOFF_MS || rawList.length < 70) break;
     }
 
+    if (batchOk && DEEP_HARVEST_MODE) doneKeys.add(batch.key);
     completedBatches += 1;
-    if (completedBatches % 25 === 0 || completedBatches === batches.length) {
+    if (completedBatches % 10 === 0 || completedBatches === batches.length) {
       console.log(`  · Lotes ${completedBatches}/${batches.length} -> ${matchesById.size} partidas únicas válidas...`);
+    }
+    if (DEEP_HARVEST_MODE && (completedBatches % 20 === 0 || completedBatches === batches.length)) {
+      const snap = [...matchesById.values()].sort((a, b) => b.startedMs - a.startedMs);
+      fs.writeFileSync(cacheFile, JSON.stringify({ generatedAt: Date.now(), matches: snap }));
+      fs.writeFileSync(doneFile, JSON.stringify([...doneKeys]));
     }
   });
 
@@ -823,23 +852,23 @@ function compileProMatchupDataset(matches, insightsMap, deepReplaysMap) {
     const t2List = cell.byTier[2];
     const t3List = cell.byTier[3];
 
-    // Escalera real acordada en /grill-me:
-    // Nivel 1: si hay >= 8 partidas Top Pro, usar puramente Top Pro (y complementar replays profundos de T2 solo si hay <3 replays en T1).
-    // Nivel 2: si T1 < 8 pero T1 + T2 >= 8, usar T1 + T2.
-    // Nivel 3: si T1 + T2 < 8, usar T1 + T2 + T3 (y etiquetar muestra baja si total < 5).
+    // Escalera real de calidad (prioriza >=50 Top Pro, luego >=10 Top Pro + +2000 ELO, y solo suma +1900 si falta muestra):
     let activeMatches;
     let tierBadge;
-    if (t1List.length >= 8) {
+    if (t1List.length >= 50) {
       activeMatches = t1List;
       tierBadge = 'pro';
       if (cell.mapType === 'open') proTierPairs += 1;
-    } else if (t1List.length + t2List.length >= 8) {
+    } else if (t1List.length + t2List.length >= 10) {
       activeMatches = [...t1List, ...t2List];
-      tierBadge = '2k';
-      if (cell.mapType === 'open') t2TierPairs += 1;
+      tierBadge = t1List.length >= 15 && t1List.length >= t2List.length ? 'pro' : '2k';
+      if (cell.mapType === 'open') {
+        if (tierBadge === 'pro') proTierPairs += 1;
+        else t2TierPairs += 1;
+      }
     } else {
       activeMatches = [...t1List, ...t2List, ...t3List];
-      tierBadge = activeMatches.length >= 5 ? '1900' : 'low';
+      tierBadge = activeMatches.length >= 10 ? '1900' : 'low';
     }
 
     if (!activeMatches.length) continue;

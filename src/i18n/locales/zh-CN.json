@@ -157,7 +157,14 @@
     "tabPlan": "订阅与密钥",
     "signInRail": "登录账号",
     "signInRailSub": "Google · 同步方案",
-    "authDesc": "同步你的方案、管理已激活电脑并兑换预付密钥。"
+    "authDesc": "同步你的方案、管理已激活电脑并兑换预付密钥。",
+    "pageTitle": "玩家账号",
+    "searchingAccount": "正在查找你的账号…",
+    "startupGroup": "启动设置",
+    "startupPageTitle": "打开 Relic 时显示的页面",
+    "startupPageDesc": "选择启动时进入欢迎首页，还是直接进入数据中心。",
+    "startupWelcome": "欢迎首页",
+    "startupCentral": "直接进入数据中心"
   },
   "overlay": {
     "wf1Title": "读懂对手",
@@ -323,7 +330,13 @@
     "ultraRibbon": "★ 终极完整体验 · 最受欢迎",
     "ultraSubPrice": "USD · 全阶段战术套件",
     "redeemTitle": "兑换预付密钥",
-    "redeemSignInHint": "请先使用 Google 登录以兑换密钥并将订阅绑定到你的账号。"
+    "redeemSignInHint": "请先使用 Google 登录以兑换密钥并将订阅绑定到你的账号。",
+    "cycleMonthly": "按月",
+    "cycleAnnual": "按年",
+    "billingNote": "美元计价 · 年付支持银行卡 · 月付和年付均支持 USDT/USDC",
+    "ctaPro": "继续选择 Pro",
+    "ctaUltra": "选择 Ultra →",
+    "ctaTrial": "免费试用 Ultra 24 小时"
   },
   "skins": {
     "designGroup": "悬浮窗主题",
@@ -407,7 +420,11 @@
     "civTipTitle": "已开启文明速查卡",
     "civTipBody": "卡片会在 {time} 后自动隐藏。如果想有更充足的阅读时间，可延长至 0:40。",
     "civTipNo": "不了，谢谢",
-    "civTipYes": "延长显示至 40 秒"
+    "civTipYes": "延长显示至 40 秒",
+    "copy": "复制",
+    "refresh": "刷新",
+    "apply": "应用",
+    "verify": "验证"
   },
   "hud": {
     "starting": "正在启动…",
@@ -872,6 +889,98 @@
     "sending": "正在发送反馈…",
     "sent": "感谢！你的反馈已成功提交。",
     "error": "暂时无法发送反馈，请稍后再试。",
-    "desc": "反馈错误或为 Relic 提出改进建议。"
+    "desc": "反馈错误或为 Relic 提出改进建议。",
+    "attachDiag": "附加技术诊断日志（仅最近日志行，不含个人隐私数据）"
+  },
+  "prefs": {
+    "soundsOn": "界面音效 · 开启",
+    "soundsOff": "界面音效 · 静音",
+    "welcomeOn": "启动时显示首页 · 开启",
+    "welcomeOff": "启动时显示首页 · 隐藏"
+  },
+  "checkout": {
+    "payUsdc": "使用 USDC 支付 (Polygon)",
+    "autoActivateNote": "付款确认后将自动激活到你的 Google 账号。",
+    "useKey": "已有预付激活码？点击此处兑换 →"
+  },
+  "referrals": {
+    "bannerTitle": "免费赢取 1 个月 Relic Ultra",
+    "openBtn": "打开邀请奖励 →",
+    "eyebrow": "RELIC ULTRA · 免费 30 天",
+    "modalTitle": "邀请 10 位好友解锁 Ultra",
+    "modalLead": "每位好友在电脑上安装并打开 Relic，你即可获得 1 积分。",
+    "copyLink": "复制邀请链接",
+    "invitedList": "已邀请好友",
+    "haveCode": "有邀请码？"
+  },
+  "welcome": {
+    "newsTag": {
+      "novedad": "最新动态",
+      "actualizacion": "版本更新",
+      "torneo": "赛事资讯",
+      "aviso": "系统公告"
+    },
+    "newsMore": "查看详情",
+    "newsAria": "Relic 官方公告",
+    "activity7d": "近 7 天活跃",
+    "metaSyncing": "正在同步全球天梯数据…",
+    "counterLabel": "如何克制 {civ} (#1)",
+    "counterSrc": "职业 1v1 数据",
+    "goldTitle": "本周黄金战利品",
+    "noMatchesYet": "暂无对局记录",
+    "goldWeekUnit": "本周累计黄金",
+    "goldRecentUnit": "近期对局累计黄金",
+    "goldEmptyHint": "每次开启 Relic 完成对局后，你消耗与收集的黄金都会自动计入此处。",
+    "goldAutoHint": "每局结束后自动更新。",
+    "goldRankNext": "距 {next} 还差 {gold}",
+    "goldRankMax": "已达本周最高头衔",
+    "weeklyRecord": "本周最佳纪录",
+    "villagers": "村民",
+    "created": "已训练",
+    "army": "军队",
+    "units": "单位",
+    "castlesFarms": "城堡 · 农田",
+    "built": "已建造",
+    "peakEapm": "峰值 eAPM",
+    "streakHot": "连胜势头",
+    "streakCold": "近期连败",
+    "maps": "热门地图",
+    "lastDays": "近 {days} 天",
+    "victim": "拿手对手",
+    "nemesis": "近期克星",
+    "mostPlayedMap": "最常游玩地图：",
+    "noRecentMatches": "进行几场排位赛后，这里将展示你本周的主力文明与常玩地图。",
+    "weeklyBrief": "每周战报",
+    "ctaCentral": "进入数据中心",
+    "ctaTrain": "今日训练",
+    "ctaTechTree": "科技树",
+    "globalKicker": "帝国时代 II：决定版 · 全球天梯格局",
+    "globalTitle": "本周社区天梯主导格局",
+    "mostPlayed": "出场最高",
+    "highestWr": "胜率最高",
+    "recentTerrain": "你的近期战绩",
+    "openCentral": "在数据中心查看诊断",
+    "factOfDay": "每日百科",
+    "trainingSession": "训练进度",
+    "labActive": "训练实验室已启用",
+    "trainingModule": "训练模块",
+    "goTraining": "前往训练",
+    "defaultNewsTitle": "Relic v3.2 · 本周更新亮点",
+    "defaultNewsBody": "56 个文明全球天梯数据、职业 1v1 克制参考、每周黄金头衔与全面加固的安全防护。",
+    "newsChannel": "RELIC 公告",
+    "goldTodayTip": "今日对局累计收集的黄金",
+    "today": "今日",
+    "goldLastTip": "上一局已分析对局的黄金",
+    "lastMatchShort": "上局"
+  },
+  "expiredModal": {
+    "eyebrow": "RELIC ULTRA · 权限已到期",
+    "title": "你的 Relic Ultra 试用已结束",
+    "lead": "你的账号已恢复为免费版，所有战绩与录像数据均已完整保留。立即订阅即可重新解锁高级数据中心、赛后复盘、文明对阵与训练模块。",
+    "offerPill": "年付专属优惠 · 立省 20%",
+    "offerTitle": "立即选择年付方案立享 8 折优惠",
+    "offerSub": "绑定 Google 账号即时激活 · 支持银行卡或 USDT/USDC",
+    "ctaAnnual": "查看年付优惠 (−20%) →",
+    "ctaFree": "暂时继续使用免费版"
   }
 }

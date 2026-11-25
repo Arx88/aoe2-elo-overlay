@@ -17,7 +17,7 @@ const os = require('node:os');
 const { execFile, execFileSync } = require('node:child_process');
 const { verifyEntitlement } = require('./product');
 
-const DEFAULT_API_URL = process.env.AOE2_LICENSE_API_URL || 'https://aoe2-helper-licensing.aoe2helper-api.workers.dev';
+const DEFAULT_API_URL = 'https://aoe2-helper-licensing.aoe2helper-api.workers.dev';
 const CHECK_TIMEOUT_MS = 7000;
 const OAUTH_EXCHANGE_TIMEOUT_MS = 20000;
 const MACHINE_SALT = 'aoe2-helper-machine-v1:';
@@ -238,11 +238,11 @@ function getMachineHash() {
   return cachedMachineHash;
 }
 
-function validateApiUrl(raw) {
+function validateApiUrl(raw, { allowLocalHttp = false } = {}) {
   if (!raw || typeof raw !== 'string') return null;
   try {
     const u = new URL(raw.trim());
-    const isLocalDev = u.protocol === 'http:' && (u.hostname === '127.0.0.1' || u.hostname === 'localhost');
+    const isLocalDev = allowLocalHttp === true && u.protocol === 'http:' && (u.hostname === '127.0.0.1' || u.hostname === 'localhost');
     if (u.protocol !== 'https:' && !isLocalDev) return null;
     if (u.username || u.password) return null;
     return u.origin + u.pathname.replace(/\/+$/, '');
@@ -423,7 +423,7 @@ async function checkRemoteEntitlement({
     const accountId = typeof data.accountId === 'string' && data.accountId
       ? data.accountId
       : (pid ? `aoe2:${pid}` : `pc:${getMachineHash().slice(0, 16)}`);
-    const verifyOpts = { publicKeys, accountId, now };
+    const verifyOpts = { publicKeys, accountId, machineHash: dev.machineHash, now };
     if (pid) verifyOpts.profileId = pid;
     const verified = verifyEntitlement(data.token, verifyOpts);
     if (!verified.valid) {
@@ -514,6 +514,61 @@ async function submitRemoteFeedback({
     return {
       ok: false,
       error: err?.name === 'AbortError' ? 'Tiempo de espera agotado.' : 'No se pudo conectar con el servidor.',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function submitRemoteDiagnostic({
+  apiUrl = DEFAULT_API_URL,
+  kind = 'user_report',
+  fingerprint = '',
+  summary = '',
+  logTail = '',
+  appVersion = '0.0.0',
+  profileId = null,
+  alias = '',
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const base = validateApiUrl(apiUrl);
+  if (!base) return { ok: false, error: 'Servicio de diagnóstico no configurado.' };
+  const cleanSummary = String(summary || '').trim();
+  if (cleanSummary.length < 4) return { ok: false, error: 'Resumen demasiado corto.' };
+  if (typeof fetchImpl !== 'function') return { ok: false, error: 'Sin conexión disponible.' };
+
+  const dev = getDeviceInfo();
+  const rawPid = profileId != null ? Number(profileId) : null;
+  const pid = Number.isSafeInteger(rawPid) && rawPid > 0 ? rawPid : null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetchImpl(`${base}/v1/diagnostics`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        kind: String(kind || 'user_report').slice(0, 32),
+        fingerprint: String(fingerprint || '').slice(0, 96),
+        summary: cleanSummary.slice(0, 240),
+        logTail: String(logTail || '').slice(-6144),
+        appVersion: String(appVersion || '0.0.0').slice(0, 32),
+        osInfo: dev.osInfo,
+        profileId: pid,
+        alias: String(alias || '').trim().slice(0, 80),
+        machineHash: dev.machineHash,
+      }),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: data.error || `HTTP ${res.status}` };
+    }
+    return { ok: true, id: data.id || null, deduplicated: Boolean(data.deduplicated) };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err?.name === 'AbortError' ? 'timeout' : 'network-error',
     };
   } finally {
     clearTimeout(timer);
@@ -680,4 +735,5 @@ module.exports = {
   applyReferralCode,
   activateReferral,
   submitRemoteFeedback,
+  submitRemoteDiagnostic,
 };

@@ -3209,35 +3209,39 @@
 
       const patchHtml = ecp.patches?.length ? `<div class="cx-patch-table">
         <div class="cx-pt-head">
-          <span>Parches recientes</span>
-          <small>${ecp.patches.length} ${ecp.patches.length === 1 ? 'versión' : 'versiones'}</small>
+          <span>Rendimiento por parche de AoE2:DE</span>
+          <small>${ecp.patches.length} ${ecp.patches.length === 1 ? 'actualización' : 'actualizaciones'}</small>
         </div>
-        <div class="cx-pt-rows">${ecp.patches.map((p) => {
+        <div class="cx-pt-cols" aria-hidden="true">
+          <span>Actualización</span>
+          <span>Winrate</span>
+          <span class="is-right">Récord</span>
+          <span class="is-right">Más usada</span>
+        </div>
+        <div class="cx-pt-rows">${ecp.patches.map((p, idx) => {
           const wrTone = p.winRate >= 55 ? 'win' : p.winRate < 46 ? 'loss' : 'neutral';
           const barCls = wrTone === 'win' ? 'bar-emerald' : wrTone === 'loss' ? 'bar-rose' : 'bar-gold';
-          const deltaHtml = p.deltaVsPrev != null && p.deltaVsPrev !== 0
-            ? `<span class="cx-pt-delta ${p.deltaVsPrev > 0 ? 'win' : 'loss'}">${p.deltaVsPrev > 0 ? '+' : '−'}${Math.abs(p.deltaVsPrev)}%</span>`
+          const ageLabel = p.isLatest
+            ? 'Parche actual'
+            : (idx === 1 ? 'Parche anterior' : `Hace ${idx} parches`);
+          const bestTag = (!p.isLatest && p.isBest)
+            ? '<span class="cx-pt-mark is-best">mejor</span>'
             : '';
-          const markHtml = p.isLatest
-            ? '<span class="cx-pt-mark is-now">actual</span>'
-            : (p.isBest ? '<span class="cx-pt-mark is-best">mejor</span>' : '');
           const civLabel = p.topCiv ? (locCiv(p.topCiv) || p.topCiv) : '';
           const civHtml = p.topCiv
-            ? `<span class="cx-pt-civ" title="${esc(civLabel)}">${civBadge(p.topCiv)}<span class="cx-pt-civ-name">${esc(civLabel)}</span></span>`
-            : '';
-          return `<div class="cx-pt-row">
+            ? `<span class="cx-pt-civ" title="Civilización más usada en v${esc(p.patch)}: ${esc(civLabel)}">${civBadge(p.topCiv)}<span class="cx-pt-civ-name">${esc(civLabel)}</span></span>`
+            : '<span class="cx-pt-civ is-empty">—</span>';
+          const rowTip = `Actualización v${esc(p.patch)} de AoE2:DE · ${number(p.wins)} victorias y ${number(p.losses)} derrotas (${p.winRate}% WR)`;
+          return `<div class="cx-pt-row" title="${rowTip}">
             <div class="cx-pt-id">
-              <b class="mono">#${esc(p.patch)}</b>
-              ${markHtml}
+              <strong class="${p.isLatest ? 'is-now' : ''}">${ageLabel}</strong>
+              <span class="cx-pt-ver mono">v${esc(p.patch)}${bestTag}</span>
             </div>
             <div class="cx-pt-bar-col">
               <div class="cx-pt-track" aria-hidden="true"><i class="${barCls}" data-w="${Math.max(6, Math.min(100, p.winRate))}"></i></div>
+              <b class="cx-pt-wr ${wrTone} mono">${p.winRate}%</b>
             </div>
-            <div class="cx-pt-nums">
-              <b class="${wrTone} mono">${p.winRate}%</b>
-              <small class="mono">${number(p.wins)}–${number(p.losses)}</small>
-              ${deltaHtml}
-            </div>
+            <div class="cx-pt-rec mono">${number(p.wins)}V · ${number(p.losses)}D</div>
             ${civHtml}
           </div>`;
         }).join('')}</div>
