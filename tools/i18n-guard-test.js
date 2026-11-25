@@ -69,8 +69,9 @@ for (const rel of scanFiles) {
   const full = path.join(ROOT, rel);
   if (!fs.existsSync(full)) continue;
   const src = fs.readFileSync(full, 'utf8');
-  for (const m of src.matchAll(/data-i18n(?:-[a-z]+)?="([a-zA-Z0-9_.-]+)"/g)) usedKeys.add(m[1]);
-  for (const m of src.matchAll(/\b(?:AppI18n\.t|wt|i18n\.t)\(\s*['"]([a-zA-Z0-9_.-]+)['"]/g)) usedKeys.add(m[1]);
+  for (const m of src.matchAll(/data-i18n(?:-[a-z-]+)?="([a-zA-Z0-9_.-]+)"/g)) usedKeys.add(m[1]);
+  for (const m of src.matchAll(/\b(?:AppI18n\.t|wt|tt|trT|i18n\.t)\(\s*['"]([a-zA-Z0-9_.-]+)['"]/g)) usedKeys.add(m[1]);
+  for (const m of src.matchAll(/\bt\(\s*['"]([a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+)['"]/g)) usedKeys.add(m[1]);
 }
 const missingUsed = [...usedKeys].filter((k) => !allKeys.has(k));
 assert.equal(
@@ -108,24 +109,70 @@ for (const k of allKeys) {
   }
 }
 
-// 5. Elementos interactivos con texto español en HTML deben llevar data-i18n
-const BRAND_ALLOWLIST = new Set(['Free', 'Pro', 'Ultra', 'Relic', 'Relic Ultra', 'USDC', 'USDT', 'ELO', '1v1', 'Team']);
+// 5. Elementos visibles con texto en español en HTML deben llevar data-i18n
+const BRAND_ALLOWLIST = new Set([
+  'Free', 'Pro', 'Ultra', 'Relic', 'Relic Ultra', 'Relic Pro', 'Google',
+  'Prematch', 'Postmatch', 'Central 10 / 20', 'USDC', 'USDT', 'USDT / USDC',
+  'ELO', '1v1', 'Team', 'AOE II · DE', '0/10', '0 / 10', '0/2 PCs', '0x...', 'USD',
+]);
+const DYNAMIC_ID_ALLOWLIST = new Set([
+  'pageIndex', 'sessionBadge', 'pageSub', 'railPlanLabel', 'accSeatsBadge',
+  'checkoutModalTitle', 'checkoutOptMonthly', 'checkoutOptAnnual',
+  'checkoutPlanLine', 'checkoutSubtotal', 'checkoutTotal', 'checkoutDepositTitle',
+  'checkoutDepositAmount', 'referralPendingChip', 'civHelpTipBody', 'civHelpTipTime',
+  'hideEloName', 'hideEloDesc', 'civHelpDesc',
+]);
 for (const htmlFile of ['settings.html', 'index.html']) {
   const html = fs.readFileSync(path.join(ROOT, htmlFile), 'utf8');
   const offenders = [];
-  for (const m of html.matchAll(/<(h1|h2|h3|h4|button|label|summary|legend)([^>]*)>([^<]+)<\/\1>/g)) {
+  for (const m of html.matchAll(/<(h1|h2|h3|h4|button|label|summary|legend|p|span|strong|small|dt)([^>]*)>([^<]+)<\/\1>/g)) {
     const [, tag, attrs, rawText] = m;
     const text = rawText.trim();
     if (!text || text.length < 3 || BRAND_ALLOWLIST.has(text)) continue;
     if (/data-i18n/.test(attrs)) continue;
-    if (/^[0-9\s—–·×+%$.,/-]+$/.test(text)) continue;
-    offenders.push(`<${tag}> "${text.slice(0, 50)}"`);
+    const idMatch = attrs.match(/\bid="([^"]+)"/);
+    if (idMatch && DYNAMIC_ID_ALLOWLIST.has(idMatch[1])) continue;
+    if (/^[0-9\s—–·×+%$.,/:()−-]+$/.test(text)) continue;
+    if (/^\$[\d.]+\s*USD$/.test(text)) continue;
+    // Ignorar spans contenedores de emojis/iconos o texto solo técnico
+    if (/[áéíóúñÁÉÍÓÚÑ¡¿]|\b(de|la|el|en|por|con|para|tu|tus|ver|activar|cuenta|plan|amigos|gratis|mensual|anual|pago|red|código|derechos|cargando|pendientes|activados|incluido)\b/i.test(text)) {
+      offenders.push(`<${tag}> "${text.slice(0, 50)}"`);
+    }
   }
   assert.equal(
     offenders.length,
     0,
-    `[i18n-guard] ${htmlFile} tiene elementos sin data-i18n: ${offenders.join(', ')}`
+    `[i18n-guard] ${htmlFile} tiene elementos visibles sin data-i18n: ${offenders.join(', ')}`
   );
 }
 
-console.log(`i18n-guard-test: OK (${LOCALES.length} locales × ${allKeys.size} claves · ${usedKeys.size} usadas · 0 faltantes · 0 textos duros en HTML)`);
+// 6. Cero textos en español hardcodeados fuera de wt()/tt() en módulos JS completamente localizados
+const STRICT_JS_MODULES = ['ui/welcome-ui.js', 'ui/techtree-ui.js'];
+const CALL_STRIP_RE = /\b(?:wt|tt|trT|AppI18n\.t)\(\s*(?:(['"`])[^'"`]+\1|[a-zA-Z_$][\w.$]*)\s*,\s*(['"`])(?:\\.|(?!\2).)*\2/g;
+const STRICT_ES_RE = /[áéíóúñÁÉÍÓÚÑ¡¿]/;
+for (const rel of STRICT_JS_MODULES) {
+  const lines = fs.readFileSync(path.join(ROOT, rel), 'utf8').split(/\r?\n/);
+  const jsOffenders = [];
+  let inBlock = false;
+  lines.forEach((raw, idx) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    if (inBlock) { if (trimmed.includes('*/')) inBlock = false; return; }
+    if (trimmed.startsWith('/*')) { if (!trimmed.includes('*/')) inBlock = true; return; }
+    if (trimmed.startsWith('//') || trimmed.startsWith('*')) return;
+    const code = trimmed.replace(/\s+\/\/.*$/, '');
+    // Permitir lookup tables de mapeo (GOLD_RANK_KEYS, NEWS_TAG_META, periodLabel === 'Últimos 7 días')
+    if (/GOLD_RANK_KEYS|NEWS_TAG_META|periodLabel\s*===|fallback:\s*'/.test(code)) return;
+    const stripped = code.replace(CALL_STRIP_RE, '');
+    if (STRICT_ES_RE.test(stripped)) {
+      jsOffenders.push(`${rel}:${idx + 1}: ${code.slice(0, 90)}`);
+    }
+  });
+  assert.equal(
+    jsOffenders.length,
+    0,
+    `[i18n-guard] ${rel} tiene cadenas en español sin pasar por i18n:\n  ${jsOffenders.slice(0, 10).join('\n  ')}`
+  );
+}
+
+console.log(`i18n-guard-test: OK (${LOCALES.length} locales × ${allKeys.size} claves · ${usedKeys.size} usadas · 0 faltantes · 0 textos duros en HTML/JS)`);

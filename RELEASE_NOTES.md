@@ -1,3 +1,11 @@
+## v3.3.1 · Traducción integral en los 4 idiomas y botón de oferta de vencimiento en una línea
+
+- **Botón de oferta de prueba vencida corregido:** se fijó `white-space: nowrap`, ajuste limpio del contenedor y texto más conciso (`Ver oferta (−20 %) →` / `View offer (−20%) →`) para que el botón principal nunca vuelva a partirse en dos líneas en ningún idioma.
+- **Traducción completa (4 idiomas × 1.191 claves · `es-MX`, `es-ES`, `en`, `zh-CN`):** localización total de la pantalla de **Inicio**, **Árbol Tecnológico**, subpestañas y **Arena** de Entrenamiento, pantallas bloqueadas (**Prematch**, **Batalla**, **Postmatch**), **Planes**, **Checkout**, **Programa de referidos**, barra lateral y pie de versión, con re-render instantáneo al cambiar de idioma sin reiniciar Relic.
+- **Guardián automático de i18n endurecido en CI:** `i18n-guard-test` ahora verifica todos los elementos visibles de HTML, todas las claves invocadas por `t()` / `wt()` / `tt()` / `trT()` y cadenas hardcodeadas en JS para impedir que vuelvan a filtrarse textos sin traducir.
+
+---
+
 ## v3.3.0 · Inicio editorial, Árbol Tecnológico 56 civs, animaciones al scroll, Arena anti-trampa y seguridad reforzada
 
 - **Nueva pantalla de Inicio editorial (Relic Home):** Rango de Oro (*Saqueador → Mansa Musa*) con conteo semanal y ganancia de hoy (`+X hoy`), tira de actividad de 7 días, **Meta global · Age of Empires II: DE** en vivo con counters empíricos Pro, récords de la semana, Víctima favorita / Némesis reciente y bloque de **Novedades de Relic** con imagen editorial. Podés elegir si abrir siempre en Bienvenida o directo en Central desde **Cuenta → Inicio de la aplicación**.

@@ -83,7 +83,7 @@
         <div class="launcher-rail-art" aria-hidden="true"></div>
         <div class="rail-foot">
           <div class="rail-ref-wrap">
-            <button id="railReferralBtn" class="rail-ref-btn" type="button" title="Invitá 10 amigos y ganá 1 mes gratis de Relic Ultra">
+            <button id="railReferralBtn" class="rail-ref-btn" type="button" title="Invitá 10 amigos y ganá 1 mes gratis de Relic Ultra" data-i18n-title="referrals.railTip">
               <span class="rail-ref-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <polyline points="20 12 20 22 4 22 4 12"/>
@@ -94,8 +94,8 @@
                 </svg>
               </span>
               <span class="rail-ref-copy">
-                <strong class="rail-ref-title">Ganá 1 mes Ultra</strong>
-                <small id="railRefSub" class="rail-ref-sub">Traé 10 amigos</small>
+                <strong class="rail-ref-title" data-i18n="referrals.railTitle">Ganá 1 mes Ultra</strong>
+                <small id="railRefSub" class="rail-ref-sub" data-i18n="referrals.railSub">Traé 10 amigos</small>
               </span>
               <span id="railRefBadge" class="rail-ref-badge mono">0/10</span>
             </button>
@@ -113,7 +113,7 @@
                 <span class="rail-user-meta">
                   <span id="railPlanLabel" class="rail-user-tier">Free</span>
                   <span class="rail-user-dot" aria-hidden="true">·</span>
-                  <small id="railUserSub" class="rail-user-sub">Cuenta</small>
+                  <small id="railUserSub" class="rail-user-sub" data-i18n="account.tabAccount">Cuenta</small>
                 </span>
               </span>
             </button>
@@ -125,7 +125,7 @@
             </button>
           </div>
           <div class="rail-build">
-            <span class="rail-build-meta"><span id="version" class="rail-version"></span><span aria-hidden="true">·</span><span>Derechos reservados</span></span>
+            <span class="rail-build-meta"><span id="version" class="rail-version"></span><span aria-hidden="true">·</span><span data-i18n="common.allRightsReserved">Derechos reservados</span></span>
           </div>
           <div id="appPrefsPopover" class="prefs-popover" hidden role="dialog" aria-label="Ajustes de la app e idioma">
             <div class="prefs-pop-section">
@@ -214,20 +214,20 @@
               </div>
             </div>
 
-            <div class="group-head"><span>Programa de referidos</span><i></i></div>
+            <div class="group-head"><span data-i18n="referrals.groupTitle">Programa de referidos</span><i></i></div>
             <div class="account-ref-card" id="accountReferralCard">
               <div class="account-ref-top">
-                <span class="account-ref-pill">BENEFICIO ÚNICO · 1 VEZ</span>
+                <span class="account-ref-pill" data-i18n="referrals.oncePill">BENEFICIO ÚNICO · 1 VEZ</span>
                 <span id="accRefCountBadge" class="account-ref-count mono">0 / 10</span>
               </div>
               <h3 class="account-ref-title" data-i18n="referrals.bannerTitle">Ganá 1 mes gratis de Relic Ultra</h3>
-              <p class="mini account-ref-desc">Compartí Relic con 10 amigos nuevos. Para que cuenten, cada uno debe registrarse y activar su cuenta en su propia PC (al menos en versión Free).</p>
+              <p class="mini account-ref-desc" data-i18n="referrals.bannerDesc">Compartí Relic con 10 amigos nuevos. Para que cuenten, cada uno debe registrarse y activar su cuenta en su propia PC (al menos en versión Free).</p>
               <div id="accRefSegments" class="ref-segments is-compact" aria-hidden="true">
                 <i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i>
                 <i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i><i class="ref-seg"></i>
               </div>
               <div class="account-ref-foot">
-                <span id="accRefStatusText" class="mini account-ref-status">Compartí tu enlace o ingresá el código de un amigo.</span>
+                <span id="accRefStatusText" class="mini account-ref-status" data-i18n="referrals.defaultStatus">Compartí tu enlace o ingresá el código de un amigo.</span>
                 <button id="accOpenReferralBtn" class="btn gold account-ref-cta" type="button" data-i18n="referrals.openBtn">Abrir referidos →</button>
               </div>
             </div>
@@ -548,7 +548,7 @@
                 </div>
                 <ul id="freeFeatures" class="plan-feature-list"></ul>
                 <div class="plan-card-foot">
-                  <span class="plan-cta-muted">Incluido por defecto</span>
+                  <span class="plan-cta-muted" data-i18n="plansPage.includedDefault">Incluido por defecto</span>
                 </div>
               </article>
 
@@ -562,10 +562,10 @@
                   <div class="plan-price-hero">
                     <span class="plan-price-strike" id="proPriceStrike" hidden>$1.99</span>
                     <strong class="plan-price-amount" id="proPriceAmount" data-i18n="plansPage.proPrice">$1.99</strong>
-                    <span class="plan-price-period">/ mes</span>
+                    <span class="plan-price-period" data-i18n="common.perMonth">/ mes</span>
                     <span class="plan-price-sub" id="proPriceSub" data-i18n="plansPage.proSubPrice">USD · Facturación mensual</span>
                   </div>
-                  <span class="plan-annual-save" id="proAnnualSave" hidden>$18.99 / año · Ahorrás $4.89</span>
+                  <span class="plan-annual-save" id="proAnnualSave" hidden data-i18n="plansPage.proAnnualSave">$18.99 / año · Ahorrás $4.89</span>
                   <p class="plan-lead" data-i18n="plansPage.proDesc">Todo lo de Free + análisis Prematch completo del rival antes de jugar.</p>
                   <div class="plan-stage-pills">
                     <span class="stage-pill is-on">Free</span>
@@ -591,16 +591,16 @@
                   <div class="plan-price-hero is-ultra">
                     <span class="plan-price-strike" id="ultraPriceStrike" hidden>$2.99</span>
                     <strong class="plan-price-amount" id="ultraPriceAmount" data-i18n="plansPage.promaxPrice">$2.99</strong>
-                    <span class="plan-price-period">/ mes</span>
+                    <span class="plan-price-period" data-i18n="common.perMonth">/ mes</span>
                     <span class="plan-price-sub" id="ultraPriceSub" data-i18n="plansPage.ultraSubPrice">USD · Solo +$1 sobre Pro</span>
                   </div>
-                  <span class="plan-annual-save is-gold" id="ultraAnnualSave" hidden>$28.99 / año · Ahorrás $6.89</span>
+                  <span class="plan-annual-save is-gold" id="ultraAnnualSave" hidden data-i18n="plansPage.ultraAnnualSave">$28.99 / año · Ahorrás $6.89</span>
                   <p class="plan-lead" data-i18n="plansPage.promaxDesc">Prematch completo, guía de Batalla, Postmatch y Central de 200 partidas.</p>
                   <div class="plan-stage-pills">
                     <span class="stage-pill is-on is-gold">Prematch</span>
                     <span class="stage-pill is-on is-gold" data-i18n="nav.tactics">Batalla</span>
                     <span class="stage-pill is-on is-gold">Postmatch</span>
-                    <span class="stage-pill is-on is-gold">200 pj</span>
+                    <span class="stage-pill is-on is-gold" data-i18n="plansPage.matches200">200 pj</span>
                   </div>
                 </div>
                 <ul id="proMaxFeatures" class="plan-feature-list"></ul>
@@ -927,19 +927,19 @@
       <div class="checkout-modal">
         <header class="checkout-modal-head">
           <div>
-            <span class="eyebrow" id="checkoutEyebrow">RESUMEN DE SUSCRIPCIÓN</span>
+            <span class="eyebrow" id="checkoutEyebrow" data-i18n="checkout.eyebrow">RESUMEN DE SUSCRIPCIÓN</span>
             <h3 id="checkoutModalTitle">Relic Ultra</h3>
           </div>
-          <button type="button" id="checkoutCloseBtn" class="checkout-close" aria-label="Cerrar">×</button>
+          <button type="button" id="checkoutCloseBtn" class="checkout-close" aria-label="Cerrar" data-i18n-aria-label="common.close">×</button>
         </header>
 
         <div class="checkout-cycle-row" role="group" aria-label="Frecuencia de cobro">
           <button type="button" class="checkout-cycle-opt is-active" data-checkout-cycle="monthly">
-            <span>Mensual</span>
+            <span data-i18n="checkout.monthly">Mensual</span>
             <strong id="checkoutOptMonthly">$2.99/mes</strong>
           </button>
           <button type="button" class="checkout-cycle-opt" data-checkout-cycle="annual">
-            <span>Anual <em>−20%</em></span>
+            <span><span data-i18n="checkout.annual">Anual</span> <em>−20%</em></span>
             <strong id="checkoutOptAnnual">$28.99/año</strong>
           </button>
         </div>
@@ -947,16 +947,16 @@
         <div class="checkout-method-row" role="group" aria-label="Método de pago">
           <button type="button" class="checkout-method-opt is-active" id="checkoutMethodCrypto" data-checkout-method="crypto">
             <span>USDT / USDC</span>
-            <small>Red Polygon · 0% extra</small>
+            <small data-i18n="checkout.polygonZeroFee">Red Polygon · 0% extra</small>
           </button>
           <button type="button" class="checkout-method-opt" id="checkoutMethodCard" data-checkout-method="card">
-            <span>Tarjeta / Apple Pay</span>
-            <small id="checkoutMethodCardSub">Solo plan Anual (−20%)</small>
+            <span data-i18n="checkout.cardMethod">Tarjeta / Apple Pay</span>
+            <small id="checkoutMethodCardSub" data-i18n="checkout.cardAnnualOnly">Solo plan Anual (−20%)</small>
           </button>
         </div>
 
         <div class="checkout-coin-row" id="checkoutCoinRow">
-          <span class="checkout-coin-label" id="checkoutCoinLabel">Moneda en red Polygon (PoS)</span>
+          <span class="checkout-coin-label" id="checkoutCoinLabel" data-i18n="checkout.coinLabel">Moneda en red Polygon (PoS)</span>
           <div class="checkout-coin-pills" role="group" aria-label="Stablecoin">
             <button type="button" class="checkout-coin-pill is-active" data-checkout-coin="polygon_usdc">USDC</button>
             <button type="button" class="checkout-coin-pill" data-checkout-coin="polygon_usdt">USDT</button>
@@ -969,11 +969,11 @@
             <strong id="checkoutSubtotal">$2.99 USD</strong>
           </div>
           <div class="checkout-line is-save" id="checkoutSaveRow">
-            <span>Descuento anual (−20%)</span>
-            <strong id="checkoutSaveVal">Sin descuento</strong>
+            <span data-i18n="checkout.annualDiscount">Descuento anual (−20%)</span>
+            <strong id="checkoutSaveVal" data-i18n="checkout.noDiscount">Sin descuento</strong>
           </div>
           <div class="checkout-line is-total">
-            <span>Total hoy</span>
+            <span data-i18n="checkout.totalToday">Total hoy</span>
             <strong id="checkoutTotal">$2.99 USD</strong>
           </div>
         </div>
@@ -981,13 +981,13 @@
         <div class="checkout-deposit-box" id="checkoutDepositBox" hidden>
           <div class="checkout-deposit-head">
             <span id="checkoutDepositTitle">Enviá exactamente <strong id="checkoutDepositAmount">$2.99 USDC</strong> (Polygon)</span>
-            <span class="checkout-deposit-badge" id="checkoutOrderStatusBadge">Esperando pago</span>
+            <span class="checkout-deposit-badge" id="checkoutOrderStatusBadge" data-i18n="checkout.waitingPayment">Esperando pago</span>
           </div>
           <div class="checkout-deposit-addr-row">
             <code id="checkoutDepositAddr" class="checkout-deposit-addr">0x...</code>
             <button type="button" id="checkoutCopyAddrBtn" class="btn checkout-copy-btn" data-i18n="common.copy">Copiar</button>
           </div>
-          <p class="checkout-deposit-hint" id="checkoutDepositHint">Usá únicamente red Polygon (PoS). Tu plan se activa automáticamente al confirmarse.</p>
+          <p class="checkout-deposit-hint" id="checkoutDepositHint" data-i18n="checkout.depositHint">Usá únicamente red Polygon (PoS). Tu plan se activa automáticamente al confirmarse.</p>
         </div>
 
         <ul class="checkout-perks" id="checkoutPerks"></ul>
@@ -1017,36 +1017,36 @@
         <div class="referral-content">
           <div id="referralSignedOutBox" class="referral-gate" hidden>
             <div class="referral-gate-copy">
-              <strong>Conectá Google para activar tu enlace</strong>
-              <small>Tu código y tu progreso quedan guardados en tu cuenta.</small>
+              <strong data-i18n="referrals.connectGoogleTitle">Conectá Google para activar tu enlace</strong>
+              <small data-i18n="referrals.connectGoogleDesc">Tu código y tu progreso quedan guardados en tu cuenta.</small>
             </div>
             <button type="button" id="referralSignInBtn" class="btn gold relic-google-btn">
               <span class="g-mark" aria-hidden="true">G</span>
-              <span>Continuar con Google</span>
+              <span data-i18n="account.googleBtn">Continuar con Google</span>
             </button>
           </div>
           <p id="referralSignInError" class="referral-feedback is-err" hidden role="alert"></p>
 
           <div id="referralLoadingBox" class="referral-loading" hidden>
-            <span class="mini">Cargando…</span>
+            <span class="mini" data-i18n="common.loading">Cargando…</span>
           </div>
 
           <div id="referralMainBody" class="referral-body" hidden>
             <div id="referralClaimedBanner" class="referral-banner is-success" hidden>
-              <strong>★ ¡1 mes de Relic Ultra desbloqueado!</strong>
-              <span id="referralClaimedDetail" class="mini">Ya acreditado en tu cuenta.</span>
+              <strong data-i18n="referrals.claimedTitle">★ ¡1 mes de Relic Ultra desbloqueado!</strong>
+              <span id="referralClaimedDetail" class="mini" data-i18n="referrals.claimedDefault">Ya acreditado en tu cuenta.</span>
             </div>
 
             <div id="referralBlockedBanner" class="referral-banner is-warn" hidden>
-              <strong>Recompensa ya canjeada en esta PC</strong>
-              <span id="referralBlockedDetail" class="mini">Válida una vez por equipo.</span>
+              <strong data-i18n="referrals.blockedTitle">Recompensa ya canjeada en esta PC</strong>
+              <span id="referralBlockedDetail" class="mini" data-i18n="referrals.blockedDefault">Válida una vez por equipo.</span>
             </div>
 
             <section class="referral-progress-card">
               <div class="referral-progress-head">
                 <div class="referral-count-line">
                   <strong id="referralCountBig" class="mono">0 / 10</strong>
-                  <span>activados</span>
+                  <span data-i18n="referrals.activatedLabel">activados</span>
                 </div>
                 <span id="referralPendingChip" class="referral-pending-chip" hidden>0 pendientes</span>
               </div>
@@ -1059,7 +1059,7 @@
             <section class="referral-share-card">
               <div class="referral-share-grid">
                 <div class="referral-code-pill">
-                  <span class="referral-code-lbl">CÓDIGO</span>
+                  <span class="referral-code-lbl" data-i18n="referrals.codeLabel">CÓDIGO</span>
                   <code id="referralCodeVal" class="referral-copy-val is-code-font">—</code>
                   <button type="button" id="referralCopyCodeBtn" class="btn referral-copy-btn" data-i18n="common.copy">Copiar</button>
                 </div>

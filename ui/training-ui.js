@@ -13,6 +13,16 @@
 
   const WELCOME_STORAGE_KEY = 'relic_training_welcome_seen_v5';
 
+  function trT(key, fallback, vars = null) {
+    const api = root.AppI18n;
+    if (api && typeof api.t === 'function') {
+      const val = api.t(key, vars || undefined);
+      if (val && val !== key) return val;
+    }
+    if (!vars) return fallback;
+    return String(fallback).replace(/\{(\w+)\}/g, (_m, k) => (vars[k] != null ? String(vars[k]) : ''));
+  }
+
   // 56 civilizaciones estándar verificadas con árbol tecnológico oficial
   const CIV_NAMES_ES = {
     armenians: 'Armenios', aztecs: 'Aztecas', bengalis: 'Bengalíes', berbers: 'Bereberes',
@@ -493,7 +503,7 @@
         arenaAnswerResult = null;
         arenaPickedOptionId = null;
         arenaUnlockBanner = null;
-        arenaLeavePenaltyMsg = 'Saliste de Arena durante una pregunta activa: perdiste 1 vida y se descartó el desafío.';
+        arenaLeavePenaltyMsg = trT('training.arenaLeavePenalty', 'Saliste de Arena durante una pregunta activa: perdiste 1 vida y se descartó el desafío.');
         if (typeof root.settings?.trainingArenaAnswer === 'function' && abandonedId) {
           arenaSubmitting = true;
           try {
@@ -784,36 +794,36 @@
 
       return `<div class="tr-nav-wrap">
         <div class="tr-nav-bar">
-          <nav class="tr-tabs-row" role="tablist" aria-label="Centro de Entrenamiento">
+          <nav class="tr-tabs-row" role="tablist" aria-label="${esc(trT('nav.training', 'Entrenamiento'))}">
             <button type="button" class="tr-tab${activeSubtab === 'perf' ? ' is-active' : ''}" data-tr-tab="perf" role="tab" aria-selected="${activeSubtab === 'perf'}">
               <img src="assets/icons/postmatch/tempo.webp" alt="" draggable="false" />
-              <span>Progreso</span>
+              <span>${esc(trT('training.tabProgress', 'Progreso'))}</span>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'plan' ? ' is-active' : ''}" data-tr-tab="plan" role="tab" aria-selected="${activeSubtab === 'plan'}">
               <span class="tr-tab-dumb" aria-hidden="true">${renderDumbbellSvg()}</span>
-              <span>Mi Plan</span>
+              <span>${esc(trT('training.tabPlan', 'Mi Plan'))}</span>
               ${pendingQueue > 0 ? `<b class="tr-tab-count mono">${pendingQueue}</b>` : ''}
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'orders' ? ' is-active' : ''}" data-tr-tab="orders" role="tab" aria-selected="${activeSubtab === 'orders'}">
               <img src="assets/brand/opening-v1.png" alt="" draggable="false" />
-              <span>Build Orders</span>
+              <span>${esc(trT('training.tabOrders', 'Build Orders'))}</span>
               ${activeId ? '<i class="tr-tab-dot" aria-hidden="true"></i>' : ''}
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'matchups' ? ' is-active' : ''}" data-tr-tab="matchups" role="tab" aria-selected="${activeSubtab === 'matchups'}">
               <img src="assets/icons/postmatch/combat.webp" alt="" draggable="false" />
-              <span>Matchups</span>
+              <span>${esc(trT('training.tabMatchups', 'Matchups'))}</span>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'arena' ? ' is-active' : ''}" data-tr-tab="arena" role="tab" aria-selected="${activeSubtab === 'arena'}">
               <img src="assets/brand/review-knight-v1.png" alt="" draggable="false" />
-              <span>Arena</span>
+              <span>${esc(trT('training.tabArena', 'Arena'))}</span>
               <em class="tr-tab-pill${arena.locked ? ' is-warn' : ''}">${arenaTag}</em>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'techtree' ? ' is-active' : ''}" data-tr-tab="techtree" role="tab" aria-selected="${activeSubtab === 'techtree'}">
               <img src="assets/icons/aoe2/b_7.png" alt="" draggable="false" />
-              <span>Árbol de tecnología</span>
+              <span>${esc(trT('training.tabTechTree', 'Árbol de tecnología'))}</span>
             </button>
           </nav>
-          <button type="button" class="tr-guide-icon-btn" id="trOpenGuideBtn" title="Abrir guía rápida">?</button>
+          <button type="button" class="tr-guide-icon-btn" id="trOpenGuideBtn" title="${esc(trT('training.guideTip', 'Abrir guía rápida'))}">?</button>
         </div>
         <p class="tr-tab-hint">${esc(TAB_HINTS[activeSubtab] || TAB_HINTS.perf)}</p>
       </div>`;
@@ -878,13 +888,13 @@
           <img class="tr-lo-bg" src="assets/art/apertura-castle.webp" alt="" draggable="false" />
           <div class="tr-lo-inner">
             <div class="tr-lo-crest"><img src="assets/icons/lock.png" alt="" draggable="false" /></div>
-            <span class="eyebrow">3 ERRORES EN EL DÍA · DESCANSO OBLIGATORIO DE 24 HORAS</span>
-            <h3>Las puertas de la Arena descansan por hoy</h3>
+            <span class="eyebrow">${esc(trT('training.arenaLockEyebrow', '3 ERRORES EN EL DÍA · DESCANSO OBLIGATORIO DE 24 HORAS'))}</span>
+            <h3>${esc(trT('training.arenaLockTitle', 'Las puertas de la Arena descansan por hoy'))}</h3>
             <div class="tr-lockout-clock mono" id="trLockoutClock">${fmtCountdownMs(a.remainingMs)}</div>
-            <p>Tu progreso está guardado: <b>${a.unlockedUnits?.length || 0}/7 unidades desbloqueadas</b> · Nivel ${a.unlockedLevel}/7 (${a.levelCorrectCount}/${a.levelTarget} aciertos).</p>
+            <p>${esc(trT('training.arenaLockProgress', 'Tu progreso está guardado: {units}/7 unidades desbloqueadas · Nivel {level}/7 ({correct}/{target} aciertos).', { units: a.unlockedUnits?.length || 0, level: a.unlockedLevel, correct: a.levelCorrectCount, target: a.levelTarget }))}</p>
             <div class="tr-lo-actions">
-              <button type="button" class="btn gold tr-cta-sheen" data-tr-tab="orders">Armar una Build Order en Overlay →</button>
-              <button type="button" class="btn" data-tr-tab="matchups">Estudiar Matchups →</button>
+              <button type="button" class="btn gold tr-cta-sheen" data-tr-tab="orders">${esc(trT('training.arenaLockOrders', 'Armar una Build Order en Overlay →'))}</button>
+              <button type="button" class="btn" data-tr-tab="matchups">${esc(trT('training.arenaLockMatchups', 'Estudiar Matchups →'))}</button>
             </div>
           </div>
         </section>`;
@@ -895,18 +905,18 @@
         stageContent = `<section class="tr-arena-summary">
           <img class="tr-arena-summary-art" src="${resolveAsset(selectedCfg.art || activeCfg.art, 'assets/art/prematch-estandartes.webp')}" alt="" draggable="false" />
           <img class="tr-as-unit" src="${resolveAsset(selectedCfg.portrait || activeCfg.portrait)}" alt="" draggable="false" />
-          <span class="eyebrow">ARENA · NIVEL ${curSelected}/7 · ${a.catalogTotal || 410} DESAFÍOS</span>
+          <span class="eyebrow">${esc(trT('training.arenaEyebrow', 'ARENA · NIVEL {level}/7 · {total} DESAFÍOS', { level: curSelected, total: a.catalogTotal || 410 }))}</span>
           <h3>${esc(selectedCfg.rankTitle || activeCfg.rankTitle)} · ${esc(selectedCfg.unitName || activeCfg.unitName)}</h3>
           ${penaltyHtml}
-          <p>El tiempo arranca recién al tocar <b>Iniciar desafío</b>. Si salís de Arena con una pregunta activa, perdés <b>1 vida</b> y esa pregunta se descarta.</p>
-          <button type="button" class="btn gold tr-cta-sheen tr-arena-start-btn" id="trArenaPlayBtn">Iniciar desafío →</button>
+          <p>${esc(trT('training.arenaStartLead', 'El tiempo arranca recién al tocar Iniciar desafío. Si sales de Arena con una pregunta activa, pierdes 1 vida y esa pregunta se descarta.'))}</p>
+          <button type="button" class="btn gold tr-cta-sheen tr-arena-start-btn" id="trArenaPlayBtn">${esc(trT('training.arenaStartBtn', 'Iniciar desafío →'))}</button>
         </section>`;
       } else {
         const q = arenaQuestion;
         const timerW = Math.max(0, Math.round((arenaTimeLeftMs / Math.max(1, arenaTimeTotalMs)) * 1000));
         const mySide = q.myCiv
-          ? `<div class="tr-civ-side"><img class="tr-civ-crest-lg" src="${resolveCivCrest(q.myCiv.slug)}" alt="" draggable="false" /><strong>${esc(q.myCiv.name)}</strong><span class="eyebrow">TU CIV</span></div>`
-          : `<div class="tr-civ-side"><img class="tr-civ-crest-lg" src="${resolveAsset(q.levelConfig?.portrait || activeCfg.portrait)}" alt="" draggable="false" /><strong>Nivel ${q.level}/7</strong><span class="eyebrow">${esc(q.modeLabel)}</span></div>`;
+          ? `<div class="tr-civ-side"><img class="tr-civ-crest-lg" src="${resolveCivCrest(q.myCiv.slug)}" alt="" draggable="false" /><strong>${esc(q.myCiv.name)}</strong><span class="eyebrow">${esc(trT('training.arenaYourCiv', 'TU CIV'))}</span></div>`
+          : `<div class="tr-civ-side"><img class="tr-civ-crest-lg" src="${resolveAsset(q.levelConfig?.portrait || activeCfg.portrait)}" alt="" draggable="false" /><strong>${esc(trT('training.arenaLevelShort', 'Nivel {level}/7', { level: q.level }))}</strong><span class="eyebrow">${esc(q.modeLabel)}</span></div>`;
         const rivalSide = q.rivalCiv
           ? `<div class="tr-civ-side"><img class="tr-civ-crest-lg is-rival" src="${resolveCivCrest(q.rivalCiv.slug)}" alt="" draggable="false" /><strong>${esc(q.rivalCiv.name)}</strong><span class="tr-civ-threat">${esc(q.threatLabel)}</span></div>`
           : `<div class="tr-civ-side"><img class="tr-civ-crest-lg is-age" src="${resolveAsset(q.ageIcon, 'assets/icons/ages/castle.png')}" alt="" draggable="false" /><strong>${esc(q.ageLabel || 'AoE2:DE')}</strong><span class="tr-civ-threat">${esc(q.threatLabel)}</span></div>`;
@@ -928,7 +938,7 @@
 
         const res = arenaAnswerResult;
         const fbMsg = res
-          ? `${res.timedOut ? 'Tiempo agotado · ' : res.isCorrect ? '¡Correcto! ' : 'Incorrecto (−1 vida) · '}${res.explanation}`
+          ? `${res.timedOut ? trT('training.arenaTimedOut', 'Tiempo agotado · ') : res.isCorrect ? trT('training.arenaCorrect', '¡Correcto! ') : trT('training.arenaWrong', 'Incorrecto (−1 vida) · ')}${res.explanation}`
           : '';
 
         stageContent = `<div class="tr-arena-stage">
@@ -943,7 +953,7 @@
               <div class="tr-vs-diamond"><span>VS</span></div>
               <span class="tr-arena-ctx">
                 <img src="${resolveAsset(q.ageIcon, 'assets/icons/ages/castle.png')}" alt="" draggable="false" />
-                <span>${esc(q.mapName)} · ${esc(q.levelConfig?.difficultyLabel || `Nivel ${q.level}`)}</span>
+                <span>${esc(q.mapName)} · ${esc(q.levelConfig?.difficultyLabel || trT('training.arenaLevelShort', 'Nivel {level}/7', { level: q.level }))}</span>
               </span>
             </div>
             ${rivalSide}
@@ -953,7 +963,7 @@
 
         <div class="tr-arena-feedback${res && !res.isCorrect ? ' is-wrong' : ''}" id="trArenaFeedback"${res ? '' : ' hidden'}>
           <span id="trArenaFbText">${esc(fbMsg)}</span>
-          <button type="button" class="btn gold tr-cta-sheen" id="trArenaNextQuestionBtn">Siguiente desafío →</button>
+          <button type="button" class="btn gold tr-cta-sheen" id="trArenaNextQuestionBtn">${esc(trT('training.arenaNextBtn', 'Siguiente desafío →'))}</button>
         </div>
 
         <div class="tr-ans-grid" id="trArenaOptions">${optHtml}</div>`;
@@ -3412,6 +3422,7 @@
       load,
       refresh: load,
       render,
+      rerender: () => { if (state) render(); },
       syncProduct,
       setTrialAvailable: (avail) => {
         const next = Boolean(avail);

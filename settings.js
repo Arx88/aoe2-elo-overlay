@@ -2629,6 +2629,15 @@ function applyLanguageUi(lang) {
   if (lastBuildOrderPayload) paintBuildOrder(lastBuildOrderPayload);
   if (lastTacticsPayload) paintTactics(lastTacticsPayload);
   if (lastCentralPayload) paintCentral(lastCentralPayload);
+  if (typeof syncPlanPricingUi === 'function') syncPlanPricingUi();
+  if (typeof paintReferralsSummary === 'function') paintReferralsSummary(latestReferralsState);
+  if (typeof paintWelcomeStartupPref === 'function') paintWelcomeStartupPref();
+  if (typeof welcomeHomeUi !== 'undefined' && welcomeHomeUi && typeof welcomeHomeUi.rerender === 'function') {
+    welcomeHomeUi.rerender();
+  }
+  if (typeof trainingUi !== 'undefined' && trainingUi && typeof trainingUi.rerender === 'function') {
+    trainingUi.rerender();
+  }
   renderLanguageSelectors();
   renderWizardStep();
 }
@@ -3346,7 +3355,9 @@ function syncPlanPricingUi() {
   const proSave = el('proAnnualSave');
   if (proAmt) proAmt.textContent = isAnnual ? PLAN_CATALOG.pro.annualMonthlyEq : PLAN_CATALOG.pro.monthlyPrice;
   if (proStrike) proStrike.hidden = !isAnnual;
-  if (proSub) proSub.textContent = isAnnual ? PLAN_CATALOG.pro.annualSub : PLAN_CATALOG.pro.monthlySub;
+  if (proSub) proSub.textContent = isAnnual
+    ? t('plansPage.proAnnualSub', PLAN_CATALOG.pro.annualSub)
+    : t('plansPage.proMonthlySub', PLAN_CATALOG.pro.monthlySub);
   if (proSave) proSave.hidden = !isAnnual;
 
   const uAmt = el('ultraPriceAmount');
@@ -3355,7 +3366,9 @@ function syncPlanPricingUi() {
   const uSave = el('ultraAnnualSave');
   if (uAmt) uAmt.textContent = isAnnual ? PLAN_CATALOG.promax.annualMonthlyEq : PLAN_CATALOG.promax.monthlyPrice;
   if (uStrike) uStrike.hidden = !isAnnual;
-  if (uSub) uSub.textContent = isAnnual ? PLAN_CATALOG.promax.annualSub : PLAN_CATALOG.promax.monthlySub;
+  if (uSub) uSub.textContent = isAnnual
+    ? t('plansPage.ultraAnnualSub', PLAN_CATALOG.promax.annualSub)
+    : t('plansPage.ultraMonthlySub', PLAN_CATALOG.promax.monthlySub);
   if (uSave) uSave.hidden = !isAnnual;
 
   const curPlan = currentProduct?.plan === 'beta' ? 'promax' : (currentProduct?.plan || 'free');
@@ -3372,6 +3385,7 @@ function syncPlanPricingUi() {
   if (currentProduct && typeof syncLockedPageShowcases === 'function') {
     syncLockedPageShowcases(currentProduct);
   }
+  const periodWord = isAnnual ? t('plansPage.periodYr', 'año') : t('plansPage.periodMo', 'mes');
   document.querySelectorAll('[data-plan-checkout]').forEach((btn) => {
     const target = btn.dataset.planCheckout;
     const targetRank = PLAN_RANK[target] ?? 0;
@@ -3379,13 +3393,15 @@ function syncPlanPricingUi() {
     const isIncludedInHigher = targetRank < curRank;
     btn.disabled = isCurrent || isIncludedInHigher;
     if (isCurrent) {
-      btn.textContent = 'Tu plan actual';
+      btn.textContent = t('plansPage.currentPlanBtn', 'Tu plan actual');
     } else if (isIncludedInHigher) {
-      btn.textContent = 'Incluido en tu plan Ultra';
+      btn.textContent = t('plansPage.includedInUltra', 'Incluido en tu plan Ultra');
     } else if (target === 'pro') {
-      btn.textContent = isAnnual ? 'Continuar con Pro · $18.99/año' : 'Continuar con Pro · $1.99/mes';
+      const price = isAnnual ? '$18.99' : '$1.99';
+      btn.textContent = t('plansPage.continueProPrice', 'Continuar con Pro · {price}/{period}', { price, period: periodWord });
     } else {
-      btn.textContent = isAnnual ? 'Elegir Ultra · $28.99/año →' : 'Elegir Ultra · $2.99/mes →';
+      const price = isAnnual ? '$28.99' : '$2.99';
+      btn.textContent = t('plansPage.chooseUltraPrice', 'Elegir Ultra · {price}/{period} →', { price, period: periodWord });
     }
   });
 }
@@ -3436,15 +3452,18 @@ function paintCheckoutModal() {
   const coinLabelEl = el('checkoutCoinLabel');
 
   if (titleEl) titleEl.textContent = cfg.name;
-  if (optM) optM.textContent = `${cfg.monthlyPrice}/mes`;
-  if (optA) optA.textContent = `${cfg.annualTotal}/año`;
-  if (lineEl) lineEl.textContent = `Plan ${cfg.name} (${isAnnual ? 'Anual' : 'Mensual'})`;
+  const moLbl = t('plansPage.periodMo', 'mes');
+  const yrLbl = t('plansPage.periodYr', 'año');
+  const cycleLbl = isAnnual ? t('checkout.annual', 'Anual') : t('checkout.monthly', 'Mensual');
+  if (optM) optM.textContent = `${cfg.monthlyPrice}/${moLbl}`;
+  if (optA) optA.textContent = `${cfg.annualTotal}/${yrLbl}`;
+  if (lineEl) lineEl.textContent = t('checkout.planLine', 'Plan {name} ({cycle})', { name: cfg.name, cycle: cycleLbl });
   if (subEl) subEl.textContent = isAnnual ? `${cfg.annualTotal} USD` : `${cfg.monthlyPrice} USD`;
   if (saveRow) {
     saveRow.hidden = false;
     saveRow.classList.toggle('is-muted', !isAnnual);
   }
-  if (saveVal) saveVal.textContent = isAnnual ? `−${cfg.annualSave} USD` : 'Sin descuento';
+  if (saveVal) saveVal.textContent = isAnnual ? `−${cfg.annualSave} USD` : t('checkout.noDiscount', 'Sin descuento');
   if (totalEl) totalEl.textContent = isAnnual ? `${cfg.annualTotal} USD` : `${cfg.monthlyPrice} USD`;
 
   document.querySelectorAll('[data-checkout-cycle]').forEach((btn) => {
@@ -4022,7 +4041,7 @@ function openExpiredOfferModal(remoteLic) {
   backdrop.innerHTML = `<div class="relic-upgrade-stage is-art-right">
     <img class="rum-art" src="assets/art/central-hero.jpg" alt="" draggable="false" />
     <div class="rum-scrim" aria-hidden="true"></div>
-    <button type="button" class="rum-close" id="rumCloseBtn" aria-label="Cerrar">×</button>
+    <button type="button" class="rum-close" id="rumCloseBtn" aria-label="${escapeHtml(t('common.close', 'Cerrar'))}">×</button>
     <div class="rum-copy">
       <span class="rum-eyebrow">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
@@ -4036,8 +4055,8 @@ function openExpiredOfferModal(remoteLic) {
         <small>${escapeHtml(t('expiredModal.offerSub', 'Activación instantánea con tu cuenta Google · Tarjeta o USDT/USDC'))}</small>
       </div>
       <div class="rum-actions">
-        <button type="button" class="rum-cta" id="rumExpiredAnnualBtn">${escapeHtml(t('expiredModal.ctaAnnual', 'Ver oferta anual (−20 %) →'))}</button>
-        <button type="button" class="rum-link" id="rumDismissBtn">${escapeHtml(t('expiredModal.ctaFree', 'Seguir en Free por ahora'))}</button>
+        <button type="button" class="rum-cta" id="rumExpiredAnnualBtn">${escapeHtml(t('expiredModal.ctaAnnual', 'Ver oferta (−20 %) →'))}</button>
+        <button type="button" class="rum-link" id="rumDismissBtn">${escapeHtml(t('expiredModal.ctaFree', 'Seguir en Free'))}</button>
       </div>
     </div>
   </div>`;
@@ -4144,19 +4163,19 @@ function syncLockedPageShowcases(product) {
         preview.className = 'pm-locked-preview';
         preview.setAttribute('aria-hidden', 'true');
         preview.innerHTML = `<div class="pm-lp-hero">
-          <div><span class="pm-lp-tag">VICTORIA · ARABIA · RM 1V1</span><h4>Francos vs Mayas · 32:14</h4></div>
+          <div><span class="pm-lp-tag">${escapeHtml(t('lockShowcase.pmPreviewTag', 'VICTORIA · ARABIA · RM 1V1'))}</span><h4>${escapeHtml(t('lockShowcase.pmPreviewMatch', 'Francos vs Mayas · 32:14'))}</h4></div>
           <div class="pm-lp-grade">A+</div>
         </div>
         <div class="pm-lp-kpis">
-          <div><span>Feudal</span><b>09:52</b></div>
-          <div><span>Castillos</span><b>19:38</b></div>
-          <div><span>CU inactivo</span><b>0:19</b></div>
+          <div><span>${escapeHtml(t('lockShowcase.pmPreviewFeudal', 'Feudal'))}</span><b>09:52</b></div>
+          <div><span>${escapeHtml(t('lockShowcase.pmPreviewCastle', 'Castillos'))}</span><b>19:38</b></div>
+          <div><span>${escapeHtml(t('lockShowcase.pmPreviewIdleTc', 'CU inactivo'))}</span><b>0:19</b></div>
           <div><span>eAPM</span><b>54</b></div>
         </div>
         <div class="pm-lp-bars">
-          <div><span>Economía</span><i></i></div>
-          <div><span>Ritmo de edades</span><i></i></div>
-          <div><span>Combate y eficiencia</span><i></i></div>
+          <div><span>${escapeHtml(t('lockShowcase.pmPreviewEco', 'Economía'))}</span><i></i></div>
+          <div><span>${escapeHtml(t('lockShowcase.pmPreviewAgeTempo', 'Ritmo de edades'))}</span><i></i></div>
+          <div><span>${escapeHtml(t('lockShowcase.pmPreviewCombat', 'Combate y eficiencia'))}</span><i></i></div>
         </div>`;
         postMatchReportEl.appendChild(preview);
       }
@@ -4166,17 +4185,17 @@ function syncLockedPageShowcases(product) {
         art: 'assets/art/postmatch-v3-cabecera.webp',
         artRight: true,
         eyebrow: 'Relic Ultra',
-        title: 'Revisá cada partida apenas termina',
+        title: t('lockShowcase.pmTitle', 'Revisa cada partida apenas termina'),
         lead: trialAvail
-          ? 'Probalo gratis durante 24 horas y mirá tus tiempos, economía y focos reales de mejora.'
-          : 'Incluido en Relic Ultra: tiempos de edad, economía, combate y focos reales de mejora.',
+          ? t('lockShowcase.pmLeadTrial', 'Pruébalo gratis durante 24 horas y mira tus tiempos, economía y focos reales de mejora.')
+          : t('lockShowcase.pmLeadNoTrial', 'Incluido en Relic Ultra: tiempos de edad, economía, combate y focos reales de mejora.'),
         perks: [
-          { ico: icoTrend, text: 'Tiempos de Edad, inactividad del CU y comparativa ELO' },
-          { ico: icoStar, text: 'Resumen flotante automático al terminar cada partida' },
-          { ico: icoList, text: 'Focos detectados enviados directo a tu plan de Entrenamiento' },
+          { ico: icoTrend, text: t('lockShowcase.pmPerk1', 'Tiempos de Edad, inactividad del CU y comparativa ELO') },
+          { ico: icoStar, text: t('lockShowcase.pmPerk2', 'Resumen flotante automático al terminar cada partida') },
+          { ico: icoList, text: t('lockShowcase.pmPerk3', 'Focos detectados enviados directo a tu plan de Entrenamiento') },
         ],
-        primaryLabel: trialAvail ? 'Probar 24 h gratis' : 'Ver Plan Ultra',
-        secondaryLabel: 'Ver planes',
+        primaryLabel: trialAvail ? t('lockShowcase.try24h', 'Probar 24 h gratis') : t('lockShowcase.viewUltra', 'Ver Plan Ultra'),
+        secondaryLabel: t('lockShowcase.viewPlans', 'Ver planes'),
         isTrial: trialAvail,
       });
       const veil = wrap.firstElementChild;
@@ -4198,18 +4217,18 @@ function syncLockedPageShowcases(product) {
         tier: 'ultra',
         art: 'assets/art/wizard-umbral.webp',
         artRight: true,
-        eyebrow: 'Relic Pro · Ultra',
-        title: 'Ayuda táctica en batalla',
+        eyebrow: t('lockShowcase.tacEyebrow', 'Relic Pro · Ultra'),
+        title: t('lockShowcase.tacTitle', 'Ayuda táctica en batalla'),
         lead: trialAvail
-          ? 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego. Probá Ultra gratis 24 horas.'
-          : 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego con Relic Pro y Ultra.',
+          ? t('lockShowcase.tacLeadTrial', 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego. Prueba Ultra gratis 24 horas.')
+          : t('lockShowcase.tacLeadNoTrial', 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego con Relic Pro y Ultra.'),
         perks: [
-          { ico: icoShield, text: 'Bonos, unidades fuertes y debilidades de ambas civs' },
-          { ico: icoList, text: 'Smart Build Order en pantalla según tu civ y mapa' },
-          { ico: icoStar, text: 'Overlay discreto pensado para no distraerte en partida' },
+          { ico: icoShield, text: t('lockShowcase.tacPerk1', 'Bonos, unidades fuertes y debilidades de ambas civs') },
+          { ico: icoList, text: t('lockShowcase.tacPerk2', 'Smart Build Order en pantalla según tu civ y mapa') },
+          { ico: icoStar, text: t('lockShowcase.tacPerk3', 'Overlay discreto pensado para no distraerte en partida') },
         ],
-        primaryLabel: trialAvail ? 'Probar 24 h gratis' : 'Ver Plan Ultra',
-        secondaryLabel: 'Ver planes',
+        primaryLabel: trialAvail ? t('lockShowcase.try24h', 'Probar 24 h gratis') : t('lockShowcase.viewUltra', 'Ver Plan Ultra'),
+        secondaryLabel: t('lockShowcase.viewPlans', 'Ver planes'),
         isTrial: trialAvail,
       });
       const veil = wrap.firstElementChild;
@@ -4235,15 +4254,15 @@ function syncLockedPageShowcases(product) {
         art: 'assets/art/prematch-estandartes.webp',
         artRight: true,
         eyebrow: 'Relic Pro',
-        title: 'Conocé a tu rival antes de empezar',
-        lead: 'Sumá lectura completa de rivales, historial de cruces y recomendador de civilización desde el minuto cero.',
+        title: t('lockShowcase.ovTitle', 'Conoce a tu rival antes de empezar'),
+        lead: t('lockShowcase.ovLead', 'Suma lectura completa de rivales, historial de cruces y recomendador de civilización desde el minuto cero.'),
         perks: [
-          { ico: icoEye, text: 'Últimas 5 civs, mapa favorito y aperturas del rival' },
-          { ico: icoShield, text: 'Recomendador de civilización según el mapa y tu oponente' },
-          { ico: icoTrend, text: 'Enfrentamientos previos y balance de equipos en TG' },
+          { ico: icoEye, text: t('lockShowcase.ovPerk1', 'Últimas 5 civs, mapa favorito y aperturas del rival') },
+          { ico: icoShield, text: t('lockShowcase.ovPerk2', 'Recomendador de civilización según el mapa y tu oponente') },
+          { ico: icoTrend, text: t('lockShowcase.ovPerk3', 'Enfrentamientos previos y balance de equipos en TG') },
         ],
-        primaryLabel: 'Ver Plan Pro',
-        secondaryLabel: trialAvail ? 'Probar Ultra 24 h' : 'Ver planes',
+        primaryLabel: t('lockShowcase.viewPro', 'Ver Plan Pro'),
+        secondaryLabel: trialAvail ? t('lockShowcase.tryUltra24h', 'Probar Ultra 24 h') : t('lockShowcase.viewPlans', 'Ver planes'),
         isTrial: false,
       });
       const veil = wrap.firstElementChild;
@@ -4254,8 +4273,8 @@ function syncLockedPageShowcases(product) {
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.className = 'rum-close';
-        closeBtn.setAttribute('aria-label', 'Ver ajustes gratuitos');
-        closeBtn.title = 'Ver ajuste gratuito de tiempo';
+        closeBtn.setAttribute('aria-label', t('lockShowcase.freeSettingsTip', 'Ver ajuste gratuito de tiempo'));
+        closeBtn.title = t('lockShowcase.freeSettingsTip', 'Ver ajuste gratuito de tiempo');
         closeBtn.textContent = '×';
         closeBtn.addEventListener('click', () => {
           ovPage.dataset.freeVeilDismissed = '1';
@@ -4312,7 +4331,8 @@ function setRefSegments(container, activatedCount = 0, pendingCount = 0, goal = 
 function formatReferralDate(ms) {
   if (!ms) return '';
   try {
-    return new Date(ms).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const loc = selectedLanguage === 'en' ? 'en-US' : selectedLanguage === 'zh-CN' ? 'zh-CN' : selectedLanguage || 'es-MX';
+    return new Date(ms).toLocaleDateString(loc, { day: '2-digit', month: '2-digit', year: 'numeric' });
   } catch (_) {
     return '';
   }
@@ -4328,11 +4348,11 @@ function paintReferralsSummary(data) {
 
   if (!data || !data.ok) {
     if (railBtn) railBtn.classList.remove('is-claimed');
-    if (railSub) railSub.textContent = 'Traé 10 amigos';
+    if (railSub) railSub.textContent = t('referrals.railSub', 'Trae 10 amigos');
     if (railBadge) railBadge.textContent = '0/10';
     if (accCount) accCount.textContent = '0 / 10';
     setRefSegments(accSegs, 0, 0, 10);
-    if (accStatus) accStatus.textContent = 'Iniciá sesión con Google para obtener tu código de referido.';
+    if (accStatus) accStatus.textContent = t('referrals.signInStatus', 'Inicia sesión con Google para obtener tu código de referido.');
     return;
   }
 
@@ -4346,26 +4366,28 @@ function paintReferralsSummary(data) {
   if (railBadge) railBadge.textContent = claimed ? '✓ Ultra' : `${Math.min(activated, goal)}/${goal}`;
   if (railSub) {
     railSub.textContent = claimed
-      ? 'Mes gratis acreditado'
+      ? t('referrals.monthCredited', 'Mes gratis acreditado')
       : blocked
-        ? 'Recompensa usada en esta PC'
-        : (pending > 0 ? `${pending} pendiente${pending === 1 ? '' : 's'}` : 'Traé 10 amigos');
+        ? t('referrals.machineUsedShort', 'Recompensa usada en esta PC')
+        : (pending > 0
+          ? t(pending === 1 ? 'referrals.pendingOne' : 'referrals.pendingMany', '{n} pendientes', { n: pending })
+          : t('referrals.railSub', 'Trae 10 amigos'));
   }
 
-  if (accCount) accCount.textContent = claimed ? '✓ Completado' : `${Math.min(activated, goal)} / ${goal}`;
+  if (accCount) accCount.textContent = claimed ? t('referrals.completed', '✓ Completado') : `${Math.min(activated, goal)} / ${goal}`;
   setRefSegments(accSegs, claimed ? goal : activated, claimed ? 0 : pending, goal);
   if (accStatus) {
     if (claimed) {
       accStatus.textContent = data.rewardExpiresAt
-        ? `¡1 mes gratis de Ultra activado! Vigente hasta ${formatReferralDate(data.rewardExpiresAt)}.`
-        : '¡1 mes gratis de Relic Ultra ya acreditado en tu cuenta!';
+        ? t('referrals.claimedUntil', '¡1 mes gratis de Ultra activado! Vigente hasta {date}.', { date: formatReferralDate(data.rewardExpiresAt) })
+        : t('referrals.claimedGeneric', '¡1 mes gratis de Relic Ultra ya acreditado en tu cuenta!');
     } else if (blocked) {
-      accStatus.textContent = data.rewardMachineBlockedMessage || 'Esta PC ya recibió anteriormente la recompensa única.';
+      accStatus.textContent = data.rewardMachineBlockedMessage || t('referrals.machineBlocked', 'Esta PC ya recibió anteriormente la recompensa única.');
     } else if (activated > 0) {
       const left = Math.max(0, goal - activated);
-      accStatus.textContent = `Te faltan ${left} ${left === 1 ? 'amigo activado' : 'amigos activados'} para desbloquear 1 mes gratis de Ultra.`;
+      accStatus.textContent = t(left === 1 ? 'referrals.friendsLeftOne' : 'referrals.friendsLeftMany', 'Te faltan {n} amigos activados para desbloquear 1 mes gratis de Ultra.', { n: left });
     } else {
-      accStatus.textContent = `Tu código: ${data.code || '—'} · Compartilo con tus amigos de AoE2:DE.`;
+      accStatus.textContent = t('referrals.shareCodeHint', 'Tu código: {code} · Compártelo con tus amigos de AoE2:DE.', { code: data.code || '—' });
     }
   }
 }
@@ -4420,18 +4442,21 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
   if (claimedBanner) claimedBanner.hidden = !claimed;
   if (claimed && claimedDetail) {
     claimedDetail.textContent = data.rewardExpiresAt
-      ? `Acreditado el ${formatReferralDate(data.rewardClaimedAt)} · Tu plan Ultra queda activo hasta el ${formatReferralDate(data.rewardExpiresAt)}.`
-      : 'Recompensa única de 1 mes de Relic Ultra acreditada en tu cuenta.';
+      ? t('referrals.claimedOnUntil', 'Acreditado el {from} · Tu plan Ultra queda activo hasta el {until}.', {
+        from: formatReferralDate(data.rewardClaimedAt),
+        until: formatReferralDate(data.rewardExpiresAt),
+      })
+      : t('referrals.claimedOneTime', 'Recompensa única de 1 mes de Relic Ultra acreditada en tu cuenta.');
   }
   if (blockedBanner) blockedBanner.hidden = claimed || !blocked;
   if (blocked && blockedDetail) {
-    blockedDetail.textContent = data.rewardMachineBlockedMessage || 'Esta PC ya recibió anteriormente el mes gratis de Relic Ultra por referidos.';
+    blockedDetail.textContent = data.rewardMachineBlockedMessage || t('referrals.blockedDetail', 'Esta PC ya recibió anteriormente el mes gratis de Relic Ultra por referidos.');
   }
 
   if (countBig) countBig.textContent = `${Math.min(activated, goal)} / ${goal}`;
   if (pendingChip) {
     pendingChip.hidden = pending <= 0;
-    pendingChip.textContent = `${pending} ${pending === 1 ? 'pendiente' : 'pendientes'}`;
+    pendingChip.textContent = t(pending === 1 ? 'referrals.pendingOne' : 'referrals.pendingMany', '{n} pendientes', { n: pending });
   }
   setRefSegments(segsEl, claimed ? goal : activated, claimed ? 0 : pending, goal);
 
@@ -4446,21 +4471,21 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
     if (myStatusBox) myStatusBox.hidden = false;
     if (myStatusTitle) {
       myStatusTitle.textContent = myRef.status === 'activated'
-        ? `✓ Invitación de ${myRef.inviterLabel} activada`
+        ? t('referrals.invActivated', '✓ Invitación de {name} activada', { name: myRef.inviterLabel })
         : myRef.status === 'pending_review'
-          ? `Invitación de ${myRef.inviterLabel} en revisión`
+          ? t('referrals.invReview', 'Invitación de {name} en revisión', { name: myRef.inviterLabel })
           : myRef.status === 'pending'
-            ? `Código ${myRef.code} aplicado`
-            : `Código ${myRef.code} no validado`;
+            ? t('referrals.invApplied', 'Código {code} aplicado', { code: myRef.code })
+            : t('referrals.invRejected', 'Código {code} no validado', { code: myRef.code });
     }
     if (myStatusDesc) {
       myStatusDesc.textContent = myRef.status === 'activated'
-        ? 'Sumó 1 referido válido para tu amigo.'
+        ? t('referrals.invActivatedDesc', 'Sumó 1 referido válido para tu amigo.')
         : myRef.status === 'pending_review'
-          ? 'Se confirmará automáticamente.'
+          ? t('referrals.invReviewDesc', 'Se confirmará automáticamente.')
           : myRef.status === 'pending'
-            ? 'Abrí AoE2:DE o Steam para completar la activación.'
-            : (myRef.rejectMessage || 'No cumplió los requisitos.');
+            ? t('referrals.invPendingDesc', 'Abre AoE2:DE o Steam para completar la activación.')
+            : (myRef.rejectMessage || t('referrals.invRejectedDesc', 'No cumplió los requisitos.'));
     }
     if (verifyNowBtn) verifyNowBtn.hidden = myRef.status !== 'pending';
   } else if (data.canApplyCode) {

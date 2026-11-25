@@ -11,30 +11,76 @@
    * - 100 % offline, 0 estilos inline (CSP estricto).
    */
 
-  const AGE_META = [
-    { id: 1, name: 'Alta Edad Media', short: 'Alta Edad', icon: 'assets/icons/ages/dark.png' },
-    { id: 2, name: 'Edad Feudal', short: 'Feudal', icon: 'assets/icons/ages/feudal.png' },
-    { id: 3, name: 'Edad de los Castillos', short: 'Castillos', icon: 'assets/icons/ages/castle.png' },
-    { id: 4, name: 'Edad Imperial', short: 'Imperial', icon: 'assets/icons/ages/imperial.png' },
-  ];
+  function tt(key, fallback, vars = null) {
+    const api = root.AppI18n;
+    if (api && typeof api.t === 'function') {
+      const val = api.t(key, vars || undefined);
+      if (val && val !== key) return val;
+    }
+    if (!vars) return fallback;
+    return String(fallback).replace(/\{(\w+)\}/g, (_m, k) => (vars[k] != null ? String(vars[k]) : ''));
+  }
 
-  const CATEGORIES = [
-    { id: 'all', label: 'Todo el árbol' },
-    { id: 'military', label: 'Cuarteles · Arquería · Establo' },
-    { id: 'siege_castle', label: 'Asedio y Castillo' },
-    { id: 'tech', label: 'Herrería · Univ. · Monasterio' },
-    { id: 'economy', label: 'Economía' },
-    { id: 'naval_def', label: 'Muelle y Defensas' },
-  ];
+  function getLocaleCode() {
+    const api = root.AppI18n;
+    return (api && typeof api.getLocale === 'function' ? api.getLocale() : 'es-MX') || 'es-MX';
+  }
 
-  const TYPE_BADGES = {
-    qu: { label: 'Unidad Única', short: 'Única', cls: 'is-unique-unit' },
-    ru: { label: 'Unidad Regional', short: 'Regional', cls: 'is-regional-unit' },
-    qt: { label: 'Tecnología Única', short: 'Tec. Única', cls: 'is-unique-tech' },
-    rt: { label: 'Tec. Regional', short: 'Regional', cls: 'is-regional-tech' },
-    ub: { label: 'Edificio Único', short: 'Único', cls: 'is-unique-bldg' },
-    rb: { label: 'Edificio Regional', short: 'Regional', cls: 'is-regional-bldg' },
-  };
+  function locCiv(rawName) {
+    const api = root.AppI18n;
+    if (api && typeof api.civ === 'function' && rawName) {
+      const out = api.civ(rawName);
+      if (out) return out;
+    }
+    return String(rawName || '');
+  }
+
+  function locNodeName(node) {
+    if (!node) return '';
+    const loc = getLocaleCode();
+    const api = root.AppI18n;
+    if (api && node.ut === 'U' && typeof api.unit === 'function') {
+      const u = api.unit(node.id != null ? String(node.id) : (node.nameEn || node.name));
+      if (u && u !== String(node.id) && u !== (node.nameEn || node.name)) return u;
+    }
+    if (api && node.ut === 'B' && typeof api.building === 'function') {
+      const b = api.building(node.id != null ? String(node.id) : (node.nameEn || node.name));
+      if (b && b !== String(node.id) && b !== (node.nameEn || node.name)) return b;
+    }
+    if (loc === 'en' && node.nameEn) return node.nameEn;
+    return node.name || node.nameEn || '';
+  }
+
+  function getAgeMeta() {
+    return [
+      { id: 1, name: tt('tt.ageDark', 'Alta Edad Media'), short: tt('tt.ageDarkShort', 'Alta Edad'), icon: 'assets/icons/ages/dark.png' },
+      { id: 2, name: tt('tt.ageFeudal', 'Edad Feudal'), short: tt('tt.ageFeudalShort', 'Feudal'), icon: 'assets/icons/ages/feudal.png' },
+      { id: 3, name: tt('tt.ageCastle', 'Edad de los Castillos'), short: tt('tt.ageCastleShort', 'Castillos'), icon: 'assets/icons/ages/castle.png' },
+      { id: 4, name: tt('tt.ageImperial', 'Edad Imperial'), short: tt('tt.ageImperialShort', 'Imperial'), icon: 'assets/icons/ages/imperial.png' },
+    ];
+  }
+
+  function getCategories() {
+    return [
+      { id: 'all', label: tt('tt.catAll', 'Todo el árbol') },
+      { id: 'military', label: tt('tt.catMilitary', 'Cuarteles · Arquería · Establo') },
+      { id: 'siege_castle', label: tt('tt.catSiegeCastle', 'Asedio y Castillo') },
+      { id: 'tech', label: tt('tt.catTech', 'Herrería · Univ. · Monasterio') },
+      { id: 'economy', label: tt('tt.catEconomy', 'Economía') },
+      { id: 'naval_def', label: tt('tt.catNavalDef', 'Muelle y Defensas') },
+    ];
+  }
+
+  function getTypeBadges() {
+    return {
+      qu: { label: tt('tt.badgeQu', 'Unidad Única'), short: tt('tt.badgeQuShort', 'Única'), cls: 'is-unique-unit' },
+      ru: { label: tt('tt.badgeRu', 'Unidad Regional'), short: tt('tt.badgeRuShort', 'Regional'), cls: 'is-regional-unit' },
+      qt: { label: tt('tt.badgeQt', 'Tecnología Única'), short: tt('tt.badgeQtShort', 'Tec. Única'), cls: 'is-unique-tech' },
+      rt: { label: tt('tt.badgeRt', 'Tec. Regional'), short: tt('tt.badgeRtShort', 'Regional'), cls: 'is-regional-tech' },
+      ub: { label: tt('tt.badgeUb', 'Edificio Único'), short: tt('tt.badgeUbShort', 'Único'), cls: 'is-unique-bldg' },
+      rb: { label: tt('tt.badgeRb', 'Edificio Regional'), short: tt('tt.badgeRbShort', 'Regional'), cls: 'is-regional-bldg' },
+    };
+  }
 
   function esc(val) {
     return String(val == null ? '' : val)
@@ -210,12 +256,12 @@
   }
 
   function renderCostMedallions(cost) {
-    if (!cost) return '<span class="tt-cost-free">Gratis / Sin costo directo</span>';
+    if (!cost) return `<span class="tt-cost-free">${esc(tt('tt.costFree', 'Gratis / Sin costo directo'))}</span>`;
     const items = [];
-    if (cost.f) items.push(`<span class="tt-res-chip is-food" title="Comida"><img src="assets/icons/food.png" alt="" draggable="false" /><b class="mono">${cost.f}</b></span>`);
-    if (cost.w) items.push(`<span class="tt-res-chip is-wood" title="Madera"><img src="assets/icons/wood.png" alt="" draggable="false" /><b class="mono">${cost.w}</b></span>`);
-    if (cost.g) items.push(`<span class="tt-res-chip is-gold" title="Oro"><img src="assets/icons/gold.png" alt="" draggable="false" /><b class="mono">${cost.g}</b></span>`);
-    if (cost.s) items.push(`<span class="tt-res-chip is-stone" title="Piedra"><img src="assets/icons/stone.png" alt="" draggable="false" /><b class="mono">${cost.s}</b></span>`);
+    if (cost.f) items.push(`<span class="tt-res-chip is-food" title="${esc(tt('tt.food', 'Comida'))}"><img src="assets/icons/food.png" alt="" draggable="false" /><b class="mono">${cost.f}</b></span>`);
+    if (cost.w) items.push(`<span class="tt-res-chip is-wood" title="${esc(tt('tt.wood', 'Madera'))}"><img src="assets/icons/wood.png" alt="" draggable="false" /><b class="mono">${cost.w}</b></span>`);
+    if (cost.g) items.push(`<span class="tt-res-chip is-gold" title="${esc(tt('tt.gold', 'Oro'))}"><img src="assets/icons/gold.png" alt="" draggable="false" /><b class="mono">${cost.g}</b></span>`);
+    if (cost.s) items.push(`<span class="tt-res-chip is-stone" title="${esc(tt('tt.stone', 'Piedra'))}"><img src="assets/icons/stone.png" alt="" draggable="false" /><b class="mono">${cost.s}</b></span>`);
     return items.join('');
   }
 
@@ -232,11 +278,11 @@
 
   function rarityLabel(civCount, totalCivs, civName) {
     const c = Number(civCount || 0);
-    if (c <= 1) return `Exclusivo de ${civName}`;
-    if (c <= 8) return `Muy poco común · ${c}/${totalCivs} civs`;
-    if (c <= 24) return `Selecto · ${c}/${totalCivs} civs`;
-    if (c >= totalCivs - 2) return `Universal · ${c}/${totalCivs} civs`;
-    return `Disponible en ${c}/${totalCivs} civs`;
+    if (c <= 1) return tt('tt.rarityExclusive', 'Exclusivo de {civ}', { civ: civName });
+    if (c <= 8) return tt('tt.rarityVeryRare', 'Muy poco común · {c}/{total} civs', { c, total: totalCivs });
+    if (c <= 24) return tt('tt.raritySelect', 'Selecto · {c}/{total} civs', { c, total: totalCivs });
+    if (c >= totalCivs - 2) return tt('tt.rarityUniversal', 'Universal · {c}/{total} civs', { c, total: totalCivs });
+    return tt('tt.rarityAvail', 'Disponible en {c}/{total} civs', { c, total: totalCivs });
   }
 
   function createTechTreeController({ onStateChange } = {}) {
@@ -317,15 +363,20 @@
       }
       const nodesMap = ui.data.nodes;
       const totalCivs = ui.data.meta?.civCount || Object.keys(ui.data.civs || {}).length || 56;
+      const AGE_META = getAgeMeta();
+      const TYPE_BADGES = getTypeBadges();
+      const civLocName = locCiv(civ.name);
+      const cmpLocName = compareCiv ? locCiv(compareCiv.name) : '';
       const node = nodesMap[ui.selectedNodeKey];
+      const nodeLabel = locNodeName(node);
       const ageObj = AGE_META.find((a) => a.id === ui.selectedNodeAge) || AGE_META[0];
       const st = node.st || {};
       const typeCls = renderNodeTypeClass(ui.selectedNodeType, node.ut);
       const badge = TYPE_BADGES[ui.selectedNodeType];
-      const typeLabel = badge ? badge.label : (node.ut === 'T' ? 'Tecnología' : node.ut === 'B' ? 'Edificio' : 'Unidad');
+      const typeLabel = badge ? badge.label : (node.ut === 'T' ? tt('tt.typeTech', 'Tecnología') : node.ut === 'B' ? tt('tt.typeBldg', 'Edificio') : tt('tt.typeUnit', 'Unidad'));
 
       const parentBldg = node.bldg && nodesMap[node.bldg] ? nodesMap[node.bldg] : null;
-      const originVerb = node.ut === 'T' ? 'Investigado en' : 'Entrenado en';
+      const originVerb = node.ut === 'T' ? tt('tt.originResearched', 'Investigado en') : tt('tt.originTrained', 'Entrenado en');
 
       // Cadena de evolución de la columna
       const evoChain = findEvolutionChain(civ, lanes, node.k);
@@ -337,23 +388,23 @@
         const aHas = ui.selectedNodeAv === 1;
         const tone = aHas && bHas ? 'is-both' : aHas && !bHas ? 'is-only-a' : !aHas && bHas ? 'is-only-b' : 'is-none';
         const verdict = aHas && bHas
-          ? 'Acceso parejo en ambas civilizaciones'
+          ? tt('tt.cmpBoth', 'Acceso parejo en ambas civilizaciones')
           : aHas && !bHas
-            ? `Ventaja ${civ.name}: ${compareCiv.name} no accede`
+            ? tt('tt.cmpOnlyA', 'Ventaja {a}: {b} no accede', { a: civLocName, b: cmpLocName })
             : !aHas && bHas
-              ? `Brecha: ${compareCiv.name} sí cuenta con esto`
-              : 'Ninguna de las dos civilizaciones accede';
+              ? tt('tt.cmpOnlyB', 'Brecha: {b} sí cuenta con esto', { b: cmpLocName })
+              : tt('tt.cmpNone', 'Ninguna de las dos civilizaciones accede');
         compareHtml = `<div class="tt-insp-cmp-card ${tone}">
           <div class="tt-insp-cmp-pair">
             <span class="tt-cmp-side ${aHas ? 'is-yes' : 'is-no'}">
               <img src="${esc(civCrest(civ.slug))}" alt="" draggable="false" />
-              <b>${esc(civ.name)}</b>
+              <b>${esc(civLocName)}</b>
               <i>${aHas ? '✓' : '×'}</i>
             </span>
             <span class="tt-cmp-vs">VS</span>
             <span class="tt-cmp-side ${bHas ? 'is-yes' : 'is-no'}">
               <img src="${esc(civCrest(compareCiv.slug))}" alt="" draggable="false" />
-              <b>${esc(compareCiv.name)}</b>
+              <b>${esc(cmpLocName)}</b>
               <i>${bHas ? '✓' : '×'}</i>
             </span>
           </div>
@@ -364,12 +415,12 @@
       // Barras de rendimiento visual (100 % CSP-safe con clases discretas tt-w-0..100)
       const bars = [];
       if (st.hp != null) {
-        bars.push({ lbl: 'Puntos de salud', val: String(st.hp), cls: barWidthClass(st.hp, node.ut === 'B' ? 3200 : 240), tone: 'is-hp' });
+        bars.push({ lbl: tt('tt.statHp', 'Puntos de salud'), val: String(st.hp), cls: barWidthClass(st.hp, node.ut === 'B' ? 3200 : 240), tone: 'is-hp' });
       }
       if (st.atk != null) {
         const dps = st.rld > 0 ? (st.atk / st.rld).toFixed(1) : null;
         bars.push({
-          lbl: 'Ataque base',
+          lbl: tt('tt.statAtk', 'Ataque base'),
           val: dps ? `${st.atk} (${dps} DPS)` : String(st.atk),
           cls: barWidthClass(st.atk, 24),
           tone: 'is-atk',
@@ -379,40 +430,40 @@
         const ma = st.ma ?? 0;
         const pa = st.pa ?? 0;
         bars.push({
-          lbl: 'Armadura (C.a.C. / Proy.)',
+          lbl: tt('tt.statArmor', 'Armadura (C.a.C. / Proy.)'),
           val: `${ma} / ${pa}`,
           cls: barWidthClass(Math.max(ma, pa), 10),
           tone: 'is-arm',
         });
       }
       if (st.rng != null && st.rng > 0) {
-        bars.push({ lbl: 'Alcance', val: `${st.rng} casillas`, cls: barWidthClass(st.rng, 12), tone: 'is-rng' });
+        bars.push({ lbl: tt('tt.statRange', 'Alcance'), val: tt('tt.statTiles', '{n} casillas', { n: st.rng }), cls: barWidthClass(st.rng, 12), tone: 'is-rng' });
       }
       if (st.spd != null && st.spd > 0) {
-        bars.push({ lbl: 'Velocidad', val: `${st.spd}`, cls: barWidthClass(st.spd, 1.65), tone: 'is-spd' });
+        bars.push({ lbl: tt('tt.statSpeed', 'Velocidad'), val: `${st.spd}`, cls: barWidthClass(st.spd, 1.65), tone: 'is-spd' });
       }
 
       const miniStats = [];
-      if (st.rld != null && st.rld > 0) miniStats.push({ lbl: 'Recarga', val: `${st.rld}s` });
-      if (st.acc != null && st.acc > 0) miniStats.push({ lbl: 'Precisión', val: `${st.acc}%` });
-      if (st.los != null && st.los > 0) miniStats.push({ lbl: 'Visión', val: String(st.los) });
-      if (st.tt != null && st.tt > 0) miniStats.push({ lbl: node.ut === 'B' ? 'Obra' : 'Entren.', val: `${st.tt}s` });
-      if (st.rt != null && st.rt > 0) miniStats.push({ lbl: 'Invest.', val: `${st.rt}s` });
-      if (st.gar != null && st.gar > 0) miniStats.push({ lbl: 'Guarn.', val: String(st.gar) });
+      if (st.rld != null && st.rld > 0) miniStats.push({ lbl: tt('tt.miniReload', 'Recarga'), val: `${st.rld}s` });
+      if (st.acc != null && st.acc > 0) miniStats.push({ lbl: tt('tt.miniAcc', 'Precisión'), val: `${st.acc}%` });
+      if (st.los != null && st.los > 0) miniStats.push({ lbl: tt('tt.miniLos', 'Visión'), val: String(st.los) });
+      if (st.tt != null && st.tt > 0) miniStats.push({ lbl: node.ut === 'B' ? tt('tt.miniBuild', 'Obra') : tt('tt.miniTrain', 'Entren.'), val: `${st.tt}s` });
+      if (st.rt != null && st.rt > 0) miniStats.push({ lbl: tt('tt.miniResearch', 'Invest.'), val: `${st.rt}s` });
+      if (st.gar != null && st.gar > 0) miniStats.push({ lbl: tt('tt.miniGarrison', 'Guarn.'), val: String(st.gar) });
 
       const baseSum = totalCostSum(node.cost);
       const rarityCount = Number(node.civCount || 0);
       const rarityCls = barWidthClass(rarityCount, totalCivs);
 
       const animCls = animMode === 'swap' ? ' is-swapping' : ' is-entering';
-      return `<aside class="tt-inspector${animCls} ${typeCls}" id="ttInspectorCard" aria-label="Detalle de nodo seleccionado">
+      return `<aside class="tt-inspector${animCls} ${typeCls}" id="ttInspectorCard" aria-label="${esc(nodeLabel)}">
         <div class="tt-insp-hero ${typeCls}">
           <div class="tt-insp-top-bar">
             <div class="tt-insp-badges">
               <span class="tt-insp-type ${typeCls}">${esc(typeLabel)}</span>
               <span class="tt-insp-age"><img src="${esc(ageObj.icon)}" alt="" draggable="false" />${esc(ageObj.short)}</span>
             </div>
-            <button type="button" class="tt-insp-close" id="ttCloseInspectorBtn" title="Cerrar detalle (Esc)" aria-label="Cerrar detalle">×</button>
+            <button type="button" class="tt-insp-close" id="ttCloseInspectorBtn" title="${esc(tt('tt.closeDetail', 'Cerrar detalle (Esc)'))}" aria-label="${esc(tt('tt.closeDetail', 'Cerrar detalle (Esc)'))}">×</button>
           </div>
 
           <div class="tt-insp-identity">
@@ -421,19 +472,19 @@
               ${!ui.selectedNodeAv ? '<span class="tt-insp-lock-x" aria-hidden="true">×</span>' : ''}
             </div>
             <div class="tt-insp-titles">
-              <h4>${esc(node.name)}</h4>
-              ${node.nameEn && norm(node.nameEn) !== norm(node.name) ? `<small class="tt-insp-en">${esc(node.nameEn)}</small>` : ''}
+              <h4>${esc(nodeLabel)}</h4>
+              ${node.nameEn && norm(node.nameEn) !== norm(nodeLabel) ? `<small class="tt-insp-en">${esc(node.nameEn)}</small>` : ''}
               <div class="tt-insp-status-row">
                 <span class="tt-insp-avail ${ui.selectedNodeAv ? 'is-ok' : 'is-no'}">
-                  ${ui.selectedNodeAv ? `✓ Disponible en ${esc(civ.name)}` : `× Falta en ${esc(civ.name)}`}
+                  ${esc(ui.selectedNodeAv ? tt('tt.availIn', '✓ Disponible en {civ}', { civ: civLocName }) : tt('tt.missingIn', '× Falta en {civ}', { civ: civLocName }))}
                 </span>
               </div>
             </div>
           </div>
 
-          ${parentBldg ? `<button type="button" class="tt-insp-origin" data-tt-jump="${esc(parentBldg.k)}" title="Ir a ${esc(parentBldg.name)}">
+          ${parentBldg ? `<button type="button" class="tt-insp-origin" data-tt-jump="${esc(parentBldg.k)}" title="${esc(tt('tt.goToBldg', 'Ir a {bldg}', { bldg: locNodeName(parentBldg) }))}">
             <img src="${esc(nodeIcon(parentBldg))}" alt="" draggable="false" />
-            <span>${esc(originVerb)}: <b>${esc(parentBldg.name)}</b></span>
+            <span>${esc(originVerb)}: <b>${esc(locNodeName(parentBldg))}</b></span>
             <i aria-hidden="true">→</i>
           </button>` : ''}
         </div>
@@ -443,13 +494,14 @@
 
           ${evoChain.length ? `<div class="tt-insp-section">
             <div class="tt-insp-sec-head">
-              <span class="tt-insp-kicker">LÍNEA DE EVOLUCIÓN</span>
+              <span class="tt-insp-kicker">${esc(tt('tt.evoLine', 'LÍNEA DE EVOLUCIÓN'))}</span>
               <small class="mono">${evoChain.filter((e) => e.av).length}/${evoChain.length}</small>
             </div>
             <div class="tt-evo-track">
               ${evoChain.map((step, idx) => {
                 const sn = nodesMap[step.k];
                 if (!sn) return '';
+                const snLbl = locNodeName(sn);
                 const isCur = step.k === node.k;
                 return `${idx > 0 ? '<span class="tt-evo-arrow" aria-hidden="true">›</span>' : ''}
                 <button type="button"
@@ -458,12 +510,12 @@
                   data-tt-evo-age="${step.a}"
                   data-tt-evo-av="${step.av}"
                   data-tt-evo-type="${esc(step.t)}"
-                  title="${esc(sn.name)} · ${step.av ? 'Disponible' : 'No disponible'}">
+                  title="${esc(snLbl)} · ${esc(step.av ? tt('tt.availWord', 'Disponible') : tt('tt.unavailWord', 'No disponible'))}">
                   <span class="tt-evo-ico">
                     <img src="${esc(nodeIcon(sn))}" alt="" draggable="false" />
                     ${!step.av ? '<i>×</i>' : ''}
                   </span>
-                  <small>${esc(sn.name)}</small>
+                  <small>${esc(snLbl)}</small>
                 </button>`;
               }).join('')}
             </div>
@@ -471,13 +523,13 @@
 
           <div class="tt-insp-section tt-insp-costs-box">
             <div class="tt-insp-sec-head">
-              <span class="tt-insp-kicker">COSTO DE RECURSOS</span>
-              ${baseSum > 0 ? `<small class="mono">Total: ${baseSum}</small>` : ''}
+              <span class="tt-insp-kicker">${esc(tt('tt.resourceCost', 'COSTO DE RECURSOS'))}</span>
+              ${baseSum > 0 ? `<small class="mono">${esc(tt('tt.totalCost', 'Total: {n}', { n: baseSum }))}</small>` : ''}
             </div>
             <div class="tt-cost-grid">${renderCostMedallions(node.cost)}</div>
             ${node.upg?.cost ? `<div class="tt-upg-divider">
               <div class="tt-insp-sec-head">
-                <span class="tt-insp-kicker">DESBLOQUEO / MEJORA</span>
+                <span class="tt-insp-kicker">${esc(tt('tt.unlockUpgrade', 'DESBLOQUEO / MEJORA'))}</span>
                 ${node.upg.rt ? `<small class="mono">${node.upg.rt}s</small>` : ''}
               </div>
               <div class="tt-cost-grid">${renderCostMedallions(node.upg.cost)}</div>
@@ -486,7 +538,7 @@
 
           ${bars.length ? `<div class="tt-insp-section">
             <div class="tt-insp-sec-head">
-              <span class="tt-insp-kicker">ATRIBUTOS DE COMBATE</span>
+              <span class="tt-insp-kicker">${esc(tt('tt.combatStats', 'ATRIBUTOS DE COMBATE'))}</span>
             </div>
             <div class="tt-stat-bars">
               ${bars.map((b) => `<div class="tt-sbar-row">
@@ -507,26 +559,26 @@
           </div>` : '')}
 
           ${Array.isArray(st.bonus) && st.bonus.length ? `<div class="tt-insp-section">
-            <span class="tt-insp-kicker">FUERTE CONTRA (DAÑO ADICIONAL)</span>
+            <span class="tt-insp-kicker">${esc(tt('tt.strongVs', 'FUERTE CONTRA (DAÑO ADICIONAL)'))}</span>
             <div class="tt-bonus-chips">${st.bonus.map((b) => `<span class="tt-bonus-chip is-strong">${esc(b)}</span>`).join('')}</div>
           </div>` : ''}
 
           ${Array.isArray(st.armors) && st.armors.length ? `<div class="tt-insp-section">
-            <span class="tt-insp-kicker">CLASES DE ARMADURA (COUNTERS)</span>
+            <span class="tt-insp-kicker">${esc(tt('tt.armorClasses', 'CLASES DE ARMADURA (COUNTERS)'))}</span>
             <div class="tt-bonus-chips">${st.armors.map((a) => `<span class="tt-bonus-chip is-armor">${esc(a)}</span>`).join('')}</div>
           </div>` : ''}
 
           ${rarityCount > 0 ? `<div class="tt-insp-section tt-rarity-box">
             <div class="tt-sbar-top">
-              <span class="tt-insp-kicker">PRESENCIA EN EL JUEGO</span>
+              <span class="tt-insp-kicker">${esc(tt('tt.presenceInGame', 'PRESENCIA EN EL JUEGO'))}</span>
               <small class="mono">${Math.round((rarityCount / totalCivs) * 100)}%</small>
             </div>
             <div class="tt-sbar-track"><i class="tt-sbar-fill is-rarity ${rarityCls}"></i></div>
-            <small class="tt-rarity-note">${esc(rarityLabel(rarityCount, totalCivs, civ.name))}</small>
+            <small class="tt-rarity-note">${esc(rarityLabel(rarityCount, totalCivs, civLocName))}</small>
           </div>` : ''}
 
           ${node.desc ? `<div class="tt-insp-codex">
-            <span class="tt-insp-kicker">CODEX OFICIAL</span>
+            <span class="tt-insp-kicker">${esc(tt('tt.officialCodex', 'CODEX OFICIAL'))}</span>
             <p>${esc(node.desc)}</p>
           </div>` : ''}
         </div>
@@ -541,23 +593,28 @@
         return `<section class="tr-panel is-active" data-tr-panel="techtree">
           <div class="tt-loading-card">
             <span class="tt-loading-dot" aria-hidden="true"></span>
-            <strong>Cargando Árbol de Tecnología Oficial (56 civilizaciones)…</strong>
+            <strong>${esc(tt('tt.loading', 'Cargando Árbol de Tecnología Oficial (56 civilizaciones)…'))}</strong>
           </div>
         </section>`;
       }
       if (ui.error || !ui.data?.civs) {
         return `<section class="tr-panel is-active" data-tr-panel="techtree">
           <div class="tt-loading-card is-error">
-            <strong>No se pudo cargar el Árbol de Tecnología.</strong>
-            <small>${esc(ui.error || 'Intentá recargar la pestaña.')}</small>
+            <strong>${esc(tt('tt.loadError', 'No se pudo cargar el Árbol de Tecnología.'))}</strong>
+            <small>${esc(ui.error || tt('tt.loadRetry', 'Intenta recargar la pestaña.'))}</small>
           </div>
         </section>`;
       }
 
+      const AGE_META = getAgeMeta();
+      const CATEGORIES = getCategories();
+      const TYPE_BADGES = getTypeBadges();
       const nodesMap = ui.data.nodes || {};
-      const civEntries = Object.values(ui.data.civs).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      const civEntries = Object.values(ui.data.civs).sort((a, b) => locCiv(a.name).localeCompare(locCiv(b.name), getLocaleCode()));
       const civ = ui.data.civs[ui.civSlug] || civEntries[0];
+      const civLocName = locCiv(civ.name);
       const compareCiv = ui.compareSlug && ui.compareSlug !== civ.slug ? (ui.data.civs[ui.compareSlug] || null) : null;
+      const cmpLocName = compareCiv ? locCiv(compareCiv.name) : '';
       const compareAvailMap = compareCiv ? buildCivAvailabilityMap(compareCiv) : null;
 
       const allLanes = buildLanesForCiv(civ, nodesMap);
@@ -595,20 +652,24 @@
 
       const covPct = civ.coverage?.total > 0 ? Math.round((civ.coverage.avail / civ.coverage.total) * 100) : 0;
 
-      const civOptions = civEntries.map((c) => `<option value="${esc(c.slug)}"${c.slug === civ.slug ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
-      const cmpOptions = `<option value="">Sin comparar</option>` + civEntries
+      const civOptions = civEntries.map((c) => `<option value="${esc(c.slug)}"${c.slug === civ.slug ? ' selected' : ''}>${esc(locCiv(c.name))}</option>`).join('');
+      const cmpOptions = `<option value="">${esc(tt('tt.compareNone', 'Sin comparar'))}</option>` + civEntries
         .filter((c) => c.slug !== civ.slug)
-        .map((c) => `<option value="${esc(c.slug)}"${c.slug === ui.compareSlug ? ' selected' : ''}>vs ${esc(c.name)}</option>`)
+        .map((c) => `<option value="${esc(c.slug)}"${c.slug === ui.compareSlug ? ' selected' : ''}>vs ${esc(locCiv(c.name))}</option>`)
         .join('');
 
       const jumpDockHtml = filteredLanes.length > 2
-        ? `<div class="tt-jump-dock" role="navigation" aria-label="Salto rápido a edificios">
-            <span class="tt-jump-lbl">IR A</span>
+        ? `<div class="tt-jump-dock" role="navigation">
+            <span class="tt-jump-lbl">→</span>
             <div class="tt-jump-strip">
-              ${filteredLanes.map((lane) => `<button type="button" class="tt-jump-pill" data-tt-jump="${esc(lane.laneId)}" title="Deslizar hasta ${esc(lane.title)}">
+              ${filteredLanes.map((lane) => {
+                const bNode = nodesMap[lane.building.k];
+                const lTitle = bNode ? locNodeName(bNode) : lane.title;
+                return `<button type="button" class="tt-jump-pill" data-tt-jump="${esc(lane.laneId)}" title="${esc(lTitle)}">
                 <img src="${esc(lane.icon)}" alt="" draggable="false" />
-                <span>${esc(lane.title)}</span>
-              </button>`).join('')}
+                <span>${esc(lTitle)}</span>
+              </button>`;
+              }).join('')}
             </div>
           </div>`
         : '';
@@ -663,16 +724,17 @@
                 const bHas = compareAvailMap.get(cell.k) === 1;
                 if (cell.av && !bHas) {
                   cmpCls = ' is-diff-only-a';
-                  cmpBadge = '<i class="tt-diff-tag is-a" title="Disponible solo en tu civ">+</i>';
+                  cmpBadge = `<i class="tt-diff-tag is-a" title="${esc(tt('tt.onlyYouHaveIt', 'Solo tu civ lo tiene'))}">+</i>`;
                 } else if (!cell.av && bHas) {
                   cmpCls = ' is-diff-only-b';
-                  cmpBadge = '<i class="tt-diff-tag is-b" title="El rival sí lo tiene">R</i>';
+                  cmpBadge = `<i class="tt-diff-tag is-b" title="${esc(tt('tt.rivalHasIt', 'El rival sí lo tiene'))}">R</i>`;
                 }
               }
 
               const rowsInCol = colRows.get(cIdx) || [];
               const hasAbove = rowsInCol.some((rr) => rr < rIdx);
               const hasBelow = rowsInCol.some((rr) => rr > rIdx);
+              const nLbl = locNodeName(n);
 
               slotsHtml.push(`<div class="tt-slot${hasAbove ? ' has-up' : ''}${hasBelow ? ' has-down' : ''}">
                 <button type="button"
@@ -681,14 +743,14 @@
                   data-tt-age="${cell.a || ageObj.id}"
                   data-tt-av="${cell.av}"
                   data-tt-type="${esc(cell.t)}"
-                  title="${esc(n.name)} · ${cell.av ? 'Disponible' : 'No disponible'}">
+                  title="${esc(nLbl)} · ${esc(cell.av ? tt('tt.availWord', 'Disponible') : tt('tt.unavailWord', 'No disponible'))}">
                   <span class="tt-node-frame">
                     <img src="${esc(nodeIcon(n))}" alt="" loading="lazy" draggable="false" />
                     ${!cell.av ? '<span class="tt-node-x" aria-hidden="true">×</span>' : ''}
                     ${badge && cell.av ? `<span class="tt-node-tag ${badge.cls}">${esc(badge.short)}</span>` : ''}
                     ${cmpBadge}
                   </span>
-                  <span class="tt-node-name">${esc(n.name)}</span>
+                  <span class="tt-node-name">${esc(nLbl)}</span>
                 </button>
               </div>`);
             }
@@ -710,8 +772,8 @@
               ${!bAv ? '<span class="tt-node-x" aria-hidden="true">×</span>' : ''}
             </span>
             <span class="tt-lane-meta">
-              <strong>${esc(lane.title)}</strong>
-              <small>${esc(AGE_META[(lane.building.age || 1) - 1]?.short || 'Alta Edad')}</small>
+              <strong>${esc(nodesMap[lane.building.k] ? locNodeName(nodesMap[lane.building.k]) : lane.title)}</strong>
+              <small>${esc(AGE_META[(lane.building.age || 1) - 1]?.short || AGE_META[0].short)}</small>
             </span>
           </button>
           <div class="tt-lane-body">${ageBandsHtml}</div>
@@ -723,64 +785,64 @@
           <div class="tt-civ-picker-row">
             <div class="tt-civ-hero-pick">
               <div class="tt-civ-crest-ring">
-                <img src="${esc(civCrest(civ.slug))}" alt="${esc(civ.name)}" draggable="false" />
+                <img src="${esc(civCrest(civ.slug))}" alt="${esc(civLocName)}" draggable="false" />
               </div>
               <div class="tt-civ-select-wrap">
-                <label class="tt-kicker" for="ttCivSelect">CIVILIZACIÓN ACTIVA · 56 OFICIALES</label>
+                <label class="tt-kicker" for="ttCivSelect">${esc(tt('tt.activeCivKicker', 'CIVILIZACIÓN ACTIVA · 56 OFICIALES'))}</label>
                 <div class="tt-civ-select-line">
-                  <select id="ttCivSelect" class="tt-select tt-select-main" aria-label="Elegir civilización">${civOptions}</select>
-                  <span class="tt-coverage-pill mono" title="Nodos disponibles en el árbol completo">${civ.coverage?.avail || 0}/${civ.coverage?.total || 0} · ${covPct}%</span>
+                  <select id="ttCivSelect" class="tt-select tt-select-main" aria-label="${esc(tt('tt.chooseCivAria', 'Elegir civilización'))}">${civOptions}</select>
+                  <span class="tt-coverage-pill mono" title="${esc(tt('tt.coverageTip', 'Nodos disponibles en el árbol completo'))}">${civ.coverage?.avail || 0}/${civ.coverage?.total || 0} · ${covPct}%</span>
                 </div>
-                <span class="tt-civ-arch">${esc(civ.arch || 'Civilización estándar AoE2:DE')}</span>
+                <span class="tt-civ-arch">${esc(civ.arch || tt('tt.defaultArch', 'Civilización estándar AoE2:DE'))}</span>
               </div>
             </div>
 
             <div class="tt-toolbar-controls">
               <div class="tt-cmp-wrap">
-                <label class="tt-kicker" for="ttCompareSelect">COMPARAR ÁRBOL</label>
-                <select id="ttCompareSelect" class="tt-select tt-select-cmp" aria-label="Comparar con otra civilización">${cmpOptions}</select>
+                <label class="tt-kicker" for="ttCompareSelect">${esc(tt('tt.compareKicker', 'COMPARAR ÁRBOL'))}</label>
+                <select id="ttCompareSelect" class="tt-select tt-select-cmp" aria-label="${esc(tt('tt.compareKicker', 'COMPARAR ÁRBOL'))}">${cmpOptions}</select>
               </div>
               <div class="tt-search-wrap">
-                <label class="tt-kicker" for="ttSearchInput">BUSCAR EN EL ÁRBOL</label>
+                <label class="tt-kicker" for="ttSearchInput">${esc(tt('tt.searchKicker', 'BUSCAR EN EL ÁRBOL'))}</label>
                 <div class="tt-search-box">
-                  <input id="ttSearchInput" class="tt-search-input" type="search" value="${esc(ui.search)}" placeholder="Ej: Paladín, Brazal, Redención, Pureza…" autocomplete="off" />
+                  <input id="ttSearchInput" class="tt-search-input" type="search" value="${esc(ui.search)}" placeholder="${esc(tt('tt.searchPlaceholder', 'Ej: Paladín, Brazal, Redención, Pureza…'))}" autocomplete="off" />
                   ${q ? `<span class="tt-search-hits mono">${matchCount}</span>` : ''}
                 </div>
               </div>
-              <button type="button" id="ttToggleBonusesBtn" class="tt-ghost-btn">${ui.showBonuses ? 'Ocultar bonos' : 'Ver bonos'}</button>
+              <button type="button" id="ttToggleBonusesBtn" class="tt-ghost-btn">${esc(ui.showBonuses ? tt('tt.hideBonuses', 'Ocultar bonos') : tt('tt.showBonuses', 'Ver bonos'))}</button>
             </div>
           </div>
 
           <div class="tt-filter-bar">
-            <div class="tt-cat-pills" role="tablist" aria-label="Categorías de edificios">
+            <div class="tt-cat-pills" role="tablist">
               ${CATEGORIES.map((cat) => `<button type="button" class="tt-pill${ui.category === cat.id ? ' is-active' : ''}" data-tt-cat="${cat.id}">${esc(cat.label)}</button>`).join('')}
             </div>
-            <div class="tt-mode-pills" role="group" aria-label="Filtro de disponibilidad">
-              <button type="button" class="tt-mode-btn${ui.viewFilter === 'all' ? ' is-active' : ''}" data-tt-view="all">Todo</button>
-              <button type="button" class="tt-mode-btn${ui.viewFilter === 'avail' ? ' is-active' : ''}" data-tt-view="avail">Disponibles</button>
-              <button type="button" class="tt-mode-btn${ui.viewFilter === 'missing' ? ' is-active' : ''}" data-tt-view="missing">Solo brechas</button>
+            <div class="tt-mode-pills" role="group">
+              <button type="button" class="tt-mode-btn${ui.viewFilter === 'all' ? ' is-active' : ''}" data-tt-view="all">${esc(tt('tt.filterAll', 'Todo'))}</button>
+              <button type="button" class="tt-mode-btn${ui.viewFilter === 'avail' ? ' is-active' : ''}" data-tt-view="avail">${esc(tt('tt.filterAvail', 'Disponibles'))}</button>
+              <button type="button" class="tt-mode-btn${ui.viewFilter === 'missing' ? ' is-active' : ''}" data-tt-view="missing">${esc(tt('tt.filterMissing', 'Solo brechas'))}</button>
             </div>
           </div>
         </header>
 
         ${ui.showBonuses ? `<section class="tt-bonuses-card">
           <div class="tt-bonuses-col">
-            <span class="tt-kicker">BONIFICACIONES DE ${esc(civ.name.toUpperCase())}</span>
+            <span class="tt-kicker">${esc(tt('tt.bonusesOf', 'BONIFICACIONES DE {civ}', { civ: civLocName.toUpperCase() }))}</span>
             <ul class="tt-bonus-list">
               ${(civ.bonuses || []).map((b) => `<li>${esc(b)}</li>`).join('')}
             </ul>
           </div>
           <div class="tt-bonuses-side">
             ${(civ.uniqueUnits || []).length ? `<div class="tt-meta-pill-box is-uu">
-              <span class="tt-kicker">UNIDAD ÚNICA</span>
+              <span class="tt-kicker">${esc(tt('tt.uniqueUnitKicker', 'UNIDAD ÚNICA'))}</span>
               <strong>${esc(civ.uniqueUnits.join(' · '))}</strong>
             </div>` : ''}
             ${(civ.uniqueTechs || []).length ? `<div class="tt-meta-pill-box is-ut">
-              <span class="tt-kicker">TECNOLOGÍAS ÚNICAS</span>
+              <span class="tt-kicker">${esc(tt('tt.uniqueTechsKicker', 'TECNOLOGÍAS ÚNICAS'))}</span>
               <div class="tt-ut-lines">${civ.uniqueTechs.map((t) => `<small>${esc(t)}</small>`).join('')}</div>
             </div>` : ''}
             ${civ.teamBonus ? `<div class="tt-meta-pill-box is-team">
-              <span class="tt-kicker">BONO DE EQUIPO</span>
+              <span class="tt-kicker">${esc(tt('tt.teamBonusKicker', 'BONO DE EQUIPO'))}</span>
               <small>${esc(civ.teamBonus)}</small>
             </div>` : ''}
           </div>
@@ -789,21 +851,21 @@
         ${jumpDockHtml}
 
         <div class="tt-legend-strip">
-          <span class="tt-leg-item"><i class="tt-leg-dot is-type-unit"></i>Unidad</span>
-          <span class="tt-leg-item"><i class="tt-leg-dot is-type-qu"></i>Única</span>
-          <span class="tt-leg-item"><i class="tt-leg-dot is-type-ru"></i>Regional</span>
-          <span class="tt-leg-item"><i class="tt-leg-dot is-type-tech"></i>Tecnología</span>
-          <span class="tt-leg-item"><i class="tt-leg-dot is-type-qt"></i>Tec. Única</span>
-          <span class="tt-leg-item"><i class="tt-leg-dot is-unavail"></i>No disponible</span>
-          ${compareCiv ? `<span class="tt-leg-item is-cmp-leg"><i class="tt-diff-tag is-a">+</i>Solo ${esc(civ.name)}</span>
-          <span class="tt-leg-item is-cmp-leg"><i class="tt-diff-tag is-b">R</i>Solo ${esc(compareCiv.name)}</span>` : ''}
-          <span class="tt-leg-tip">Arrastrá con el mouse desde cualquier parte · Clic en un ícono para abrir su ficha completa</span>
+          <span class="tt-leg-item"><i class="tt-leg-dot is-type-unit"></i>${esc(tt('tt.typeUnit', 'Unidad'))}</span>
+          <span class="tt-leg-item"><i class="tt-leg-dot is-type-qu"></i>${esc(tt('tt.badgeQuShort', 'Única'))}</span>
+          <span class="tt-leg-item"><i class="tt-leg-dot is-type-ru"></i>${esc(tt('tt.badgeRuShort', 'Regional'))}</span>
+          <span class="tt-leg-item"><i class="tt-leg-dot is-type-tech"></i>${esc(tt('tt.typeTech', 'Tecnología'))}</span>
+          <span class="tt-leg-item"><i class="tt-leg-dot is-type-qt"></i>${esc(tt('tt.badgeQtShort', 'Tec. Única'))}</span>
+          <span class="tt-leg-item"><i class="tt-leg-dot is-unavail"></i>${esc(tt('tt.unavailWord', 'No disponible'))}</span>
+          ${compareCiv ? `<span class="tt-leg-item is-cmp-leg"><i class="tt-diff-tag is-a">+</i>${esc(tt('tt.onlyCiv', 'Solo {civ}', { civ: civLocName }))}</span>
+          <span class="tt-leg-item is-cmp-leg"><i class="tt-diff-tag is-b">R</i>${esc(tt('tt.onlyCiv', 'Solo {civ}', { civ: cmpLocName }))}</span>` : ''}
+          <span class="tt-leg-tip">${esc(tt('tt.legendTip', 'Arrastra con el mouse desde cualquier parte · Clic en un ícono para abrir su ficha completa'))}</span>
         </div>
 
         <div class="tt-stage${ui.inspectorOpen ? ' has-inspector' : ''}" id="ttStage">
           <div class="tt-canvas-shell">
             <div class="tt-age-rail" aria-hidden="true">
-              <div class="tt-age-rail-spacer"><span>EDAD</span></div>
+              <div class="tt-age-rail-spacer"><span>${esc(tt('tt.ageRailHeader', 'EDAD'))}</span></div>
               ${AGE_META.map((age) => `<div class="tt-age-rail-band is-age-${age.id}">
                 <img src="${esc(age.icon)}" alt="" draggable="false" />
                 <strong>${esc(age.short)}</strong>
@@ -812,12 +874,12 @@
             <div class="tt-viewport-wrap">
               <div class="tt-edge-fade is-left" id="ttFadeLeft" aria-hidden="true"></div>
               <div class="tt-edge-fade is-right" id="ttFadeRight" aria-hidden="true"></div>
-              <button type="button" class="tt-scroll-btn is-left" id="ttScrollLeftBtn" title="Deslizar a la izquierda" aria-label="Deslizar a la izquierda">‹</button>
-              <button type="button" class="tt-scroll-btn is-right" id="ttScrollRightBtn" title="Deslizar a la derecha" aria-label="Deslizar a la derecha">›</button>
+              <button type="button" class="tt-scroll-btn is-left" id="ttScrollLeftBtn" title="${esc(tt('tt.scrollLeft', 'Deslizar a la izquierda'))}" aria-label="${esc(tt('tt.scrollLeft', 'Deslizar a la izquierda'))}">‹</button>
+              <button type="button" class="tt-scroll-btn is-right" id="ttScrollRightBtn" title="${esc(tt('tt.scrollRight', 'Deslizar a la derecha'))}" aria-label="${esc(tt('tt.scrollRight', 'Deslizar a la derecha'))}">›</button>
               <div class="tt-lanes-scroll" id="ttLanesScroll">
                 ${filteredLanes.length
                   ? `<div class="tt-lanes-track">${lanesHtml}</div>`
-                  : `<div class="tt-empty-state">No hay unidades ni tecnologías que coincidan con ese filtro.</div>`}
+                  : `<div class="tt-empty-state">${esc(tt('tt.emptyFilter', 'No hay unidades ni tecnologías que coincidan con ese filtro.'))}</div>`}
               </div>
             </div>
           </div>
@@ -1330,7 +1392,7 @@
 
   root.TechTreeUI = {
     createTechTreeController,
-    AGE_META,
-    CATEGORIES,
+    get AGE_META() { return getAgeMeta(); },
+    get CATEGORIES() { return getCategories(); },
   };
 })(typeof window !== 'undefined' ? window : globalThis);

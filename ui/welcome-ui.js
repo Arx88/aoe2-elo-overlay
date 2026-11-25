@@ -29,10 +29,17 @@
     return String(fallback).replace(/\{(\w+)\}/g, (_m, k) => (vars[k] != null ? String(vars[k]) : ''));
   }
 
+  function getLocaleTag() {
+    const loc = typeof AppI18n === 'object' && typeof AppI18n.getLocale === 'function' ? AppI18n.getLocale() : 'es-MX';
+    if (loc === 'en') return 'en-US';
+    if (loc === 'zh-CN') return 'zh-CN';
+    return loc || 'es-MX';
+  }
+
   function fmtInt(n) {
     const v = Math.round(Number(n) || 0);
     try {
-      return v.toLocaleString('es-AR');
+      return v.toLocaleString(getLocaleTag());
     } catch {
       return String(v);
     }
@@ -41,7 +48,74 @@
   function fmtPct(n) {
     const v = Number(n);
     if (!Number.isFinite(v)) return '—';
-    return `${v.toFixed(1).replace('.', ',')}%`;
+    const loc = getLocaleTag();
+    const s = v.toFixed(1);
+    return loc.startsWith('es') ? `${s.replace('.', ',')}%` : `${s}%`;
+  }
+
+  const GOLD_RANK_KEYS = {
+    Saqueador: 'welcome.rankRaider',
+    Mercader: 'welcome.rankMerchant',
+    'Tesorero Real': 'welcome.rankTreasurer',
+    Conquistador: 'welcome.rankConqueror',
+    'Mansa Musa': 'welcome.rankMansaMusa',
+  };
+
+  function locGoldRank(label) {
+    if (!label) return '';
+    const key = GOLD_RANK_KEYS[label];
+    return key ? wt(key, label) : String(label);
+  }
+
+  const RECORD_LABEL_KEYS = {
+    fastest_win: 'welcome.recFastestWin',
+    best_dark_tc: 'welcome.recBestDarkTc',
+    peak_eapm: 'welcome.recPeakEapm',
+    max_gold: 'welcome.recMaxGold',
+  };
+
+  function locRecord(rec) {
+    if (!rec) return null;
+    const lblKey = RECORD_LABEL_KEYS[rec.id];
+    const label = lblKey ? wt(lblKey, rec.label) : rec.label;
+    const value = rec.id === 'max_gold' && Number.isFinite(rec.rawGold)
+      ? `${fmtInt(rec.rawGold)} ${wt('welcome.goldWord', 'oro')}`
+      : rec.value;
+    const ctx = rec.civ
+      ? [locCiv(rec.civ), rec.map ? locMap(rec.map) : null].filter(Boolean).join(' · ')
+      : rec.context;
+    return { ...rec, label, value, context: ctx };
+  }
+
+  function locMap(name) {
+    if (!name) return '';
+    if (typeof AppI18n === 'object' && typeof AppI18n.map === 'function') {
+      const translated = AppI18n.map(name);
+      if (translated) return translated;
+    }
+    return String(name);
+  }
+
+  function locUnitOrTech(name, nameEn) {
+    const loc = getLocaleTag();
+    if (typeof AppI18n === 'object' && typeof AppI18n.unit === 'function') {
+      const u = AppI18n.unit(nameEn || name);
+      if (u && u !== (nameEn || name)) return u;
+    }
+    if (loc.startsWith('en') && nameEn) return nameEn;
+    return name || nameEn || '';
+  }
+
+  function formatDateLocalized(tsMs, fallback) {
+    if (!tsMs) return fallback || wt('welcome.dailyBrief', 'RESUMEN DIARIO');
+    try {
+      const d = new Date(tsMs);
+      const loc = getLocaleTag();
+      const raw = new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'short' }).format(d);
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
+    } catch {
+      return fallback || wt('welcome.dailyBrief', 'RESUMEN DIARIO');
+    }
   }
 
   function locCiv(name) {
@@ -305,13 +379,26 @@
       if (!Array.isArray(strip) || !strip.length) return '';
       const anyPlayed = strip.some((d) => d.games > 0);
       if (!anyPlayed) return '';
+      const loc = getLocaleTag();
       const cells = strip.map((day, idx) => {
+        let dayShort = day.dayLabel;
+        if (day.dateKey) {
+          try {
+            const parts = String(day.dateKey).split('-').map(Number);
+            if (parts.length === 3) {
+              const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+              dayShort = new Intl.DateTimeFormat(loc, { weekday: 'narrow' }).format(dt).toUpperCase();
+            }
+          } catch { /* fallback to day.dayLabel */ }
+        }
         const title = day.games > 0
-          ? `${day.dayLabel}: ${day.wins}V–${day.losses}D (${day.games} ${day.games === 1 ? 'partida' : 'partidas'})`
-          : `${day.dayLabel}: Sin partidas`;
+          ? wt(day.games === 1 ? 'welcome.dayRecordOne' : 'welcome.dayRecordMany', '{day}: {w}V–{l}D ({n} partidas)', {
+            day: dayShort, w: day.wins, l: day.losses, n: day.games,
+          })
+          : wt('welcome.dayNoMatches', '{day}: Sin partidas', { day: dayShort });
         return `<div class="wh-act-day wh-act-d${idx} is-${esc(day.polarity)}${day.isToday ? ' is-today' : ''}" title="${esc(title)}">
           <span class="wh-act-dot" aria-hidden="true">${day.games > 0 ? esc(String(day.games)) : ''}</span>
-          <span class="wh-act-lbl mono">${esc(day.dayLabel)}</span>
+          <span class="wh-act-lbl mono">${esc(dayShort)}</span>
         </div>`;
       }).join('');
       return `<div class="wh-activity-wrap">
@@ -443,8 +530,8 @@
       }
 
       const tcDark = warLedger.avgDarkTcPct != null
-        ? `${String(warLedger.avgDarkTcPct).replace('.', ',')}% TC Alta Edad`
-        : `${warLedger.hoursPlayed} h jugadas`;
+        ? wt('welcome.tcDarkPct', '{pct}% TC Alta Edad', { pct: getLocaleTag().startsWith('es') ? String(warLedger.avgDarkTcPct).replace('.', ',') : String(warLedger.avgDarkTcPct) })
+        : wt('welcome.hoursPlayed', '{h} h jugadas', { h: warLedger.hoursPlayed });
       const goldSubLabel = warLedger.scope === 'week'
         ? wt('welcome.goldWeekUnit', 'de oro juntado esta semana')
         : wt('welcome.goldRecentUnit', 'de oro en tus últimas partidas');
@@ -453,9 +540,9 @@
       const rankHtml = rank
         ? `<div class="wh-gold-rank">
             <div class="wh-gold-rank-head">
-              <span class="wh-gold-rank-title">${esc(rank.label)}</span>
+              <span class="wh-gold-rank-title">${esc(locGoldRank(rank.label))}</span>
               <span class="wh-gold-rank-next mono">${rank.nextLabel
-                ? esc(wt('welcome.goldRankNext', 'Faltan {gold} para {next}', { gold: fmtInt(rank.remainingGold), next: rank.nextLabel }))
+                ? esc(wt('welcome.goldRankNext', 'Faltan {gold} para {next}', { gold: fmtInt(rank.remainingGold), next: locGoldRank(rank.nextLabel) }))
                 : esc(wt('welcome.goldRankMax', 'Rango máximo semanal'))}</span>
             </div>
             <div class="wh-gold-rank-track" aria-hidden="true">
@@ -464,7 +551,7 @@
           </div>`
         : '';
 
-      const rec = warLedger.weeklyRecord?.primary || null;
+      const rec = locRecord(warLedger.weeklyRecord?.primary || null);
       const recordHtml = rec
         ? `<div class="wh-record-foot">
             <span class="wh-record-kicker">${esc(wt('welcome.weeklyRecord', 'RÉCORD DE LA SEMANA'))}</span>
@@ -477,11 +564,19 @@
 
       const todayGoldVal = Math.max(0, Math.round(Number(warLedger.todayGold) || 0));
       const todayInlineHtml = `<span class="wh-gold-today-sep" aria-hidden="true">·</span><span class="wh-gold-today${todayGoldVal > 0 ? ' has-gain' : ''} mono" title="${esc(wt('welcome.goldTodayTip', 'Oro juntado en tus partidas de hoy'))}">+${fmtInt(todayGoldVal)} ${esc(wt('welcome.today', 'hoy'))}</span>`;
+      const scopeLabelText = warLedger.scope === 'week'
+        ? wt(warLedger.matchesCount === 1 ? 'welcome.weekScopeOne' : 'welcome.weekScopeMany', 'Esta semana · {n} partidas', { n: warLedger.matchesCount || 0 })
+        : wt('welcome.recentScope', 'Últimas {n} partidas', { n: warLedger.matchesCount || 0 });
+      const knightsEq = Number.isFinite(warLedger.paladinsEq) ? warLedger.paladinsEq : Math.max(1, Math.round((warLedger.goldTotal || 0) / 75));
+      const trebsEq = Number.isFinite(warLedger.trebsEq) ? warLedger.trebsEq : Math.max(1, Math.round((warLedger.goldTotal || 0) / 200));
+      const goldEqText = (warLedger.goldTotal || 0) >= 200
+        ? wt('welcome.goldEq', 'Equivale a {knights} Caballeros o {trebs} Lanzapiedras', { knights: fmtInt(knightsEq), trebs: fmtInt(trebsEq) })
+        : wt('welcome.goldEqEmpty', 'Juega una partida con Relic abierto para empezar a juntar oro');
 
       return `<aside class="wh-treasury">
         <header class="wh-treasury-head">
           <span class="wh-kicker">${esc(wt('welcome.goldTitle', 'TU ORO ESTA SEMANA'))}</span>
-          <span class="wh-treasury-scope mono">${esc(warLedger.scopeLabel)}</span>
+          <span class="wh-treasury-scope mono">${esc(scopeLabelText)}</span>
         </header>
 
         <div class="wh-gold-hero">
@@ -499,7 +594,7 @@
 
         ${rankHtml}
 
-        <p class="wh-gold-eq">${esc(warLedger.goldEquivalence)}</p>
+        <p class="wh-gold-eq">${esc(goldEqText)}</p>
         <p class="wh-gold-hint">${esc(wt('welcome.goldAutoHint', 'Se actualiza solo cada vez que terminás una partida.'))}</p>
 
         <dl class="wh-ledger-grid">
@@ -553,12 +648,17 @@
     function render({ animate = true } = {}) {
       if (!container) return;
       const d = payload || {};
-      const greeting = d.greeting || {
-        salutation: 'Bienvenido',
-        playerName: 'Comandante',
-        subline: 'Buen entrenamiento y buenas partidas hoy.',
-        dateLabel: '',
+      const rawG = d.greeting || {};
+      const salKey = rawG.salutationKey ? `welcome.${rawG.salutationKey}` : 'welcome.salMorning';
+      const subKey = rawG.sublineKey ? `welcome.${rawG.sublineKey}` : 'welcome.subDefault';
+      const greeting = {
+        salutation: wt(salKey, 'Buenos días'),
+        playerName: rawG.hasAlias === false ? wt('welcome.commander', 'Comandante') : (rawG.playerName || wt('welcome.commander', 'Comandante')),
+        subline: wt(subKey, 'Buen entrenamiento y buenas partidas hoy.'),
+        dateLabel: formatDateLocalized(rawG.timestampMs, rawG.dateLabel),
       };
+      const wShort = wt('welcome.winShort', 'V');
+      const lShort = wt('welcome.lossShort', 'D');
       const p = d.personal || {};
       const gm = d.globalMeta || null;
       const ladderKey = resolveLadderKey(d);
@@ -582,22 +682,35 @@
       }
       if (p.weekSummary && p.weekSummary.games > 0) {
         const ws = p.weekSummary;
-        statTicks.push(`<div class="wh-tick"><strong class="mono">${ws.wins}V – ${ws.losses}D</strong><span>${esc(ws.periodLabel || 'Reciente')} (${ws.winRate}%)</span></div>`);
+        const periodLbl = ws.periodLabel === 'Últimos 7 días'
+          ? wt('welcome.activity7d', 'Últimos 7 días')
+          : wt('welcome.recentLabel', 'Reciente');
+        statTicks.push(`<div class="wh-tick"><strong class="mono">${ws.wins}${wShort} – ${ws.losses}${lShort}</strong><span>${esc(periodLbl)} (${ws.winRate}%)</span></div>`);
       }
 
       const activityHtml = renderActivityStrip(p.activityStrip);
 
       // Héroe visual derecho
+      const hsKicker = hs
+        ? (hs.origin === 'personal'
+          ? wt('welcome.heroYourCiv', 'TU CIVILIZACIÓN')
+          : `${wt('welcome.heroMetaCiv', 'DESTACADA DEL META')} · ${hs.isTeam ? 'TEAM' : '1V1'}`)
+        : '';
+      const hsStat = hs
+        ? (hs.origin === 'personal' && Number.isFinite(hs.wins)
+          ? `${hs.wins}${wShort} – ${hs.losses}${lShort} · ${hs.winRate}% WR`
+          : (Number.isFinite(hs.pickRate) ? `${fmtPct(hs.pickRate)} Pick · ${hs.winRate}% WR` : hs.statLine))
+        : '';
       const heroVisualHtml = hs && hs.unitArt
         ? `<div class="wh-hero-stage">
             <img class="wh-hero-unit" src="${esc(hs.unitArt)}" alt="" draggable="false" />
             <div class="wh-hero-caption">
-              <span class="wh-cap-kicker">${esc(hs.kicker)}</span>
+              <span class="wh-cap-kicker">${esc(hsKicker)}</span>
               <div class="wh-hero-cap-title">
                 ${crestImg(hs.civName, hs.slug, 'wh-cap-crest')}
-                <strong>${esc(hs.unitName || locCiv(hs.civName))}</strong>
+                <strong>${esc(hs.unitName ? locUnitOrTech(hs.unitName, hs.unitName) : locCiv(hs.civName))}</strong>
               </div>
-              <span class="wh-hero-cap-sub">${esc(locCiv(hs.civName))}${hs.statLine ? ` · ${esc(hs.statLine)}` : ''}</span>
+              <span class="wh-hero-cap-sub">${esc(locCiv(hs.civName))}${hsStat ? ` · ${esc(hsStat)}` : ''}</span>
             </div>
           </div>`
         : '';
@@ -614,7 +727,7 @@
             <span class="wh-rival-tag is-emerald">${esc(wt('welcome.victim', 'Víctima'))}</span>
             ${crestImg(rcp.victim.name, rcp.victim.slug, 'wh-rival-crest')}
             <strong>${esc(locCiv(rcp.victim.name))}</strong>
-            <span class="wh-rival-rec mono is-emerald">${rcp.victim.wins}V–${rcp.victim.losses}D</span>
+            <span class="wh-rival-rec mono is-emerald">${rcp.victim.wins}${wShort}–${rcp.victim.losses}${lShort}</span>
           </div>`);
         }
         if (rcp.nemesis) {
@@ -622,7 +735,7 @@
             <span class="wh-rival-tag is-loss">${esc(wt('welcome.nemesis', 'Némesis'))}</span>
             ${crestImg(rcp.nemesis.name, rcp.nemesis.slug, 'wh-rival-crest')}
             <strong>${esc(locCiv(rcp.nemesis.name))}</strong>
-            <span class="wh-rival-rec mono is-loss">${rcp.nemesis.wins}V–${rcp.nemesis.losses}D</span>
+            <span class="wh-rival-rec mono is-loss">${rcp.nemesis.wins}${wShort}–${rcp.nemesis.losses}${lShort}</span>
           </div>`);
         }
         rivalPulseHtml = `<div class="wh-rival-pulse">${rows.join('')}</div>`;
@@ -633,36 +746,53 @@
             ${crestImg(topCiv.name, topCiv.slug, 'wh-strip-crest')}
             <div>
               <strong>${esc(locCiv(topCiv.name))}</strong>
-              <small class="mono"><em class="${topCiv.winRate >= 54 ? 'is-emerald' : topCiv.winRate < 46 ? 'is-loss' : 'is-gold'}">${topCiv.winRate}% WR</em> · ${topCiv.wins}V–${topCiv.losses}D</small>
+              <small class="mono"><em class="${topCiv.winRate >= 54 ? 'is-emerald' : topCiv.winRate < 46 ? 'is-loss' : 'is-gold'}">${topCiv.winRate}% WR</em> · ${topCiv.wins}${wShort}–${topCiv.losses}${lShort}</small>
             </div>
           </div>
-          ${topMap ? `<p class="wh-strip-note">${esc(wt('welcome.mostPlayedMap', 'Mapa más jugado:'))} <b>${esc(topMap.name)}</b> <span class="mono">(${topMap.wins}V–${topMap.losses}D · ${topMap.winRate}%)</span></p>` : ''}
+          ${topMap ? `<p class="wh-strip-note">${esc(wt('welcome.mostPlayedMap', 'Mapa más jugado:'))} <b>${esc(locMap(topMap.name))}</b> <span class="mono">(${topMap.wins}${wShort}–${topMap.losses}${lShort} · ${topMap.winRate}%)</span></p>` : ''}
           ${rivalPulseHtml}`
         : `<p class="wh-strip-note">${esc(wt('welcome.noRecentMatches', 'Jugá unas partidas clasificatorias para descubrir tu civilización y mapa protagonista de la semana.'))}</p>`;
 
-      const cur = d.curiosity || {
-        tag: 'CÓDICE AOE2:DE',
-        title: '56 civilizaciones oficiales para comparar',
-        body: 'Abrí el Árbol de tecnología en Entrenamiento para comparar dos civilizaciones lado a lado.',
-        ctaLabel: 'Abrir Árbol de tecnología',
-        action: 'techtree',
-      };
+      const rawCur = d.curiosity || null;
+      let cur;
+      if (rawCur && rawCur.factKey && rawCur.vars) {
+        const fk = rawCur.factKey;
+        const localizedName = locUnitOrTech(rawCur.vars.name, rawCur.vars.nameEn);
+        const fVars = { ...rawCur.vars, name: localizedName };
+        cur = {
+          tag: wt(`welcome.codex.${fk}Tag`, rawCur.tag),
+          title: wt(`welcome.codex.${fk}Title`, rawCur.title, fVars),
+          body: wt(`welcome.codex.${fk}Body`, rawCur.body, fVars),
+          ctaLabel: rawCur.ctaKey ? wt(`welcome.${rawCur.ctaKey}`, rawCur.ctaLabel) : wt('welcome.codexViewTree', rawCur.ctaLabel),
+          action: rawCur.action || 'techtree',
+        };
+      } else {
+        cur = {
+          tag: wt('welcome.codexDefaultTag', 'CÓDICE AOE2:DE'),
+          title: wt('welcome.codexDefaultTitle', '56 civilizaciones oficiales para comparar'),
+          body: wt('welcome.codexDefaultBody', 'Abre el Árbol de tecnología en Entrenamiento para comparar dos civilizaciones lado a lado.'),
+          ctaLabel: wt('welcome.codexDefaultCta', 'Abrir Árbol de tecnología'),
+          action: rawCur?.action || 'techtree',
+        };
+      }
 
       const tr = p.training;
       const trPct = tr && tr.daysTarget > 0 ? Math.min(100, Math.round((tr.daysActive / tr.daysTarget) * 100)) : 0;
       const trDetail = tr && tr.daysActive > 0
-        ? `${tr.daysActive} de ${tr.daysTarget} días activos esta semana${tr.streakDays >= 2 ? ` · racha de ${tr.streakDays} días` : ''}.`
+        ? (tr.streakDays >= 2
+          ? wt('welcome.daysActiveStreak', '{active} de {target} días activos esta semana · racha de {streak} días.', { active: tr.daysActive, target: tr.daysTarget, streak: tr.streakDays })
+          : wt('welcome.daysActive', '{active} de {target} días activos esta semana.', { active: tr.daysActive, target: tr.daysTarget }))
         : (tr?.nextMissionTitle
-            ? `Siguiente objetivo: ${tr.nextMissionTitle}.`
-            : 'Entrená aperturas, Arena táctica y compará las 56 civilizaciones oficiales.');
+          ? wt('welcome.nextGoal', 'Siguiente objetivo: {title}.', { title: tr.nextMissionTitle })
+          : wt('welcome.defaultTrainDesc', 'Entrena aperturas, Arena táctica y compara las 56 civilizaciones oficiales.'));
       const trBarHtml = tr && tr.daysTarget > 0
         ? `<div class="wh-tr-progress">
             <div class="wh-tr-track" aria-hidden="true"><i data-wh-bar="${esc(String(trPct))}" data-wh-bar-min="4"></i></div>
-            <span class="wh-tr-meta mono">${esc(`${tr.daysActive}/${tr.daysTarget}`)} · Arena Nv.${esc(String(tr.arenaLevel || 1))}</span>
+            <span class="wh-tr-meta mono">${esc(`${tr.daysActive}/${tr.daysTarget}`)} · ${esc(wt('welcome.arenaLvl', 'Arena Nv.{n}', { n: tr.arenaLevel || 1 }))}</span>
           </div>`
         : '';
 
-      const extraRecords = Array.isArray(d.warLedger?.weeklyRecord?.items) ? d.warLedger.weeklyRecord.items.slice(1, 3) : [];
+      const extraRecords = Array.isArray(d.warLedger?.weeklyRecord?.items) ? d.warLedger.weeklyRecord.items.slice(1, 3).map(locRecord) : [];
       const extraRecordsHtml = extraRecords.length
         ? `<div class="wh-extra-records">${extraRecords.map((item) => `
             <div class="wh-extra-rec-row">
@@ -736,11 +866,11 @@
             </div>
 
             <div class="wh-strip-col">
-              <span class="wh-kicker">${esc(cur.tag || 'CÓDICE AOE2:DE')} · ${esc(wt('welcome.factOfDay', 'DATO DEL DÍA'))}</span>
+              <span class="wh-kicker">${esc(cur.tag || wt('welcome.codexDefaultTag', 'CÓDICE AOE2:DE'))} · ${esc(wt('welcome.factOfDay', 'DATO DEL DÍA'))}</span>
               <h3>${esc(cur.title)}</h3>
               <p class="wh-strip-note">${esc(cur.body)}</p>
               ${extraRecordsHtml}
-              <button type="button" class="wh-link-subtle" data-wh-go="${esc(cur.action || 'techtree')}">${esc(cur.ctaLabel || 'Explorar')} <span class="wh-arrow" aria-hidden="true">→</span></button>
+              <button type="button" class="wh-link-subtle" data-wh-go="${esc(cur.action || 'techtree')}">${esc(cur.ctaLabel || wt('welcome.codexExplore', 'Explorar'))} <span class="wh-arrow" aria-hidden="true">→</span></button>
             </div>
 
             <div class="wh-strip-col">
@@ -853,9 +983,14 @@
       render({ animate: !hadData || isBootLoaderCovering() });
     }
 
+    function rerender() {
+      if (payload) render({ animate: false });
+    }
+
     return {
       setData,
       render,
+      rerender,
       playChoreography,
     };
   }

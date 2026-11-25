@@ -243,15 +243,17 @@ function buildGreeting({ alias = '', now = new Date() } = {}) {
   const day = d.getDay();
 
   let salutation = 'Buenas noches';
-  if (hour >= 5 && hour < 12) salutation = 'Buenos días';
-  else if (hour >= 12 && hour < 20) salutation = 'Buenas tardes';
+  let salutationKey = 'salEvening';
+  if (hour >= 5 && hour < 12) { salutation = 'Buenos días'; salutationKey = 'salMorning'; }
+  else if (hour >= 12 && hour < 20) { salutation = 'Buenas tardes'; salutationKey = 'salAfternoon'; }
 
   let subline = 'Buen entrenamiento y buenas partidas hoy.';
-  if (day === 1) subline = 'Arrancando la semana — que tengas una gran semana de entrenamiento.';
-  else if (day === 2 || day === 3) subline = 'Mitad de semana ideal para afinar mecánicas y consolidar tu ELO.';
-  else if (day === 4) subline = 'Buen ritmo de semana — cada partida suma experiencia y oro al tesoro.';
-  else if (day === 5) subline = 'Viernes de ladder — cerrá la semana en tu mejor nivel.';
-  else if (day === 6 || day === 0) subline = 'Fin de semana de Age — buen momento para entrenar y mandar cola.';
+  let sublineKey = 'subDefault';
+  if (day === 1) { subline = 'Arrancando la semana — que tengas una gran semana de entrenamiento.'; sublineKey = 'subMon'; }
+  else if (day === 2 || day === 3) { subline = 'Mitad de semana ideal para afinar mecánicas y consolidar tu ELO.'; sublineKey = 'subMid'; }
+  else if (day === 4) { subline = 'Buen ritmo de semana — cada partida suma experiencia y oro al tesoro.'; sublineKey = 'subThu'; }
+  else if (day === 5) { subline = 'Viernes de ladder — cerrá la semana en tu mejor nivel.'; sublineKey = 'subFri'; }
+  else if (day === 6 || day === 0) { subline = 'Fin de semana de Age — buen momento para entrenar y mandar cola.'; sublineKey = 'subWknd'; }
 
   const cleanName = String(alias || '').trim();
   const headline = cleanName ? `${salutation}, ${cleanName}` : `${salutation}, comandante`;
@@ -262,10 +264,14 @@ function buildGreeting({ alias = '', now = new Date() } = {}) {
 
   return {
     salutation,
+    salutationKey,
     playerName: cleanName || 'Comandante',
+    hasAlias: Boolean(cleanName),
     headline,
     subline,
+    sublineKey,
     dateLabel,
+    timestampMs: d.getTime(),
   };
 }
 
@@ -490,7 +496,10 @@ function summarizeWarLedger({ performanceRecords = [], techTreeData = null, now 
         id: 'max_gold',
         label: 'Mayor botín en 1 partida',
         value: `${maxGoldMatch.gold.toLocaleString('es-AR')} oro`,
+        rawGold: maxGoldMatch.gold,
         context: [maxGoldMatch.civ, maxGoldMatch.map].filter(Boolean).join(' · '),
+        civ: maxGoldMatch.civ || null,
+        map: maxGoldMatch.map || null,
       });
     }
     if (highlights.length) {
@@ -550,6 +559,8 @@ function summarizeWarLedger({ performanceRecords = [], techTreeData = null, now 
     ...active,
     todayGold,
     todayMatchesCount,
+    paladinsEq,
+    trebsEq,
     goldRank: computeGoldRank(active.goldTotal),
     allTimeGold: allTime.goldTotal,
     allTimeMatches: allTime.matchesCount,
@@ -925,7 +936,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
 
   const techSpecs = [
     {
-      id: 'U:569',
+      id: 'U:569', factKey: 'paladin', ctaKey: 'codexViewTree',
       tag: 'CÓDICE · CABALLERÍA',
       build: (n) => ({
         title: `El club exclusivo del ${n.name}`,
@@ -935,7 +946,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'U:330',
+      id: 'U:330', factKey: 'camel', ctaKey: 'codexExploreTree',
       tag: 'CÓDICE · CONTRA-CABALLERÍA',
       build: (n) => ({
         title: `El poder selecto del ${n.name}`,
@@ -945,7 +956,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'U:588',
+      id: 'U:588', factKey: 'onager', ctaKey: 'codexViewTree',
       tag: 'CÓDICE · ASEDIO',
       build: (n) => ({
         title: `Solo ${n.civCount} civilizaciones tienen ${n.name}`,
@@ -955,7 +966,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'U:36',
+      id: 'U:36', factKey: 'bbc', ctaKey: 'codexViewTree',
       tag: 'CÓDICE · PÓLVORA',
       build: (n) => ({
         title: `Pólvora de largo alcance: ${n.name}`,
@@ -965,7 +976,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'T:316',
+      id: 'T:316', factKey: 'redemption', ctaKey: 'codexExploreTree',
       tag: 'CÓDICE · MONASTERIO',
       build: (n) => ({
         title: `${n.name}: el terror del asedio enemigo`,
@@ -975,7 +986,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'T:437',
+      id: 'T:437', factKey: 'thumbring', ctaKey: 'codexViewTree',
       tag: 'CÓDICE · ARQUERÍA',
       build: (n) => ({
         title: `Precisión al 100 %: ${n.name}`,
@@ -985,7 +996,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'T:435',
+      id: 'T:435', factKey: 'bloodlines', ctaKey: 'codexCompareCivs',
       tag: 'CÓDICE · ESTABLO',
       build: (n) => ({
         title: `La frontera de ${n.name}`,
@@ -995,7 +1006,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'U:5',
+      id: 'U:5', factKey: 'hc', ctaKey: 'codexViewTree',
       tag: 'CÓDICE · INFANTERÍA',
       build: (n) => ({
         title: `${n.name}: el freno de emergencia`,
@@ -1005,7 +1016,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'U:359',
+      id: 'U:359', factKey: 'halb', ctaKey: 'codexCheckCivs',
       tag: 'CÓDICE · CUARTEL',
       build: (n) => ({
         title: `${totalCivs - n.civCount} civilizaciones carecen de ${n.name}`,
@@ -1015,7 +1026,7 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
       }),
     },
     {
-      id: 'T:230',
+      id: 'T:230', factKey: 'blockPrint', ctaKey: 'codexExploreTree',
       tag: 'CÓDICE · MONASTERIO',
       build: (n) => ({
         title: `${n.name} (+3 de alcance)`,
@@ -1029,7 +1040,20 @@ function buildDailyCodexCuriosity({ techTreeData = null, globalMeta = null, now 
   for (const spec of techSpecs) {
     const node = nodes[spec.id];
     if (node && Number(node.civCount) > 0) {
-      facts.push({ tag: spec.tag, nodeId: spec.id, ...spec.build(node) });
+      facts.push({
+        tag: spec.tag,
+        nodeId: spec.id,
+        factKey: spec.factKey,
+        ctaKey: spec.ctaKey,
+        vars: {
+          name: node.name,
+          nameEn: node.nameEn || node.name,
+          count: node.civCount,
+          total: totalCivs,
+          missing: Math.max(0, totalCivs - node.civCount),
+        },
+        ...spec.build(node),
+      });
     }
   }
 
@@ -1114,6 +1138,9 @@ function buildWelcomePayload({
       unitName: bestPersonal.unitName,
       unitRole: bestPersonal.unitRole,
       unitArt: bestPersonal.unitArt,
+      wins: bestPersonal.wins,
+      losses: bestPersonal.losses,
+      winRate: bestPersonal.winRate,
       statLine: `${bestPersonal.wins}V – ${bestPersonal.losses}D · ${bestPersonal.winRate}% WR`,
     };
   } else {
@@ -1123,12 +1150,15 @@ function buildWelcomePayload({
     if (top1 && top1.unitArt) {
       heroShowcase = {
         origin: 'global',
+        isTeam,
         kicker: `LA MÁS JUGADA ESTA SEMANA · ${isTeam ? 'TEAM' : '1V1'}`,
         civName: top1.name,
         slug: top1.slug,
         unitName: top1.unitName,
         unitRole: top1.unitRole,
         unitArt: top1.unitArt,
+        pickRate: top1.pickRate,
+        winRate: top1.winRate,
         statLine: `${top1.pickRate}% de las partidas · ${top1.winRate}% WR`,
       };
     }
