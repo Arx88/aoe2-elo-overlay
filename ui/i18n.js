@@ -51,6 +51,19 @@
   let currentLocale = 'es-MX';
   let bundles = {};
   let active = null;
+  let entityIndex = {};
+  let dynamicRules = null;
+  let observer = null;
+  let pendingRoots = new Set();
+  let flushScheduled = false;
+  let isMutatingDom = false;
+
+  const ORIG_TEXT = new WeakMap();
+  const ORIG_ATTRS = new WeakMap();
+
+  const rulesLib = (typeof module === 'object' && module.exports)
+    ? (() => { try { return require('./content-rules'); } catch { return null; } })()
+    : (root.RelicContentRules || null);
 
   function normKey(text) {
     return String(text || '')
@@ -69,6 +82,52 @@
     return cur;
   }
 
+  function rebuildEntityIndex() {
+    entityIndex = {};
+    const langs = Object.keys(bundles);
+    for (const lang of langs) entityIndex[lang] = new Map();
+    const buckets = ['civs', 'maps', 'ages', 'units', 'buildings', 'resources', 'keyBuildings'];
+    for (const bucket of buckets) {
+      const refIds = new Set();
+      for (const b of Object.values(bundles)) {
+        for (const id of Object.keys(b?.gameTerms?.[bucket] || {})) refIds.add(id);
+      }
+      for (const id of refIds) {
+        const variants = new Set([id]);
+        for (const b of Object.values(bundles)) {
+          const v = b?.gameTerms?.[bucket]?.[id];
+          if (v) variants.add(v);
+        }
+        for (const lang of langs) {
+          const targetVal = bundles[lang]?.gameTerms?.[bucket]?.[id];
+          if (!targetVal) continue;
+          const map = entityIndex[lang];
+          for (const variant of variants) {
+            const k = normKey(variant);
+            if (k && !map.has(k)) map.set(k, targetVal);
+          }
+        }
+      }
+    }
+  }
+
+  function locEntity(raw, locale) {
+    const lang = locale || currentLocale;
+    const map = entityIndex[lang];
+    if (!map || !raw) return String(raw || '');
+    return map.get(normKey(raw)) || String(raw);
+  }
+
+  function ensureDynamicRules() {
+    if (!dynamicRules && rulesLib && typeof rulesLib.createDynamicRules === 'function') {
+      dynamicRules = rulesLib.createDynamicRules({
+        locEnt: (raw, l) => locEntity(raw, l),
+        translateText: (raw, l) => locText(raw, l),
+      });
+    }
+    return dynamicRules || [];
+  }
+
   function configure({ locale, bundle, allBundles } = {}) {
     if (allBundles && typeof allBundles === 'object') bundles = { ...bundles, ...allBundles };
     if (bundle && bundle.locale) bundles[bundle.locale] = bundle;
@@ -79,8 +138,10 @@
       currentLocale = bundle.locale || currentLocale;
       active = bundle;
     }
+    rebuildEntityIndex();
     if (typeof document !== 'undefined' && document.documentElement) {
       document.documentElement.lang = currentLocale;
+      ensureObserver();
     }
     return api;
   }
@@ -91,6 +152,7 @@
       active = bundles[locale];
       if (typeof document !== 'undefined' && document.documentElement) {
         document.documentElement.lang = currentLocale;
+        ensureObserver();
       }
     }
     return active;
@@ -148,7 +210,6 @@
       for (const [id, name] of Object.entries(gt.buildings || {})) {
         if (normKey(name) === target) return name;
       }
-      // Cross-locale fallback (e.g. engine emitted Spanish 'Establo' and UI is in en/zh-CN)
       for (const b of Object.values(bundles)) {
         for (const [id, name] of Object.entries(b?.gameTerms?.buildings || {})) {
           if (normKey(name) === target && gt.buildings?.[id]) return gt.buildings[id];
@@ -208,7 +269,6 @@
       for (const [k, v] of Object.entries(dict)) {
         if (normKey(k) === nk) return v;
       }
-      // Cross-locale fallback
       for (const b of Object.values(bundles)) {
         for (const [k, v] of Object.entries(b?.strings?.openings || {})) {
           if (normKey(v) === nk && dict[k]) return dict[k];
@@ -218,6 +278,205 @@
     return String(raw || '');
   }
 
+  function translateSegment(trimmed, lang, allowEntity) {
+    const targetBundle = bundles[lang] || active;
+    const pb = targetBundle?.phrasebook;
+    if (pb && Object.prototype.hasOwnProperty.call(pb, trimmed)) {
+      return pb[trimmed];
+    }
+    if (allowEntity && trimmed.length <= 36 && !/\d/.test(trimmed)) {
+      const op = openingName(trimmed);
+      if (op && op !== trimmed) return op;
+      const ent = entityIndex[lang]?.get(normKey(trimmed));
+      if (ent) return ent;
+    }
+    const rules = ensureDynamicRules();
+    for (let i = 0; i < rules.length; i += 1) {
+      const m = rules[i][0].exec(trimmed);
+      if (m) return rules[i][1](m, lang);
+    }
+    return null;
+  }
+
+  function locText(raw, locale, { allowEntity = true } = {}) {
+    if (typeof raw !== 'string' || !raw) return raw;
+    const lang = locale || currentLocale;
+    if (!lang || lang === 'es-MX') return raw;
+    if (lang === 'es-ES') {
+      return rulesLib && typeof rulesLib.applyEsEs === 'function' ? rulesLib.applyEsEs(raw) : raw;
+    }
+    if (lang !== 'en' && lang !== 'zh-CN') return raw;
+
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.length < 2) return raw;
+    if (/^(?:https?:|data:|assets\/|#[0-9a-f]{3,8}$|[+\-−]?\d[\d.,:%/×x–—\-+\s]*$)/i.test(trimmed)) return raw;
+
+    const direct = translateSegment(trimmed, lang, allowEntity);
+    if (direct != null) {
+      return raw === trimmed ? direct : raw.replace(trimmed, direct);
+    }
+
+    for (const sep of [' · ', ' — ', ' —', '— ']) {
+      if (trimmed.includes(sep)) {
+        const parts = trimmed.split(sep);
+        let changed = false;
+        const mapped = parts.map((p) => {
+          const pt = p.trim();
+          if (!pt) return p;
+          const hit = translateSegment(pt, lang, allowEntity);
+          if (hit != null && hit !== pt) {
+            changed = true;
+            return p === pt ? hit : p.replace(pt, hit);
+          }
+          return p;
+        });
+        if (changed) {
+          const joined = mapped.join(sep);
+          return raw === trimmed ? joined : raw.replace(trimmed, joined);
+        }
+      }
+    }
+    return raw;
+  }
+
+  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'SVG']);
+  const PLAYER_NAME_SELECTOR = '[data-no-i18n], .no-i18n, .player-name, .row-name, .rival-name, .opp-name, .account-name, #welcomeName, #accountName, #accHeroName, .pm-side > div > b, .cx-rival-name, .referral-friend-name, .wh-player-name';
+
+  function isSkippedElement(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (SKIP_TAGS.has(el.tagName)) return true;
+    if (el.hasAttribute && (el.hasAttribute('data-no-i18n') || el.hasAttribute('data-i18n'))) return true;
+    return false;
+  }
+
+  function isPlayerNameNode(el) {
+    if (!el || el.nodeType !== 1 || typeof el.closest !== 'function') return false;
+    try {
+      return Boolean(el.closest(PLAYER_NAME_SELECTOR));
+    } catch {
+      return false;
+    }
+  }
+
+  function translateTextNode(node) {
+    if (!node || node.nodeType !== 3) return;
+    const parent = node.parentElement;
+    if (!parent || SKIP_TAGS.has(parent.tagName)) return;
+    if (parent.hasAttribute('data-i18n') || parent.closest?.('[data-no-i18n], .no-i18n')) return;
+
+    const current = node.nodeValue;
+    if (!current || !current.trim()) return;
+
+    let orig = ORIG_TEXT.get(node);
+    if (orig == null) {
+      orig = current;
+      ORIG_TEXT.set(node, orig);
+    } else if (current !== orig && current !== locText(orig, currentLocale, { allowEntity: !isPlayerNameNode(parent) })) {
+      // Dynamic JS updated this node with new source text; adopt it as new original
+      orig = current;
+      ORIG_TEXT.set(node, orig);
+    }
+
+    const allowEntity = !isPlayerNameNode(parent);
+    const next = currentLocale === 'es-MX' ? orig : locText(orig, currentLocale, { allowEntity });
+    if (next !== current) {
+      node.nodeValue = next;
+    }
+  }
+
+  function translateElementAttrs(el) {
+    if (!el || el.nodeType !== 1 || SKIP_TAGS.has(el.tagName)) return;
+    if (el.hasAttribute('data-no-i18n')) return;
+    const attrs = ['title', 'placeholder', 'aria-label'];
+    let saved = ORIG_ATTRS.get(el);
+    for (let i = 0; i < attrs.length; i += 1) {
+      const attr = attrs[i];
+      if (el.hasAttribute(`data-i18n-${attr}`)) continue;
+      const cur = el.getAttribute(attr);
+      if (!cur || !cur.trim()) continue;
+      if (!saved) {
+        saved = {};
+        ORIG_ATTRS.set(el, saved);
+      }
+      if (saved[attr] == null) {
+        saved[attr] = cur;
+      } else if (cur !== saved[attr] && cur !== locText(saved[attr], currentLocale)) {
+        saved[attr] = cur;
+      }
+      const next = currentLocale === 'es-MX' ? saved[attr] : locText(saved[attr], currentLocale);
+      if (next !== cur) el.setAttribute(attr, next);
+    }
+  }
+
+  function translateSubtree(rootEl) {
+    const scope = rootEl || (typeof document !== 'undefined' ? document.body : null);
+    if (!scope || !active) return;
+    isMutatingDom = true;
+    try {
+      if (scope.nodeType === 3) {
+        translateTextNode(scope);
+        return;
+      }
+      if (scope.nodeType === 1) {
+        if (isSkippedElement(scope)) return;
+        translateElementAttrs(scope);
+      }
+      if (typeof document !== 'undefined' && typeof document.createTreeWalker === 'function') {
+        const walker = document.createTreeWalker(scope, 5 /* SHOW_ELEMENT | SHOW_TEXT */);
+        let cur = walker.nextNode();
+        while (cur) {
+          if (cur.nodeType === 3) {
+            translateTextNode(cur);
+          } else if (cur.nodeType === 1) {
+            if (!SKIP_TAGS.has(cur.tagName)) translateElementAttrs(cur);
+          }
+          cur = walker.nextNode();
+        }
+      }
+    } finally {
+      isMutatingDom = false;
+    }
+  }
+
+  function scheduleSubtreeFlush(node) {
+    if (!node) return;
+    pendingRoots.add(node);
+    if (flushScheduled) return;
+    flushScheduled = true;
+    const run = () => {
+      flushScheduled = false;
+      const roots = Array.from(pendingRoots);
+      pendingRoots.clear();
+      if (currentLocale === 'es-MX') return;
+      for (let i = 0; i < roots.length; i += 1) {
+        if (roots[i] && roots[i].isConnected !== false) {
+          translateSubtree(roots[i]);
+        }
+      }
+    };
+    if (typeof queueMicrotask === 'function') queueMicrotask(run);
+    else setTimeout(run, 0);
+  }
+
+  function ensureObserver() {
+    if (observer || typeof MutationObserver !== 'function' || typeof document === 'undefined' || !document.body) return;
+    observer = new MutationObserver((mutations) => {
+      if (isMutatingDom || currentLocale === 'es-MX') return;
+      for (let i = 0; i < mutations.length; i += 1) {
+        const m = mutations[i];
+        if (m.type === 'childList') {
+          for (let j = 0; j < m.addedNodes.length; j += 1) {
+            const n = m.addedNodes[j];
+            if (n.nodeType === 1 || n.nodeType === 3) scheduleSubtreeFlush(n);
+          }
+        } else if (m.type === 'characterData' && m.target) {
+          scheduleSubtreeFlush(m.target);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
   function flagSvg(code) {
     return FLAG_SVGS[code] || FLAG_SVGS.en;
   }
@@ -225,29 +484,37 @@
   function applyToDom(rootEl) {
     const scope = rootEl || (typeof document !== 'undefined' ? document : null);
     if (!scope || !active) return;
-    scope.querySelectorAll('[data-i18n]').forEach((node) => {
-      const key = node.getAttribute('data-i18n');
-      const translated = t(key);
-      if (translated && translated !== key) node.textContent = translated;
-    });
-    scope.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
-      const key = node.getAttribute('data-i18n-placeholder');
-      const translated = t(key);
-      if (translated && translated !== key) node.setAttribute('placeholder', translated);
-    });
-    scope.querySelectorAll('[data-i18n-title]').forEach((node) => {
-      const key = node.getAttribute('data-i18n-title');
-      const translated = t(key);
-      if (translated && translated !== key) node.setAttribute('title', translated);
-    });
-    scope.querySelectorAll('[data-i18n-aria-label]').forEach((node) => {
-      const key = node.getAttribute('data-i18n-aria-label');
-      const translated = t(key);
-      if (translated && translated !== key) node.setAttribute('aria-label', translated);
-    });
-    scope.querySelectorAll('template').forEach((tpl) => {
-      if (tpl.content) applyToDom(tpl.content);
-    });
+    isMutatingDom = true;
+    try {
+      scope.querySelectorAll('[data-i18n]').forEach((node) => {
+        const key = node.getAttribute('data-i18n');
+        const translated = t(key);
+        if (translated && translated !== key) node.textContent = translated;
+      });
+      scope.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+        const key = node.getAttribute('data-i18n-placeholder');
+        const translated = t(key);
+        if (translated && translated !== key) node.setAttribute('placeholder', translated);
+      });
+      scope.querySelectorAll('[data-i18n-title]').forEach((node) => {
+        const key = node.getAttribute('data-i18n-title');
+        const translated = t(key);
+        if (translated && translated !== key) node.setAttribute('title', translated);
+      });
+      scope.querySelectorAll('[data-i18n-aria-label]').forEach((node) => {
+        const key = node.getAttribute('data-i18n-aria-label');
+        const translated = t(key);
+        if (translated && translated !== key) node.setAttribute('aria-label', translated);
+      });
+      scope.querySelectorAll('template').forEach((tpl) => {
+        if (tpl.content) applyToDom(tpl.content);
+      });
+    } finally {
+      isMutatingDom = false;
+    }
+    const bodyTarget = rootEl || (typeof document !== 'undefined' ? document.body : null);
+    if (bodyTarget) translateSubtree(bodyTarget);
+    ensureObserver();
   }
 
   const api = {
@@ -257,6 +524,8 @@
     getIntlLocale,
     getSupported: () => active?.supported || Object.values(bundles).map((b) => b.strings?.meta).filter(Boolean),
     t,
+    locText,
+    translateSubtree,
     formatNumber,
     civName,
     civ: civName,

@@ -76,14 +76,18 @@ async function run() {
     }
     return out;
   };
-  const baseKeys = new Set(flattenKeys(allBundles['es-MX']));
+  const bundleSchema = (b) => ({ strings: b?.strings, gameTerms: b?.gameTerms });
+  const baseKeys = new Set(flattenKeys(bundleSchema(allBundles['es-MX'])));
   for (const code of i18n.SUPPORTED_LOCALES) {
-    const curKeys = new Set(flattenKeys(allBundles[code]));
+    const curKeys = new Set(flattenKeys(bundleSchema(allBundles[code])));
     const missing = [...baseKeys].filter((k) => !curKeys.has(k));
     const extra = [...curKeys].filter((k) => !baseKeys.has(k));
     assert.deepEqual(missing, [], `Claves faltantes en ${code}: ${missing.join(', ')}`);
     assert.deepEqual(extra, [], `Claves extra en ${code}: ${extra.join(', ')}`);
   }
+  const enPbKeys = Object.keys(allBundles.en.phrasebook || {});
+  const zhPbKeys = Object.keys(allBundles['zh-CN'].phrasebook || {});
+  assert.equal(enPbKeys.length, zhPbKeys.length, 'Paridad exacta entre phrasebook en y zh-CN');
   AppI18n.configure({ locale: 'zh-CN', allBundles });
   TacticalUI.configure({ slugs: ['franks', 'mayans'], i18n: AppI18n });
   const zhHtml = TacticalUI.renderPostMatch({

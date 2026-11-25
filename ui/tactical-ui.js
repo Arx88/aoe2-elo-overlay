@@ -2128,7 +2128,9 @@
   }
   function locCxPhase(p) {
     const k = p && (CX_PHASE_KEYS[p.id] || CX_PHASE_KEYS[p.label]);
-    return k ? tr(k, p.label) : (p?.label || '');
+    if (k) return tr(k, p.label);
+    const api = getI18n();
+    return api && typeof api.locText === 'function' ? api.locText(p?.label || '') : (p?.label || '');
   }
   function locCxClock(m) {
     const k = m && CX_CLOCK_KEYS[m.id];
@@ -2550,12 +2552,20 @@
     };
 
     let tabBody = '';
+    const locTxt = (s) => {
+      const api = getI18n();
+      return api && typeof api.locText === 'function' ? api.locText(s) : s;
+    };
     if (tabKey === 'maps') {
       const localizedMaps = (bd.maps || []).map((r) => ({ ...r, rawLabel: r.label, label: locMap(r.label) || r.label }));
       tabBody = renderMiniBars(localizedMaps, tr('cx.noMapsData', 'Sin suficientes partidas con mapa registrado.'), { withMapThumb: true });
-    } else if (tabKey === 'phases') tabBody = renderMiniBars(bd.phases, tr('cx.noPhasesData', 'Sin duraciones suficientes (reloj in-game).'));
-    else if (tabKey === 'openings') tabBody = renderMiniBars(bd.openings, tr('cx.noOpeningsCiv', 'Sin aperturas detectadas en replays para esta civ.'));
-    else {
+    } else if (tabKey === 'phases') {
+      const localizedPhases = (bd.phases || []).map((r) => ({ ...r, label: locTxt(r.label), sub: r.sub ? locTxt(r.sub) : r.sub }));
+      tabBody = renderMiniBars(localizedPhases, tr('cx.noPhasesData', 'Sin duraciones suficientes (reloj in-game).'));
+    } else if (tabKey === 'openings') {
+      const localizedOps = (bd.openings || []).map((r) => ({ ...r, label: locOpening(r.label) || locTxt(r.label), sub: r.sub ? locTxt(r.sub) : r.sub }));
+      tabBody = renderMiniBars(localizedOps, tr('cx.noOpeningsCiv', 'Sin aperturas detectadas en replays para esta civ.'));
+    } else {
       const p = bd.pace || {};
       tabBody = p.sample > 0
         ? `<div class="cx-diag-pace-grid">
@@ -2700,10 +2710,18 @@
     };
 
     let tabBody = '';
+    const locTxt = (s) => {
+      const api = getI18n();
+      return api && typeof api.locText === 'function' ? api.locText(s) : s;
+    };
     if (tabKey === 'civs') tabBody = renderMiniBars(bd.civs, tr('cx.noCivsMap', 'Sin suficientes partidas por civilización en este mapa.'));
-    else if (tabKey === 'openings') tabBody = renderMiniBars(bd.oppOpenings, tr('cx.noOppOpeningsMap', 'Sin aperturas rivales clasificadas en este mapa.'));
-    else if (tabKey === 'phases') tabBody = renderMiniBars(bd.phases, tr('cx.noPhasesMap', 'Sin duraciones suficientes en este mapa.'));
-    else {
+    else if (tabKey === 'openings') {
+      const localizedOps = (bd.oppOpenings || []).map((r) => ({ ...r, label: locOpening(r.label) || locTxt(r.label), sub: r.sub ? locTxt(r.sub) : r.sub }));
+      tabBody = renderMiniBars(localizedOps, tr('cx.noOppOpeningsMap', 'Sin aperturas rivales clasificadas en este mapa.'));
+    } else if (tabKey === 'phases') {
+      const localizedPhases = (bd.phases || []).map((r) => ({ ...r, label: locTxt(r.label), sub: r.sub ? locTxt(r.sub) : r.sub }));
+      tabBody = renderMiniBars(localizedPhases, tr('cx.noPhasesMap', 'Sin duraciones suficientes en este mapa.'));
+    } else {
       const p = bd.pace || {};
       tabBody = p.sample > 0
         ? `<div class="cx-diag-pace-grid">
@@ -3127,7 +3145,7 @@
       <header class="cx-card-head">
         <div>
           <span class="cx-eyebrow">${esc(tr('cx.combatDnaEyebrow', 'HUELLA DE COMBATE'))} · ${esc(tr('cxe.combatLocalReplays', combatDna.scopeLabel || '{n} replays locales', { n: number(combatDna.sample || 0) }))}</span>
-          <h3>${esc(combatDna.dominantWorkshop ? tr('cx.yourArmyTitle', 'Tu ejército: {share}% {workshop}', { share: combatDna.dominantWorkshop.share, workshop: combatDna.dominantWorkshop.name }) : tr('cx.localUnitsTitle', 'Unidades y disciplina local'))}</h3>
+          <h3>${esc(combatDna.dominantWorkshop ? tr('cx.yourArmyTitle', 'Tu ejército: {share}% {workshop}', { share: combatDna.dominantWorkshop.share, workshop: locBuilding(combatDna.dominantWorkshop.name) }) : tr('cx.localUnitsTitle', 'Unidades y disciplina local'))}</h3>
         </div>
       </header>
       ${wrapUltraGate(`<div class="cx-combat-units">

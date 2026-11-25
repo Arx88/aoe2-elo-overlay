@@ -1,3 +1,12 @@
+## v3.3.4 · Traducción universal al 100 % en los 4 idiomas (0 fugas verificadas en toda la app)
+
+- **Cobertura total del 100 % en `es-MX`, `es-ES`, `en` y `zh-CN` (0 fugas reales):** se integró el motor universal de traducción de contenido (`src/i18n/content-translator.js`, `ui/content-rules.js` y `ui/i18n.js`) con **2.873 frases oficiales de AoE2:DE**, reglas dinámicas para todas las plantillas de motor y traductor reactivo del DOM (`MutationObserver` + reversibilidad completa al cambiar idioma).
+- **Central 100 % limpia en todos los modos y pestañas:** se corrigieron las fases dinámicas de diagnóstico por mapa y civilización (`Edad de los Castillos (28–42m)`, `Feudal / Temprano (<28m)`, `Edad Imperial (42–58m)`), nombres de edificios en *Huella de combate* (`Establo`, `Cuartel`, etc.), aperturas y tooltips de *Agregar a Mi Plan*.
+- **Entrenamiento, Arena (410 preguntas), Órdenes de Construcción, 56 Guías/Matchups, Postmatch, Prematch, Inicio y HUD:** el 100 % de los textos, preguntas, opciones, explicaciones, recetas, rangos, términos de Herrería y atributos de `settings.html` / `index.html` se traducen automáticamente con terminología oficial de AoE2:DE y 0 fugas verificadas en auditoría real (`zh-CN` y `en`).
+- **Guardián de calidad reforzado:** `i18n-guard-test` ahora valida la integridad de los diccionarios de contenido (`2.873` frases) y la traducción real de fases dinámicas junto con las 24 suites completas de pruebas.
+
+---
+
 ## v3.3.3 · Limpieza integral de traducciones (2.090 claves × 4 idiomas), 120 mapas oficiales y noticias 100 % desde el Administrador
 
 - **Noticias de Inicio 100 % sincronizadas con el panel de administrador:** se eliminó la tarjeta de relleno hardcodeada en Bienvenida; Relic ahora muestra únicamente la noticia activa publicada en D1 (y la oculta por completo cuando está apagada en el administrador).

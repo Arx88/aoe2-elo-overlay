@@ -196,6 +196,7 @@ const TacticalUI = require(path.join(ROOT, 'ui', 'tactical-ui.js'));
 const zhBox = { window: {}, document: { documentElement: {}, querySelectorAll: () => [] }, console };
 zhBox.window = zhBox;
 zhBox.globalThis = zhBox;
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'ui', 'content-rules.js'), 'utf8'), zhBox);
 vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'ui', 'i18n.js'), 'utf8'), zhBox);
 zhBox.AppI18n.configure({ locale: 'zh-CN', allBundles: i18nMod.getAllBundles() });
 TacticalUI.configure({ i18n: zhBox.AppI18n });
@@ -252,4 +253,16 @@ assert.equal(
   `[i18n-guard] Render real de Central en zh-CN filtró ${zhLeaks.length} texto(s) sin traducir:\n  ${zhLeaks.slice(0, 15).join('\n  ')}`
 );
 
-console.log(`i18n-guard-test: OK (${LOCALES.length} locales × ${allKeys.size} claves · ${usedKeys.size} usadas · 0 faltantes · 0 textos duros · 0 fugas en render real zh-CN)`);
+// Regla 8: Integridad de phrasebooks universales (src/i18n/content/{en,zh-CN}.json) + reglas dinámicas
+const pbEn = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'i18n', 'content', 'en.json'), 'utf8'));
+const pbZh = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'i18n', 'content', 'zh-CN.json'), 'utf8'));
+assert.equal(Object.keys(pbEn).length, Object.keys(pbZh).length, '[i18n-guard] content/en.json y content/zh-CN.json tienen distinta cantidad de claves');
+assert.ok(Object.keys(pbEn).length >= 2800, '[i18n-guard] content phrasebook demasiado chico');
+const badZhEntries = Object.entries(pbZh).filter(([, v]) => !v || /[áéíóúñÁÉÍÓÚÑ¡¿]/.test(v));
+assert.equal(badZhEntries.length, 0, `[i18n-guard] content/zh-CN.json tiene ${badZhEntries.length} entradas con fuga española`);
+const zhCastlePhase = zhBox.AppI18n.locText('Edad de los Castillos (28–42m)');
+const zhFeudalPhase = zhBox.AppI18n.locText('Feudal / Temprano (<28m)');
+assert.ok(zhCastlePhase.includes('城堡时代') && !/Castillo|Edad/i.test(zhCastlePhase), `Fuga en fase Castillos: ${zhCastlePhase}`);
+assert.ok(zhFeudalPhase.includes('封建') && !/Feudal|Temprano/i.test(zhFeudalPhase), `Fuga en fase Feudal: ${zhFeudalPhase}`);
+
+console.log(`i18n-guard-test: OK (${LOCALES.length} locales × ${allKeys.size} claves · ${usedKeys.size} usadas · ${Object.keys(pbEn).length} frases contenido · 0 faltantes · 0 textos duros · 0 fugas en render real zh-CN)`);

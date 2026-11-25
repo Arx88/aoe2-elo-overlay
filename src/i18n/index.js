@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { civSlug } = require('../civs');
+const { translateText, localizeDeep, getPhrasebookForRenderer } = require('./content-translator');
 
 const SUPPORTED_LOCALES = Object.freeze(['en', 'es-ES', 'es-MX', 'zh-CN']);
 const DEFAULT_LOCALE = 'es-MX';
@@ -145,6 +146,7 @@ function getBundle(locale = DEFAULT_LOCALE) {
       units: Object.fromEntries(Object.entries(GAME_TERMS.units).map(([k, v]) => [k, v[lang]])),
       buildings: Object.fromEntries(Object.entries(GAME_TERMS.buildings).map(([k, v]) => [k, v[lang]])),
     },
+    phrasebook: getPhrasebookForRenderer(lang),
   };
   BUNDLE_CACHE.set(lang, bundle);
   return bundle;
@@ -171,6 +173,8 @@ module.exports = {
   resourceName,
   mapName,
   openingName,
+  translateText,
+  localizeDeep,
   getBundle,
   getAllBundles,
 };
