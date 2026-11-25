@@ -923,6 +923,7 @@ function analyzeCivPerformance({
       findings: [],
       breakdowns,
       summaryLine: `Muestra chica (${nC} ${nC === 1 ? 'partida' : 'partidas'} con detalle). Se necesitan al menos ${MIN_DIAGNOSIS_GAMES} para detectar patrones.`,
+      summaryI18n: ['cxe.cfInsuffSum', { n: nC, need: MIN_DIAGNOSIS_GAMES }],
     };
   }
 
@@ -947,6 +948,11 @@ function analyzeCivPerformance({
       detail: eloGapEffect < 0
         ? `Con ${displayName} enfrentaste rivales +${Math.abs(avgDiff)} ELO arriba en promedio (esperado ${Math.round(avgExpCiv * 100)}% WR).`
         : `Con ${displayName} enfrentaste rivales ${Math.abs(avgDiff)} ELO abajo en promedio (esperado ${Math.round(avgExpCiv * 100)}% WR).`,
+      i18n: {
+        title: [eloGapEffect < 0 ? 'cxe.caHigherT' : 'cxe.caLowerT', null],
+        metric: ['cxe.caEloRivalMet', { diff: `${avgDiff > 0 ? '+' : ''}${avgDiff}` }],
+        detail: [eloGapEffect < 0 ? 'cxe.caHigherDet' : 'cxe.caLowerDet', { _civ: displayName, diff: Math.abs(avgDiff), exp: Math.round(avgExpCiv * 100) }],
+      },
     });
   }
 
@@ -977,6 +983,10 @@ function analyzeCivPerformance({
       title: 'Jugada en pico local de ELO',
       metric: `+${Math.round(medLocalSpike)} ELO`,
       detail: `Pickeaste ${displayName} +${Math.round(medLocalSpike)} ELO sobre tu mediana reciente al momento de jugarla.`,
+      i18n: {
+        title: ['cxe.caPeakT', null],
+        detail: ['cxe.caPeakDet', { _civ: displayName, diff: Math.round(medLocalSpike) }],
+      },
     });
   }
 

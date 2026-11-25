@@ -1,3 +1,12 @@
+## v3.3.3 · Limpieza integral de traducciones (2.090 claves × 4 idiomas), 120 mapas oficiales y noticias 100 % desde el Administrador
+
+- **Noticias de Inicio 100 % sincronizadas con el panel de administrador:** se eliminó la tarjeta de relleno hardcodeada en Bienvenida; Relic ahora muestra únicamente la noticia activa publicada en D1 (y la oculta por completo cuando está apagada en el administrador).
+- **Central verificada con datos reales (0 fugas en `zh-CN` y `en` en los 5 modos):** se tradujeron los textos dinámicos restantes (`VICTORIA`/`DERROTA` en partidas recientes, resumen de Hora Dorada, estabilidad de ladder, comparativa *Antes vs Ahora*, alertas de contexto de civilización, *Muestra chica*, *Pocket/Flank*, `Global` y `drops`), se amplió el catálogo oficial a **120 mapas de AoE2:DE** y se unificó la traducción de aperturas sin distinción de mayúsculas ni idioma origen.
+- **Interfaz general, Prematch, Postmatch, HUD y Entrenamiento (2.090 claves × 4 idiomas):** traducción de modales de mejora/checkout/referidos, buscador de Central, toasts y estados en `settings.js` / `settings.html`, tarjetas de Prematch/Postmatch, bloques del overlay en vivo (`renderer.js`) y cabeceras/civilizaciones de Entrenamiento.
+- **Guardián de calidad con render real en `zh-CN`:** `i18n-guard-test` ahora ejecuta un render real de Central en chino simplificado con partidas e insights y falla ante cualquier fuga de español (con o sin tildes).
+
+---
+
 ## v3.3.2 · Central 100 % traducida en los 4 idiomas y nombres oficiales de civs/mapas
 
 - **Central completamente localizada (4 idiomas × 1.763 claves · `es-MX`, `es-ES`, `en`, `zh-CN`):** traducción total de todas las pestañas de **Central** (*Resumen*, *Civs y Mapas*, *Mejora y ELO*), incluyendo **ADN de jugador**, **Tridente táctico**, **Hora Dorada**, **Vitrina de récords**, **Huella de combate**, **Velocidad vs Cerebro**, **Radiografía de Team Games**, **Color de la suerte**, **Espejo / Meta / GG**, **Laboratorio de Mejora Personal**, **Motores y fugas de ELO**, **Antídotos y curva de sesión**, y todos los hallazgos dinámicos de **Diagnóstico por civilización y por mapa** con cambio de idioma instantáneo.

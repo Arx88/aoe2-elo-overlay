@@ -467,8 +467,8 @@ function bindRecentMatchClicks(container, { jumpToPostmatch = false } = {}) {
         if (typeof openFriendlyUpgradeModal === 'function') {
           openFriendlyUpgradeModal({
             tier: 'ultra',
-            featureName: 'Análisis Postmatch detallado',
-            featureDesc: 'Revisá tiempos de edad, economía, combate y focos reales de mejora partida a partida.',
+            featureName: t('ui.pmDetailName', 'Análisis Postmatch detallado'),
+            featureDesc: t('ui.pmDetailDesc', 'Revisá tiempos de edad, economía, combate y focos reales de mejora partida a partida.'),
           });
         } else {
           goTo('plans');
@@ -755,7 +755,7 @@ function bindInteractiveEloChart() {
       }
     }
     if (ttDate) {
-      const outcome = nearest.won === true ? 'Victoria' : nearest.won === false ? 'Derrota' : '';
+      const outcome = nearest.won === true ? t('ui.chartWin', 'Victoria') : nearest.won === false ? t('ui.chartLoss', 'Derrota') : '';
       ttDate.textContent = [outcome, nearest.date].filter(Boolean).join(' · ');
     }
     tooltip.hidden = false;
@@ -1121,18 +1121,18 @@ function renderCentralSearchFeedback({ kind = 'loading', text = '', query = '' }
   const row = document.createElement('div');
   row.className = `central-search-feedback is-${kind}`;
   if (kind === 'loading') {
-    row.innerHTML = `<span class="search-spinner is-inline" aria-hidden="true"></span><span>${escapeHtml(text || `Buscando "${query}"…`)}</span>`;
+    row.innerHTML = `<span class="search-spinner is-inline" aria-hidden="true"></span><span>${escapeHtml(text || t('ui.searchingQuery', 'Buscando "{q}"…', { q: query }))}</span>`;
   } else if (kind === 'error') {
     const msg = document.createElement('span');
-    msg.textContent = text || 'No se pudo consultar AoE2 Companion.';
+    msg.textContent = text || t('ui.netSearchErr', 'Error de red al buscar.');
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = 'link-btn';
-    retry.textContent = 'Reintentar';
+    retry.textContent = t('central.retry', 'Reintentar');
     retry.addEventListener('click', () => executeCentralSearch(query));
     row.append(msg, retry);
   } else {
-    row.textContent = text || `Sin resultados para "${query}". Probá otro nombre o pegá el #ID.`;
+    row.textContent = text || t('ui.noResultsQuery', 'Sin resultados para "{q}". Probá otro nombre o pegá el #ID.', { q: query });
   }
   centralSearchResultsEl.append(row);
 }
@@ -1165,13 +1165,13 @@ function renderCentralSearchResults() {
     tag.className = 'tag';
     const bits = [`#${profile.profileId}`];
     if (profile.country) bits.push(profile.country.toUpperCase());
-    if (profile.games) bits.push(`${profile.games} pj`);
+    if (profile.games) bits.push(`${profile.games} ${t('cx.pjAbbr', 'pj')}`);
     tag.textContent = bits.join(' · ');
     copy.append(name, tag);
 
     const action = document.createElement('span');
     action.className = 'central-search-go';
-    action.textContent = 'Ver perfil →';
+    action.textContent = t('ui.viewProfileArrow', 'Ver perfil →');
 
     row.append(avatar, copy, action);
     row.addEventListener('click', () => {
@@ -1187,7 +1187,7 @@ async function executeCentralSearch(rawQuery) {
   if (query.length < 2) return;
   const token = ++centralSearchToken;
   setCentralSearchLoading(true, { disableButton: true });
-  if (centralSearchStateEl) centralSearchStateEl.textContent = 'Buscando…';
+  if (centralSearchStateEl) centralSearchStateEl.textContent = t('ui.searching', 'Buscando…');
   renderCentralSearchFeedback({ kind: 'loading', query });
   try {
     const response = await window.settings.search(query);
@@ -1197,20 +1197,24 @@ async function executeCentralSearch(rawQuery) {
       centralSearchHits = [];
       centralSearchActiveIdx = -1;
       if (centralSearchStateEl) centralSearchStateEl.textContent = 'Error';
-      renderCentralSearchFeedback({ kind: 'error', text: response?.error || 'Error de red al buscar.', query });
+      renderCentralSearchFeedback({ kind: 'error', text: response?.error || t('ui.netSearchErr', 'Error de red al buscar.'), query });
       return;
     }
     const list = Array.isArray(response.results) ? response.results.slice(0, 8) : [];
     if (!list.length) {
       centralSearchHits = [];
       centralSearchActiveIdx = -1;
-      if (centralSearchStateEl) centralSearchStateEl.textContent = '0 resultados';
+      if (centralSearchStateEl) centralSearchStateEl.textContent = t('ui.zeroResults', '0 resultados');
       renderCentralSearchFeedback({ kind: 'empty', query });
       return;
     }
     centralSearchHits = list;
     centralSearchActiveIdx = 0;
-    if (centralSearchStateEl) centralSearchStateEl.textContent = `${centralSearchHits.length} ${centralSearchHits.length === 1 ? 'jugador' : 'jugadores'}`;
+    if (centralSearchStateEl) {
+      centralSearchStateEl.textContent = centralSearchHits.length === 1
+        ? t('ui.onePlayer', '1 jugador')
+        : t('ui.manyPlayers', '{n} jugadores', { n: centralSearchHits.length });
+    }
     renderCentralSearchResults();
   } catch (err) {
     if (token !== centralSearchToken) return;
@@ -1218,7 +1222,7 @@ async function executeCentralSearch(rawQuery) {
     centralSearchHits = [];
     centralSearchActiveIdx = -1;
     if (centralSearchStateEl) centralSearchStateEl.textContent = 'Error';
-    renderCentralSearchFeedback({ kind: 'error', text: err?.message || 'Error de conexión.', query });
+    renderCentralSearchFeedback({ kind: 'error', text: err?.message || t('ui.connErr', 'Error de conexión.'), query });
   }
 }
 
@@ -1301,7 +1305,7 @@ async function loadCentral(force = false, { animateSwap = false } = {}) {
     centralDashboardEl.classList.add('is-loading');
   }
   if (centralViewedProfile) {
-    setStatus(`Cargando perfil de ${centralViewedProfile.alias || `#${centralViewedProfile.profileId}`}…`);
+    setStatus(t('ui.loadingProfileOf', 'Cargando perfil de {name}…', { name: centralViewedProfile.alias || `#${centralViewedProfile.profileId}` }));
   }
   try {
     const res = await window.settings.centralGet(reqOpts);
@@ -1355,13 +1359,13 @@ centralSearchInput?.addEventListener('input', () => {
   if (numeric) {
     centralSearchToken += 1;
     setCentralSearchLoading(false);
-    if (centralSearchStateEl) centralSearchStateEl.textContent = 'Enter para abrir ID';
+    if (centralSearchStateEl) centralSearchStateEl.textContent = t('ui.enterOpenId', 'Enter para abrir ID');
     closeCentralSearchDropdown();
     return;
   }
   centralSearchHits = [];
   centralSearchActiveIdx = -1;
-  if (centralSearchStateEl) centralSearchStateEl.textContent = 'Buscando…';
+  if (centralSearchStateEl) centralSearchStateEl.textContent = t('ui.searching', 'Buscando…');
   setCentralSearchLoading(true);
   renderCentralSearchFeedback({ kind: 'loading', query });
   centralSearchTimer = setTimeout(() => executeCentralSearch(query), 240);
@@ -1416,10 +1420,10 @@ for (const button of themeButtons) {
     applyTheme(button.dataset.theme);
     const response = await window.settings.theme(button.dataset.theme);
     if (!response.ok) {
-      setStatus(response.error || 'No se pudo cambiar el diseño', true);
+      setStatus(response.error || t('ui.errTheme', 'No se pudo cambiar el diseño'), true);
       return;
     }
-    setStatus(`Diseño: ${button.querySelector('.tname').textContent}`);
+    setStatus(t('ui.statusTheme', 'Diseño: {name}', { name: button.querySelector('.tname').textContent }));
   });
 }
 
@@ -1431,7 +1435,7 @@ opacityInput.addEventListener('input', () => {
   opacityTimer = setTimeout(async () => {
     const response = await window.settings.opacity(value);
     if (!response.ok) {
-      setStatus(response.error || 'No se pudo aplicar la opacidad', true);
+      setStatus(response.error || t('ui.errOpacity', 'No se pudo aplicar la opacidad'), true);
       return;
     }
     setStatus(`Opacidad: ${Math.round(response.opacity * 100)}%`);
@@ -1569,7 +1573,7 @@ hideAtInput.addEventListener('input', () => {
   hideAtTimer = setTimeout(async () => {
     const response = await window.settings.hideAtSeconds(value);
     if (!response || !response.ok) {
-      setStatus((response && response.error) || 'No se pudo guardar el tiempo', true);
+      setStatus((response && response.error) || t('ui.errSaveTime', 'No se pudo guardar el tiempo'), true);
       return;
     }
     paintHideAt(response.hideAtSeconds);
@@ -1587,7 +1591,7 @@ for (const [key, input] of Object.entries(rivalInputs)) {
 
 // Balance de equipos: dato de pintado del panel, sin consulta de red.
 tgBalanceInput.addEventListener('change', () =>
-  applyToggle(tgBalanceInput, (on) => window.settings.tgBalance(on), 'Balance de equipos'),
+  applyToggle(tgBalanceInput, (on) => window.settings.tgBalance(on), t('ui.togTgBalance', 'Balance de equipos')),
 );
 smurfDetectorInput?.addEventListener('change', () =>
   applyToggle(smurfDetectorInput, (on) => window.settings.smurfDetector(on), 'Smurf Detector'),
@@ -1636,8 +1640,8 @@ function paintPostMatchPopupHide(seconds) {
 for (const [key, input, label] of [
   ['postMatch', postMatchInput, 'Resumen postmatch'],
   ['postMatchPopup', postMatchPopupInput, 'Popup postmatch'],
-  ['postMatchComparison', postMatchComparisonInput, 'Comparar mi evolución'],
-  ['postMatchReplay', postMatchReplayInput, 'Análisis del replay y APM'],
+  ['postMatchComparison', postMatchComparisonInput, t('ui.togPmCompare', 'Comparar mi evolución')],
+  ['postMatchReplay', postMatchReplayInput, t('ui.togPmReplay', 'Análisis del replay y APM')],
 ]) {
   if (!input) continue;
   input.addEventListener('change', async () => {
@@ -1645,7 +1649,7 @@ for (const [key, input, label] of [
       await applyToggle(input, (on) => window.settings.postMatchOption(key, on), label);
     } catch (error) {
       input.checked = !input.checked;
-      setStatus(error.message || 'No se pudo actualizar la opción.', true);
+      setStatus(error.message || t('ui.errUpdateOpt', 'No se pudo actualizar la opción.'), true);
     }
     if (input === postMatchComparisonInput) paintPostmatchReference();
     if (input === postMatchPopupInput || input === postMatchInput) {
@@ -1661,7 +1665,7 @@ if (postMatchHideInput) {
     postMatchHideTimer = setTimeout(async () => {
       const result = await window.settings.postMatchOption('postMatchHideSeconds', value);
       if (!result?.ok) {
-        setStatus(result?.error || 'No se pudo guardar el tiempo del popup.', true);
+        setStatus(result?.error || t('ui.errSavePopupTime', 'No se pudo guardar el tiempo del popup.'), true);
         return;
       }
       paintPostMatchPopupHide(result.value);
@@ -1697,7 +1701,7 @@ refreshPostMatchBtn.addEventListener('click', async () => {
       return;
     }
     paintPostMatch(response);
-    setStatus('Informe postmatch actualizado.');
+    setStatus(t('ui.pmUpdated', 'Informe postmatch actualizado.'));
   } finally {
     postMatchBusy = false;
     refreshPostMatchBtn.disabled = false;
@@ -1783,12 +1787,12 @@ async function loadTactics() {
 
 accountCommerce?.addEventListener('click', async () => {
   const response = await window.settings.openCommerce('account');
-  if (!response.ok) setStatus(response.error || 'No se pudo abrir la gestión de cuenta', true);
+  if (!response.ok) setStatus(response.error || t('ui.errOpenAcc', 'No se pudo abrir la gestión de cuenta'), true);
 });
 
 checkoutCommerce?.addEventListener('click', async () => {
   const response = await window.settings.openCommerce('checkout');
-  if (!response.ok) setStatus(response.error || 'No se pudo abrir la contratación', true);
+  if (!response.ok) setStatus(response.error || t('ui.errOpenSub', 'No se pudo abrir la contratación'), true);
 });
 
 accessKeyForm?.addEventListener('submit', async (event) => {
@@ -1799,13 +1803,13 @@ accessKeyForm?.addEventListener('submit', async (event) => {
   try {
     const response = await window.settings.activateAccessKey(accessKeyInput.value);
     if (!response.ok) {
-      accessKeyStatus.textContent = response.error || 'No se pudo activar la clave.';
+      accessKeyStatus.textContent = response.error || t('ui.errActivateKey', 'No se pudo activar la clave.');
       accessKeyStatus.classList.add('error');
       if (response.product) renderProduct(response.product);
       return;
     }
     accessKeyInput.value = '';
-    accessKeyStatus.textContent = 'Pro activado. Ya podés prender las opciones Pro en Ajustes.';
+    accessKeyStatus.textContent = t('ui.proKeyActivated', 'Pro activado. Ya podés prender las opciones Pro en Ajustes.');
     if (response.product) renderProduct(response.product);
     await loadCurrent();
   } finally {
@@ -1840,7 +1844,7 @@ autoUpdateInput.addEventListener('change', () =>
   applyToggle(
     autoUpdateInput,
     (on) => window.settings.autoUpdate(on),
-    'Actualizaciones automáticas',
+    t('ui.togAutoUpdate', 'Actualizaciones automáticas'),
   ),
 );
 
@@ -2084,11 +2088,11 @@ function renderResults() {
 
 async function choose(profileId) {
   manualBtn.disabled = true;
-  setStatus('Guardando…');
+  setStatus(t('ui.saving', 'Guardando…'));
   const response = await window.settings.pick(profileId);
   manualBtn.disabled = false;
   if (!response.ok) {
-    setStatus(response.error || 'No se pudo guardar el perfil', true);
+    setStatus(response.error || t('ui.errSaveProfile', 'No se pudo guardar el perfil'), true);
     return;
   }
   setStatus(`Listo: ${response.alias || 'perfil'} (#${response.profileId})`);
@@ -2147,7 +2151,7 @@ searchInput.addEventListener('input', () => {
 
   const token = ++searchToken;
   accountSearchBoxEl?.classList.add('is-searching');
-  paintSearchState('Buscando…');
+  paintSearchState(t('ui.searching', 'Buscando…'));
   searchTimer = setTimeout(async () => {
     try {
       const response = await window.settings.search(query);
@@ -2163,7 +2167,7 @@ searchInput.addEventListener('input', () => {
       activeIndex = results.length ? 0 : -1;
       renderResults();
       paintSearchState(
-        results.length ? `${results.length} resultado${results.length === 1 ? '' : 's'}` : 'Sin resultados',
+        results.length ? (results.length === 1 ? t('ui.oneResult', '1 resultado') : t('ui.manyResults', '{n} resultados', { n: results.length })) : t('ui.noResultsLabel', 'Sin resultados'),
       );
       paintSearchHelp(Boolean(results.length));
       setStatus('');
@@ -2172,7 +2176,7 @@ searchInput.addEventListener('input', () => {
       results = [];
       renderResults();
       paintSearchState('Error al buscar');
-      setStatus(err?.message || 'Error de conexión al buscar', true);
+      setStatus(err?.message || t('ui.connSearchErr', 'Error de conexión al buscar'), true);
     } finally {
       if (token === searchToken) accountSearchBoxEl?.classList.remove('is-searching');
     }
@@ -2203,7 +2207,7 @@ searchInput.addEventListener('keydown', (event) => {
 manualBtn.addEventListener('click', () => {
   const numeric = parseNumeric(searchInput.value);
   if (!numeric) {
-    setStatus('Pegá un profile ID numérico', true);
+    setStatus(t('ui.pasteNumericId', 'Pegá un profile ID numérico'), true);
     return;
   }
   choose(numeric);
@@ -2211,11 +2215,11 @@ manualBtn.addEventListener('click', () => {
 
 autoBtn.addEventListener('click', async () => {
   autoBtn.disabled = true;
-  setStatus('Buscando la cuenta del juego en esta PC…');
+  setStatus(t('ui.detectingPcAcc', 'Buscando la cuenta del juego en esta PC…'));
   const response = await window.settings.auto();
   autoBtn.disabled = false;
   if (!response.ok) {
-    setStatus(response.error || 'No se encontró ninguna cuenta', true);
+    setStatus(response.error || t('ui.noAccFound', 'No se encontró ninguna cuenta'), true);
     return;
   }
   setStatus(`Detectada: ${response.alias || 'sin alias'} (#${response.profileId})`);
@@ -2549,23 +2553,23 @@ updateBtn.addEventListener('click', async () => {
   if (updaterState.ready && updaterState.latest && updaterState.readyVersion &&
       updaterState.latest !== updaterState.readyVersion) {
     updateBtn.disabled = true;
-    updPhase.textContent = 'Apareció una versión más nueva: actualizo el estado…';
+    updPhase.textContent = t('ui.updNewerFound', 'Apareció una versión más nueva: actualizo el estado…');
     renderUpdater(await window.settings.updaterCheck());
     return;
   }
   updateBtn.disabled = true;
   if (updaterState.ready) {
-    updPhase.textContent = 'Instalando la actualización…';
+    updPhase.textContent = t('ui.updInstalling', 'Instalando la actualización…');
     const result = await window.settings.updaterInstall();
     // Si había partida, install() pospone y el broadcast ya repinta el panel.
     // Esto evita que quede «Instalando…» si el evento llega antes del repintado.
     if (result && result.ok === false && result.reason === 'match') {
-      updPhase.textContent = 'Hay partida en curso: se instala sola apenas termines.';
+      updPhase.textContent = t('ui.updInMatchWait', 'Hay partida en curso: se instala sola apenas termines.');
     }
     return;
   }
   if (updaterState.available) {
-    updPhase.textContent = 'Descargando paquete de actualización…';
+    updPhase.textContent = t('ui.updDownloading', 'Descargando paquete de actualización…');
     renderUpdater(await window.settings.updaterDownload());
     return;
   }
@@ -2579,13 +2583,13 @@ updateBtn.addEventListener('click', async () => {
 checkBtn.addEventListener('click', async () => {
   if (!updaterState || !updaterState.active) return;
   checkBtn.disabled = true;
-  updPhase.textContent = 'Buscando una versión nueva…';
+  updPhase.textContent = t('ui.updChecking', 'Buscando una versión nueva…');
   renderUpdater(await window.settings.updaterCheck());
 });
 
 skipBtn.addEventListener('click', async () => {
   renderUpdater(await window.settings.updaterSkip());
-  setStatus('Omitida por ahora: no se instala al salir en esta sesión.');
+  setStatus(t('ui.updSkipped', 'Omitida por ahora: no se instala al salir en esta sesión.'));
 });
 
 /* ============================================================
@@ -3045,7 +3049,7 @@ el('wizSearch')?.addEventListener('input', () => {
       const list = Array.isArray(response) ? response : (Array.isArray(response?.results) ? response.results : []);
       box.replaceChildren();
       if (!list.length) {
-        box.innerHTML = `<div class="central-search-feedback is-empty">Sin resultados para "${escapeHtml(q)}".</div>`;
+        box.innerHTML = `<div class="central-search-feedback is-empty">${escapeHtml(t('ui.noResultsShort', 'Sin resultados para "{q}".', { q }))}</div>`;
         return;
       }
       for (const p of list.slice(0, 5)) {
@@ -3057,7 +3061,7 @@ el('wizSearch')?.addEventListener('input', () => {
         row.addEventListener('click', async () => {
           const picked = await window.settings.pick(p.profileId);
           if (!picked?.ok) {
-            setStatus(picked?.error || 'No se pudo guardar ese perfil.', true);
+            setStatus(picked?.error || t('ui.errSaveProfile', 'No se pudo guardar el perfil'), true);
             return;
           }
           syncWizardAccount(picked);
@@ -3153,7 +3157,7 @@ loadCurrent();
         railUserAvatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 19.2c1.2-3 3.7-4.5 6.5-4.5s5.3 1.5 6.5 4.5"/></svg>';
       }
       if (railUserName) railUserName.textContent = lastAccountInfo.alias || t('account.signInRail', 'Iniciar sesión');
-      if (railUserSub) railUserSub.textContent = lastAccountInfo.alias ? 'Sin sincronizar' : 'Cuenta';
+      if (railUserSub) railUserSub.textContent = lastAccountInfo.alias ? t('ui.unsynced', 'Sin sincronizar') : t('ui.accountShort', 'Cuenta');
       if (typeof syncPlanPricingUi === 'function') syncPlanPricingUi();
       renderWizardStep();
       return;
@@ -3202,7 +3206,7 @@ loadCurrent();
       if (!activeDevices.length) {
         const empty = document.createElement('li');
         empty.className = 'relic-device-item';
-        empty.innerHTML = '<div class="relic-device-meta"><small>Sin PCs registradas todavía.</small></div>';
+        empty.innerHTML = `<div class="relic-device-meta"><small>${escapeHtml(t('ui.noDevicesYet', 'Sin PCs registradas todavía.'))}</small></div>`;
         devicesListEl.appendChild(empty);
       } else {
         for (const dev of activeDevices) {
@@ -3212,7 +3216,7 @@ loadCurrent();
           const meta = document.createElement('div');
           meta.className = 'relic-device-meta';
           meta.innerHTML = `<b>${escapeHtml(dev.deviceName || 'PC')}${isCurrent ? '<span class="relic-this-pc">Esta PC</span>' : ''}</b>` +
-            `<small>${escapeHtml([dev.appVersion ? `v${dev.appVersion}` : null, `última vez ${fmtRelTime(dev.lastSeenAt)}`].filter(Boolean).join(' · '))}</small>`;
+            `<small>${escapeHtml([dev.appVersion ? `v${dev.appVersion}` : null, t('ui.lastSeenRel', 'última vez {time}', { time: fmtRelTime(dev.lastSeenAt) })].filter(Boolean).join(' · '))}</small>`;
           const kickBtn = document.createElement('button');
           kickBtn.type = 'button';
           kickBtn.className = 'btn';
@@ -3243,12 +3247,12 @@ loadCurrent();
         setAllAuthStatus('');
         if (res.auth) paintAuth(res.auth);
         if (res.product) renderProduct(res.product);
-        setStatus('Sesión de Google iniciada.');
+        setStatus(t('ui.googleSignedIn', 'Sesión de Google iniciada.'));
       } else {
-        setAllAuthStatus(res?.error || 'No se pudo iniciar sesión.');
+        setAllAuthStatus(res?.error || t('ui.authSignInErr', 'No se pudo iniciar sesión.'));
       }
     } catch (err) {
-      setAllAuthStatus(err?.message || 'Error al iniciar sesión.');
+      setAllAuthStatus(err?.message || t('ui.authSignInFail', 'Error al iniciar sesión.'));
     } finally {
       setLoginButtonsDisabled(false);
     }
@@ -3261,7 +3265,7 @@ loadCurrent();
       const res = await window.settings.authLogout();
       if (res?.auth) paintAuth(res.auth);
       if (res?.product) renderProduct(res.product);
-      setStatus('Sesión cerrada.');
+      setStatus(t('ui.signedOut', 'Sesión cerrada.'));
     } finally {
       if (accLogoutBtn) accLogoutBtn.disabled = false;
       if (wizSwitchBtn) wizSwitchBtn.disabled = false;
@@ -3288,11 +3292,11 @@ loadCurrent();
       const res = await window.settings.authRedeemKey(code);
       if (res?.ok) {
         if (redeemInput) redeemInput.value = '';
-        if (redeemStatusEl) redeemStatusEl.textContent = `¡Plan ${String(res.plan || '').toUpperCase()} activado (+${res.durationDays} días)!`;
+        if (redeemStatusEl) redeemStatusEl.textContent = t('ui.planRedeemed', '¡Plan {plan} activado (+{days} días)!', { plan: String(res.plan || '').toUpperCase(), days: res.durationDays });
         if (res.auth) paintAuth(res.auth);
         if (res.product) renderProduct(res.product);
       } else if (redeemStatusEl) {
-        redeemStatusEl.textContent = res?.error || 'Clave inválida.';
+        redeemStatusEl.textContent = res?.error || t('ui.invalidKey', 'Clave inválida.');
       }
     } finally {
       if (redeemBtn) redeemBtn.disabled = false;
@@ -3480,7 +3484,7 @@ function paintCheckoutModal() {
   if (coinRow) coinRow.classList.toggle('is-card-mode', isCard);
   if (coinLabelEl) {
     coinLabelEl.textContent = isCard
-      ? 'Pago con tarjeta procesado vía PayGate.to'
+      ? t('ui.cardViaPaygate', 'Pago con tarjeta procesado vía PayGate.to')
       : 'Moneda en red Polygon (PoS)';
   }
   document.querySelectorAll('[data-checkout-coin]').forEach((btn) => {
@@ -3505,8 +3509,8 @@ function paintCheckoutModal() {
   if (noteEl && !activeCheckoutOrderId) {
     noteEl.hidden = false;
     noteEl.textContent = isCard
-      ? 'Se abrirá PayGate.to en tu navegador. Al confirmarse el pago, tu plan se activa automáticamente.'
-      : `Genera una dirección única en red Polygon (${coinLabel}). Tu plan se activa automáticamente al confirmarse.`;
+      ? t('ui.cardBrowserNote', 'Se abrirá PayGate.to en tu navegador. Al confirmarse el pago, tu plan se activa automáticamente.')
+      : t('ui.polygonNote', 'Genera una dirección única en red Polygon ({coin}). Tu plan se activa automáticamente al confirmarse.', { coin: coinLabel });
   }
 }
 
@@ -3521,11 +3525,11 @@ function startCheckoutPolling(orderId) {
         stopCheckoutPolling();
         const badge = el('checkoutOrderStatusBadge');
         if (badge) {
-          badge.textContent = '¡Pago confirmado!';
+          badge.textContent = t('ui.paymentConfirmed', '¡Pago confirmado!');
           badge.classList.add('is-paid');
         }
         const noteEl = el('checkoutPreviewNote');
-        if (noteEl) noteEl.textContent = '¡Listo! Tu plan ya quedó activado en tu cuenta Relic.';
+        if (noteEl) noteEl.textContent = t('ui.paymentActiveNote', '¡Listo! Tu plan ya quedó activado en tu cuenta Relic.');
         const confirmBtn = el('checkoutConfirmBtn');
         if (confirmBtn) {
           confirmBtn.textContent = 'Plan activado ✓';
@@ -3637,12 +3641,12 @@ el('checkoutConfirmBtn')?.addEventListener('click', async () => {
       if (btn) btn.disabled = false;
       paintCheckoutModal();
       if (res?.authRequired || res?.unauthorized) {
-        if (noteEl) noteEl.textContent = 'Iniciá sesión con Google primero para vincular tu plan automáticamente.';
+        if (noteEl) noteEl.textContent = t('ui.signInFirstCheckout', 'Iniciá sesión con Google primero para vincular tu plan automáticamente.');
         if (typeof window.settings?.authGoogleLogin === 'function') {
           await window.settings.authGoogleLogin();
         }
       } else if (noteEl) {
-        noteEl.textContent = res?.error || 'No se pudo generar la orden de pago. Intentá de nuevo.';
+        noteEl.textContent = res?.error || t('ui.orderCreateErr', 'No se pudo generar la orden de pago. Intentá de nuevo.');
       }
       return;
     }
@@ -3663,13 +3667,13 @@ el('checkoutConfirmBtn')?.addEventListener('click', async () => {
       if (noteEl) noteEl.textContent = 'Apenas se confirme en Polygon (suele tardar 10–30 s), tu plan se activa solo.';
     } else {
       if (btn) btn.textContent = 'Ventana de pago abierta · Esperando...';
-      if (noteEl) noteEl.textContent = 'Completá el pago en PayGate.to en tu navegador. Esta ventana se actualizará sola.';
+      if (noteEl) noteEl.textContent = t('ui.completePaygateNote', 'Completá el pago en PayGate.to en tu navegador. Esta ventana se actualizará sola.');
     }
     if (order.orderId) startCheckoutPolling(order.orderId);
   } catch (_) {
     if (btn) btn.disabled = false;
     paintCheckoutModal();
-    if (noteEl) noteEl.textContent = 'Error de conexión al crear la orden.';
+    if (noteEl) noteEl.textContent = t('ui.orderConnErr', 'Error de conexión al crear la orden.');
   }
 });
 
@@ -3700,12 +3704,12 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
     const res = await window.settings.claimUltraTrial();
     if (!res?.ok) {
       if (res?.authRequired || res?.unauthorized) {
-        setStatus('Iniciá sesión con Google para activar tus 24 h gratis de Ultra.');
+        setStatus(t('ui.trialSignInReq', 'Iniciá sesión con Google para activar tus 24 h gratis de Ultra.'));
         if (typeof window.settings?.authGoogleLogin === 'function') {
           await window.settings.authGoogleLogin();
         }
       } else {
-        setStatus(res?.error || 'No se pudo activar la prueba de 24 h.', 'is-err');
+        setStatus(res?.error || t('ui.trialActErr', 'No se pudo activar la prueba de 24 h.'), 'is-err');
       }
       if (btn) {
         btn.disabled = false;
@@ -3715,9 +3719,9 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
     }
     if (res.product) renderProduct(res.product);
     if (btn) btn.hidden = true;
-    setStatus('¡Prueba Ultra de 24 h activada! Disfrutá la experiencia completa.', 'is-ok');
+    setStatus(t('ui.trialActOk', '¡Prueba Ultra de 24 h activada! Disfrutá la experiencia completa.'), 'is-ok');
   } catch (_) {
-    setStatus('Error de conexión al activar la prueba.', 'is-err');
+    setStatus(t('ui.trialConnErr', 'Error de conexión al activar la prueba.'), 'is-err');
     if (btn) {
       btn.disabled = false;
       btn.textContent = 'Probar Ultra 24 h gratis';
@@ -3783,13 +3787,13 @@ function syncAllTrainPinButtons(queue = latestTrainingQueue) {
       btn.classList.add('is-pinned');
       btn.dataset.tpQueueId = hit.id;
       btn.setAttribute('aria-pressed', 'true');
-      btn.title = 'En Mi Plan · Se verificará automáticamente en tus próximas partidas (tocá para quitar)';
+      btn.title = t('ui.inMyPlanTip', 'En Mi Plan · Se verificará automáticamente en tus próximas partidas (tocá para quitar)');
       if (labelSpan) labelSpan.textContent = '✓ En Mi Plan';
     } else {
       btn.classList.remove('is-pinned');
       delete btn.dataset.tpQueueId;
       btn.setAttribute('aria-pressed', 'false');
-      btn.title = 'Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)';
+      btn.title = t('ui.addMyPlanTip', 'Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)');
       if (labelSpan && /Mi Plan/i.test(labelSpan.textContent || '')) {
         labelSpan.textContent = 'Fijar en Mi Plan';
       }
@@ -3852,13 +3856,13 @@ document.addEventListener('click', async (ev) => {
     }
     if (res.duplicate) {
       if (typeof UiSfx === 'object') UiSfx.play('tap');
-      setStatus('Este objetivo ya está activo en «Mi Plan».');
+      setStatus(t('ui.alreadyInPlan', 'Este objetivo ya está activo en «Mi Plan».'));
     } else {
       if (typeof UiSfx === 'object') UiSfx.play('confirm');
-      setStatus('Agregado a Mi Plan · Relic lo verificará automáticamente en tus próximas partidas.');
+      setStatus(t('ui.addedToPlan', 'Agregado a Mi Plan · Relic lo verificará automáticamente en tus próximas partidas.'));
     }
   } else if (res?.error === 'ultra-required') {
-    setStatus('Disponible en Plan Ultra · Guardá focos de mejora en Mi Plan.');
+    setStatus(t('ui.planUltraOnly', 'Disponible en Plan Ultra · Guardá focos de mejora en Mi Plan.'));
   }
 });
 
@@ -3867,18 +3871,18 @@ function showPlanVerifiedToast(completedItems = []) {
   if (!Array.isArray(completedItems) || !completedItems.length) return;
   document.querySelector('#planVerifiedToast')?.remove();
   const first = completedItems[0];
-  const more = completedItems.length > 1 ? ` (+${completedItems.length - 1} más)` : '';
+  const more = completedItems.length > 1 ? t('ui.moreCompleted', ' (+{n} más)', { n: completedItems.length - 1 }) : '';
   const toast = document.createElement('div');
   toast.id = 'planVerifiedToast';
   toast.className = 'plan-verified-toast';
   toast.setAttribute('role', 'status');
   toast.innerHTML = `<div class="pvt-badge">✓</div>
     <div class="pvt-copy">
-      <span>¡CUMPLISTE TU PLAN EN PARTIDA REAL!</span>
+      <span>${escapeHtml(t('ui.planCompletedBanner', '¡CUMPLISTE TU PLAN EN PARTIDA REAL!'))}</span>
       <strong>${escapeHtml(first.title)}${escapeHtml(more)}</strong>
-      <small>${escapeHtml(first.verifiedEvidence || 'Verificado automáticamente en tu última partida.')}</small>
+      <small>${escapeHtml(first.verifiedEvidence || t('ui.planAutoVerified', 'Verificado automáticamente en tu última partida.'))}</small>
       <div class="pvt-actions">
-        <button type="button" class="btn gold" id="pvtOpenPlanBtn">Ver Mi Plan →</button>
+        <button type="button" class="btn gold" id="pvtOpenPlanBtn">${escapeHtml(t('ui.viewMyPlanArrow', 'Ver Mi Plan →'))}</button>
       </div>
     </div>
     <button type="button" class="pvt-close" id="pvtCloseBtn" aria-label="Cerrar">×</button>`;
@@ -3930,12 +3934,12 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
     .trim();
   const capFeature = cleanFeature ? cleanFeature.charAt(0).toUpperCase() + cleanFeature.slice(1) : '';
 
-  const headline = capFeature || (isPro ? 'Conocé a tu rival antes de empezar' : 'Llevá tu juego un paso más allá');
+  const headline = capFeature || (isPro ? t('ui.upProHeadline', 'Conocé a tu rival antes de empezar') : t('ui.upUltraHeadline', 'Llevá tu juego un paso más allá'));
   const lead = featureDesc
-    ? `${featureDesc} ${isPro ? 'Incluido en Relic Pro.' : 'Podés probar Ultra gratis 24 horas.'}`
+    ? `${featureDesc} ${isPro ? t('ui.upIncPro', 'Incluido en Relic Pro.') : t('ui.upTryUltra24', 'Podés probar Ultra gratis 24 horas.')}`
     : (isPro
-      ? 'Forma parte de Relic Pro. Lectura completa de rivales e historial desde el minuto cero.'
-      : 'Forma parte de Relic Ultra. Probalo gratis durante 24 horas y decidí con tus partidas.');
+      ? t('ui.upProSub', 'Forma parte de Relic Pro. Lectura completa de rivales e historial desde el minuto cero.')
+      : t('ui.upUltraSub', 'Forma parte de Relic Ultra. Probalo gratis durante 24 horas y decidí con tus partidas.'));
 
   const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -3945,14 +3949,14 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
 
   const perks = isPro
     ? [
-        { ico: icoEye, text: 'Lectura completa de aperturas y civs del rival' },
-        { ico: icoShield, text: 'Recomendador de civilización según mapa' },
-        { ico: icoTrend, text: 'Historial ampliado y métricas en Central' },
+        { ico: icoEye, text: t('ui.upProPerk1', 'Lectura completa de aperturas y civs del rival') },
+        { ico: icoShield, text: t('ui.upProPerk2', 'Recomendador de civilización según mapa') },
+        { ico: icoTrend, text: t('ui.upProPerk3', 'Historial ampliado y métricas en Central') },
       ]
     : [
-        { ico: icoTrend, text: 'Postmatch y evolución real con metas automáticas' },
-        { ico: icoList, text: 'Build orders en vivo con bonos de civilización' },
-        { ico: icoStar, text: 'Diagnósticos de Central, Matchups y Arena' },
+        { ico: icoTrend, text: t('ui.upUltraPerk1', 'Postmatch y evolución real con metas automáticas') },
+        { ico: icoList, text: t('ui.upUltraPerk2', 'Build orders en vivo con bonos de civilización') },
+        { ico: icoStar, text: t('ui.upUltraPerk3', 'Diagnósticos de Central, Matchups y Arena') },
       ];
 
   const backdrop = document.createElement('div');
@@ -3963,7 +3967,7 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
   backdrop.innerHTML = `<div class="relic-upgrade-stage is-art-right${isPro ? ' is-pro' : ''}">
     <img class="rum-art" src="${heroArt}" alt="" draggable="false" />
     <div class="rum-scrim" aria-hidden="true"></div>
-    <button type="button" class="rum-close" id="rumCloseBtn" aria-label="Cerrar">×</button>
+    <button type="button" class="rum-close" id="rumCloseBtn" aria-label="${escapeHtml(t('common.close', 'Cerrar'))}">×</button>
     <div class="rum-copy">
       <span class="rum-eyebrow">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
@@ -3977,8 +3981,8 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
       </ul>
       <div class="rum-actions">
         ${!isPro && isUltraTrialAvailable()
-          ? '<button type="button" class="rum-cta" id="rumTrialBtn">Probar 24 h gratis</button><button type="button" class="rum-link" id="rumPlansBtn">Ver planes <span aria-hidden="true">→</span></button>'
-          : `<button type="button" class="rum-cta" id="rumPlansBtn">${isPro ? 'Ver Plan Pro' : 'Ver Plan Ultra →'}</button><button type="button" class="rum-link" id="rumDismissBtn">Ahora no</button>`}
+          ? `<button type="button" class="rum-cta" id="rumTrialBtn">${escapeHtml(t('ui.upTry24Cta', 'Probar 24 h gratis'))}</button><button type="button" class="rum-link" id="rumPlansBtn">${escapeHtml(t('plans.viewPlans', 'Ver planes'))} <span aria-hidden="true">→</span></button>`
+          : `<button type="button" class="rum-cta" id="rumPlansBtn">${escapeHtml(isPro ? t('ui.upSeeProCta', 'Ver Plan Pro') : t('ui.upSeeUltraCta', 'Ver Plan Ultra →'))}</button><button type="button" class="rum-link" id="rumDismissBtn">${escapeHtml(t('ui.upNotNow', 'Ahora no'))}</button>`}
       </div>
     </div>
   </div>`;
@@ -4517,7 +4521,7 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
         const pillTxt = f.status === 'activated'
           ? 'Activado ✓'
           : f.status === 'pending_review'
-            ? 'En revisión'
+            ? t('ui.refInReview', 'En revisión')
             : f.status === 'pending'
               ? 'Pendiente'
               : (f.status === 'expired' ? 'Vencido' : 'Rechazado');
@@ -4525,10 +4529,10 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
           ? `Activado el ${formatReferralDate(f.activatedAt)}`
           : f.status === 'rejected' && f.rejectMessage
             ? f.rejectMessage
-            : (f.appliedAt ? `Ingresó el ${formatReferralDate(f.appliedAt)}` : '');
+            : (f.appliedAt ? t('ui.refJoinedOn', 'Ingresó el {date}', { date: formatReferralDate(f.appliedAt) }) : '');
         return `<div class="referral-friend-row">
           <div class="referral-friend-meta">
-            <strong>${escapeHtml(f.label || 'Jugador')}</strong>
+            <strong>${escapeHtml(f.label || t('ui.refPlayerFallback', 'Jugador'))}</strong>
             ${sub ? `<small>${escapeHtml(sub)}</small>` : ''}
           </div>
           <span class="referral-status-pill ${pillCls}">${escapeHtml(pillTxt)}</span>
@@ -4631,16 +4635,16 @@ async function copyReferralText(text, btn, defaultLabel) {
     await navigator.clipboard.writeText(clean);
     if (typeof UiSfx === 'object') UiSfx.play('confirm');
     if (btn) {
-      btn.textContent = '¡Copiado!';
+      btn.textContent = t('ui.copiedExcl', '¡Copiado!');
       setTimeout(() => { btn.textContent = defaultLabel; }, 1600);
     }
   } catch (_) {
-    setStatus('No se pudo copiar al portapapeles.');
+    setStatus(t('ui.copyErr', 'No se pudo copiar al portapapeles.'));
   }
 }
 
 el('referralCopyLinkBtn')?.addEventListener('click', () => {
-  copyReferralText(el('referralShareUrl')?.textContent, el('referralCopyLinkBtn'), 'Copiar enlace de invitación');
+  copyReferralText(el('referralShareUrl')?.textContent, el('referralCopyLinkBtn'), t('ui.copyInviteLink', 'Copiar enlace de invitación'));
 });
 el('referralCopyCodeBtn')?.addEventListener('click', () => {
   copyReferralText(el('referralCodeVal')?.textContent, el('referralCopyCodeBtn'), 'Copiar');
@@ -4651,7 +4655,7 @@ el('referralApplyBtn')?.addEventListener('click', async () => {
   const btn = el('referralApplyBtn');
   const code = String(input?.value || '').trim();
   if (!code) {
-    setReferralFeedback('Ingresá el código de referido que te compartió tu amigo.', 'err');
+    setReferralFeedback(t('ui.refEnterCode', 'Ingresá el código de referido que te compartió tu amigo.'), 'err');
     return;
   }
   setReferralFeedback('');
@@ -4659,7 +4663,7 @@ el('referralApplyBtn')?.addEventListener('click', async () => {
   try {
     const res = await window.settings?.referralsApply?.(code);
     if (!res?.ok) {
-      setReferralFeedback(res?.error || 'No se pudo aplicar el código de referido.', 'err');
+      setReferralFeedback(res?.error || t('ui.refApplyErr', 'No se pudo aplicar el código de referido.'), 'err');
       if (typeof UiSfx === 'object') UiSfx.play('error');
       return;
     }
@@ -4692,7 +4696,7 @@ el('referralVerifyNowBtn')?.addEventListener('click', async () => {
     }
     if (res?.ok) {
       if (typeof UiSfx === 'object') UiSfx.play('confirm');
-      setStatus('¡Cuenta de referido verificada correctamente!');
+      setStatus(t('ui.refVerifiedOk', '¡Cuenta de referido verificada correctamente!'));
     } else if (res?.error) {
       setStatus(res.error);
     }

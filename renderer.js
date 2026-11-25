@@ -371,7 +371,7 @@ function summarize(value, max = 108, dropLast = true) {
 function civCard(civ) {
   const entry = (civ.slug && civGuide[civ.slug]) || {};
   const locName = (typeof AppI18n === 'object' && AppI18n.civName) ? AppI18n.civName(civ.raw || entry.name) : '';
-  const name = locName || entry.name || String(civ.raw || 'Civilización');
+  const name = locName || entry.name || String(civ.raw || tr('hud.civFallback', 'Civilización'));
   const role = entry.role || '—';
   const shield = civ.slug
     ? `<img class="civhelp-shield" src="assets/civs/${civ.slug}.png" alt="" draggable="false" />`
@@ -658,21 +658,21 @@ function rivalBlock(label, body, extraClass = '', badge = '') {
 
 function rivalHistoryBlock(report) {
   const rows = Array.isArray(report.history) ? report.history : [];
-  if (report.modePending) return rivalBlock('ÚLTIMAS CIVS', '<div class="rival-empty">Esperando el modo de la partida…</div>');
+  if (report.modePending) return rivalBlock(tr('hud.lastCivsHead', 'ÚLTIMAS CIVS'), `<div class="rival-empty">${escapeHtml(tr('hud.waitMatchMode', 'Esperando el modo de la partida…'))}</div>`);
   if (report.modeUnavailable) return rivalBlock('ÚLTIMAS CIVS', '<div class="rival-empty">Historial del modo no disponible en esta partida.</div>');
   if (report.loading) {
     return rivalBlock(
-      'ASÍ JUGÓ SUS ÚLTIMAS 5',
-      `<div class="rival-empty">Buscando sus últimas civs…</div>`,
+      tr('hud.last5Head', 'ASÍ JUGÓ SUS ÚLTIMAS 5'),
+      `<div class="rival-empty">${escapeHtml(tr('hud.loadingLastCivs', 'Buscando sus últimas civs…'))}</div>`,
     );
   }
   if (!rows.length) {
     const msg = report.error && report.error.includes('historial:')
       ? 'No se pudo consultar el historial del rival.'
       : report.mode && report.mode.label
-      ? `Sin partidas públicas recientes en ${report.mode.label}.`
-      : 'Sin historial público reciente.';
-    return rivalBlock('ASÍ JUGÓ SUS ÚLTIMAS 5', `<div class="rival-empty">${escapeHtml(msg)}</div>`);
+      ? tr('hud.noPublicInMode', 'Sin partidas públicas recientes en {mode}.', { mode: report.mode.label })
+      : tr('hud.noPublicHist', 'Sin historial público reciente.');
+    return rivalBlock(tr('hud.last5Head', 'ASÍ JUGÓ SUS ÚLTIMAS 5'), `<div class="rival-empty">${escapeHtml(msg)}</div>`);
   }
   const items = rows
     .slice(0, 5)
@@ -691,7 +691,7 @@ function rivalHistoryBlock(report) {
     })
     .join('');
   return rivalBlock(
-    'ASÍ JUGÓ SUS ÚLTIMAS 5',
+    tr('hud.last5Head', 'ASÍ JUGÓ SUS ÚLTIMAS 5'),
     `<div class="rival-civ-list history-list">${items}</div>`,
     'civs',
   );
@@ -705,7 +705,7 @@ function rivalHistoryBlock(report) {
 function rivalMapBlock(report) {
   const map = report.mapStats;
   if (report.modePending) return rivalBlock('', '<div class="rival-empty">Esperando el modo para consultar el mapa…</div>', 'favs');
-  if (report.modeUnavailable) return rivalBlock('', '<div class="rival-empty">Estadísticas del mapa no disponibles para este modo.</div>', 'favs');
+  if (report.modeUnavailable) return rivalBlock('', `<div class="rival-empty">${escapeHtml(tr('hud.mapStatsUnavail', 'Estadísticas del mapa no disponibles para este modo.'))}</div>`, 'favs');
   if (report.loading) {
     return rivalBlock(
       '',
@@ -727,11 +727,11 @@ function rivalMapBlock(report) {
   const games = map && Number(map.games) > 0 ? Number(map.games) : 0;
   if (!games) {
     if (report.error && report.error.includes('stats:')) {
-      return rivalBlock('', '<div class="rival-empty">No se pudieron consultar las estadísticas del mapa.</div>', 'favs');
+      return rivalBlock('', `<div class="rival-empty">${escapeHtml(tr('hud.mapStatsErr', 'No se pudieron consultar las estadísticas del mapa.'))}</div>`, 'favs');
     }
     return rivalBlock(
       '',
-      `<div class="rival-empty">Sin partidas públicas en ${escapeHtml(mapName)}.</div>`,
+      `<div class="rival-empty">${escapeHtml(tr('hud.noPublicOnMap', 'Sin partidas públicas en {map}.', { map: mapName }))}</div>`,
       'favs',
     );
   }
@@ -785,7 +785,7 @@ function rivalH2HBlock(report) {
     );
   }
   const h2h = report.h2h;
-  if (!h2h) return rivalBlock('', '<div class="rival-empty">Cara a cara todavía no disponible.</div>', 'h2h');
+  if (!h2h) return rivalBlock('', `<div class="rival-empty">${escapeHtml(tr('hud.h2hUnavail', 'Cara a cara todavía no disponible.'))}</div>`, 'h2h');
   if (h2h.modePending) return rivalBlock('', '<div class="rival-empty">Esperando el modo para consultar el cara a cara…</div>', 'h2h');
   if (h2h.modeUnavailable) return rivalBlock('', '<div class="rival-empty">Cara a cara no disponible para este modo.</div>', 'h2h');
   if (h2h.error) return rivalBlock('', '<div class="rival-empty">No se pudo consultar tu historial para el cara a cara.</div>', 'h2h');
@@ -795,8 +795,8 @@ function rivalH2HBlock(report) {
     // historial se recorre hasta ~600 partidas del modo).
     const scanned = Number(h2h.scanned) || 0;
     const msg = scanned
-      ? `Sin enfrentamientos confirmados en tus últimas ${fmtNumber(scanned)} partidas del modo.`
-      : 'Sin historial público reciente en este modo.';
+      ? tr('hud.noH2hInLast', 'Sin enfrentamientos confirmados en tus últimas {n} partidas del modo.', { n: fmtNumber(scanned) })
+      : tr('hud.noH2hHist', 'Sin historial público reciente en este modo.');
     const caveat = Number(h2h.unresolved) > 0
       ? ` ${fmtNumber(h2h.unresolved)} partidas compartidas sin equipos confirmados.` : '';
     return rivalBlock('', `<div class="rival-empty">${escapeHtml(msg + caveat)}</div>`, 'h2h');
@@ -824,7 +824,7 @@ function rivalH2HBlock(report) {
   const tone = reliable ? (wins > losses ? 'good' : losses > wins ? 'bad' : '') : '';
   const subParts = [gamesText(h2h.games)];
   if (h2h.lastMatch && h2h.lastMatch.mapName && h2h.lastMatch.mapName !== '—') {
-    subParts.push(`última en ${h2h.lastMatch.mapName}`);
+    subParts.push(tr('hud.lastOnMap', 'última en {map}', { map: locMap(h2h.lastMatch.mapName) }));
   }
   // Las veces que jugaron como ALIADOS no son enfrentamientos, pero dan
   // contexto (y explican por qué el V-D no suma todas las partidas compartidas).
@@ -983,7 +983,7 @@ function rivalPredStrip(report) {
       );
     } else if (pending) {
       items.push(
-        predRow(icon('espadas'), '<i>Analizando sus replays para ver cómo arranca…</i>'),
+        predRow(icon('espadas'), `<i>${escapeHtml(tr('hud.analyzingOpenings', 'Analizando sus replays para ver cómo arranca…'))}</i>`),
       );
     } else if (report.modePending) {
       items.push(predRow(icon('espadas'), '<i>Esperando el modo para consultar aperturas…</i>'));
@@ -1000,10 +1000,10 @@ function rivalPredStrip(report) {
       const why = !mapName || mapName === '—' || mapName === 'este mapa'
         ? 'Esperando el mapa para analizar aperturas.'
         : mapSaw > 0 && civName
-          ? `Sin replays de ${civName} acá (${fmtNumber(mapSaw)} de otras civs)`
+          ? tr('hud.noCivReplaysHere', 'Sin replays de {civ} acá ({n} de otras civs)', { civ: civName, n: fmtNumber(mapSaw) })
           : mapSaw > 0
             ? `Hay ${fmtNumber(mapSaw)} replays del mapa, pero falta identificar su civ más usada.`
-            : `Sin replays de ${mapName} para saber cómo arranca`;
+            : tr('hud.noMapReplaysStart', 'Sin replays de {map} para saber cómo arranca', { map: mapName });
       items.push(predRow(icon('espadas'), `<i>${escapeHtml(why)}</i>`));
     } else {
       items.push(predRow(icon('espadas'), '<i>Sin datos de aperturas disponibles.</i>'));
@@ -1048,7 +1048,7 @@ function rivalCard(report) {
     `<span class="rival-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>` +
     (report.civ
       ? `<span class="rival-now">${rivalShield(report.civ, 'rival-shield xs')}<span>${escapeHtml(report.civ)}</span>` +
-        '<i class="rival-now-tag">eligió ahora</i></span>'
+        `<i class="rival-now-tag">${escapeHtml(tr('hud.pickedNow', 'eligió ahora'))}</i></span>`
       : '') +
     '</div>' +
     rivalPredStrip(report) +
@@ -1236,7 +1236,7 @@ function scoutTipSections(tip) {
       : tacBig(style.dominant === 'agresivo' ? style.aggressive : style.boom, style.analyzed);
     const label = mixed ? 'MIXTO' : style.dominant === 'agresivo' ? 'AGRESIVAS' : 'FAST CASTLE';
     const top = !mixed && style.top ? ` · ${escapeHtml(style.top.short)}` : '';
-    const hybrids = Number(style.hybrid) ? ` · ${fmtNumber(style.hybrid)} híbridos` : '';
+    const hybrids = Number(style.hybrid) ? tr('hud.hybridsCount', ' · {n} híbridos', { n: fmtNumber(style.hybrid) }) : '';
     const scope = style.scope === 'modo' ? ' · todo el modo' : '';
     tiles.push(tacTile({
       label: mixed ? 'ESTILO · MIXTO' : 'ESTILO',
@@ -1291,7 +1291,7 @@ function scoutTipSections(tip) {
     }));
   }
 
-  if (!tiles.length) return '<div class="rival-empty">Sin punto débil claro en su historial.</div>';
+  if (!tiles.length) return `<div class="rival-empty">${escapeHtml(tr('hud.noClearWeakness', 'Sin punto débil claro en su historial.'))}</div>`;
   return `<div class="tac-strip">${tiles.join('')}</div>`;
 }
 
@@ -1455,19 +1455,19 @@ function renderScoutInfo() {
 
 /** `strategy_opponent` dice qué apertura le GANÓ: esa es la orden de producción. */
 const SCOUT_ACTIONS = {
-  'Scout rush': 'Jugá scouts',
-  'Archer rush': 'Jugá arqueros',
-  Drush: 'Drusheá',
-  'Drush fast castle': 'Drush y subí a Castillo',
-  'Man at arms rush': 'Jugá MAA',
-  'Fast castle': 'Subí a Castillo',
+  'Scout rush': tr('hud.playScouts', 'Jugá scouts'),
+  'Archer rush': tr('hud.playArchers', 'Jugá arqueros'),
+  Drush: tr('hud.playDrush', 'Drusheá'),
+  'Drush fast castle': tr('hud.playDrushFc', 'Drush y subí a Castillo'),
+  'Man at arms rush': tr('hud.playMaa', 'Jugá MAA'),
+  'Fast castle': tr('hud.playFc', 'Subí a Castillo'),
 };
 
 function scoutActionFor(opening) {
   const name = (opening && opening.name) || '';
   if (SCOUT_ACTIONS[name]) return SCOUT_ACTIONS[name];
   const short = (opening && (opening.short || opening.name)) || '';
-  return short ? `Jugá ${short}` : 'Aprovechá su punto débil';
+  return short ? tr('hud.playShortOp', 'Jugá {op}', { op: short }) : tr('hud.exploitWeakness', 'Aprovechá su punto débil');
 }
 
 /** Número hero + barra. Con estilo -> reparto; si no, el pick de civ del mapa. */
@@ -1497,7 +1497,7 @@ function scoutHero(tip, report) {
       // ("estilo de todo el modo") se declara UNA vez al pie de la sección.
       dist:
         `${fmtNumber(agro)} agresivas · ${fmtNumber(boom)} Fast Castle de ${fmtNumber(total)}` +
-        (hybrid ? ` · ${fmtNumber(hybrid)} híbridos` : ''),
+        (hybrid ? tr('hud.hybridsCount', ' · {n} híbridos', { n: fmtNumber(hybrid) }) : ''),
       styleScope: style.scope === 'modo',
     };
   }
@@ -1554,7 +1554,7 @@ function scoutPickHero(report) {
     none: true,
     name: civ.name,
     value: '—',
-    label: 'Sin civ dominante acá',
+    label: tr('hud.noDomCivHere', 'Sin civ dominante acá'),
     sub: `juega de todo · ${civ.name} es su más usada: ${fmtNumber(hits)} de ${fmtNumber(sample)} acá`,
     tone: '',
     bar: null,
@@ -1598,7 +1598,7 @@ function scoutAction(tip) {
   }
   return {
     empty: true,
-    title: 'Sin punto débil claro',
+    title: tr('hud.noClearWeakShort', 'Sin punto débil claro'),
     sub: 'Sin evidencia suficiente para recomendar una apertura.',
     value: '—',
     legend: '',
@@ -1612,12 +1612,12 @@ function scoutAdditionalEvidence(tip) {
   const hard = tip.weakAgainst && tip.weakAgainst[0];
   const lines = [];
   if (weak && hard) {
-    const subject = tip.mode && tip.mode.size === 'team' ? 'Su equipo perdió' : 'Perdió';
+    const subject = tip.mode && tip.mode.size === 'team' ? tr('hud.teamLost', 'Su equipo perdió') : tr('hud.rivalLost', 'Perdió');
     lines.push(`${subject} ${fmtNumber(hard.losses)} de ${fmtNumber(hard.games)} contra ${hard.civ || 'esa civ'} · ${tip.scopeLabel || 'muestra disponible'}`);
   }
   const tempo = tempoAdvice(tip.tempo);
   if (tempo && (weak || hard)) {
-    const subject = tip.mode && tip.mode.size === 'team' ? 'su equipo ganó' : 'ganó';
+    const subject = tip.mode && tip.mode.size === 'team' ? tr('hud.teamWon', 'su equipo ganó') : tr('hud.rivalWon', 'ganó');
     lines.push(`En partidas ${tempo.forceShort ? 'cortas' : 'largas'} ${subject} ${fmtNumber(tempo.wins)} de ${fmtNumber(tempo.games)} · todo el modo`);
   }
   return lines.map((line) => `<p class="scout-evidence">${escapeHtml(line)}</p>`).join('');
@@ -1914,7 +1914,7 @@ function renderScouting() {
   // Si algún estilo cayó al modo completo, se declara UNA vez acá en vez de
   // alargar el caption de una sola tarjeta y desalinear las dos columnas.
   if (entries.some(({ tip }) => tip && tip.style && tip.style.scope === 'modo')) {
-    foot.push('sin replays del mapa, el estilo se tomó de todo el modo');
+    foot.push(tr('hud.styleFromModeFoot', 'sin replays del mapa, el estilo se tomó de todo el modo'));
   }
   if (smallSample) foot.push('muestra chica: es una pista, no una tendencia');
   if (scoutFootnoteEl) {

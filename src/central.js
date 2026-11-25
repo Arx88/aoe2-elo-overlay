@@ -866,6 +866,7 @@ function computeBeforeVsNow({
       deltaText: `${delta >= 0 ? '+' : ''}${delta} ELO`,
       improved: delta >= 0,
       sampleText: `Últimas ${winSize} vs ${winSize} previas`,
+      sampleI18n: ['cxe.bvnWinVsPrev', { n: winSize }],
       series: eloSeries.slice(-Math.min(24, eloSeries.length)).map((p) => p.rating),
     });
   }
@@ -889,8 +890,10 @@ function computeBeforeVsNow({
         beforeText: `${beforeWr}%`,
         nowText: `${nowWr}%`,
         deltaText: `${delta >= 0 ? '+' : ''}${delta} pts`,
+        deltaI18n: ['cxe.bvnPtsDelta', { sign: delta >= 0 ? '+' : '', val: delta }],
         improved: delta >= 0,
         sampleText: `${nowWins}V-${winSize - nowWins}D vs ${beforeWins}V-${winSize - beforeWins}D`,
+        sampleWL2: [nowWins, winSize - nowWins, beforeWins, winSize - beforeWins],
         series: knownPoints.slice(-Math.min(18, knownPoints.length)).map((p, idx, arr) => {
           const sl = arr.slice(Math.max(0, idx - 4), idx + 1);
           return pct(sl.filter((x) => x.won).length, sl.length);
@@ -914,6 +917,9 @@ function computeBeforeVsNow({
       sampleText: eapmData.avgRival
         ? `${eapmData.sampleCount} replays · rival medio ${eapmData.avgRival}`
         : `${eapmData.sampleCount} replays de AoE2Insights`,
+      sampleI18n: eapmData.avgRival
+        ? ['cxe.bvnReplaysRival', { n: eapmData.sampleCount, val: eapmData.avgRival }]
+        : ['cxe.bvnReplaysIns', { n: eapmData.sampleCount }],
       series: eapmData.series,
     });
   }
@@ -1571,9 +1577,9 @@ function computeCentralAnalytics({
     // Resultados por Duración sobre pool oficial sin sesgo en reloj de juego (1.7x)
     const unifiedDuration = buildDurationBuckets(unifiedModeMatches, { isTeam: isTeamMode });
     const durationAnalysis = unifiedDuration.total >= 4
-      ? { ...unifiedDuration, sourceLabel: `${unifiedDuration.total} partidas oficiales · reloj de juego` }
+      ? { ...unifiedDuration, sourceLabel: `${unifiedDuration.total} partidas oficiales · reloj de juego`, sourceI18n: ['cxe.durOfficialSrc', { n: unifiedDuration.total }] }
       : (ins?.durationAnalysis?.total >= 4
-          ? { ...ins.durationAnalysis, sourceLabel: `AoE2Insights · ${ins.durationAnalysis.total} replays · reloj de juego` }
+          ? { ...ins.durationAnalysis, sourceLabel: `AoE2Insights · ${ins.durationAnalysis.total} replays · reloj de juego`, sourceI18n: ['cxe.durInsightsSrc', { n: ins.durationAnalysis.total }] }
           : null);
 
     const eloValues = eloSeries.map((p) => p.rating);
@@ -1801,9 +1807,9 @@ function computeCentralAnalytics({
   const globalIns = insightsByMode.global;
   const globalUnifiedDur = buildDurationBuckets(globalUnifiedMatches, { isTeam: globalMostlyTeam });
   const globalDuration = globalUnifiedDur.total >= 4
-    ? { ...globalUnifiedDur, sourceLabel: `${globalUnifiedDur.total} partidas oficiales · reloj de juego` }
+    ? { ...globalUnifiedDur, sourceLabel: `${globalUnifiedDur.total} partidas oficiales · reloj de juego`, sourceI18n: ['cxe.durOfficialSrc', { n: globalUnifiedDur.total }] }
     : (globalIns?.durationAnalysis?.total >= 4
-        ? { ...globalIns.durationAnalysis, sourceLabel: `AoE2Insights · ${globalIns.durationAnalysis.total} replays · reloj de juego` }
+        ? { ...globalIns.durationAnalysis, sourceLabel: `AoE2Insights · ${globalIns.durationAnalysis.total} replays · reloj de juego`, sourceI18n: ['cxe.durInsightsSrc', { n: globalIns.durationAnalysis.total }] }
         : null);
 
   // En Global, alinear la serie ELO de lastMatchVsAvg con el modo REAL de la última partida

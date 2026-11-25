@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: https:; font-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Relic · Centro de mando</title>
+    <title data-i18n="ui.appWindowTitle">Relic · Centro de mando</title>
     <link rel="preload" as="image" href="assets/art/wizard-umbral.webp" />
     <link rel="preload" as="image" href="assets/art/referral-hero.jpg" />
     <link rel="preload" as="image" href="assets/brand/relic-icon.png" />
@@ -72,7 +72,7 @@
           <button id="navPlans" class="nav-item nav-item-plans" data-page="plans" type="button">
             <img class="product-icon" src="assets/icons/crown.png" alt="" draggable="false">
             <span data-i18n="nav.plans">Planes</span>
-            <span id="navPlansPill" class="nav-plan-pill" data-tier="free">Mejorar</span>
+            <span id="navPlansPill" class="nav-plan-pill" data-tier="free" data-i18n="plans.upgradePill">Mejorar</span>
           </button>
           <button class="nav-item" data-page="updater" type="button">
             <img class="product-icon" src="assets/icons/update.png" alt="" draggable="false">
@@ -328,13 +328,13 @@
           <section class="page" data-page="overlay">
             <div class="ux-grid-2">
               <section class="ux-panel ux-panel-static">
-                <div class="ux-panel-head"><span id="enterWindowLabel">Al entrar · 0:01 – 0:20</span><em class="ux-panel-count">1</em></div>
+                <div class="ux-panel-head"><span id="enterWindowLabel" data-i18n="ui.enterWindowDefault">Al entrar · 0:01 – 0:20</span><em class="ux-panel-count">1</em></div>
                 <div class="block pm-config-block">
                   <label class="row tog" for="hideEloAt20">
                     <span class="ric"><img class="product-icon" src="assets/icons/clock.png" alt="" draggable="false"></span>
                     <span class="tcopy">
-                      <span class="rname" id="hideEloName">Ocultar Overlay 20 segundos</span>
-                      <span class="rdesc" id="hideEloDesc">Se oculta a 0:20 para no molestar · vuelve al terminar</span>
+                      <span class="rname" id="hideEloName" data-i18n="ui.hideOverlayDefault">Ocultar Overlay 20 segundos</span>
+                      <span class="rdesc" id="hideEloDesc" data-i18n="ui.hideOverlayDescDefault">Se oculta a 0:20 para no molestar · vuelve al terminar</span>
                     </span>
                     <input id="hideEloAt20" type="checkbox" />
                     <span class="sw" aria-hidden="true"></span>
@@ -473,7 +473,7 @@
                   <span class="ric"><img class="product-icon" src="assets/icons/shield.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.civHelpTitle">Ayuda de civ</span>
-                    <span class="rdesc" id="civHelpDesc">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
+                    <span class="rdesc" id="civHelpDesc" data-i18n="ui.civHelpDescDefault">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
                   </span>
                   <input id="civHelp" type="checkbox" />
                   <span class="sw" aria-hidden="true"></span>

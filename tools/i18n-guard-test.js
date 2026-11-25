@@ -155,7 +155,7 @@ for (const htmlFile of ['settings.html', 'index.html']) {
 const STRICT_JS_MODULES = [
   { file: 'ui/welcome-ui.js', startMarker: null },
   { file: 'ui/techtree-ui.js', startMarker: null },
-  { file: 'ui/tactical-ui.js', startMarker: 'function renderInteractiveEloChart(' },
+  { file: 'ui/tactical-ui.js', startMarker: 'function renderRecentMatchesList(' },
 ];
 const CALL_STRIP_RE = /\b(?:wt|tt|trT|tr|AppI18n\.t)\(\s*(?:(['"`])[^'"`]+\1|[a-zA-Z_$][\w.$]*)\s*,\s*(['"`])(?:\\.|(?!\2).)*\2/g;
 const STRICT_ES_RE = /[áéíóúñÁÉÍÓÚÑ¡¿]/;
@@ -174,7 +174,7 @@ for (const { file: rel, startMarker } of STRICT_JS_MODULES) {
     if (trimmed.startsWith('//') || trimmed.startsWith('*')) return;
     const code = trimmed.replace(/\s+\/\/.*$/, '');
     // Permitir lookup tables de mapeo (GOLD_RANK_KEYS, NEWS_TAG_META, locCx*, periodLabel === 'Últimos 7 días')
-    if (/GOLD_RANK_KEYS|NEWS_TAG_META|periodLabel\s*===|fallback:\s*'|CX_AXIS_KEYS|CX_BLOCK_KEYS|CX_COLOR_KEYS|CX_PHASE_KEYS|CX_CLOCK_KEYS|CX_VERDICT_KEYS|CX_TERRAIN_KEYS|CX_LM_LABEL_KEYS|includes\(['"](?:óptimo|sólido|atención|crítico)/i.test(code)) return;
+    if (/GOLD_RANK_KEYS|NEWS_TAG_META|periodLabel\s*===|fallback:\s*'|CX_.*_(?:KEYS|MAP)|'Señor|'Relámpago|'Titán|'Comandante|'Estratega Camaleón|'Mié'|'Sáb'|'Camaleón|'Señal|'Patrón|'GG Rápido|'Hasta el Último|'Rendición|'Asesino|s\.includes\(|includes\(['"](?:óptimo|sólido|atención|crítico)/i.test(code)) return;
     const stripped = code.replace(CALL_STRIP_RE, '');
     if (STRICT_ES_RE.test(stripped)) {
       jsOffenders.push(`${rel}:${idx + 1}: ${code.slice(0, 100)}`);
@@ -187,4 +187,69 @@ for (const { file: rel, startMarker } of STRICT_JS_MODULES) {
   );
 }
 
-console.log(`i18n-guard-test: OK (${LOCALES.length} locales × ${allKeys.size} claves · ${usedKeys.size} usadas · 0 faltantes · 0 textos duros en HTML/JS)`);
+// 7. Render real de Central en zh-CN (con partidas, diagnósticos y descubrimientos reales) -> 0 fugas latinas/españolas
+const vm = require('node:vm');
+const i18nMod = require(path.join(ROOT, 'src', 'i18n', 'index.js'));
+const { computeCentralAnalytics } = require(path.join(ROOT, 'src', 'central.js'));
+const TacticalUI = require(path.join(ROOT, 'ui', 'tactical-ui.js'));
+
+const zhBox = { window: {}, document: { documentElement: {}, querySelectorAll: () => [] }, console };
+zhBox.window = zhBox;
+zhBox.globalThis = zhBox;
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'ui', 'i18n.js'), 'utf8'), zhBox);
+zhBox.AppI18n.configure({ locale: 'zh-CN', allBundles: i18nMod.getAllBundles() });
+TacticalUI.configure({ i18n: zhBox.AppI18n });
+
+const nowTs = Date.now();
+const simMatches = Array.from({ length: 24 }, (_, i) => ({
+  matchId: String(700000 + i),
+  startedAt: nowTs - (24 - i) * 3600_000 * 5,
+  finishedAt: nowTs - (24 - i) * 3600_000 * 5 + 1600_000,
+  durationSeconds: 1400 + (i % 5) * 380,
+  leaderboardId: 3,
+  mapName: i % 2 === 0 ? 'Arabia' : 'Coastal Forest',
+  players: [
+    { profileId: 99999, name: 'TestP', civ: i % 2 === 0 ? 'Franks' : 'Britons', color: (i % 8) + 1, rating: 1200 + i * 5, ratingDiff: i % 3 === 0 ? -14 : 16, team: 1, won: i % 3 !== 0 },
+    { profileId: 88888, name: 'OppP', civ: 'Mongols', color: 2, rating: 1210 + i * 5, team: 2, won: i % 3 === 0 },
+  ],
+}));
+const simCentral = computeCentralAnalytics({
+  profileId: 99999,
+  alias: 'TestP',
+  matches1v1: simMatches,
+  matchesAll: simMatches,
+  matchesTeam: [],
+  ladder1v1: { rating: 1320, highestRating: 1340, wins: 60, losses: 40, games: 100, rank: 8000, streak: 3 },
+  insights1v1: simMatches.map((m, i) => ({
+    matchId: m.matchId,
+    mapName: m.mapName,
+    duration: 2100 + (i % 4) * 500,
+    myCiv: i % 2 === 0 ? 'Franks' : 'Britons',
+    oppCiv: 'Mongols',
+    won: i % 3 !== 0,
+    meanEapm: 52 + (i % 10),
+    oppMeanEapm: 44 + (i % 8),
+    strategy: i % 2 === 0 ? 'Scout rush' : 'Fast castle',
+    oppStrategy: 'Archer rush',
+  })),
+}, { profileId: 99999, alias: 'TestP', isOwnProfile: true });
+
+const ZH_LEAK_RE = /[áéíóúñÁÉÍÓÚÑ¡¿]|\b(?:VICTORIA|DERROTA|PARTIDA|VIENDO|Estable|Volatil|Oscilante|Tu mejor|Mañana|Tarde|Noche|Madrugada|Últimas|previas|reloj de juego|partidas|replays|Tendencia|Rivales|Pickeaste|Jugada|Scout rush|Archer rush|Fast castle|Rush de|Global|drops|POCKET|FLANK|vs Rush|vs Boom|civs|Castillos|Feudal|Imperial|Muestra chica|Se necesitan)\b/i;
+const zhLeaks = [];
+for (const modeId of ['rm_1v1', 'global']) {
+  for (const view of ['overview', 'mastery', 'intel']) {
+    const html = TacticalUI.renderCentralDashboard(simCentral, { activeModeId: modeId, centralView: view, isUltra: true, planTier: 'ultra' });
+    const text = html.replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, '\n');
+    for (const raw of text.split('\n')) {
+      const l = raw.trim();
+      if (l && ZH_LEAK_RE.test(l)) zhLeaks.push(`${modeId}/${view}: ${l}`);
+    }
+  }
+}
+assert.equal(
+  zhLeaks.length,
+  0,
+  `[i18n-guard] Render real de Central en zh-CN filtró ${zhLeaks.length} texto(s) sin traducir:\n  ${zhLeaks.slice(0, 15).join('\n  ')}`
+);
+
+console.log(`i18n-guard-test: OK (${LOCALES.length} locales × ${allKeys.size} claves · ${usedKeys.size} usadas · 0 faltantes · 0 textos duros · 0 fugas en render real zh-CN)`);

@@ -23,6 +23,15 @@
     return String(fallback).replace(/\{(\w+)\}/g, (_m, k) => (vars[k] != null ? String(vars[k]) : ''));
   }
 
+  function locCivT(slug, fallback = '') {
+    const api = root.AppI18n;
+    if (api && typeof api.civName === 'function') {
+      const val = api.civName(slug);
+      if (val && val !== slug) return val;
+    }
+    return CIV_NAMES_ES[slug] || fallback || slug || '';
+  }
+
   // 56 civilizaciones estándar verificadas con árbol tecnológico oficial
   const CIV_NAMES_ES = {
     armenians: 'Armenios', aztecs: 'Aztecas', bengalis: 'Bengalíes', berbers: 'Bereberes',
@@ -333,7 +342,7 @@
       if (!techTreeCtrl || techTreeCtrl.ui.data) return;
       if (techTreeLoadPromise) return techTreeLoadPromise;
       if (typeof root.settings?.trainingTechTreeGet !== 'function') {
-        techTreeCtrl.setError('Servicio de árbol no disponible.');
+        techTreeCtrl.setError(trT('trui.treeUnavail', 'Servicio de árbol no disponible.'));
         render();
         return;
       }
@@ -345,11 +354,11 @@
             const prefCiv = state?.matchupWarRoom?.myCivSlug || state?.pacer?.selectedCiv || 'franks';
             techTreeCtrl.setData(res.data, prefCiv);
           } else {
-            techTreeCtrl.setError(res?.error || 'No se pudo cargar el árbol.');
+            techTreeCtrl.setError(res?.error || trT('trui.treeLoadErr', 'No se pudo cargar el árbol.'));
           }
         })
         .catch((err) => {
-          techTreeCtrl.setError(err?.message || 'Error al cargar el árbol.');
+          techTreeCtrl.setError(err?.message || trT('trui.treeLoadErr', 'No se pudo cargar el árbol.'));
         })
         .finally(() => {
           techTreeLoadPromise = null;
@@ -563,7 +572,7 @@
             <div>
               <span class="eyebrow">ENTRENAMIENTO · RELIC ULTRA</span>
               <h2>Tu centro de entrenamiento competitivo</h2>
-              <p class="tr-welcome-sub">Elegí por dónde empezar hoy según tu historial y tus objetivos.</p>
+              <p class="tr-welcome-sub">${esc(trT('trui.welcomeSub', 'Elegí por dónde empezar hoy según tu historial y tus objetivos.'))}</p>
             </div>
           </div>
 
@@ -575,8 +584,8 @@
                 <span class="tr-wc-pill is-gold">PROGRESO</span>
               </div>
               <div class="tr-wc-body">
-                <strong>Evolución · Radar y Curvas</strong>
-                <small>Gráfico de araña, evolución por partida y tus objetivos en Mi Plan.</small>
+                <strong>${esc(trT('trui.cardProgTitle', 'Evolución · Radar y Curvas'))}</strong>
+                <small>${esc(trT('trui.cardProgSub', 'Gráfico de araña, evolución por partida y tus objetivos en Mi Plan.'))}</small>
               </div>
             </button>
 
@@ -588,7 +597,7 @@
               </div>
               <div class="tr-wc-body">
                 <strong>Creador en Overlay</strong>
-                <small>Armá build orders visuales con los bonos de tu civilización y seguilas arriba en partida.</small>
+                <small>${esc(trT('trui.cardOrdersSub', 'Armá build orders visuales con los bonos de tu civilización y seguilas arriba en partida.'))}</small>
               </div>
             </button>
 
@@ -600,7 +609,7 @@
               </div>
               <div class="tr-wc-body">
                 <strong>Matchups &amp; Arena</strong>
-                <small>Curvas de ventaja para 56 civs y la campaña de +400 preguntas con 7 unidades desbloqueables.</small>
+                <small>${esc(trT('trui.cardMatchupsSub', 'Curvas de ventaja para 56 civs y la campaña de +400 preguntas con 7 unidades desbloqueables.'))}</small>
               </div>
             </button>
           </div>
@@ -609,7 +618,7 @@
             <button type="button" class="tr-skip-link" data-tr-welcome-go="arena">Ir a la Arena →</button>
             <div class="tr-wf-right">
               <button type="button" class="tr-skip-link" id="trWelcomeSkipBtn">Saltear</button>
-              <button type="button" class="btn gold tr-cta-sheen" id="trWelcomeStartBtn">Ver mi Evolución →</button>
+              <button type="button" class="btn gold tr-cta-sheen" id="trWelcomeStartBtn">${esc(trT('trui.welcomeStartBtn', 'Ver mi Evolución →'))}</button>
             </div>
           </div>
         </div>
@@ -635,8 +644,8 @@
     function renderLockVeil() {
       if (state?.unlocked) return '<div class="tr-lock-veil" hidden></div>';
       const leadCopy = trialAvailable
-        ? 'Probalo gratis durante 24 horas y medí tu evolución partida a partida.'
-        : 'Desbloqueá Progreso, Mi Plan, Build Orders en vivo, Matchups y Arena con Relic Ultra.';
+        ? trT('trui.lockSubTrial', 'Probalo gratis durante 24 horas y medí tu evolución partida a partida.')
+        : trT('trui.lockSubUltra', 'Desbloqueá Progreso, Mi Plan, Build Orders en vivo, Matchups y Arena con Relic Ultra.');
       const primaryAction = trialAvailable
         ? '<button type="button" class="tr-lock-cta" id="trLockTrialBtn">Probar 24 h gratis</button><button type="button" class="tr-lock-link" id="trLockPlanesBtn">Ver planes <span aria-hidden="true">→</span></button>'
         : '<button type="button" class="tr-lock-cta" id="trLockPlanesBtn">Ver Plan Ultra →</button>';
@@ -649,7 +658,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
               Relic Ultra
             </span>
-            <h2>Entrená con tus propias partidas</h2>
+            <h2>${esc(trT('trui.lockHeroTitle', 'Entrená con tus propias partidas'))}</h2>
             <p class="tr-lock-lead">${leadCopy}</p>
             <div class="tr-lock-rule" aria-hidden="true"></div>
             <ul class="tr-lock-list">
@@ -659,7 +668,7 @@
               </li>
               <li>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span>Build orders en vivo con bonos de civilización</span>
+                <span>${esc(trT('trui.lockBulletOrders', 'Build orders en vivo con bonos de civilización'))}</span>
               </li>
               <li>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -705,10 +714,10 @@
       };
 
       const renderPendingRow = (it) => {
-        const ruleLbl = it.verifyRule?.targetLabel || 'Se evalúa en tu próxima partida (≥ 12 min)';
+        const ruleLbl = it.verifyRule?.targetLabel || trT('trui.planAutoRule', 'Se evalúa en tu próxima partida (≥ 12 min)');
         const trackingTxt = Number(it.attemptsAfterPin || 0) > 0
           ? `Evaluado en ${it.attemptsAfterPin} ${it.attemptsAfterPin === 1 ? 'partida' : 'partidas'}${it.lastCheckedDisplay ? ` · Último registro: ${it.lastCheckedDisplay}` : ''}`
-          : 'En espera de tu próxima partida';
+          : trT('trui.planWaitMatch', 'En espera de tu próxima partida');
         const goTab = resolvePlanGoTab(it);
         const goLabel = PLAN_GO_LABELS[goTab] || 'Ver en Progreso →';
         return `<div class="tr-q-item is-tracking">
@@ -753,7 +762,7 @@
         : `<div class="tr-q-empty">
             <div class="tr-q-status-ico is-pending">${renderDumbbellSvg()}</div>
             <div>
-              <strong>Todavía no marcaste objetivos para entrenar</strong>
+              <strong>${esc(trT('trui.planEmptyTitle', 'Todavía no marcaste objetivos para entrenar'))}</strong>
               <small>Tocá el ícono de la pesita en cualquier estadística de <b>Central</b>, <b>Postmatch</b> o <b>Progreso</b>. Relic evaluará tus próximas partidas y te avisará cuando lo cumplas.</small>
             </div>
           </div>`;
@@ -764,9 +773,9 @@
             <img class="tr-panel-art-bg" src="assets/art/prematch-estandartes.webp" alt="" aria-hidden="true" draggable="false" />
             <div class="tr-qc-head">
               <div>
-                <span class="eyebrow">SEGUIMIENTO AUTOMÁTICO DE PARTIDAS</span>
+                <span class="eyebrow">${esc(trT('trui.planEyebrow', 'SEGUIMIENTO AUTOMÁTICO DE PARTIDAS'))}</span>
                 <h4>Objetivos de Mi Plan (${pending.length} activos · ${completed.length} cumplidos)</h4>
-                <small class="tr-plan-sub">Cada objetivo se verifica solo al terminar tus próximas partidas reales.</small>
+                <small class="tr-plan-sub">${esc(trT('trui.planSub', 'Cada objetivo se verifica solo al terminar tus próximas partidas reales.'))}</small>
               </div>
               ${completed.length ? `<span class="tr-subtab-badge is-em">✓ ${completed.length} ${completed.length === 1 ? 'cumplido' : 'cumplidos'}</span>` : ''}
             </div>
@@ -778,12 +787,12 @@
 
     /* ==================== TOP COMMAND NAV (CLEAN RELIC UNDERLINE BAR · 5 CLEAR TABS) ==================== */
     const TAB_HINTS = {
-      perf: 'Mirá en 2 segundos en qué fundamentos mejoraste frente a tu promedio y cómo evolucionás partida a partida.',
-      plan: 'Relic sigue tus próximas partidas y te avisa cuando cumplís cada objetivo.',
-      orders: 'Elegí o creá una build order visual para seguirla en vivo en el Overlay.',
-      matchups: 'Elegí dos civilizaciones para ver en qué edad tenés ventaja y qué jugar.',
-      arena: 'Desbloqueá las 7 unidades respondiendo desafíos de AoE2:DE (3 vidas por día).',
-      techtree: 'Explorá el árbol oficial de las 56 civilizaciones, compará brechas y revisá costos y estadísticas reales.',
+      perf: trT('trui.subHintPerf', 'Mirá en 2 segundos en qué fundamentos mejoraste frente a tu promedio y cómo evolucionás partida a partida.'),
+      plan: trT('trui.subHintPlan', 'Relic sigue tus próximas partidas y te avisa cuando cumplís cada objetivo.'),
+      orders: trT('trui.subHintOrders', 'Elegí o creá una build order visual para seguirla en vivo en el Overlay.'),
+      matchups: trT('trui.subHintMatchups', 'Elegí dos civilizaciones para ver en qué edad tenés ventaja y qué jugar.'),
+      arena: trT('trui.subHintArena', 'Desbloqueá las 7 unidades respondiendo desafíos de AoE2:DE (3 vidas por día).'),
+      techtree: trT('trui.subHintTechtree', 'Explorá el árbol oficial de las 56 civilizaciones, compará brechas y revisá costos y estadísticas reales.'),
     };
 
     function renderSubnav() {
@@ -868,7 +877,7 @@
       const livesHtml = [0, 1, 2].map((i) => renderHeartSvg(i < (a.remainingLives ?? 3))).join('');
       const livesStatus = a.locked
         ? 'Bloqueado 24 h'
-        : a.remainingLives === 1 ? '¡Última vida hoy!' : `${a.remainingLives}/3 vidas hoy`;
+        : a.remainingLives === 1 ? trT('trui.arenaLastLife', '¡Última vida hoy!') : trT('trui.arenaLivesLeft', '{n}/3 vidas hoy', { n: a.remainingLives });
 
       let stageContent = '';
 
@@ -877,10 +886,10 @@
           <img class="tr-uc-bg" src="${resolveAsset(arenaUnlockBanner.art, 'assets/art/central-hero.jpg')}" alt="" draggable="false" />
           <div class="tr-uc-inner">
             <img class="tr-uc-portrait" src="${resolveAsset(arenaUnlockBanner.portrait)}" alt="" draggable="false" />
-            <span class="eyebrow">¡UNIDAD DESBLOQUEADA · NIVEL ${arenaUnlockBanner.level} COMPLETADO!</span>
+            <span class="eyebrow">${esc(trT('trui.arenaUnlockedEyebrow', '¡UNIDAD DESBLOQUEADA · NIVEL {lvl} COMPLETADO!', { lvl: arenaUnlockBanner.level }))}</span>
             <h3>${esc(arenaUnlockBanner.unitName)}</h3>
             <p>${a.masteryCompleted ? 'Completaste los 7 niveles de la Arena. Desbloqueaste el Modo Prestigio (Nivel 6 y 7).' : `Ascendiste a Nivel ${a.unlockedLevel}/7. Desafíos más exigentes te esperan.`}</p>
-            <button type="button" class="btn gold tr-cta-sheen" id="trArenaNextQuestionBtn">Continuar Campaña →</button>
+            <button type="button" class="btn gold tr-cta-sheen" id="trArenaNextQuestionBtn">${esc(trT('trui.arenaContinueBtn', 'Continuar Campaña →'))}</button>
           </div>
         </section>`;
       } else if (a.locked) {
@@ -996,7 +1005,7 @@
             <span class="eyebrow">VIDAS HOY</span>
             <div class="tr-lives-row">${livesHtml}</div>
             <strong class="tr-lives-lbl${a.remainingLives <= 1 ? ' is-danger' : ''}">${livesStatus}</strong>
-            <small>Racha ${a.currentStreak || 0} · Récord ${a.bestStreak || 0}</small>
+            <small>${esc(trT('trui.arenaStreakRec', 'Racha {cur} · Récord {best}', { cur: a.currentStreak || 0, best: a.bestStreak || 0 }))}</small>
           </div>
         </section>
 
@@ -1029,8 +1038,8 @@
         return `<option value="${esc(rId)}"${rId === (pacer.selectedRecipe?.id || pacer.selectedRecipe?.key) ? ' selected' : ''}>${prefix}${esc(r.name)}</option>`;
       }).join('');
 
-      const civOpts = ['<option value="">Cualquier civilización</option>']
-        .concat(Object.entries(CIV_NAMES_ES).sort((a, b) => a[1].localeCompare(b[1])).map(([slug, label]) =>
+      const civOpts = [`<option value="">${esc(trT('trui.anyCivOpt', 'Cualquier civilización'))}</option>`]
+        .concat(Object.keys(CIV_NAMES_ES).map((slug) => [slug, locCivT(slug)]).sort((a, b) => a[1].localeCompare(b[1])).map(([slug, label]) =>
           `<option value="${esc(slug)}"${slug === selectedCivSlug ? ' selected' : ''}>${esc(label)}</option>`
         )).join('');
 
@@ -1098,7 +1107,7 @@
             <div class="tr-cbc-head">
               <img class="tr-cbc-shield" src="${resolveCivCrest(selectedCivSlug)}" alt="" draggable="false" />
               <div class="tr-cbc-meta">
-                <span class="eyebrow">BONOS DE CIVILIZACIÓN PARA ESTA BUILD ORDER</span>
+                <span class="eyebrow">${esc(trT('trui.boBonusesEyebrow', 'BONOS DE CIVILIZACIÓN PARA ESTA BUILD ORDER'))}</span>
                 <h4>${esc(civGuideObj.name)} <small>· ${esc(civGuideObj.role)}</small></h4>
               </div>
               <select id="trCreatorCiv" class="field tr-cbc-select" aria-label="Elegir civilización">${civOpts}</select>
@@ -1111,8 +1120,8 @@
             <div class="tr-cbc-head">
               <img class="tr-cbc-shield" src="assets/icons/shield.png" alt="" draggable="false" />
               <div class="tr-cbc-meta">
-                <span class="eyebrow">CIVILIZACIÓN DE LA BUILD ORDER</span>
-                <h4>Elegí una civilización para ver sus bonos económicos</h4>
+                <span class="eyebrow">${esc(trT('trui.boCivEyebrow', 'CIVILIZACIÓN DE LA BUILD ORDER'))}</span>
+                <h4>${esc(trT('trui.boPickCivTitle', 'Elegí una civilización para ver sus bonos económicos'))}</h4>
               </div>
               <select id="trCreatorCiv" class="field tr-cbc-select" aria-label="Elegir civilización">${civOpts}</select>
             </div>
@@ -1183,7 +1192,7 @@
 
               <div class="tr-palette-box">
                 <div class="tr-palette-head">
-                  <h4>Acciones e Íconos</h4>
+                  <h4>${esc(trT('trui.boActionsTitle', 'Acciones e Íconos'))}</h4>
                   <div class="tr-click-mode-switch" role="group" aria-label="Modo de clic">
                     <button type="button" class="tr-mode-chip${paletteClickMode === 'append' ? ' is-active' : ''}" data-tr-pal-mode="append">+ Nuevo paso</button>
                     <button type="button" class="tr-mode-chip${paletteClickMode === 'replace' ? ' is-active' : ''}" data-tr-pal-mode="replace">Editar #${idx + 1}</button>
@@ -1255,7 +1264,7 @@
                   </div>
 
                   <div class="tr-labeled-input">
-                    <label for="trStepPopInput">Población</label>
+                    <label for="trStepPopInput">${esc(trT('trui.boPopLbl', 'Población'))}</label>
                     <input id="trStepPopInput" type="text" class="field mono" value="${esc(st.pop)}" placeholder="12/15" />
                   </div>
                 </div>
@@ -1346,7 +1355,7 @@
         'assets/icons/ages/imperial.png'
       );
 
-      const civEntries = Object.entries(CIV_NAMES_ES).sort((a, b) => a[1].localeCompare(b[1]));
+      const civEntries = Object.keys(CIV_NAMES_ES).map((slug) => [slug, locCivT(slug)]).sort((a, b) => a[1].localeCompare(b[1]));
       const myOpts = civEntries.map(([slug, label]) => `<option value="${esc(slug)}"${slug === mySlugNorm ? ' selected' : ''}>${esc(label)}</option>`).join('');
       const rivOpts = civEntries.map(([slug, label]) => `<option value="${esc(slug)}"${slug === rivSlugNorm ? ' selected' : ''}>${esc(label)}</option>`).join('');
 
@@ -1456,8 +1465,8 @@
       ].slice(0, 4).join('') || `<div class="tr-trap-row is-exploit">
           <span class="tr-trap-medallion is-exploit"><img src="${getCivUuIcon(mySlugNorm)}" alt="" draggable="false" /></span>
           <div class="tr-trap-copy">
-            <div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">ESTABLE</span><strong>Sin líneas trampa críticas</strong></div>
-            <small>Ambos árboles sostienen sus transiciones naturales.</small>
+            <div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">${esc(trT('trui.muStableTag', 'ESTABLE'))}</span><strong>${esc(trT('trui.muNoTrapsTitle', 'Sin líneas trampa críticas'))}</strong></div>
+            <small>${esc(trT('trui.muNoTrapsSub', 'Ambos árboles sostienen sus transiciones naturales.'))}</small>
           </div>
         </div>`;
 
@@ -1561,7 +1570,7 @@
                 <img class="tr-war-shield-lg" src="${resolveCivCrest(mySlugNorm)}" alt="" draggable="false" />
               </div>
               <div class="tr-war-select-col">
-                <span class="tr-war-kicker is-ally">TU CIVILIZACIÓN</span>
+                <span class="tr-war-kicker is-ally">${esc(trT('trui.muYourCiv', 'TU CIVILIZACIÓN'))}</span>
                 <select id="trLabMyCiv" class="field tr-war-select" aria-label="Tu civilización">${myOpts}</select>
                 <small>${esc(myCiv.role)}</small>
                 ${myUuLine}
@@ -1576,7 +1585,7 @@
 
             <div class="tr-war-side is-rival">
               <div class="tr-war-select-col">
-                <span class="tr-war-kicker is-rival">CIVILIZACIÓN RIVAL</span>
+                <span class="tr-war-kicker is-rival">${esc(trT('trui.muRivalCiv', 'CIVILIZACIÓN RIVAL'))}</span>
                 <select id="trLabRivalCiv" class="field tr-war-select" aria-label="Civilización rival">${rivOpts}</select>
                 <small>${esc(rivalCiv.role)}</small>
                 ${rivalUuLine}
@@ -1649,7 +1658,7 @@
           <div class="tr-lab-bottom-split">
             <div class="tr-clash-card">
               <div class="tr-clash-head">
-                <span class="eyebrow">CHOQUE IMPERIAL · TECHO DE ÁRBOL</span>
+                <span class="eyebrow">${esc(trT('trui.muImpClash', 'CHOQUE IMPERIAL · TECHO DE ÁRBOL'))}</span>
                 <div class="tr-clash-legend">
                   <span class="is-ally"><img src="${resolveCivCrest(mySlugNorm)}" alt="" draggable="false" />${esc(myCiv.name)}</span>
                   <em>vs</em>
@@ -1661,7 +1670,7 @@
             <div class="tr-traps-card">
               <div class="tr-traps-head">
                 <span class="eyebrow">TRAMPAS REALES Y BRECHAS</span>
-                <small>Partidas reales + árbol verificado</small>
+                <small>${esc(trT('trui.muVerifiedSub', 'Partidas reales + árbol verificado'))}</small>
               </div>
               <div class="tr-traps-list">${trapsHtml}</div>
             </div>
@@ -1848,7 +1857,7 @@
               <strong class="tr-perf-num${bowTone}">${Number.isFinite(snap?.bowDelaySec) ? `+${snap.bowDelaySec} s` : 'No registrada'}</strong>
             </div>
             <div class="tr-age-row">
-              <span>Retención de ritmo</span>
+              <span>${esc(trT('trui.progPaceRet', 'Retención de ritmo'))}</span>
               <strong class="tr-perf-num">${Number.isFinite(snap?.eapmRetentionPct) ? `${snap.eapmRetentionPct}%` : '—'}</strong>
             </div>
             <div class="tr-age-row">
@@ -2145,7 +2154,7 @@
         : 'assets/brand/review-relic-monk-v1.png';
       const eyebrowText = isSamplePreview
         ? 'MUESTRA ULTRA · BALANCE SEMANAL'
-        : 'BALANCE SEMANAL · ÚLTIMOS 7 DÍAS';
+        : trT('trui.wkEyebrow', 'BALANCE SEMANAL · ÚLTIMOS 7 DÍAS');
 
       const fmtScore = (val) => {
         if (!Number.isFinite(val)) return '—';
@@ -2154,9 +2163,9 @@
       };
 
       const thirdStatLabel = wp.weeklyPbsCount > 0
-        ? 'RÉCORDS'
+        ? trT('trui.wkRecords', 'RÉCORDS')
         : wp.bestDay
-          ? 'MEJOR DÍA'
+          ? trT('trui.wkBestDay', 'MEJOR DÍA')
           : 'BASE PREVIA';
       const thirdStatVal = wp.weeklyPbsCount > 0
         ? `★ ${wp.weeklyPbsCount}`
@@ -2234,7 +2243,7 @@
             : 'Cuando analices tus primeras partidas en Postmatch, acá vas a ver cada avance real de tu semana.';
         leftBodyHtml = `<div class="tr-wk-calm-card is-art-courtyard">
           <div class="tr-wk-calm-copy">
-            <strong>${wp.status === 'calibrating_first_match' ? 'Base semanal en calibración' : 'Tu progreso semanal te espera'}</strong>
+            <strong>${wp.status === 'calibrating_first_match' ? trT('trui.wkCalibrating', 'Base semanal en calibración') : trT('trui.wkAwaits', 'Tu progreso semanal te espera')}</strong>
             <p>${anchorLine}</p>
           </div>
           <div class="tr-wk-calm-actions">
@@ -2277,7 +2286,7 @@
               <strong class="tr-wk-num">${wp.weekMatchCount || 0}</strong>
             </div>
             <div class="tr-wk-stat">
-              <span>DÍAS ACTIVOS</span>
+              <span>${esc(trT('trui.wkActiveDays', 'DÍAS ACTIVOS'))}</span>
               <strong class="tr-wk-num">${wp.activeDaysCount || 0} / 7</strong>
             </div>
             <div class="tr-wk-stat">
@@ -2298,17 +2307,17 @@
 
           <div class="tr-wk-daily-stage">
             <div class="tr-wk-col-head">
-              <h4>Mejoras por día</h4>
-              <small>Fundamentos sobre tu base · 7 días</small>
+              <h4>${esc(trT('trui.wkGainsPerDay', 'Mejoras por día'))}</h4>
+              <small>${esc(trT('trui.wkGainsSub', 'Fundamentos sobre tu base · 7 días'))}</small>
             </div>
             ${buildWeeklyDailyChartSvg(wp)}
             <div class="tr-wk-daily-foot">
               <div class="tr-wk-legend">
-                <span class="is-jade">■ Mejoró</span>
+                <span class="is-jade">${esc(trT('trui.wkImprovedLegend', '■ Mejoró'))}</span>
                 <span class="is-sand">▪ Jugado (0)</span>
                 <span class="is-rest">— Descanso</span>
               </div>
-              <small>${wp.hasWeeklyActivity ? 'Clic en un día activo para inspeccionar' : 'Solo días con partidas reales'}</small>
+              <small>${wp.hasWeeklyActivity ? trT('trui.wkClickDayHint', 'Clic en un día activo para inspeccionar') : trT('trui.wkRealDaysOnly', 'Solo días con partidas reales')}</small>
             </div>
           </div>
         </div>
@@ -2423,10 +2432,10 @@
                 <img src="assets/brand/review-town-center-v1.png" alt="" draggable="false" />
               </div>
               <span class="eyebrow">LABORATORIO DE RENDIMIENTO REAL</span>
-              <h3>Tu sala de telemetría está lista</h3>
+              <h3>${esc(trT('trui.progEmptyTitle', 'Tu sala de telemetría está lista'))}</h3>
               <p>Analizá tu primera partida para medir exactamente cuántos aldeanos perdés por pausas del Centro Urbano, tu cronología por edades, dónde se escapan tus derrotas y tu próximo objetivo verificable.</p>
               <div class="tr-pel-actions">
-                <button type="button" class="btn gold tr-cta-sheen" id="trGoPostmatchBtn">Analizar mi última partida en Postmatch →</button>
+                <button type="button" class="btn gold tr-cta-sheen" id="trGoPostmatchBtn">${esc(trT('trui.progEmptyCta', 'Analizar mi última partida en Postmatch →'))}</button>
                 <button type="button" class="btn" data-tr-tab="orders">Practicar Build Order →</button>
               </div>
             </div>
@@ -2513,7 +2522,7 @@
         const deltaText = !m.hasSample
           ? 'Sin dato'
           : m.isPersonalBest
-            ? '★ Récord'
+            ? trT('trui.recordStar', '★ Récord')
             : (m.signedDeltaShort || 'En media');
         const deltaTone = !m.hasSample
           ? ''
@@ -2546,7 +2555,7 @@
       const activeMedVal = activeTrendMetric?.hasSample ? String(activeTrendMetric.medianDisplay || '').replace(' eAPM', '') : '—';
       const activeBestVal = activeTrendMetric?.hasSample ? String(activeTrendMetric.bestDisplay || '').replace(' eAPM', '') : '—';
       const activeValTone = activeTrendMetric?.isPersonalBest ? ' is-gold' : activeTrendMetric?.improved === true ? ' is-good' : activeTrendMetric?.improved === false ? ' is-warn' : '';
-      const activeFourthLabel = activeTrendMetric?.trendDelta3 ? 'TENDENCIA (ÚLT. 3)' : 'PRÓXIMO OBJETIVO';
+      const activeFourthLabel = activeTrendMetric?.trendDelta3 ? trT('trui.progTrend3', 'TENDENCIA (ÚLT. 3)') : trT('trui.progNextTarget', 'PRÓXIMO OBJETIVO');
       const activeFourthVal = activeTrendMetric?.trendDelta3
         ? activeTrendMetric.trendDelta3.display
         : (activeTrendMetric?.nextTarget?.targetDisplay || (activeTrendMetric?.signedDeltaShort || '—'));
@@ -2597,8 +2606,8 @@
                   <strong class="tr-perf-num${(hi.villagerLossSummary?.combinedEarlyVillagers || 0) >= 2 ? ' is-warn' : ' is-good'}">${esc(hi.villagerLossSummary?.combinedDisplay || '—')}</strong>
                 </div>
                 <div class="tr-perf-kpi">
-                  <span>MEJOR EJECUCIÓN</span>
-                  <strong class="is-gold">${bestExecMetric ? `${esc(bestExecMeta.shortRadar)} (${esc(bestExecMetric.isPersonalBest ? '★ Récord' : bestExecMetric.signedDeltaShort)})` : 'Base inicial'}</strong>
+                  <span>${esc(trT('trui.progBestExec', 'MEJOR EJECUCIÓN'))}</span>
+                  <strong class="is-gold">${bestExecMetric ? `${esc(bestExecMeta.shortRadar)} (${esc(bestExecMetric.isPersonalBest ? trT('trui.recordStar', '★ Récord') : bestExecMetric.signedDeltaShort)})` : 'Base inicial'}</strong>
                 </div>
               </div>
             </div>
@@ -2635,7 +2644,7 @@
               <img class="tr-panel-art-bg is-subtle" src="assets/art/central-elo.webp" alt="" aria-hidden="true" draggable="false" />
               <div class="tr-perf-panel-head">
                 <div>
-                  <span class="eyebrow">EVOLUCIÓN PARTIDA A PARTIDA</span>
+                  <span class="eyebrow">${esc(trT('trui.progEvoEyebrow', 'EVOLUCIÓN PARTIDA A PARTIDA'))}</span>
                   <h3>${esc(activeTrendMeta.title || activeTrendMetric?.title || 'Evolución')}</h3>
                   <small class="tr-studio-hint">${esc(activeTrendMeta.betterHint || '')}</small>
                 </div>
@@ -2652,7 +2661,7 @@
                   <strong class="tr-perf-num is-gold">${esc(activeMedVal)}</strong>
                 </div>
                 <div class="tr-studio-bm">
-                  <span>TU RÉCORD</span>
+                  <span>${esc(trT('trui.progYourRecord', 'TU RÉCORD'))}</span>
                   <strong class="tr-perf-num is-good">${esc(activeBestVal)}</strong>
                 </div>
                 <div class="tr-studio-bm">
@@ -2668,7 +2677,7 @@
                   <span class="is-best">● Victoria</span>
                   <span class="is-loss">● Derrota</span>
                   <span class="is-median">┅ Tu promedio</span>
-                  <span class="is-current">◎ Récord personal</span>
+                  <span class="is-current">${esc(trT('trui.progPersonalBest', '◎ Récord personal'))}</span>
                 </div>
                 <small>Clic en cualquier punto de la curva para inspeccionar esa partida</small>
               </div>
@@ -2679,7 +2688,7 @@
           ${ageStagesHtml ? `<section class="tr-perf-timeline-panel">
             <div class="tr-perf-panel-head">
               <div>
-                <span class="eyebrow">EJECUCIÓN POR EDADES</span>
+                <span class="eyebrow">${esc(trT('trui.progByAgeEyebrow', 'EJECUCIÓN POR EDADES'))}</span>
                 <h3>Rendimiento etapa por etapa frente a tu promedio</h3>
               </div>
               <span class="tr-age-panel-cue">Clic en una etapa para enfocar su curva arriba</span>
@@ -3029,7 +3038,7 @@
           if (res?.ok) {
             state.armedBuildOrderId = res.armedBuildOrderId;
             studioStatusMsg = res.armedBuildOrderId
-              ? (res.buildOrderHelperEnabled === false ? 'Armada · activá Build Order Helper en Batalla' : 'Armada en Overlay')
+              ? (res.buildOrderHelperEnabled === false ? trT('trui.studioArmedHint', 'Armada · activá Build Order Helper en Batalla') : trT('trui.studioArmedOverlay', 'Armada en Overlay'))
               : 'Desactivada';
             render();
           }
@@ -3122,7 +3131,7 @@
           draftRecipe.sourceKey = res.saved.id;
           state.customBuilds = res.customBuilds;
           if (res.pacer) state.pacer = { ...state.pacer, ...res.pacer };
-          studioStatusMsg = 'Extraída del replay';
+          studioStatusMsg = trT('trui.studioExtracted', 'Extraída del replay');
           render();
         }
       });
@@ -3196,7 +3205,7 @@
           pop: `${String(tot + 1).padStart(2, '0')}/${String(cap).padStart(2, '0')}`,
           gameSec: Number(cur?.gameSec || 0) + 50,
           alloc: { food: prevAlloc.food, wood: nextWood, gold: prevAlloc.gold, stone: prevAlloc.stone },
-          icons: ['villager', 'wood'], title: 'Nuevo paso táctico', text: 'Nuevo paso táctico', note: '',
+          icons: ['villager', 'wood'], title: trT('trui.studioNewStep', 'Nuevo paso táctico'), text: trT('trui.studioNewStep', 'Nuevo paso táctico'), note: '',
         });
         selectedStepIdx += 1;
         draftRecipe.isDirty = true;

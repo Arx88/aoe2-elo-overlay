@@ -174,9 +174,47 @@
     return s;
   }
 
+  const OPENING_NORM_ALIASES = {
+    scoutrush: 'Scout Rush', scoutopening: 'Scout Rush', scouts: 'Scout Rush', rushdescouts: 'Scout Rush', aperturadescouts: 'Scout Rush',
+    archerrush: 'Archer Rush', archeropening: 'Archer Rush', archers: 'Archer Rush', arqueros: 'Archer Rush', rushdearqueros: 'Archer Rush', aperturadearqueros: 'Archer Rush',
+    fastcastle: 'Fast Castle', fc: 'Fast Castle', castillosrapido: 'Fast Castle',
+    drushfastcastle: 'Drush Fast Castle', drushfc: 'Drush Fast Castle', drushcastillos: 'Drush Fast Castle',
+    drush: 'Drush', drushmilicias: 'Drush',
+    marush: 'M@A Rush', maa: 'M@A Rush', maarush: 'M@A Rush', manatarmsrush: 'M@A Rush', manatarms: 'Man-at-Arms', hombresdearmas: 'M@A Rush', rushdema: 'M@A Rush',
+    towerrush: 'Tower Rush', torres: 'Tower Rush', rushdetorres: 'Tower Rush',
+    fcboom: 'FC Boom', fastcastleconboom: 'FC Boom',
+    '2tcfeudalboom': '2TC Feudal Boom', '2tcfeudal': '2TC Feudal Boom', boomde2tcenfeudal: '2TC Feudal Boom',
+    scoutsintoarchers: 'Scouts into Archers', scoutsarqueros: 'Scouts into Archers', scoutshaciaarqueros: 'Scouts into Archers',
+    drusharchers: 'Drush Archers', drusharqueros: 'Drush Archers', drushconarqueros: 'Drush Archers',
+    maarchers: 'M@A Archers', hombresdearmasarqueros: 'M@A Archers', maconarqueros: 'M@A Archers',
+    mascouts: 'M@A Scouts', maconscouts: 'M@A Scouts',
+    monkrush: 'Monk Rush', monjes: 'Monk Rush', rushdemonjes: 'Monk Rush',
+    elephantrush: 'Elephant Rush', elefantes: 'Elephant Rush', rushdeelefantes: 'Elephant Rush',
+    serjeantrush: 'Serjeant Rush', serjeants: 'Serjeant Rush', rushdeserjeants: 'Serjeant Rush',
+    hoangrush: 'Hoang Rush', hoang: 'Hoang Rush',
+    pikeskirm: 'Pike Skirm', piquerosguerrilleros: 'Pike Skirm', piquerosyguerrilleros: 'Pike Skirm',
+    scorpionsrams: 'Scorpions & Rams', escorpionesyarietes: 'Scorpions & Rams',
+    other: 'Other', otra: 'Other', otraapertura: 'Other', aperturaestandar: 'Other',
+  };
+
   function openingName(raw) {
+    if (!raw) return '';
     const dict = active?.strings?.openings;
-    if (dict && raw && Object.prototype.hasOwnProperty.call(dict, raw)) return dict[raw];
+    if (dict && Object.prototype.hasOwnProperty.call(dict, raw)) return dict[raw];
+    const nk = normKey(raw);
+    if (dict && nk) {
+      const canonical = OPENING_NORM_ALIASES[nk];
+      if (canonical && dict[canonical]) return dict[canonical];
+      for (const [k, v] of Object.entries(dict)) {
+        if (normKey(k) === nk) return v;
+      }
+      // Cross-locale fallback
+      for (const b of Object.values(bundles)) {
+        for (const [k, v] of Object.entries(b?.strings?.openings || {})) {
+          if (normKey(v) === nk && dict[k]) return dict[k];
+        }
+      }
+    }
     return String(raw || '');
   }
 

@@ -809,6 +809,462 @@
       "es-ES": "Vado",
       "es-MX": "Wade",
       "zh-CN": "浅滩"
+    },
+    "acclivity": {
+      "en": "Acclivity",
+      "es-ES": "Pendiente",
+      "es-MX": "Pendiente",
+      "zh-CN": "斜坡"
+    },
+    "amazontunnel": {
+      "en": "Amazon Tunnel",
+      "es-ES": "Túnel amazónico",
+      "es-MX": "Túnel amazónico",
+      "zh-CN": "亚马逊隧道"
+    },
+    "amazontunnels": {
+      "en": "Amazon Tunnel",
+      "es-ES": "Túnel amazónico",
+      "es-MX": "Túnel amazónico",
+      "zh-CN": "亚马逊隧道"
+    },
+    "atacama": {
+      "en": "Atacama",
+      "es-ES": "Atacama",
+      "es-MX": "Atacama",
+      "zh-CN": "阿塔卡马"
+    },
+    "cliffbound": {
+      "en": "Cliffbound",
+      "es-ES": "Acantilados",
+      "es-MX": "Acantilados",
+      "zh-CN": "绝壁之间"
+    },
+    "coastalforest": {
+      "en": "Coastal Forest",
+      "es-ES": "Bosque costero",
+      "es-MX": "Bosque costero",
+      "zh-CN": "沿海森林"
+    },
+    "crownwood": {
+      "en": "Crownwood",
+      "es-ES": "Bosque de la Corona",
+      "es-MX": "Bosque de la Corona",
+      "zh-CN": "皇冠林"
+    },
+    "dunesprings": {
+      "en": "Dunesprings",
+      "es-ES": "Manantiales de dunas",
+      "es-MX": "Manantiales de dunas",
+      "zh-CN": "沙丘泉"
+    },
+    "fortifiedclearing": {
+      "en": "Fortified Clearing",
+      "es-ES": "Claro fortificado",
+      "es-MX": "Claro fortificado",
+      "zh-CN": "设防林间空地"
+    },
+    "frigidlake": {
+      "en": "Frigid Lake",
+      "es-ES": "Lago helado",
+      "es-MX": "Lago helado",
+      "zh-CN": "冰湖"
+    },
+    "glacis": {
+      "en": "Glacis",
+      "es-ES": "Glacis",
+      "es-MX": "Glacis",
+      "zh-CN": "斜堤"
+    },
+    "hillfort": {
+      "en": "Hill Fort",
+      "es-ES": "Fuerte de la colina",
+      "es-MX": "Fuerte de la colina",
+      "zh-CN": "山丘堡垒"
+    },
+    "karsts": {
+      "en": "Karsts",
+      "es-ES": "Karsts",
+      "es-MX": "Karsts",
+      "zh-CN": "喀斯特"
+    },
+    "lochness": {
+      "en": "Loch Ness",
+      "es-ES": "Lago Ness",
+      "es-MX": "Lago Ness",
+      "zh-CN": "尼斯湖"
+    },
+    "morass": {
+      "en": "Morass",
+      "es-ES": "Ciénaga",
+      "es-MX": "Ciénaga",
+      "zh-CN": "泥沼"
+    },
+    "pilgrims": {
+      "en": "Pilgrims",
+      "es-ES": "Peregrinos",
+      "es-MX": "Peregrinos",
+      "zh-CN": "朝圣者"
+    },
+    "qsrunestones": {
+      "en": "Runestones",
+      "es-ES": "Piedras rúnicas",
+      "es-MX": "Piedras rúnicas",
+      "zh-CN": "符文石"
+    },
+    "rampart": {
+      "en": "Rampart",
+      "es-ES": "Muralla",
+      "es-MX": "Muralla",
+      "zh-CN": "壁垒"
+    },
+    "shoals": {
+      "en": "Shoals",
+      "es-ES": "Bajíos",
+      "es-MX": "Bajíos",
+      "zh-CN": "浅滩"
+    },
+    "stranded": {
+      "en": "Stranded",
+      "es-ES": "Varados",
+      "es-MX": "Varados",
+      "zh-CN": "搁浅"
+    },
+    "thames": {
+      "en": "Thames",
+      "es-ES": "Támesis",
+      "es-MX": "Támesis",
+      "zh-CN": "泰晤士河"
+    },
+    "vulpine": {
+      "en": "Vulpine",
+      "es-ES": "Vulpino",
+      "es-MX": "Vulpino",
+      "zh-CN": "狐林"
+    },
+    "aftermath": {
+      "en": "Aftermath",
+      "es-ES": "Secuelas",
+      "es-MX": "Secuelas",
+      "zh-CN": "劫后余生"
+    },
+    "alpinelakes": {
+      "en": "Alpine Lakes",
+      "es-ES": "Lagos alpinos",
+      "es-MX": "Lagos alpinos",
+      "zh-CN": "高山湖泊"
+    },
+    "archipelago": {
+      "en": "Archipelago",
+      "es-ES": "Archipiélago",
+      "es-MX": "Archipiélago",
+      "zh-CN": "群岛"
+    },
+    "bogislands": {
+      "en": "Bog Islands",
+      "es-ES": "Islas pantanosas",
+      "es-MX": "Islas pantanosas",
+      "zh-CN": "沼泽群岛"
+    },
+    "bogland": {
+      "en": "Bogland",
+      "es-ES": "Pantanal",
+      "es-MX": "Pantanal",
+      "zh-CN": "沼泽地"
+    },
+    "budapest": {
+      "en": "Budapest",
+      "es-ES": "Budapest",
+      "es-MX": "Budapest",
+      "zh-CN": "布达佩斯"
+    },
+    "canals": {
+      "en": "Canals",
+      "es-ES": "Canales",
+      "es-MX": "Canales",
+      "zh-CN": "运河"
+    },
+    "canyons": {
+      "en": "Canyons",
+      "es-ES": "Cañones",
+      "es-MX": "Cañones",
+      "zh-CN": "峡谷"
+    },
+    "chaospit": {
+      "en": "Chaos Pit",
+      "es-ES": "Foso del caos",
+      "es-MX": "Foso del caos",
+      "zh-CN": "混乱深渊"
+    },
+    "cityoflakes": {
+      "en": "City of Lakes",
+      "es-ES": "Ciudad de lagos",
+      "es-MX": "Ciudad de lagos",
+      "zh-CN": "湖泊之城"
+    },
+    "crater": {
+      "en": "Crater",
+      "es-ES": "Cráter",
+      "es-MX": "Cráter",
+      "zh-CN": "火山口"
+    },
+    "craterlake": {
+      "en": "Crater Lake",
+      "es-ES": "Lago del cráter",
+      "es-MX": "Lago del cráter",
+      "zh-CN": "火山口湖"
+    },
+    "crossroads": {
+      "en": "Crossroads",
+      "es-ES": "Encrucijada",
+      "es-MX": "Encrucijada",
+      "zh-CN": "十字路口"
+    },
+    "dingos": {
+      "en": "Dingos",
+      "es-ES": "Dingos",
+      "es-MX": "Dingos",
+      "zh-CN": "野狗"
+    },
+    "eldorado": {
+      "en": "El Dorado",
+      "es-ES": "El Dorado",
+      "es-MX": "El Dorado",
+      "zh-CN": "黄金国"
+    },
+    "eruption": {
+      "en": "Eruption",
+      "es-ES": "Erupción",
+      "es-MX": "Erupción",
+      "zh-CN": "火山喷发"
+    },
+    "glade": {
+      "en": "Glade",
+      "es-ES": "Claro del bosque",
+      "es-MX": "Claro del bosque",
+      "zh-CN": "林间空地"
+    },
+    "goldenswamp": {
+      "en": "Golden Swamp",
+      "es-ES": "Pantano dorado",
+      "es-MX": "Pantano dorado",
+      "zh-CN": "黄金沼泽"
+    },
+    "graupel": {
+      "en": "Graupel",
+      "es-ES": "Granizo",
+      "es-MX": "Granizo",
+      "zh-CN": "霰雪原"
+    },
+    "graveyards": {
+      "en": "Graveyards",
+      "es-ES": "Cementerios",
+      "es-MX": "Cementerios",
+      "zh-CN": "墓地"
+    },
+    "greatwall": {
+      "en": "Great Wall",
+      "es-ES": "Gran Muralla",
+      "es-MX": "Gran Muralla",
+      "zh-CN": "长城"
+    },
+    "greenland": {
+      "en": "Greenland",
+      "es-ES": "Groenlandia",
+      "es-MX": "Groenlandia",
+      "zh-CN": "格陵兰"
+    },
+    "hengehold": {
+      "en": "Hengehold",
+      "es-ES": "Bastión megalítico",
+      "es-MX": "Bastión megalítico",
+      "zh-CN": "巨石要塞"
+    },
+    "hollowwoodlands": {
+      "en": "Hollow Woodlands",
+      "es-ES": "Bosques huecos",
+      "es-MX": "Bosques huecos",
+      "zh-CN": "中空林地"
+    },
+    "kilimanjaro": {
+      "en": "Kilimanjaro",
+      "es-ES": "Kilimanjaro",
+      "es-MX": "Kilimanjaro",
+      "zh-CN": "乞力马扎罗"
+    },
+    "landmadness": {
+      "en": "Land Madness",
+      "es-ES": "Locura terrestre",
+      "es-MX": "Locura terrestre",
+      "zh-CN": "狂野陆地"
+    },
+    "mangrovejungle": {
+      "en": "Mangrove Jungle",
+      "es-ES": "Selva de manglares",
+      "es-MX": "Selva de manglares",
+      "zh-CN": "红树林丛林"
+    },
+    "marketplace": {
+      "en": "Marketplace",
+      "es-ES": "Mercado",
+      "es-MX": "Mercado",
+      "zh-CN": "集市"
+    },
+    "meadow": {
+      "en": "Meadow",
+      "es-ES": "Pradera",
+      "es-MX": "Pradera",
+      "zh-CN": "草甸"
+    },
+    "mired": {
+      "en": "Mired",
+      "es-ES": "Empantanado",
+      "es-MX": "Empantanado",
+      "zh-CN": "泥潭"
+    },
+    "moats": {
+      "en": "Moats",
+      "es-ES": "Fosos",
+      "es-MX": "Fosos",
+      "zh-CN": "护城河"
+    },
+    "mountaindunes": {
+      "en": "Mountain Dunes",
+      "es-ES": "Dunas montañosas",
+      "es-MX": "Dunas montañosas",
+      "zh-CN": "山地沙丘"
+    },
+    "mountainrange": {
+      "en": "Mountain Range",
+      "es-ES": "Cordillera",
+      "es-MX": "Cordillera",
+      "zh-CN": "山脉"
+    },
+    "mountainridge": {
+      "en": "Mountain Ridge",
+      "es-ES": "Cresta montañosa",
+      "es-MX": "Cresta montañosa",
+      "zh-CN": "山脊"
+    },
+    "murkwood": {
+      "en": "Murkwood",
+      "es-ES": "Bosque sombrío",
+      "es-MX": "Bosque sombrío",
+      "zh-CN": "幽暗森林"
+    },
+    "openplains": {
+      "en": "Open Plains",
+      "es-ES": "Llanuras abiertas",
+      "es-MX": "Llanuras abiertas",
+      "zh-CN": "开阔平原"
+    },
+    "pacificislands": {
+      "en": "Pacific Islands",
+      "es-ES": "Islas del Pacífico",
+      "es-MX": "Islas del Pacífico",
+      "zh-CN": "太平洋群岛"
+    },
+    "prairie": {
+      "en": "Prairie",
+      "es-ES": "Pradera",
+      "es-MX": "Pradera",
+      "zh-CN": "大草原"
+    },
+    "ravines": {
+      "en": "Ravines",
+      "es-ES": "Barrancos",
+      "es-MX": "Barrancos",
+      "zh-CN": "峡谷溪谷"
+    },
+    "ringfortress": {
+      "en": "Ring Fortress",
+      "es-ES": "Fortaleza circular",
+      "es-MX": "Fortaleza circular",
+      "zh-CN": "环形堡垒"
+    },
+    "sacredsprings": {
+      "en": "Sacred Springs",
+      "es-ES": "Manantiales sagrados",
+      "es-MX": "Manantiales sagrados",
+      "zh-CN": "圣泉"
+    },
+    "sandbank": {
+      "en": "Sandbank",
+      "es-ES": "Banco de arena",
+      "es-MX": "Banco de arena",
+      "zh-CN": "沙洲"
+    },
+    "seizethemountain": {
+      "en": "Seize the Mountain",
+      "es-ES": "Toma de la montaña",
+      "es-MX": "Toma de la montaña",
+      "zh-CN": "夺取高山"
+    },
+    "serengeti": {
+      "en": "Serengeti",
+      "es-ES": "Serengueti",
+      "es-MX": "Serengueti",
+      "zh-CN": "塞伦盖蒂"
+    },
+    "sherwoodforest": {
+      "en": "Sherwood Forest",
+      "es-ES": "Bosque de Sherwood",
+      "es-MX": "Bosque de Sherwood",
+      "zh-CN": "舍伍德森林"
+    },
+    "shipwreck": {
+      "en": "Shipwreck",
+      "es-ES": "Naufragio",
+      "es-MX": "Naufragio",
+      "zh-CN": "沉船"
+    },
+    "shrubland": {
+      "en": "Shrubland",
+      "es-ES": "Matorral",
+      "es-MX": "Matorral",
+      "zh-CN": "灌木丛"
+    },
+    "teamglaciers": {
+      "en": "Team Glaciers",
+      "es-ES": "Glaciares en equipo",
+      "es-MX": "Glaciares en equipo",
+      "zh-CN": "团队冰川"
+    },
+    "teammoats": {
+      "en": "Team Moats",
+      "es-ES": "Fosos en equipo",
+      "es-MX": "Fosos en equipo",
+      "zh-CN": "团队护城河"
+    },
+    "thepassage": {
+      "en": "The Passage",
+      "es-ES": "El pasaje",
+      "es-MX": "El pasaje",
+      "zh-CN": "海峡通道"
+    },
+    "volcanicisland": {
+      "en": "Volcanic Island",
+      "es-ES": "Isla volcánica",
+      "es-MX": "Isla volcánica",
+      "zh-CN": "火山岛"
+    },
+    "waternomad": {
+      "en": "Water Nomad",
+      "es-ES": "Nómada acuático",
+      "es-MX": "Nómada acuático",
+      "zh-CN": "水上流民"
+    },
+    "wolfhill": {
+      "en": "Wolf Hill",
+      "es-ES": "Colina de los lobos",
+      "es-MX": "Colina de los lobos",
+      "zh-CN": "狼山"
+    },
+    "yinyang": {
+      "en": "Yin Yang",
+      "es-ES": "Yin Yang",
+      "es-MX": "Yin Yang",
+      "zh-CN": "阴阳"
     }
   },
   "units": {

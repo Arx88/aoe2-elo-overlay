@@ -337,19 +337,8 @@
     }
 
     function renderAnnouncement(ann) {
-      const hasLive = Boolean(ann && ann.enabled === true && (ann.title || ann.body));
-      const effective = hasLive
-        ? ann
-        : {
-            enabled: true,
-            tag: 'novedad',
-            title: wt('welcome.defaultNewsTitle', 'Relic v3.2 · Novedades de la semana'),
-            body: wt('welcome.defaultNewsBody', 'Meta global de 56 civilizaciones, counters Pro 1v1, rango semanal de oro y seguridad reforzada.'),
-            imageUrl: 'assets/art/wizard-umbral.webp',
-            ctaLabel: '',
-            ctaUrl: '',
-            isDefault: true,
-          };
+      if (!ann || ann.enabled !== true || (!ann.title && !ann.body)) return '';
+      const effective = ann;
       const meta = NEWS_TAG_META[effective.tag] || NEWS_TAG_META.novedad;
       const tagLabel = wt(meta.labelKey, meta.fallback);
       const hasImage = Boolean(effective.imageUrl);

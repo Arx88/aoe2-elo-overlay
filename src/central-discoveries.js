@@ -177,13 +177,21 @@ function computeGoldenHour(eloSeries) {
   };
 
   let punchline = null;
+  let punchlineI18n = null;
   if (golden && cursed) {
     const signG = golden.netElo >= 0 ? '+' : '';
     const signC = cursed.netElo >= 0 ? '+' : '';
     punchline = `${golden.label} (${golden.range}): ${golden.winRate}% WR (${signG}${golden.netElo} ELO) · ${cursed.label}: ${cursed.winRate}% (${signC}${cursed.netElo} ELO).`;
+    punchlineI18n = ['cxe.ghBothPunch', {
+      _gBlock: golden.id, gRange: golden.range, gWr: golden.winRate, gElo: `${signG}${golden.netElo}`,
+      _cBlock: cursed.id, cWr: cursed.winRate, cElo: `${signC}${cursed.netElo}`,
+    }];
   } else if (golden) {
     const signG = golden.netElo >= 0 ? '+' : '';
     punchline = `Tu mejor tramo es ${golden.label} (${golden.range}) con ${golden.winRate}% WR (${signG}${golden.netElo} ELO).`;
+    punchlineI18n = ['cxe.ghGoldPunch', {
+      _gBlock: golden.id, gRange: golden.range, gWr: golden.winRate, gElo: `${signG}${golden.netElo}`,
+    }];
   }
 
   return {
@@ -198,6 +206,7 @@ function computeGoldenHour(eloSeries) {
     weekday: summarizeGroup(weekdayPts),
     weekend: summarizeGroup(weekendPts),
     punchline,
+    punchlineI18n,
   };
 }
 
@@ -1654,18 +1663,29 @@ function computeEloComfortAndPatch({ fullRatingSeries = [], unifiedMatches = [],
     const nextBarrier = (Math.floor(current / 100) + 1) * 100;
 
     let stabilityLabel = 'Estable';
+    let stabilityKey = 'cxe.stabStable';
     let stabilityTone = 'gold';
-    if (bandWidth <= 65) { stabilityLabel = 'Muy estable'; stabilityTone = 'win'; }
-    else if (bandWidth <= 120) { stabilityLabel = 'Estable'; stabilityTone = 'gold'; }
-    else if (bandWidth <= 185) { stabilityLabel = 'Oscilante'; stabilityTone = 'neutral'; }
-    else { stabilityLabel = 'Volátil'; stabilityTone = 'loss'; }
+    if (bandWidth <= 65) { stabilityLabel = 'Muy estable'; stabilityKey = 'cxe.stabVery'; stabilityTone = 'win'; }
+    else if (bandWidth <= 120) { stabilityLabel = 'Estable'; stabilityKey = 'cxe.stabStable'; stabilityTone = 'gold'; }
+    else if (bandWidth <= 185) { stabilityLabel = 'Oscilante'; stabilityKey = 'cxe.stabSwing'; stabilityTone = 'neutral'; }
+    else { stabilityLabel = 'Volátil'; stabilityKey = 'cxe.stabVolatile'; stabilityTone = 'loss'; }
 
     let zoneStatus = 'Dentro de tu zona habitual';
-    if (peak - current <= 15) zoneStatus = 'En tu pico histórico';
-    else if (current > p80) zoneStatus = `Por encima de tu techo habitual (+${Math.round(current - p80)} ELO)`;
-    else if (current < p20) zoneStatus = `Debajo de tu piso habitual (−${Math.round(p20 - current)} ELO)`;
+    let zoneStatusI18n = ['cxe.zoneNormal', null];
+    if (peak - current <= 15) {
+      zoneStatus = 'En tu pico histórico';
+      zoneStatusI18n = ['cxe.zonePeak', null];
+    } else if (current > p80) {
+      zoneStatus = `Por encima de tu techo habitual (+${Math.round(current - p80)} ELO)`;
+      zoneStatusI18n = ['cxe.zoneAbove', { pts: Math.round(current - p80) }];
+    } else if (current < p20) {
+      zoneStatus = `Debajo de tu piso habitual (−${Math.round(p20 - current)} ELO)`;
+      zoneStatusI18n = ['cxe.zoneBelow', { pts: Math.round(p20 - current) }];
+    }
 
     comfort = {
+      stabilityKey,
+      zoneStatusI18n,
       sample: pts.length,
       modeLabel: comfortModeLabel || null,
       minRating: Math.round(minRating),
