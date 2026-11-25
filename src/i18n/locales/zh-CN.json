@@ -661,7 +661,18 @@
     "tabEvo": "趋势与曲线",
     "tabDuel": "双方对位",
     "techPanelTitle": "科技与兵营产能",
-    "overlayDeepHint": "完整曲线、对位与科技详情请见 Relic → 赛后"
+    "overlayDeepHint": "完整曲线、对位与科技详情请见 Relic → 赛后",
+    "apmAllEyebrow": "eAPM · 全场所有玩家",
+    "apmAllTitle": "各玩家 eAPM 节奏对比",
+    "apmPlayersCount": "{n} 名玩家",
+    "apmIsolateHint": "点击玩家可单独聚焦",
+    "apmCurveSub": "逐分钟节奏曲线",
+    "apmDistSub": "分布与稳定性",
+    "apmBoxLegend": "中位数 · Q1–Q3",
+    "apmPeakShort": "峰值",
+    "apmAvgShort": "均值",
+    "apmMedShort": "中位",
+    "apmMinLabel": "第 {m}:00 分"
   },
   "prematch": {
     "title": "赛前情报",

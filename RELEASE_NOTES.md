@@ -1,3 +1,13 @@
+## v3.3.6 · Nuevo bloque comparativo de eAPM de todos los participantes en Postmatch
+
+- **Gráfico editorial de eAPM por jugador en Postmatch (`Evolución y Curva`):** debajo del bloque de *Ritmo de actividad por tramo* se incorporó la comparativa completa de **todos los participantes de la partida** (2 en 1v1 y 4/6/8 en Team Games), cada uno con su **color oficial real de la partida** (colores 1–8 refinados para la estética obsidiana y oro envejecido de Relic).
+- **Doble panel interactivo:**
+  - **Curvas suaves minuto a minuto** (splines Catmull-Rom con marcas sutiles de llegada a Feudal/Castillos/Imperial y cursor interactivo que ordena el eAPM exacto de todos los jugadores minuto por minuto).
+  - **Distribución y estabilidad (Box-and-Whisker + puntos por minuto)** en la misma escala vertical con mediana luminosa, rango intercuartil `Q1–Q3`, mínimos/máximos y leyenda interactiva con escudo de civilización para aislar a cualquier jugador con un clic.
+- **Actualización automática de replays locales (`command-adapter-v10`) y 4 idiomas completos:** compatible con CSP estricto (0 estilos inline) y traducido desde el primer día en `es-MX`, `es-ES`, `en` y `zh-CN`.
+
+---
+
 ## v3.3.5 · Traducción real verificada en Chromium en las 22 pantallas (4.162 frases · 0 fugas en `en` y `zh-CN`)
 
 - **Árbol Tecnológico (56 civilizaciones y 486 nodos) y Entrenamiento al 100 %:** se tradujeron al inglés y chino simplificado oficial de AoE2:DE todas las bonificaciones de civilización, tecnologías únicas, unidades únicas, bonificaciones de equipo, clases de armadura, bonificaciones de daño y plantillas dinámicas de Progreso, Mi Plan, Build Orders, Matchups Pro y Arena (`4.162` frases totales).

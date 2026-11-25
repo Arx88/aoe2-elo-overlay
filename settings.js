@@ -615,6 +615,97 @@ function bindPostMatchTabs(container) {
       if (dest) smartScrollAndPulse(dest);
     });
   });
+
+  bindPostMatchApmCharts(container);
+}
+
+function bindPostMatchApmCharts(container) {
+  if (!container) return;
+  container.querySelectorAll('.pm-apm-card').forEach((card) => {
+    let payload = null;
+    try { payload = JSON.parse(card.dataset.apmPayload || 'null'); } catch { payload = null; }
+    if (!payload || !Array.isArray(payload.players) || payload.players.length < 2) return;
+
+    let lockedSlot = null;
+    const applyFocus = (slot) => {
+      const hasFocus = slot != null;
+      card.classList.toggle('has-focus', hasFocus);
+      card.querySelectorAll('[data-apm-slot]').forEach((node) => {
+        const match = hasFocus && String(node.dataset.apmSlot) === String(slot);
+        node.classList.toggle('is-focused', match);
+        if (node.classList.contains('pm-apm-chip')) {
+          node.setAttribute('aria-pressed', String(lockedSlot != null && String(lockedSlot) === String(node.dataset.apmSlot)));
+        }
+      });
+    };
+
+    const bindSlotInteractive = (node) => {
+      const slot = node.dataset.apmSlot;
+      node.addEventListener('click', () => {
+        lockedSlot = (lockedSlot != null && String(lockedSlot) === String(slot)) ? null : slot;
+        applyFocus(lockedSlot);
+      });
+      node.addEventListener('mouseenter', () => {
+        if (lockedSlot == null) applyFocus(slot);
+      });
+      node.addEventListener('mouseleave', () => {
+        if (lockedSlot == null) applyFocus(null);
+      });
+    };
+
+    card.querySelectorAll('.pm-apm-chip, .pm-apm-boxg').forEach(bindSlotInteractive);
+
+    // Scrubber interactivo minuto a minuto sobre el gráfico de líneas
+    const svg = card.querySelector('.pm-apm-line-svg');
+    const hit = card.querySelector('.pm-apm-hit');
+    const crosshair = card.querySelector('.pm-apm-crosshair');
+    const tooltip = card.querySelector('.pm-apm-tooltip');
+    if (!svg || !hit || !crosshair || !tooltip) return;
+
+    const totalMin = Math.max(2, Number(payload.totalMinutes) || 2);
+    const yMax = Math.max(40, Number(payload.yMax) || 100);
+    const innerW = payload.w - payload.padL - payload.padR;
+    const innerH = payload.h - payload.padT - payload.padB;
+
+    const renderMinute = (minIdx) => {
+      const m = Math.max(0, Math.min(totalMin - 1, minIdx));
+      const x = Math.round((payload.padL + (m / (totalMin - 1)) * innerW) * 10) / 10;
+      crosshair.setAttribute('x1', String(x));
+      crosshair.setAttribute('x2', String(x));
+
+      const rows = payload.players.map((p) => {
+        const val = Number(p.series?.[m]) || 0;
+        const y = Math.round((payload.padT + (1 - Math.max(0, Math.min(yMax, val)) / yMax) * innerH) * 10) / 10;
+        const dot = svg.querySelector(`.pm-apm-hdot[data-apm-slot="${p.slot}"]`);
+        if (dot) {
+          dot.setAttribute('cx', String(x));
+          dot.setAttribute('cy', String(y));
+        }
+        return { ...p, val };
+      }).sort((a, b) => b.val - a.val);
+
+      tooltip.classList.toggle('is-left', m < totalMin / 2);
+      tooltip.innerHTML = `<div class="pm-apm-tip-head">${escapeHtml(t('postmatch.apmMinLabel', 'Min {m}:00', { m }))}</div>`
+        + rows.map((r) => `<div class="pm-apm-tip-row pm-c${r.color}">
+            <i class="pm-apm-tip-dot" aria-hidden="true"></i>
+            <span class="pm-apm-tip-name" data-no-i18n="1">${escapeHtml(r.name)}</span>
+            <b class="pm-apm-tip-val">${r.val}</b>
+          </div>`).join('');
+      tooltip.hidden = false;
+      svg.classList.add('is-scrubbing');
+    };
+
+    hit.addEventListener('mousemove', (ev) => {
+      const rect = hit.getBoundingClientRect();
+      if (!rect.width) return;
+      const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      renderMinute(Math.round(ratio * (totalMin - 1)));
+    });
+    hit.addEventListener('mouseleave', () => {
+      svg.classList.remove('is-scrubbing');
+      tooltip.hidden = true;
+    });
+  });
 }
 
 async function loadPostMatch() {

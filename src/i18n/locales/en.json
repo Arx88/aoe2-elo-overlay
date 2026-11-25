@@ -661,7 +661,18 @@
     "tabEvo": "Evolution & Curve",
     "tabDuel": "Head-to-Head",
     "techPanelTitle": "Upgrades & production",
-    "overlayDeepHint": "Full curve, duel, and upgrades in Relic → Postmatch"
+    "overlayDeepHint": "Full curve, duel, and upgrades in Relic → Postmatch",
+    "apmAllEyebrow": "eAPM · ALL PARTICIPANTS",
+    "apmAllTitle": "eAPM pace by player",
+    "apmPlayersCount": "{n} players",
+    "apmIsolateHint": "Click a player to isolate",
+    "apmCurveSub": "Minute-by-minute pace",
+    "apmDistSub": "Distribution & stability",
+    "apmBoxLegend": "Median · Q1–Q3",
+    "apmPeakShort": "peak",
+    "apmAvgShort": "Avg",
+    "apmMedShort": "Med",
+    "apmMinLabel": "Min {m}:00"
   },
   "prematch": {
     "title": "Prematch",

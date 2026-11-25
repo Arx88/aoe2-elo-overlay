@@ -385,6 +385,34 @@ function normalizeEngineSummary(raw) {
     missed: cmMiss,
     summary: text(rawCm.summary, 140) || '',
   } : null;
+  const rawEapm = raw.eapmComparison && typeof raw.eapmComparison === 'object' ? raw.eapmComparison : null;
+  const eapmPlayers = rawEapm && Array.isArray(rawEapm.players)
+    ? rawEapm.players.slice(0, 8)
+        .filter((p) => p && Array.isArray(p.series) && p.series.length >= 2)
+        .map((p) => ({
+          slot: Math.round(finite(p.slot, 1, 16) || 1),
+          profileId: finite(p.profileId, 1, 1e12) != null ? Math.round(p.profileId) : null,
+          name: text(p.name, 48) || `P${Math.round(finite(p.slot, 1, 16) || 1)}`,
+          civ: text(p.civ, 40) || null,
+          color: Math.round(finite(p.color, 1, 8) || 1),
+          team: finite(p.team, 0, 8) != null ? Math.round(p.team) : null,
+          isSelf: Boolean(p.isSelf),
+          avgEapm: finite(p.avgEapm, 0, 1000) != null ? rounded(p.avgEapm) : 0,
+          avgApm: finite(p.avgApm, 0, 2000) != null ? rounded(p.avgApm) : 0,
+          min: finite(p.min, 0, 1000) != null ? Math.round(p.min) : 0,
+          q1: finite(p.q1, 0, 1000) != null ? rounded(p.q1) : 0,
+          median: finite(p.median, 0, 1000) != null ? rounded(p.median) : 0,
+          q3: finite(p.q3, 0, 1000) != null ? rounded(p.q3) : 0,
+          max: finite(p.max, 0, 1000) != null ? Math.round(p.max) : 0,
+          peakMinute: finite(p.peakMinute, 0, 240) != null ? Math.round(p.peakMinute) : 0,
+          series: p.series.slice(0, 120).map((v) => Math.max(0, Math.min(999, Math.round(Number(v) || 0)))),
+        }))
+    : [];
+  const eapmComparison = eapmPlayers.length >= 2 ? {
+    bucketSeconds: Math.round(finite(rawEapm.bucketSeconds, 15, 300) || 60),
+    totalMinutes: Math.round(finite(rawEapm.totalMinutes, 2, 120) || eapmPlayers[0].series.length),
+    players: eapmPlayers,
+  } : null;
   return {
     version: raw.version,
     isTeamGame: Boolean(raw.isTeamGame),
@@ -394,6 +422,7 @@ function normalizeEngineSummary(raw) {
     openingSummary,
     stages,
     timeline,
+    eapmComparison,
     highlights,
     positives,
     negatives,

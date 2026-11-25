@@ -661,7 +661,18 @@
     "tabEvo": "Evolución y Curva",
     "tabDuel": "Duelo vs Rival",
     "techPanelTitle": "Tecnologías y producción",
-    "overlayDeepHint": "Curva, duelo vs rival y mejoras completas en Relic → Postmatch"
+    "overlayDeepHint": "Curva, duelo vs rival y mejoras completas en Relic → Postmatch",
+    "apmAllEyebrow": "eAPM · TODOS LOS PARTICIPANTES",
+    "apmAllTitle": "Ritmo eAPM por jugador",
+    "apmPlayersCount": "{n} jugadores",
+    "apmIsolateHint": "Clic en un jugador para aislar",
+    "apmCurveSub": "Evolución minuto a minuto",
+    "apmDistSub": "Distribución y estabilidad",
+    "apmBoxLegend": "Mediana · Q1–Q3",
+    "apmPeakShort": "máx",
+    "apmAvgShort": "Media",
+    "apmMedShort": "Med",
+    "apmMinLabel": "Min {m}:00"
   },
   "prematch": {
     "title": "Prematch",

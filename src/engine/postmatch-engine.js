@@ -1193,6 +1193,90 @@ function buildTimelineBuckets(selfState, rivalState, durationMs, bucketCount = 1
   return buckets;
 }
 
+function quantileSorted(sorted, p) {
+  if (!sorted.length) return 0;
+  if (sorted.length === 1) return sorted[0];
+  const idx = (sorted.length - 1) * p;
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+/**
+ * Construye la comparativa minuto a minuto de eAPM (curvas + distribución
+ * boxplot) para TODOS los participantes de la partida (1v1 o Team Games) con
+ * su color real in-game (1–8).
+ */
+function buildAllPlayersEapm(rosterTrackers, durationMs) {
+  if (!rosterTrackers || rosterTrackers.size < 2 || !Number.isFinite(durationMs) || durationMs < 120_000) {
+    return null;
+  }
+  const bucketMs = 60_000;
+  const rawFullMins = Math.floor(durationMs / bucketMs);
+  const remMs = durationMs - rawFullMins * bucketMs;
+  const includeLastPartial = remMs >= 20_000;
+  const totalMinutes = Math.min(120, Math.max(2, rawFullMins + (includeLastPartial ? 1 : 0)));
+  const totalMinFloat = Math.max(1, durationMs / 60_000);
+
+  const players = [];
+  for (const entry of rosterTrackers.values()) {
+    const counts = new Array(totalMinutes).fill(0);
+    for (let i = 0; i < entry.effectiveMs.length; i += 1) {
+      const m = Math.floor(entry.effectiveMs[i] / bucketMs);
+      if (m >= 0 && m < totalMinutes) counts[m] += 1;
+    }
+    // Normalizar último minuto parcial (>=20 s) a tasa por minuto para no hundir falsamente el final
+    if (includeLastPartial && totalMinutes === rawFullMins + 1 && remMs > 0) {
+      counts[totalMinutes - 1] = Math.round(counts[totalMinutes - 1] * (bucketMs / remMs));
+    }
+    const sorted = [...counts].sort((a, b) => a - b);
+    let peak = 0;
+    let peakMinute = 0;
+    for (let i = 0; i < counts.length; i += 1) {
+      if (counts[i] > peak) { peak = counts[i]; peakMinute = i; }
+    }
+    const colorNum = Number(entry.color);
+    const safeColor = Number.isFinite(colorNum) && colorNum >= 1 && colorNum <= 8
+      ? Math.round(colorNum)
+      : ((Number(entry.slot) - 1) % 8) + 1;
+    players.push({
+      slot: Number(entry.slot),
+      profileId: Number.isFinite(Number(entry.profileId)) && Number(entry.profileId) > 0 ? Number(entry.profileId) : null,
+      name: String(entry.name || `P${entry.slot}`).slice(0, 48),
+      civ: entry.civ ? String(entry.civ).slice(0, 40) : null,
+      color: safeColor,
+      team: entry.team != null && Number.isFinite(Number(entry.team)) ? Number(entry.team) : null,
+      isSelf: Boolean(entry.isSelf),
+      avgEapm: Math.round((entry.effectiveMs.length / totalMinFloat) * 10) / 10,
+      avgApm: Math.round((entry.totalActions / totalMinFloat) * 10) / 10,
+      min: sorted[0] ?? 0,
+      q1: Math.round(quantileSorted(sorted, 0.25) * 10) / 10,
+      median: Math.round(quantileSorted(sorted, 0.5) * 10) / 10,
+      q3: Math.round(quantileSorted(sorted, 0.75) * 10) / 10,
+      max: sorted[sorted.length - 1] ?? 0,
+      peakMinute,
+      series: counts,
+    });
+  }
+
+  // Ordenar: jugador propio primero, luego su equipo, luego rivales, desempate por color in-game
+  const selfTeam = players.find((p) => p.isSelf)?.team ?? null;
+  players.sort((a, b) => {
+    if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1;
+    const aAlly = selfTeam != null && a.team === selfTeam ? 0 : 1;
+    const bAlly = selfTeam != null && b.team === selfTeam ? 0 : 1;
+    if (aAlly !== bAlly) return aAlly - bAlly;
+    return a.color - b.color;
+  });
+
+  return {
+    bucketSeconds: 60,
+    totalMinutes,
+    players,
+  };
+}
+
 function clampScore(v) {
   return Math.max(0, Math.min(100, Math.round(v)));
 }
@@ -2498,7 +2582,7 @@ function analyzePostmatchEngine(operations, {
   selfSlot, rivalSlot = null, selfCiv = null, rivalCiv = null, allyCivs = [],
   selfAges = null, rivalAges = null, opening = null, openingShort = null,
   playerElo = null, durationMs = 0, isTeamGame = false, startingAge = 'dark',
-  teamRole = null, mapSize = 120, won = null,
+  teamRole = null, mapSize = 120, won = null, allPlayers = null,
 } = {}) {
   const list = Array.isArray(operations) ? operations : [];
   if (!list.length || !Number.isFinite(Number(selfSlot))) return null;
@@ -2507,6 +2591,31 @@ function analyzePostmatchEngine(operations, {
   const rivalId = Number.isFinite(Number(rivalSlot)) && Number(rivalSlot) > 0 ? Number(rivalSlot) : null;
   const tracked = new Map([[selfId, createSlotState(selfId, selfCiv, selfAges, startingAge, allyCivs)]]);
   if (rivalId && rivalId !== selfId) tracked.set(rivalId, createSlotState(rivalId, rivalCiv, rivalAges, startingAge, []));
+
+  // Tracker liviano de eAPM minuto a minuto para TODOS los participantes de la partida (2..8)
+  const rosterTrackers = new Map();
+  const rosterMeta = Array.isArray(allPlayers) && allPlayers.length >= 2
+    ? allPlayers
+    : [
+        { slot: selfId, name: 'Vos', civ: selfCiv, color: 1, team: 1, isSelf: true },
+        ...(rivalId && rivalId !== selfId ? [{ slot: rivalId, name: 'Rival', civ: rivalCiv, color: 2, team: 2, isSelf: false }] : []),
+      ];
+  for (const p of rosterMeta) {
+    const slotNum = Number(p?.slot);
+    if (!Number.isFinite(slotNum) || slotNum <= 0 || rosterTrackers.has(slotNum)) continue;
+    rosterTrackers.set(slotNum, {
+      slot: slotNum,
+      profileId: p.profileId ?? null,
+      name: p.name || `P${slotNum}`,
+      civ: p.civ || null,
+      color: p.color ?? null,
+      team: p.team ?? null,
+      isSelf: Boolean(p.isSelf || slotNum === selfId),
+      totalActions: 0,
+      effectiveMs: [],
+      lastByType: new Map(),
+    });
+  }
 
   let maxMs = Number(durationMs) || 0;
   const chatStats = { taunts: 0, laugh11: 0, ggCount: 0, hadResign: false };
@@ -2527,6 +2636,17 @@ function analyzePostmatchEngine(operations, {
     if (!info) continue;
     if (info.ms > maxMs) maxMs = info.ms;
     if (info.type === 'Resign') chatStats.hadResign = true;
+
+    const rt = rosterTrackers.get(info.playerId);
+    if (rt) {
+      rt.totalActions += 1;
+      const prevRtMs = rt.lastByType.get(info.type);
+      if (prevRtMs == null || info.ms - prevRtMs >= 150) {
+        rt.effectiveMs.push(info.ms);
+        rt.lastByType.set(info.type, info.ms);
+      }
+    }
+
     const state = tracked.get(info.playerId);
     if (!state) continue;
 
@@ -2821,6 +2941,7 @@ function analyzePostmatchEngine(operations, {
   const self = finalizePlayer(selfState, maxMs, { isRival: false });
   const rival = rivalState ? finalizePlayer(rivalState, maxMs, { isRival: true }) : null;
   const timeline = buildTimelineBuckets(selfState, rivalState, maxMs, 12);
+  const eapmComparison = buildAllPlayersEapm(rosterTrackers, maxMs);
   const { openingSummary, stages } = buildStageGrades(self, selfState, { opening, openingShort, playerElo, durationMs: maxMs });
   const isShortAbandon = maxMs < 180_000 && selfState.feudalReachedMs == null;
   const rawHf = buildHighlightsAndFocus(self, rival, {
@@ -2875,6 +2996,7 @@ function analyzePostmatchEngine(operations, {
     openingSummary,
     stages,
     timeline,
+    eapmComparison,
     highlights,
     positives,
     negatives,

@@ -19,7 +19,7 @@ const { seeOrder, pickCheckpoint } = require('./opening-review');
 const { observeQueue, collectCastlesWindow, supportedMap } = require('./castles-window');
 const { analyzePostmatchEngine } = require('./engine/postmatch-engine');
 
-const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v9';
+const COMMAND_ADAPTER_VERSION = '0.1.25+command-adapter-v10';
 
 const AGES = ['dark', 'feudal', 'castle', 'imperial'];
 const IDS = {
@@ -584,6 +584,33 @@ async function analyzeReplayBuffer(buffer, { match, profileId } = {}) {
     }
   }
   const mapSize = Number(settings.map_size) || (playerCount >= 8 ? 220 : playerCount >= 6 ? 200 : 120);
+  // Construir lista completa de participantes con su color real in-game (1-8) para comparativa de eAPM
+  const matchPlayersList = Array.isArray(match.players) ? match.players : [];
+  const rawColorIds = replayPlayers
+    .map((rp) => Number(rp?.color_id))
+    .filter((c) => Number.isFinite(c) && c >= 0);
+  const replayColorsZeroBased = rawColorIds.length > 0 && Math.min(...rawColorIds) === 0;
+  const allPlayers = replayPlayers
+    .filter((rp) => rp && Number.isFinite(Number(rp.player_number)) && Number(rp.player_number) > 0)
+    .map((rp) => {
+      const pidNum = Number(rp.profile_id);
+      const mp = matchPlayersList.find((m) => Number(m.profileId) === pidNum) || null;
+      const mpColor = Number(mp?.color);
+      const rpColorRaw = Number(rp.color_id);
+      const rpColor = Number.isFinite(rpColorRaw) ? (replayColorsZeroBased ? rpColorRaw + 1 : rpColorRaw) : null;
+      const color = Number.isFinite(mpColor) && mpColor >= 1 && mpColor <= 8
+        ? mpColor
+        : (Number.isFinite(rpColor) && rpColor >= 1 && rpColor <= 8 ? rpColor : Number(rp.player_number));
+      return {
+        slot: Number(rp.player_number),
+        profileId: Number.isFinite(pidNum) && pidNum > 0 ? pidNum : null,
+        name: String(mp?.name || rp.name || `P${rp.player_number}`).trim(),
+        civ: mp?.civ || null,
+        color,
+        team: mp?.team != null ? Number(mp.team) : (rp.resolved_team_id != null ? Number(rp.resolved_team_id) : null),
+        isSelf: Number(rp.player_number) === Number(self.player_number) || pidNum === Number(profileId),
+      };
+    });
   const engineSummary = analyzePostmatchEngine(chapter.operations, {
     selfSlot: Number(self.player_number),
     rivalSlot: rivalReplayPlayer ? Number(rivalReplayPlayer.player_number) : null,
@@ -601,6 +628,7 @@ async function analyzeReplayBuffer(buffer, { match, profileId } = {}) {
     teamRole,
     mapSize,
     won: typeof matchPlayer?.won === 'boolean' ? matchPlayer.won : null,
+    allPlayers,
   });
   if (engineSummary && rivalMatchPlayer?.profileId) {
     engineSummary.rivalProfileId = Number(rivalMatchPlayer.profileId);

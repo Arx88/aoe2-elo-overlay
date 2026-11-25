@@ -1057,6 +1057,246 @@
       </svg>
     </div>`;
   }
+
+  /**
+   * Genera una curva Bezier cúbica suave (Catmull-Rom amortiguada) sin sobreimpulsos
+   * fuera de [minY, maxY] para las líneas de eAPM minuto a minuto.
+   */
+  function smoothCatmullRomPath(pts, minY, maxY) {
+    if (!pts || !pts.length) return '';
+    if (pts.length === 1) return `M ${pts[0][0]} ${pts[0][1]}`;
+    const clampY = (y) => Math.round(Math.max(minY, Math.min(maxY, y)) * 10) / 10;
+    const r = (v) => Math.round(v * 10) / 10;
+    let d = `M ${r(pts[0][0])} ${clampY(pts[0][1])}`;
+    const tension = 0.22;
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const cp1x = r(p1[0] + (p2[0] - p0[0]) * tension);
+      const cp1y = clampY(p1[1] + (p2[1] - p0[1]) * tension);
+      const cp2x = r(p2[0] - (p3[0] - p1[0]) * tension);
+      const cp2y = clampY(p2[1] - (p3[1] - p1[1]) * tension);
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${r(p2[0])} ${clampY(p2[1])}`;
+    }
+    return d;
+  }
+
+  function renderAllPlayersEapmBlock(eapmComparison, selfTimings = null) {
+    const players = Array.isArray(eapmComparison?.players) ? eapmComparison.players : [];
+    if (players.length < 2) return '';
+    const totalMinutes = Math.max(2, Number(eapmComparison.totalMinutes) || players[0].series.length);
+
+    let rawMax = 30;
+    for (const p of players) {
+      for (const v of (p.series || [])) if (v > rawMax) rawMax = v;
+      if (p.max > rawMax) rawMax = p.max;
+    }
+    const yStep = rawMax > 140 ? 40 : 20;
+    const yMax = Math.max(40, Math.ceil((rawMax * 1.1) / yStep) * yStep);
+    const yTicks = [];
+    for (let v = 0; v <= yMax; v += yStep) yTicks.push(v);
+
+    // 1. Panel izquierdo: Curvas suaves de eAPM minuto a minuto
+    const lw = 540, lh = 224, lPadL = 34, lPadR = 14, lPadT = 16, lPadB = 26;
+    const lInnerW = lw - lPadL - lPadR;
+    const lInnerH = lh - lPadT - lPadB;
+    const xForMin = (m) => lPadL + (totalMinutes > 1 ? (m / (totalMinutes - 1)) * lInnerW : 0);
+    const yForVal = (v, padT = lPadT, innerH = lInnerH) => padT + (1 - Math.max(0, Math.min(yMax, v)) / yMax) * innerH;
+
+    const xTickStep = totalMinutes <= 16 ? 2 : totalMinutes <= 34 ? 4 : totalMinutes <= 60 ? 6 : 10;
+    const xTicks = [];
+    for (let m = 0; m < totalMinutes; m += xTickStep) xTicks.push(m);
+    if (xTicks[xTicks.length - 1] !== totalMinutes - 1 && (totalMinutes - 1 - xTicks[xTicks.length - 1]) >= Math.max(2, Math.floor(xTickStep / 2))) {
+      xTicks.push(totalMinutes - 1);
+    }
+
+    const lGridY = yTicks.map((v) => {
+      const y = Math.round(yForVal(v) * 10) / 10;
+      return `<line class="pm-apm-grid-h${v === 0 ? ' is-base' : ''}" x1="${lPadL}" y1="${y}" x2="${lw - lPadR}" y2="${y}" />
+        <text class="pm-apm-ytick" x="${lPadL - 6}" y="${y + 3}">${v}</text>`;
+    }).join('');
+
+    const lGridX = xTicks.map((m) => {
+      const x = Math.round(xForMin(m) * 10) / 10;
+      return `<line class="pm-apm-grid-v" x1="${x}" y1="${lPadT}" x2="${x}" y2="${lPadT + lInnerH}" />
+        <text class="pm-apm-xtick" x="${x}" y="${lh - 7}">${m}m</text>`;
+    }).join('');
+
+    // Marcadores sutiles de edades propias (Feudal / Castillos / Imperial)
+    const ageMarks = [];
+    if (selfTimings) {
+      const addAge = (sec, code) => {
+        if (!Number.isFinite(sec) || sec <= 0) return;
+        const m = sec / 60;
+        if (m > 0.5 && m < totalMinutes - 0.5) ageMarks.push({ m, code });
+      };
+      addAge(selfTimings.feudalSeconds, 'F');
+      addAge(selfTimings.castleSeconds, 'C');
+      addAge(selfTimings.imperialSeconds, 'I');
+    }
+    const ageMarksSvg = ageMarks.map((am) => {
+      const x = Math.round(xForMin(am.m) * 10) / 10;
+      return `<g class="pm-apm-age-mark">
+        <line x1="${x}" y1="${lPadT}" x2="${x}" y2="${lPadT + lInnerH}" />
+        <text x="${x}" y="${lPadT - 4}">${am.code}</text>
+      </g>`;
+    }).join('');
+
+    // Dibujar primero rivales/aliados y al final al jugador propio para que siempre quede nítido arriba
+    const drawOrder = [...players].sort((a, b) => (a.isSelf ? 1 : 0) - (b.isSelf ? 1 : 0));
+    const curvesSvg = drawOrder.map((p) => {
+      const series = Array.isArray(p.series) ? p.series : [];
+      // Suavizado ligero 3-point weighted (0.2, 0.6, 0.2) para que la curva luzca orgánica sin distorsionar picos
+      const smoothed = series.map((val, i) => {
+        if (series.length < 4 || i === 0 || i === series.length - 1) return val;
+        return val * 0.64 + series[i - 1] * 0.18 + series[i + 1] * 0.18;
+      });
+      const pts = smoothed.map((val, m) => [xForMin(m), yForVal(val)]);
+      const pathD = smoothCatmullRomPath(pts, lPadT, lPadT + lInnerH);
+      const areaD = pts.length >= 2
+        ? `${pathD} L ${Math.round(pts[pts.length - 1][0] * 10) / 10} ${lPadT + lInnerH} L ${Math.round(pts[0][0] * 10) / 10} ${lPadT + lInnerH} Z`
+        : '';
+      const cls = `pm-c${p.color}${p.isSelf ? ' is-self' : ''}`;
+      return `<g class="pm-apm-series ${cls}" data-apm-slot="${p.slot}">
+        ${areaD ? `<path class="pm-apm-area" d="${areaD}" />` : ''}
+        <path class="pm-apm-line" d="${pathD}" />
+      </g>`;
+    }).join('');
+
+    const hoverDotsSvg = players.map((p) =>
+      `<circle class="pm-apm-hdot pm-c${p.color}" data-apm-slot="${p.slot}" cx="-20" cy="-20" r="3.4" />`
+    ).join('');
+
+    // 2. Panel derecho: Distribución Box-and-Whisker + puntos por minuto (misma escala Y)
+    const bw = 288, bh = 224, bPadL = 28, bPadR = 12, bPadT = 16, bPadB = 26;
+    const bInnerW = bw - bPadL - bPadR;
+    const bInnerH = bh - bPadT - bPadB;
+    const colW = bInnerW / players.length;
+    const boxW = Math.max(14, Math.min(34, Math.round(colW * 0.56)));
+
+    const bGridY = yTicks.map((v) => {
+      const y = Math.round(yForVal(v, bPadT, bInnerH) * 10) / 10;
+      return `<line class="pm-apm-grid-h${v === 0 ? ' is-base' : ''}" x1="${bPadL}" y1="${y}" x2="${bw - bPadR}" y2="${y}" />
+        <text class="pm-apm-ytick" x="${bPadL - 5}" y="${y + 3}">${v}</text>`;
+    }).join('');
+
+    const boxesSvg = players.map((p, idx) => {
+      const cx = Math.round((bPadL + colW * (idx + 0.5)) * 10) / 10;
+      const yMin = Math.round(yForVal(p.min, bPadT, bInnerH) * 10) / 10;
+      const yMaxP = Math.round(yForVal(p.max, bPadT, bInnerH) * 10) / 10;
+      const yQ1 = Math.round(yForVal(p.q1, bPadT, bInnerH) * 10) / 10;
+      const yQ3 = Math.round(yForVal(p.q3, bPadT, bInnerH) * 10) / 10;
+      const yMed = Math.round(yForVal(p.median, bPadT, bInnerH) * 10) / 10;
+      const boxH = Math.max(3, Math.round((yQ1 - yQ3) * 10) / 10);
+      const capHalf = Math.round(boxW * 0.34);
+
+      // Puntos discretos por minuto con jitter determinista limpio (sin ruido caótico)
+      const dots = (p.series || []).map((val, m) => {
+        const hash = ((m * 37 + p.slot * 17) % 11) - 5; // -5..+5
+        const dx = Math.round((hash / 5) * (boxW * 0.42) * 10) / 10;
+        const dy = Math.round(yForVal(val, bPadT, bInnerH) * 10) / 10;
+        return `<circle class="pm-apm-bdot" cx="${Math.round((cx + dx) * 10) / 10}" cy="${dy}" r="1.5" />`;
+      }).join('');
+
+      const shortName = p.name.length > 7 ? `${p.name.slice(0, 6)}…` : p.name;
+      const tipText = `${p.name} · ${tr('postmatch.apmAvgShort', 'Media')} ${dec(p.avgEapm, 1)} · ${tr('postmatch.apmMedShort', 'Med')} ${dec(p.median, 0)} · Q1–Q3 ${dec(p.q1, 0)}–${dec(p.q3, 0)} · ${tr('postmatch.apmPeakShort', 'Máx')} ${number(p.max)}`;
+      return `<g class="pm-apm-boxg pm-c${p.color}${p.isSelf ? ' is-self' : ''}" data-apm-slot="${p.slot}">
+        <title>${esc(tipText)}</title>
+        <line class="pm-apm-whisker" x1="${cx}" y1="${yMaxP}" x2="${cx}" y2="${yQ3}" />
+        <line class="pm-apm-whisker" x1="${cx}" y1="${yQ1}" x2="${cx}" y2="${yMin}" />
+        <line class="pm-apm-cap" x1="${cx - capHalf}" y1="${yMaxP}" x2="${cx + capHalf}" y2="${yMaxP}" />
+        <line class="pm-apm-cap" x1="${cx - capHalf}" y1="${yMin}" x2="${cx + capHalf}" y2="${yMin}" />
+        <rect class="pm-apm-iqr" x="${Math.round((cx - boxW / 2) * 10) / 10}" y="${yQ3}" width="${boxW}" height="${boxH}" rx="3.5" />
+        <line class="pm-apm-med" x1="${Math.round((cx - boxW / 2) * 10) / 10}" y1="${yMed}" x2="${Math.round((cx + boxW / 2) * 10) / 10}" y2="${yMed}" />
+        ${dots}
+        <circle class="pm-apm-baxis-dot" cx="${cx}" cy="${bh - 15}" r="3" />
+        <text class="pm-apm-baxis-lbl" x="${cx}" y="${bh - 3}" data-no-i18n="1">${esc(shortName)}</text>
+      </g>`;
+    }).join('');
+
+    // 3. Leyenda interactiva de participantes con color real in-game, escudo de civ, media y pico
+    const rosterHtml = players.map((p) => {
+      const crest = p.civ ? civBadge(p.civ) : '';
+      return `<button type="button" class="pm-apm-chip pm-c${p.color}${p.isSelf ? ' is-self' : ''}" data-apm-slot="${p.slot}" aria-pressed="false">
+        <i class="pm-apm-swatch" aria-hidden="true"></i>
+        ${crest ? `<span class="pm-apm-crest">${crest}</span>` : ''}
+        <span class="pm-apm-cname" data-no-i18n="1">${esc(p.name)}</span>
+        ${p.isSelf ? `<em class="pm-apm-you">${esc(tr('postmatch.you', 'Vos'))}</em>` : ''}
+        <b class="pm-apm-cval">${dec(p.avgEapm, 1)}</b>
+        <small class="pm-apm-cpeak">${esc(tr('postmatch.apmPeakShort', 'máx'))} ${number(p.max)}</small>
+      </button>`;
+    }).join('');
+
+    const payloadJson = JSON.stringify({
+      totalMinutes,
+      yMax,
+      padL: lPadL,
+      padR: lPadR,
+      padT: lPadT,
+      padB: lPadB,
+      w: lw,
+      h: lh,
+      players: players.map((p) => ({
+        slot: p.slot,
+        name: p.name,
+        color: p.color,
+        isSelf: p.isSelf,
+        avgEapm: p.avgEapm,
+        median: p.median,
+        q1: p.q1,
+        q3: p.q3,
+        min: p.min,
+        max: p.max,
+        series: p.series,
+      })),
+    });
+
+    return `<section class="pm-apm-card" data-apm-payload="${esc(payloadJson)}">
+      <div class="pm-apm-head">
+        <div class="pm-apm-head-l">
+          <span class="pm-apm-eyebrow">${esc(tr('postmatch.apmAllEyebrow', 'eAPM · TODOS LOS PARTICIPANTES'))}</span>
+          <div class="pm-apm-title-row">
+            <h4>${esc(tr('postmatch.apmAllTitle', 'Ritmo eAPM por jugador'))}</h4>
+            <span class="pm-apm-count-pill">${esc(tr('postmatch.apmPlayersCount', '{n} jugadores', { n: number(players.length) }))}</span>
+          </div>
+        </div>
+        <span class="pm-apm-hint">${esc(tr('postmatch.apmIsolateHint', 'Clic en un jugador para aislar'))}</span>
+      </div>
+      <div class="pm-apm-roster" role="group" aria-label="${esc(tr('postmatch.apmAllTitle', 'Ritmo eAPM por jugador'))}">${rosterHtml}</div>
+      <div class="pm-apm-grid">
+        <div class="pm-apm-panel is-lines">
+          <div class="pm-apm-panel-head">
+            <span>${esc(tr('postmatch.apmCurveSub', 'Evolución minuto a minuto'))}</span>
+            <small>eAPM</small>
+          </div>
+          <div class="pm-apm-canvas-wrap">
+            <svg class="pm-apm-svg pm-apm-line-svg" viewBox="0 0 ${lw} ${lh}" role="img" aria-label="${esc(tr('postmatch.apmCurveSub', 'Evolución minuto a minuto'))}">
+              ${lGridY}
+              ${lGridX}
+              ${ageMarksSvg}
+              ${curvesSvg}
+              <line class="pm-apm-crosshair" x1="-20" y1="${lPadT}" x2="-20" y2="${lPadT + lInnerH}" />
+              ${hoverDotsSvg}
+              <rect class="pm-apm-hit" x="${lPadL}" y="${lPadT}" width="${lInnerW}" height="${lInnerH}" />
+            </svg>
+            <div class="pm-apm-tooltip" hidden></div>
+          </div>
+        </div>
+        <div class="pm-apm-panel is-boxes">
+          <div class="pm-apm-panel-head">
+            <span>${esc(tr('postmatch.apmDistSub', 'Distribución y estabilidad'))}</span>
+            <small>${esc(tr('postmatch.apmBoxLegend', 'Mediana · Q1–Q3'))}</small>
+          </div>
+          <svg class="pm-apm-svg pm-apm-box-svg" viewBox="0 0 ${bw} ${bh}" role="img" aria-label="${esc(tr('postmatch.apmDistSub', 'Distribución y estabilidad'))}">
+            ${bGridY}
+            ${boxesSvg}
+          </svg>
+        </div>
+      </div>
+    </section>`;
+  }
   function dec(n, digits = 1) {
     if (!Number.isFinite(n)) return '—';
     const fixed = Number(n).toFixed(digits);
@@ -1708,6 +1948,7 @@
             <div class="pm-col">${productionCurveSvg(eng.timeline, rivalLabel)}</div>
             <div class="pm-col">${habitsStrip}</div>
           </div>
+          ${renderAllPlayersEapmBlock(eng.eapmComparison, selfTm)}
         </div>
         <div class="pm-tab-pane" role="tabpanel" data-pm-pane="duel">
           <div class="pm-eyebrow"><span>${esc(tr('postmatch.duelTitle', 'Duelo de partida'))}</span><i></i></div>
