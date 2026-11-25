@@ -633,7 +633,7 @@ function bindPostMatchApmCharts(container) {
       card.querySelectorAll('[data-apm-slot]').forEach((node) => {
         const match = hasFocus && String(node.dataset.apmSlot) === String(slot);
         node.classList.toggle('is-focused', match);
-        if (node.classList.contains('pm-apm-chip')) {
+        if (node.classList.contains('pm-apm-card-item')) {
           node.setAttribute('aria-pressed', String(lockedSlot != null && String(lockedSlot) === String(node.dataset.apmSlot)));
         }
       });
@@ -653,7 +653,7 @@ function bindPostMatchApmCharts(container) {
       });
     };
 
-    card.querySelectorAll('.pm-apm-chip, .pm-apm-boxg').forEach(bindSlotInteractive);
+    card.querySelectorAll('.pm-apm-card-item, .pm-apm-boxg').forEach(bindSlotInteractive);
 
     // Scrubber interactivo minuto a minuto sobre el gráfico de líneas
     const svg = card.querySelector('.pm-apm-line-svg');

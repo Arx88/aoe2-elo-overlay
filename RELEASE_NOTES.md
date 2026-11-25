@@ -1,3 +1,11 @@
+## v3.3.7 · Rediseño visual editorial del bloque eAPM en Postmatch (verificado en Chromium para 2, 6 y 8 jugadores)
+
+- **Aislamiento estricto de SVG contra estilos globales (`command.css`):** se corrigió la regla heredada de `settings.css` (`svg { stroke: currentColor; stroke-width: 1.5 }`) que dibujaba bordes blancos alrededor de los gráficos y aros blancos sobre los puntos de dispersión, usando `:where()` para preservar los contornos nítidos de cada caja intercuartil `Q1–Q3` y las píldoras de edad `F/C/I`.
+- **Tarjetas de participantes estructuradas y simétricas (`ui/tactical-ui.js`, `command.css`, `settings.js`):** se reemplazaron las píldoras apretadas por tarjetas de telemetría Relic con riel lateral de color oficial in-game (3 px), escudo de civilización (22 px), jerarquía tipográfica tabular (`media · Med · máx`) y grillas equilibradas sin filas huérfanas para 2, 3, 4, 6 y 8 jugadores.
+- **Box-and-Whisker editorial limpio:** se eliminó la nube de puntos superpuestos; ahora muestra cajas `Q1–Q3` con borde y relleno translúcido del color exacto del jugador, mediana luminosa, rombo de promedio (`◆`), bigotes limpios, outliers genuinos únicamente (`> Q3 + 1.5×IQR`), soporte refinado en temas claros/pergamino y barra de color alineada sobre cada nombre sin solapamientos.
+
+---
+
 ## v3.3.6 · Nuevo bloque comparativo de eAPM de todos los participantes en Postmatch
 
 - **Gráfico editorial de eAPM por jugador en Postmatch (`Evolución y Curva`):** debajo del bloque de *Ritmo de actividad por tramo* se incorporó la comparativa completa de **todos los participantes de la partida** (2 en 1v1 y 4/6/8 en Team Games), cada uno con su **color oficial real de la partida** (colores 1–8 refinados para la estética obsidiana y oro envejecido de Relic).

@@ -1094,18 +1094,18 @@
       if (p.max > rawMax) rawMax = p.max;
     }
     const yStep = rawMax > 140 ? 40 : 20;
-    const yMax = Math.max(40, Math.ceil((rawMax * 1.1) / yStep) * yStep);
+    const yMax = Math.max(40, Math.ceil((rawMax * 1.12) / yStep) * yStep);
     const yTicks = [];
     for (let v = 0; v <= yMax; v += yStep) yTicks.push(v);
 
     // 1. Panel izquierdo: Curvas suaves de eAPM minuto a minuto
-    const lw = 540, lh = 224, lPadL = 34, lPadR = 14, lPadT = 16, lPadB = 26;
+    const lw = 560, lh = 236, lPadL = 36, lPadR = 16, lPadT = 22, lPadB = 28;
     const lInnerW = lw - lPadL - lPadR;
     const lInnerH = lh - lPadT - lPadB;
     const xForMin = (m) => lPadL + (totalMinutes > 1 ? (m / (totalMinutes - 1)) * lInnerW : 0);
     const yForVal = (v, padT = lPadT, innerH = lInnerH) => padT + (1 - Math.max(0, Math.min(yMax, v)) / yMax) * innerH;
 
-    const xTickStep = totalMinutes <= 16 ? 2 : totalMinutes <= 34 ? 4 : totalMinutes <= 60 ? 6 : 10;
+    const xTickStep = totalMinutes <= 14 ? 2 : totalMinutes <= 34 ? 4 : totalMinutes <= 60 ? 6 : 10;
     const xTicks = [];
     for (let m = 0; m < totalMinutes; m += xTickStep) xTicks.push(m);
     if (xTicks[xTicks.length - 1] !== totalMinutes - 1 && (totalMinutes - 1 - xTicks[xTicks.length - 1]) >= Math.max(2, Math.floor(xTickStep / 2))) {
@@ -1115,13 +1115,12 @@
     const lGridY = yTicks.map((v) => {
       const y = Math.round(yForVal(v) * 10) / 10;
       return `<line class="pm-apm-grid-h${v === 0 ? ' is-base' : ''}" x1="${lPadL}" y1="${y}" x2="${lw - lPadR}" y2="${y}" />
-        <text class="pm-apm-ytick" x="${lPadL - 6}" y="${y + 3}">${v}</text>`;
+        <text class="pm-apm-ytick" x="${lPadL - 8}" y="${y + 3}">${v}</text>`;
     }).join('');
 
     const lGridX = xTicks.map((m) => {
       const x = Math.round(xForMin(m) * 10) / 10;
-      return `<line class="pm-apm-grid-v" x1="${x}" y1="${lPadT}" x2="${x}" y2="${lPadT + lInnerH}" />
-        <text class="pm-apm-xtick" x="${x}" y="${lh - 7}">${m}m</text>`;
+      return `<text class="pm-apm-xtick" x="${x}" y="${lh - 8}">${m}m</text>`;
     }).join('');
 
     // Marcadores sutiles de edades propias (Feudal / Castillos / Imperial)
@@ -1130,7 +1129,7 @@
       const addAge = (sec, code) => {
         if (!Number.isFinite(sec) || sec <= 0) return;
         const m = sec / 60;
-        if (m > 0.5 && m < totalMinutes - 0.5) ageMarks.push({ m, code });
+        if (m > 0.8 && m < totalMinutes - 0.8) ageMarks.push({ m, code });
       };
       addAge(selfTimings.feudalSeconds, 'F');
       addAge(selfTimings.castleSeconds, 'C');
@@ -1140,18 +1139,18 @@
       const x = Math.round(xForMin(am.m) * 10) / 10;
       return `<g class="pm-apm-age-mark">
         <line x1="${x}" y1="${lPadT}" x2="${x}" y2="${lPadT + lInnerH}" />
-        <text x="${x}" y="${lPadT - 4}">${am.code}</text>
+        <rect class="pm-apm-age-pill" x="${x - 8}" y="${lPadT - 15}" width="16" height="12" rx="3" />
+        <text x="${x}" y="${lPadT - 6}">${am.code}</text>
       </g>`;
     }).join('');
 
-    // Dibujar primero rivales/aliados y al final al jugador propio para que siempre quede nítido arriba
+    // Dibujar rivales/aliados primero y al jugador propio encima para nitidez editorial
     const drawOrder = [...players].sort((a, b) => (a.isSelf ? 1 : 0) - (b.isSelf ? 1 : 0));
     const curvesSvg = drawOrder.map((p) => {
       const series = Array.isArray(p.series) ? p.series : [];
-      // Suavizado ligero 3-point weighted (0.2, 0.6, 0.2) para que la curva luzca orgánica sin distorsionar picos
       const smoothed = series.map((val, i) => {
         if (series.length < 4 || i === 0 || i === series.length - 1) return val;
-        return val * 0.64 + series[i - 1] * 0.18 + series[i + 1] * 0.18;
+        return val * 0.62 + series[i - 1] * 0.19 + series[i + 1] * 0.19;
       });
       const pts = smoothed.map((val, m) => [xForMin(m), yForVal(val)]);
       const pathD = smoothCatmullRomPath(pts, lPadT, lPadT + lInnerH);
@@ -1166,20 +1165,20 @@
     }).join('');
 
     const hoverDotsSvg = players.map((p) =>
-      `<circle class="pm-apm-hdot pm-c${p.color}" data-apm-slot="${p.slot}" cx="-20" cy="-20" r="3.4" />`
+      `<circle class="pm-apm-hdot pm-c${p.color}" data-apm-slot="${p.slot}" cx="-20" cy="-20" r="3.6" />`
     ).join('');
 
-    // 2. Panel derecho: Distribución Box-and-Whisker + puntos por minuto (misma escala Y)
-    const bw = 288, bh = 224, bPadL = 28, bPadR = 12, bPadT = 16, bPadB = 26;
+    // 2. Panel derecho: Distribución Box-and-Whisker limpia (sin nubes ruidosas de puntos)
+    const bw = 300, bh = 236, bPadL = 30, bPadR = 12, bPadT = 22, bPadB = 34;
     const bInnerW = bw - bPadL - bPadR;
     const bInnerH = bh - bPadT - bPadB;
     const colW = bInnerW / players.length;
-    const boxW = Math.max(14, Math.min(34, Math.round(colW * 0.56)));
+    const boxW = Math.max(14, Math.min(32, Math.round(colW * 0.48)));
 
     const bGridY = yTicks.map((v) => {
       const y = Math.round(yForVal(v, bPadT, bInnerH) * 10) / 10;
       return `<line class="pm-apm-grid-h${v === 0 ? ' is-base' : ''}" x1="${bPadL}" y1="${y}" x2="${bw - bPadR}" y2="${y}" />
-        <text class="pm-apm-ytick" x="${bPadL - 5}" y="${y + 3}">${v}</text>`;
+        <text class="pm-apm-ytick" x="${bPadL - 6}" y="${y + 3}">${v}</text>`;
     }).join('');
 
     const boxesSvg = players.map((p, idx) => {
@@ -1189,43 +1188,59 @@
       const yQ1 = Math.round(yForVal(p.q1, bPadT, bInnerH) * 10) / 10;
       const yQ3 = Math.round(yForVal(p.q3, bPadT, bInnerH) * 10) / 10;
       const yMed = Math.round(yForVal(p.median, bPadT, bInnerH) * 10) / 10;
-      const boxH = Math.max(3, Math.round((yQ1 - yQ3) * 10) / 10);
-      const capHalf = Math.round(boxW * 0.34);
+      const yAvg = Math.round(yForVal(p.avgEapm, bPadT, bInnerH) * 10) / 10;
+      const boxH = Math.max(4, Math.round((yQ1 - yQ3) * 10) / 10);
+      const capHalf = Math.round(boxW * 0.32);
 
-      // Puntos discretos por minuto con jitter determinista limpio (sin ruido caótico)
-      const dots = (p.series || []).map((val, m) => {
-        const hash = ((m * 37 + p.slot * 17) % 11) - 5; // -5..+5
-        const dx = Math.round((hash / 5) * (boxW * 0.42) * 10) / 10;
-        const dy = Math.round(yForVal(val, bPadT, bInnerH) * 10) / 10;
-        return `<circle class="pm-apm-bdot" cx="${Math.round((cx + dx) * 10) / 10}" cy="${dy}" r="1.5" />`;
-      }).join('');
+      // Solo outliers genuinos (> Q3 + 1.5*IQR o < Q1 - 1.5*IQR), sutiles y sin borde blanco
+      const iqr = Math.max(4, p.q3 - p.q1);
+      const hiFence = p.q3 + 1.5 * iqr;
+      const loFence = p.q1 - 1.5 * iqr;
+      const outliers = (p.series || [])
+        .filter((val) => val > hiFence || val < loFence)
+        .slice(0, 4)
+        .map((val) => `<circle class="pm-apm-outlier" cx="${cx}" cy="${Math.round(yForVal(val, bPadT, bInnerH) * 10) / 10}" r="1.8" />`)
+        .join('');
 
-      const shortName = p.name.length > 7 ? `${p.name.slice(0, 6)}…` : p.name;
+      const maxChars = players.length >= 7 ? 4 : players.length >= 5 ? 6 : players.length >= 4 ? 7 : players.length === 3 ? 11 : 16;
+      const shortName = p.name.length > maxChars ? `${p.name.slice(0, maxChars - 1)}…` : p.name;
       const tipText = `${p.name} · ${tr('postmatch.apmAvgShort', 'Media')} ${dec(p.avgEapm, 1)} · ${tr('postmatch.apmMedShort', 'Med')} ${dec(p.median, 0)} · Q1–Q3 ${dec(p.q1, 0)}–${dec(p.q3, 0)} · ${tr('postmatch.apmPeakShort', 'Máx')} ${number(p.max)}`;
+      const barHalf = Math.min(12, Math.round(colW * 0.3));
       return `<g class="pm-apm-boxg pm-c${p.color}${p.isSelf ? ' is-self' : ''}" data-apm-slot="${p.slot}">
         <title>${esc(tipText)}</title>
+        <rect class="pm-apm-box-hit" x="${Math.round((cx - colW / 2) * 10) / 10}" y="${bPadT}" width="${Math.round(colW * 10) / 10}" height="${bInnerH + 26}" />
         <line class="pm-apm-whisker" x1="${cx}" y1="${yMaxP}" x2="${cx}" y2="${yQ3}" />
         <line class="pm-apm-whisker" x1="${cx}" y1="${yQ1}" x2="${cx}" y2="${yMin}" />
         <line class="pm-apm-cap" x1="${cx - capHalf}" y1="${yMaxP}" x2="${cx + capHalf}" y2="${yMaxP}" />
         <line class="pm-apm-cap" x1="${cx - capHalf}" y1="${yMin}" x2="${cx + capHalf}" y2="${yMin}" />
-        <rect class="pm-apm-iqr" x="${Math.round((cx - boxW / 2) * 10) / 10}" y="${yQ3}" width="${boxW}" height="${boxH}" rx="3.5" />
-        <line class="pm-apm-med" x1="${Math.round((cx - boxW / 2) * 10) / 10}" y1="${yMed}" x2="${Math.round((cx + boxW / 2) * 10) / 10}" y2="${yMed}" />
-        ${dots}
-        <circle class="pm-apm-baxis-dot" cx="${cx}" cy="${bh - 15}" r="3" />
-        <text class="pm-apm-baxis-lbl" x="${cx}" y="${bh - 3}" data-no-i18n="1">${esc(shortName)}</text>
+        <rect class="pm-apm-iqr" x="${Math.round((cx - boxW / 2) * 10) / 10}" y="${yQ3}" width="${boxW}" height="${boxH}" rx="4" />
+        <line class="pm-apm-med" x1="${Math.round((cx - boxW / 2 + 1.5) * 10) / 10}" y1="${yMed}" x2="${Math.round((cx + boxW / 2 - 1.5) * 10) / 10}" y2="${yMed}" />
+        <polygon class="pm-apm-mean" points="${cx},${yAvg - 2.6} ${cx + 2.6},${yAvg} ${cx},${yAvg + 2.6} ${cx - 2.6},${yAvg}" />
+        ${outliers}
+        <rect class="pm-apm-baxis-bar" x="${cx - barHalf}" y="${bh - 20}" width="${barHalf * 2}" height="2.4" rx="1.2" />
+        <text class="pm-apm-baxis-lbl" x="${cx}" y="${bh - 6}" data-no-i18n="1">${esc(shortName)}</text>
       </g>`;
     }).join('');
 
-    // 3. Leyenda interactiva de participantes con color real in-game, escudo de civ, media y pico
+    // 3. Tarjetas editoriales de participantes (grid estructurado estilo Relic, no chips apretados)
     const rosterHtml = players.map((p) => {
       const crest = p.civ ? civBadge(p.civ) : '';
-      return `<button type="button" class="pm-apm-chip pm-c${p.color}${p.isSelf ? ' is-self' : ''}" data-apm-slot="${p.slot}" aria-pressed="false">
-        <i class="pm-apm-swatch" aria-hidden="true"></i>
+      return `<button type="button" class="pm-apm-card-item pm-c${p.color}${p.isSelf ? ' is-self' : ''}" data-apm-slot="${p.slot}" aria-pressed="false">
+        <span class="pm-apm-rail" aria-hidden="true"></span>
         ${crest ? `<span class="pm-apm-crest">${crest}</span>` : ''}
-        <span class="pm-apm-cname" data-no-i18n="1">${esc(p.name)}</span>
-        ${p.isSelf ? `<em class="pm-apm-you">${esc(tr('postmatch.you', 'Vos'))}</em>` : ''}
-        <b class="pm-apm-cval">${dec(p.avgEapm, 1)}</b>
-        <small class="pm-apm-cpeak">${esc(tr('postmatch.apmPeakShort', 'máx'))} ${number(p.max)}</small>
+        <span class="pm-apm-pmeta">
+          <span class="pm-apm-prow">
+            <span class="pm-apm-cname" data-no-i18n="1">${esc(p.name)}</span>
+            ${p.isSelf ? `<em class="pm-apm-you">${esc(tr('postmatch.you', 'Vos'))}</em>` : ''}
+          </span>
+          <span class="pm-apm-pstats">
+            <b class="pm-apm-cval">${dec(p.avgEapm, 1)}</b>
+            <small class="pm-apm-csep">·</small>
+            <small class="pm-apm-cpeak">${esc(tr('postmatch.apmMedShort', 'Med'))} ${dec(p.median, 0)}</small>
+            <small class="pm-apm-csep">·</small>
+            <small class="pm-apm-cpeak">${esc(tr('postmatch.apmPeakShort', 'máx'))} ${number(p.max)}</small>
+          </span>
+        </span>
       </button>`;
     }).join('');
 
@@ -1253,6 +1268,12 @@
       })),
     });
 
+      const rosterGridCls = players.length <= 2
+        ? ' is-duel'
+        : (players.length === 4 || players.length >= 7)
+          ? ' is-grid-4'
+          : ' is-grid-3';
+
     return `<section class="pm-apm-card" data-apm-payload="${esc(payloadJson)}">
       <div class="pm-apm-head">
         <div class="pm-apm-head-l">
@@ -1264,7 +1285,7 @@
         </div>
         <span class="pm-apm-hint">${esc(tr('postmatch.apmIsolateHint', 'Clic en un jugador para aislar'))}</span>
       </div>
-      <div class="pm-apm-roster" role="group" aria-label="${esc(tr('postmatch.apmAllTitle', 'Ritmo eAPM por jugador'))}">${rosterHtml}</div>
+      <div class="pm-apm-roster${rosterGridCls}" role="group" aria-label="${esc(tr('postmatch.apmAllTitle', 'Ritmo eAPM por jugador'))}">${rosterHtml}</div>
       <div class="pm-apm-grid">
         <div class="pm-apm-panel is-lines">
           <div class="pm-apm-panel-head">
