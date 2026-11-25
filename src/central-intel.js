@@ -346,7 +346,9 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
       verdict: 'sample',
       verdictLabel: 'Muestra chica',
       confidenceLabel: `${games}/${neededGames} partidas con detalle`,
+      confidenceI18n: ['cxe.confDetailSample', { n: games, need: neededGames }],
       summaryLine: `Tenés ${games} partida${games === 1 ? '' : 's'} en ${mapName}; se necesitan al menos ${neededGames} para un diagnóstico confiable.`,
+      summaryI18n: ['cxe.mapInsuffSum', { n: games, _map: mapName, need: neededGames }],
       sample: sampleInfo,
       bestCivHere: (bestCivHere && bestCivHere.games >= 4) ? { civ: bestCivHere.label, slug: bestCivHere.slug, winRate: bestCivHere.winRate, games: bestCivHere.games } : null,
       findings: [],
@@ -391,7 +393,9 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
 
   // Hallazgo 1: Selección de civilización en este mapa (mejor vs peor civ)
   if (worstCivHere && isSigWeak(worstCivHere)) {
-    const contrast = bestCivHere && bestCivHere.slug !== worstCivHere.slug && bestCivHere.winRate >= 55
+    const hasBest = Boolean(bestCivHere && bestCivHere.slug !== worstCivHere.slug && bestCivHere.winRate >= 55);
+    const hasAltBest = Boolean(bestCivHere && bestCivHere.slug !== worstCivHere.slug);
+    const contrast = hasBest
       ? `Con ${bestCivHere.label} rendís al ${bestCivHere.winRate}% (${bestCivHere.wins}V-${bestCivHere.losses}D) en este mismo mapa.`
       : `Tu rendimiento con ${worstCivHere.label} en ${mapName} está muy por debajo de tu media.`;
     findings.push({
@@ -400,10 +404,20 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
       civNames: [worstCivHere.label, bestCivHere?.label].filter(Boolean),
       title: `${worstCivHere.label} te penaliza en ${mapName}`,
       metric: `${worstCivHere.winRate}% WR (${worstCivHere.wins}V-${worstCivHere.losses}D)`,
+      metricWL: [worstCivHere.winRate, worstCivHere.wins, worstCivHere.losses],
       detail: contrast,
-      takeaway: bestCivHere && bestCivHere.slug !== worstCivHere.slug
+      takeaway: hasAltBest
         ? `Priorizá ${bestCivHere.label} en ${mapName} y evitá ${worstCivHere.label}.`
         : `Probá una civilización más afín al terreno ${terrainLabel.toLowerCase()} de ${mapName}.`,
+      i18n: {
+        title: ['cxe.mfCivPenTitle', { _civ: worstCivHere.label, _map: mapName }],
+        detail: hasBest
+          ? ['cxe.mfCivPenDetBest', { _civ2: bestCivHere.label, wr: bestCivHere.winRate, _w: bestCivHere.wins, _l: bestCivHere.losses }]
+          : ['cxe.mfCivPenDetSolo', { _civ: worstCivHere.label, _map: mapName }],
+        takeaway: hasAltBest
+          ? ['cxe.mfCivPenTakBest', { _civ2: bestCivHere.label, _map: mapName, _civ: worstCivHere.label }]
+          : ['cxe.mfCivPenTakSolo', { _terrain: terrainLabel, _map: mapName }],
+      },
     });
   } else if (bestCivHere && isSigStrong(bestCivHere)) {
     findings.push({
@@ -412,8 +426,14 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
       civNames: [bestCivHere.label],
       title: `${bestCivHere.label} es tu mejor elección en ${mapName}`,
       metric: `${bestCivHere.winRate}% WR (${bestCivHere.wins}V-${bestCivHere.losses}D)`,
+      metricWL: [bestCivHere.winRate, bestCivHere.wins, bestCivHere.losses],
       detail: `Lograste ${bestCivHere.wins} victorias en ${bestCivHere.games} partidas jugando ${bestCivHere.label} en este terreno.`,
       takeaway: `Mantené a ${bestCivHere.label} como tu civilización principal cuando salga ${mapName}.`,
+      i18n: {
+        title: ['cxe.mfCivBestTitle', { _civ: bestCivHere.label, _map: mapName }],
+        detail: ['cxe.mfCivBestDet', { w: bestCivHere.wins, n: bestCivHere.games, _civ: bestCivHere.label }],
+        takeaway: ['cxe.mfCivBestTak', { _civ: bestCivHere.label, _map: mapName }],
+      },
     });
   }
 
@@ -428,8 +448,14 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
       tone: 'loss',
       title: `Sufrís contra ${toughOpening.label} en ${mapName}`,
       metric: `${toughOpening.winRate}% WR (${toughOpening.wins}V-${toughOpening.losses}D)`,
+      metricWL: [toughOpening.winRate, toughOpening.wins, toughOpening.losses],
       detail: `Perdiste ${toughOpening.losses} de ${toughOpening.games} partidas en ${mapName} cuando el rival abrió con ${toughOpening.label}.`,
       takeaway: `Explorá temprano en ${mapName} para anticipar ${toughOpening.label} y preparar defensa a tiempo.`,
+      i18n: {
+        title: ['cxe.mfOpLossTitle', { _opening: toughOpening.label, _map: mapName }],
+        detail: ['cxe.mfOpLossDet', { l: toughOpening.losses, n: toughOpening.games, _map: mapName, _opening: toughOpening.label }],
+        takeaway: ['cxe.mfOpLossTak', { _map: mapName, _opening: toughOpening.label }],
+      },
     });
   } else if (dominatedOpening) {
     findings.push({
@@ -437,8 +463,14 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
       tone: 'win',
       title: `Dominás contra ${dominatedOpening.label} en ${mapName}`,
       metric: `${dominatedOpening.winRate}% WR (${dominatedOpening.wins}V-${dominatedOpening.losses}D)`,
+      metricWL: [dominatedOpening.winRate, dominatedOpening.wins, dominatedOpening.losses],
       detail: `Ganaste ${dominatedOpening.wins} de ${dominatedOpening.games} cruces frente a ${dominatedOpening.label} en este mapa.`,
       takeaway: `Tu lectura defensiva contra ${dominatedOpening.label} en ${mapName} es muy sólida.`,
+      i18n: {
+        title: ['cxe.mfOpWinTitle', { _opening: dominatedOpening.label, _map: mapName }],
+        detail: ['cxe.mfOpWinDet', { w: dominatedOpening.wins, n: dominatedOpening.games, _opening: dominatedOpening.label }],
+        takeaway: ['cxe.mfOpWinTak', { _opening: dominatedOpening.label, _map: mapName }],
+      },
     });
   }
 
@@ -446,15 +478,22 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
   const weakPhase = phaseRows.find((p) => isSigWeak(p));
   const strongPhase = phaseRows.find((p) => isSigStrong(p));
   if (weakPhase) {
+    const isLateW = weakPhase.label.includes('50m+') || weakPhase.label.includes('58m+') || weakPhase.label.includes('Imperial');
     findings.push({
       id: 'map-phase-loss',
       tone: 'loss',
       title: `Caída en ${weakPhase.label}`,
       metric: `${weakPhase.winRate}% WR (${weakPhase.wins}V-${weakPhase.losses}D)`,
+      metricWL: [weakPhase.winRate, weakPhase.wins, weakPhase.losses],
       detail: `En ${mapName}, tus derrotas se concentran cuando la partida entra en ${weakPhase.label}.`,
-      takeaway: weakPhase.label.includes('50m+') || weakPhase.label.includes('58m+') || weakPhase.label.includes('Imperial')
+      takeaway: isLateW
         ? `Buscá cerrar o tomar ventaja territorial antes del juego tardío en ${mapName}.`
         : `Reforzá tu transición defensiva temprana en ${mapName}.`,
+      i18n: {
+        title: ['cxe.mfPhaseLossTitle', { _phase: weakPhase.label }],
+        detail: ['cxe.mfPhaseLossDet', { _map: mapName, _phase: weakPhase.label }],
+        takeaway: [isLateW ? 'cxe.mfPhaseLossTakLate' : 'cxe.mfPhaseLossTakEarly', { _map: mapName }],
+      },
     });
   } else if (strongPhase) {
     findings.push({
@@ -462,8 +501,14 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
       tone: 'win',
       title: `Ventaja decisiva en ${strongPhase.label}`,
       metric: `${strongPhase.winRate}% WR (${strongPhase.wins}V-${strongPhase.losses}D)`,
+      metricWL: [strongPhase.winRate, strongPhase.wins, strongPhase.losses],
       detail: `Cerrás con alta efectividad las partidas de ${mapName} que se definen en ${strongPhase.label}.`,
       takeaway: `Llevá el ritmo de ${mapName} hacia esa ventana de tiempo donde tenés ventaja.`,
+      i18n: {
+        title: ['cxe.mfPhaseWinTitle', { _phase: strongPhase.label }],
+        detail: ['cxe.mfPhaseWinDet', { _map: mapName, _phase: strongPhase.label }],
+        takeaway: ['cxe.mfPhaseWinTak', { _map: mapName }],
+      },
     });
   }
 
@@ -480,6 +525,14 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
         takeaway: deltaEapm < 0
           ? `En mapas de tipo ${terrainLabel.toLowerCase()}, no descuides tus atajos de edificios militares y Centros urbanos.`
           : `Te sentís cómodo con el ritmo táctico que exige ${mapName}.`,
+        i18n: {
+          title: [deltaEapm > 0 ? 'cxe.mfPaceUpTitle' : 'cxe.mfPaceDownTitle', { _map: mapName }],
+          metric: ['cxe.mfPaceMet', { delta: `${deltaEapm > 0 ? '+' : ''}${deltaEapm}` }],
+          detail: ['cxe.mfPaceDet', { med: medianEapm, _map: mapName, base: baselineMedianEapm }],
+          takeaway: deltaEapm < 0
+            ? ['cxe.mfPaceTakDown', { _terrain: terrainLabel }]
+            : ['cxe.mfPaceTakUp', { _map: mapName }],
+        },
       });
     }
   }
@@ -488,6 +541,9 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
   const summaryLine = findings.length
     ? findings[0].detail
     : `Rendimiento parejo en ${mapName} (${rawWinRate}% WR en ${games} partidas).`;
+  const summaryI18n = findings.length
+    ? (findings[0].i18n?.detail || null)
+    : ['cxe.mapEvenSum', { _map: mapName, wr: rawWinRate, n: games }];
 
   return {
     ok: true,
@@ -499,6 +555,7 @@ function analyzeMapPerformance({ targetMap, matches = [], allTimeEntry = null, m
     verdictLabel,
     confidenceLabel,
     summaryLine,
+    summaryI18n,
     sample: sampleInfo,
     bestCivHere: bestCivHere ? { civ: bestCivHere.label, slug: bestCivHere.slug, winRate: bestCivHere.winRate, games: bestCivHere.games } : null,
     findings: findings.slice(0, 3),
@@ -674,8 +731,10 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     {
       id: 'tc_idle',
       label: isEmpireWars ? 'Centro urbano inactivo (Feudal)' : 'Centro urbano inactivo (Alta + Feudal)',
+      labelI18n: [isEmpireWars ? 'cxe.habTcEw' : 'cxe.habTcRm', null],
       valueText: `${curIdleAvg} s`,
       subText: oldIdleAvg != null ? `Últ. ${recIdles.length} vs ${oldIdleAvg} s previas` : `Promedio en ${valid.length} replays`,
+      subI18n: oldIdleAvg != null ? ['cxe.habTcSubVs', { n: recIdles.length, old: oldIdleAvg }] : ['cxe.habTcSubAvg', { n: valid.length }],
       deltaText: idleDelta != null && idleDelta !== 0 ? `${idleDelta < 0 ? '−' : '+'}${Math.abs(idleDelta)} s` : null,
       deltaArrow: idleDelta != null && idleDelta !== 0 ? (idleDelta < 0 ? '▼' : '▲') : null,
       lowerIsBetter: true,
@@ -685,8 +744,10 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     {
       id: 'double_bit_axe',
       label: 'Hacha de doble filo a tiempo',
+      labelI18n: ['cxe.habDba', null],
       valueText: dbaPct != null ? `${dbaPct}%` : '—',
       subText: dbaEligible.length ? `${dbaTimely.length}/${dbaEligible.length} partidas al subir a Feudal` : 'Sin muestra de tecnologías',
+      subI18n: dbaEligible.length ? ['cxe.habDbaSub', { ok: dbaTimely.length, tot: dbaEligible.length }] : ['cxe.habDbaEmpty', null],
       deltaText: null,
       improved: (dbaPct || 0) >= 75,
       tone: (dbaPct || 0) >= 75 ? 'win' : (dbaPct != null && dbaPct < 50) ? 'loss' : 'neutral',
@@ -694,8 +755,10 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     {
       id: 'blacksmith',
       label: 'Herrería al día con tu ejército',
+      labelI18n: ['cxe.habBs', null],
       valueText: bsPct != null ? `${bsPct}%` : '—',
       subText: bsEligible.length ? `${bsEquipped.length}/${bsEligible.length} partidas bien equipadas` : 'Ejércitos sin rama dominante',
+      subI18n: bsEligible.length ? ['cxe.habBsSub', { ok: bsEquipped.length, tot: bsEligible.length }] : ['cxe.habBsEmpty', null],
       deltaText: null,
       improved: (bsPct || 0) >= 70,
       tone: (bsPct || 0) >= 70 ? 'win' : (bsPct != null && bsPct < 45) ? 'loss' : 'neutral',
@@ -703,8 +766,11 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     {
       id: 'combat_micro',
       label: 'Movimiento de ataque y Patrullar',
+      labelI18n: ['cxe.habMicro', null],
       valueText: `${String(avgMicroOrders).replace('.', ',')} / pj`,
+      valueI18n: ['cxe.habMicroVal', { val: String(avgMicroOrders).replace('.', ',') }],
       subText: `${activeMicroPct}% de partidas con control activo`,
+      subI18n: ['cxe.habMicroSub', { pct: activeMicroPct }],
       deltaText: null,
       improved: activeMicroPct >= 65,
       tone: activeMicroPct >= 65 ? 'win' : activeMicroPct < 35 ? 'loss' : 'neutral',
@@ -712,8 +778,10 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     {
       id: 'clean_defense',
       label: 'Defensa sin Campana urbana',
+      labelI18n: ['cxe.habBell', null],
       valueText: `${cleanBellPct}%`,
       subText: `${cleanBellGames}/${bellList.length || valid.length} partidas sin paralizar economía`,
+      subI18n: ['cxe.habBellSub', { ok: cleanBellGames, tot: bellList.length || valid.length }],
       deltaText: null,
       improved: cleanBellPct >= 85,
       tone: cleanBellPct >= 85 ? 'win' : cleanBellPct < 60 ? 'loss' : 'neutral',
@@ -721,8 +789,10 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     {
       id: 'eapm',
       label: 'Velocidad efectiva (eAPM)',
+      labelI18n: ['cxe.habEapm', null],
       valueText: curEapmAvg != null ? `${String(curEapmAvg).replace('.', ',')} eAPM` : '—',
       subText: oldEapmAvg != null ? `Antes ${String(oldEapmAvg).replace('.', ',')} eAPM` : `${valid.length} replays medidos`,
+      subI18n: oldEapmAvg != null ? ['cxe.habEapmSubVs', { old: String(oldEapmAvg).replace('.', ',') }] : ['cxe.habEapmSubAvg', { n: valid.length }],
       deltaText: eapmDelta != null && eapmDelta !== 0 ? `${eapmDelta > 0 ? '+' : ''}${String(eapmDelta).replace('.', ',')} eAPM` : null,
       improved: eapmDelta != null ? eapmDelta > 0 : true,
       tone: eapmDelta != null && eapmDelta > 0 ? 'win' : 'neutral',
@@ -1107,12 +1177,16 @@ function computeEloAttributionAndSession({
     const warmWr = buckets.find((b) => b.id === 'warm')?.winRate;
     const fatBucket = buckets.find((b) => b.id === 'fatigue');
     let verdict = null;
+    let verdictI18n = null;
     if (tiltBucket && tiltBucket.winRate <= 38) {
       verdict = `Tras 2 derrotas seguidas en una misma sesión tu winrate cae al ${tiltBucket.winRate}% (${tiltBucket.netElo} ELO). Cortar 15 minutos evita perder puntos por inercia.`;
+      verdictI18n = ['cxe.sessVerdTilt', { wr: tiltBucket.winRate, net: tiltBucket.netElo }];
     } else if (fatBucket && fatBucket.games >= minFatigue && warmWr != null && warmWr - fatBucket.winRate >= 15) {
       verdict = `Tu pico de rendimiento está en las partidas #2–3 (${warmWr}% WR) y cae al ${fatBucket.winRate}% a partir de la 4.ª partida seguida.`;
+      verdictI18n = ['cxe.sessVerdFatigue', { warm: warmWr, fat: fatBucket.winRate }];
     } else if (warmWr != null) {
       verdict = `Rendimiento estable a lo largo de tus sesiones (${warmWr}% WR en partidas #2–3).`;
+      verdictI18n = ['cxe.sessVerdStable', { warm: warmWr }];
     }
 
     session = {
@@ -1122,6 +1196,7 @@ function computeEloAttributionAndSession({
       buckets,
       postLossStreakTilt: tiltBucket,
       verdict,
+      verdictI18n,
     };
   }
 

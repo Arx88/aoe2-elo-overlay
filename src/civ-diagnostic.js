@@ -860,9 +860,8 @@ function analyzeCivPerformance({
         historicalDivergence = {
           direction: diffPp > 0 ? 'up' : 'down',
           label: diffPp > 0 ? 'En alza reciente' : 'Bache reciente',
-          detail: diffPp > 0
-            ? `Reciente: ${Math.round(rawWr * 100)}% (${wC}V-${lC}D) vs tu histórico ${Math.round(allTimeWr * 100)}% (${allTimeGames} pj).`
-            : `Reciente: ${Math.round(rawWr * 100)}% (${wC}V-${lC}D) vs tu histórico ${Math.round(allTimeWr * 100)}% (${allTimeGames} pj).`,
+          detail: `Reciente: ${Math.round(rawWr * 100)}% (${wC}V-${lC}D) vs tu histórico ${Math.round(allTimeWr * 100)}% (${allTimeGames} pj).`,
+          detailI18n: ['cxe.cfRecNote', { wr: Math.round(rawWr * 100), _w: wC, _l: lC, histWr: Math.round(allTimeWr * 100), histN: allTimeGames }],
           pValue: pDiv,
         };
       }
@@ -1167,13 +1166,25 @@ function analyzeCivPerformance({
           metric: `${sharePct}% de tus pj`,
           detail: `${sharePct}% de tus partidas con ${displayName} son en ${label.toLowerCase()} (vs ${otherSharePct}% con otras), donde tu WR habitual es ${refP}%.`,
           takeaway: sign < 0 ? `Probala fuera de ${label.toLowerCase()} antes de descartarla.` : null,
+          i18n: {
+            title: [sign < 0 ? 'cxe.cfOpenMixLossT' : 'cxe.cfOpenMixWinT', { _terrain: label }],
+            metric: ['cxe.cfOpenMixMet', { pct: sharePct }],
+            detail: ['cxe.cfOpenMixDet', { pct: sharePct, _civ: displayName, _terrain: label, other: otherSharePct, ref: refP }],
+            takeaway: sign < 0 ? ['cxe.cfOpenMixTak', { _terrain: label }] : null,
+          },
         };
       }
       return {
         title: sign < 0 ? `Sufre en ${label.toLowerCase()}` : `Rinde fuerte en ${label.toLowerCase()}`,
         metric: `${wrP}% WR (${wf}V-${lf}D)`,
+        metricWL: [wrP, wf, lf],
         detail: `${wrP}% en ${label.toLowerCase()} (${wf}V-${lf}D) vs tu ${refP}% habitual en el mismo tipo de mapa.`,
         takeaway: sign < 0 ? `Evitala en ${label.toLowerCase()} o ajustá el plan temprano.` : `Priorizala cuando salga un mapa de este tipo.`,
+        i18n: {
+          title: [sign < 0 ? 'cxe.cfOpenLossT' : 'cxe.cfOpenWinT', { _terrain: label }],
+          detail: ['cxe.cfOpenDet', { wr: wrP, _terrain: label, _w: wf, _l: lf, ref: refP }],
+          takeaway: [sign < 0 ? 'cxe.cfOpenLossTak' : 'cxe.cfOpenWinTak', { _terrain: label }],
+        },
       };
     },
   });
@@ -1195,13 +1206,25 @@ function analyzeCivPerformance({
           metric: `${sharePct}% en ${label}`,
           detail: `${sharePct}% de tus partidas con ${displayName} fueron en ${label} (vs ${otherSharePct}% en el resto), mapa donde tu media es ${refP}%.`,
           takeaway: sign < 0 ? `El bajo WR refleja tu historial en ${label}, no un fallo de ${displayName}.` : null,
+          i18n: {
+            title: [sign < 0 ? 'cxe.cfMapMixLossT' : 'cxe.cfMapMixWinT', { _map: label }],
+            metric: ['cxe.cfMapMixMet', { pct: sharePct, _map: label }],
+            detail: ['cxe.cfMapMixDet', { pct: sharePct, _civ: displayName, _map: label, other: otherSharePct, ref: refP }],
+            takeaway: sign < 0 ? ['cxe.cfMapMixTak', { _map: label, _civ: displayName }] : null,
+          },
         };
       }
       return {
         title: sign < 0 ? `Fuga en ${label}` : `Fortaleza en ${label}`,
         metric: `${wrP}% WR (${wf}V-${lf}D)`,
+        metricWL: [wrP, wf, lf],
         detail: `${wrP}% en ${label} (${wf}V-${lf}D) vs tu ${refP}% habitual en ese mapa.`,
         takeaway: sign < 0 ? `Evitá pickear ${displayName} en ${label}.` : `Excelente pick fijo para ${label}.`,
+        i18n: {
+          title: [sign < 0 ? 'cxe.cfMapLossT' : 'cxe.cfMapWinT', { _map: label }],
+          detail: ['cxe.cfMapDet', { wr: wrP, _map: label, _w: wf, _l: lf, ref: refP }],
+          takeaway: [sign < 0 ? 'cxe.cfMapLossTak' : 'cxe.cfMapWinTak', { _civ: displayName, _map: label }],
+        },
       };
     },
   });
@@ -1223,10 +1246,16 @@ function analyzeCivPerformance({
           ? (globalHole ? `Te cuesta abrir ${label} en general` : `Apertura ${label} incómoda con esta civ`)
           : `Apertura ${label} muy efectiva`,
         metric: `${wrP}% WR (${wf}V-${lf}D)`,
+        metricWL: [wrP, wf, lf],
         detail: `${wrP}% abriendo ${label} (${wf}V-${lf}D) vs tu ${refP}% habitual con esa apertura.`,
         takeaway: sign < 0
           ? (globalHole ? `Pulí el build order de ${label}: también baja tu WR con otras civs.` : `Probá otra apertura en mapas abiertos con ${displayName}.`)
           : `Mantené ${label} como plan principal con ${displayName}.`,
+        i18n: {
+          title: [sign < 0 ? (globalHole ? 'cxe.cfMyOpGlobalT' : 'cxe.cfMyOpCivT') : 'cxe.cfMyOpWinT', { _opening: label }],
+          detail: ['cxe.cfMyOpDet', { wr: wrP, _opening: label, _w: wf, _l: lf, ref: refP }],
+          takeaway: [sign < 0 ? (globalHole ? 'cxe.cfMyOpGlobalTak' : 'cxe.cfMyOpCivTak') : 'cxe.cfMyOpWinTak', { _opening: label, _civ: displayName }],
+        },
       };
     },
   });
@@ -1248,10 +1277,16 @@ function analyzeCivPerformance({
           ? (isFc ? 'Dejás boomear gratis el Fast Castle' : `Te castigan los ${label}`)
           : `Controlás bien ${label} rival`,
         metric: `${wrP}% WR (${wf}V-${lf}D)`,
+        metricWL: [wrP, wf, lf],
         detail: `${wrP}% cuando el rival abre ${label} (${wf}V-${lf}D) vs tu ${refP}% habitual ante esa apertura.`,
         takeaway: sign < 0
           ? (isFc ? 'Presioná oro/madera en Feudal o igualá el timing a Castillos.' : `Explorá temprano para cerrar recursos y preparar counter ante ${label}.`)
           : null,
+        i18n: {
+          title: [sign < 0 ? (isFc ? 'cxe.cfOppFcT' : 'cxe.cfOppOpLossT') : 'cxe.cfOppOpWinT', { _opening: label }],
+          detail: ['cxe.cfOppOpDet', { wr: wrP, _opening: label, _w: wf, _l: lf, ref: refP }],
+          takeaway: sign < 0 ? [isFc ? 'cxe.cfOppFcTak' : 'cxe.cfOppOpTak', { _opening: label }] : null,
+        },
       };
     },
   });
@@ -1270,8 +1305,14 @@ function analyzeCivPerformance({
       return {
         title: sign < 0 ? `Némesis: vs ${label}` : `Matchup cómodo: vs ${label}`,
         metric: `${wrP}% WR (${wf}V-${lf}D)`,
+        metricWL: [wrP, wf, lf],
         detail: `${wf}V-${lf}D contra ${label} (${wrP}%) frente a tu ${refP}% habitual ante esa civ.`,
         takeaway: sign < 0 ? `Prepará transición específica contra ${label} antes de su pico.` : null,
+        i18n: {
+          title: [sign < 0 ? 'cxe.cfNemesisT' : 'cxe.cfComfortT', { _civ2: label }],
+          detail: ['cxe.cfOppCivDet', { _w: wf, _l: lf, _civ2: label, wr: wrP, ref: refP }],
+          takeaway: sign < 0 ? ['cxe.cfNemesisTak', { _civ2: label }] : null,
+        },
       };
     },
   });
@@ -1357,14 +1398,20 @@ function analyzeCivPerformance({
         targetIds: targetMatchIds(inC, sign),
         title: phaseTitle,
         metric: `${wrInBucket}% WR (${winC}V-${lossC}D)`,
-        detail: sign < 0
-          ? `En partidas de ${b.label} (reloj juego): ${wrInBucket}% WR (${winC}V-${lossC}D) vs tu ${wrBaseBucket}% habitual.`
-          : `En partidas de ${b.label} (reloj juego): ${wrInBucket}% WR (${winC}V-${lossC}D) vs tu ${wrBaseBucket}% habitual.`,
+        metricWL: [wrInBucket, winC, lossC],
+        detail: `En partidas de ${b.label} (reloj juego): ${wrInBucket}% WR (${winC}V-${lossC}D) vs tu ${wrBaseBucket}% habitual.`,
         takeaway: sign < 0
           ? (b.id === 'early' ? 'Asegurá muros y defensa temprana para llegar entero a Castillos.'
             : b.id === 'late' ? 'Buscá cerrar en Castillos / Early Imp antes de que se seque el oro.'
               : 'Revisá tu transición de Castillos a Imperial con esta civ.')
           : `Tu mejor ventana con ${displayName} está en ${b.label}.`,
+        i18n: {
+          title: [sign < 0 ? 'cxe.mfPhaseLossTitle' : 'cxe.mfPhaseWinTitle', { _phase: b.label }],
+          detail: ['cxe.cfPhaseDet', { _phase: b.label, wr: wrInBucket, _w: winC, _l: lossC, ref: wrBaseBucket }],
+          takeaway: sign < 0
+            ? [b.id === 'early' ? 'cxe.cfPhaseEarlyTak' : b.id === 'late' ? 'cxe.cfPhaseLateTak' : 'cxe.cfPhaseMidTak', null]
+            : ['cxe.cfPhaseWinTak', { _civ: displayName, _phase: b.label }],
+        },
       });
     }
   }
@@ -1440,6 +1487,11 @@ function analyzeCivPerformance({
       metric: `${round1(cMed)} eAPM (${matchedDelta > 0 ? '+' : ''}${round1(matchedDelta)})`,
       detail: `Mediana de ${round1(cMed)} eAPM en ${count} partidas vs ${round1(oMed)} en partidas comparables con otras civs.`,
       takeaway: sign < 0 ? 'Probablemente la civ te exige micro/gestión menos automática que tus mains.' : null,
+      i18n: {
+        title: [sign < 0 ? 'cxe.cfEapmLossT' : 'cxe.cfEapmWinT', null],
+        detail: ['cxe.cfEapmDet', { cMed: round1(cMed), n: count, oMed: round1(oMed) }],
+        takeaway: sign < 0 ? ['cxe.cfEapmTak', null] : null,
+      },
     }),
   });
 
@@ -1460,6 +1512,11 @@ function analyzeCivPerformance({
           metric: `${fmt(cMed)} (${matchedDelta > 0 ? '+' : ''}${Math.round(matchedDelta)}s)`,
           detail: `Feudal en ${fmt(cMed)} (${count} replays) vs ${fmt(oMed)} habitual en mapas abiertos.`,
           takeaway: sign < 0 ? `Revisá los primeros 15 aldeanos del build order con ${displayName}.` : null,
+          i18n: {
+            title: [sign < 0 ? 'cxe.cfFeudalLossT' : 'cxe.cfFeudalWinT', null],
+            detail: ['cxe.cfFeudalDet', { cMed: fmt(cMed), n: count, oMed: fmt(oMed) }],
+            takeaway: sign < 0 ? ['cxe.cfFeudalTak', { _civ: displayName }] : null,
+          },
         };
       },
     });
@@ -1479,6 +1536,12 @@ function analyzeCivPerformance({
       metric: `${Math.round(cMed * 100)}% mejoras`,
       detail: `Cubrís ${Math.round(cMed * 100)}% de las mejoras clave en ${count} replays vs ${Math.round(oMed * 100)}% habitual.`,
       takeaway: sign < 0 ? 'Priorizá armadura o ataque clave antes de tomar peleas de Castillos.' : null,
+      i18n: {
+        title: [sign < 0 ? 'cxe.cfBsLossT' : 'cxe.cfBsWinT', null],
+        metric: ['cxe.cfBsMet', { pct: Math.round(cMed * 100) }],
+        detail: ['cxe.cfBsDet', { cMed: Math.round(cMed * 100), n: count, oMed: Math.round(oMed * 100) }],
+        takeaway: sign < 0 ? ['cxe.cfBsTak', null] : null,
+      },
     }),
   });
 
@@ -1497,6 +1560,12 @@ function analyzeCivPerformance({
         metric: `${Math.round(cMed)} ops/pj`,
         detail: `${Math.round(cMed)} operaciones de Mercado por partida (${count} replays) vs ${Math.round(oMed)} habitual.`,
         takeaway: sign < 0 ? `Ajustá tu distribución de aldeanos al bonus económico de ${displayName}.` : null,
+        i18n: {
+          title: [sign < 0 ? 'cxe.cfMktLossT' : 'cxe.cfMktWinT', null],
+          metric: ['cxe.cfMktMet', { n: Math.round(cMed) }],
+          detail: ['cxe.cfMktDet', { cMed: Math.round(cMed), n: count, oMed: Math.round(oMed) }],
+          takeaway: sign < 0 ? ['cxe.cfMktTak', { _civ: displayName }] : null,
+        },
       }),
     });
   }
@@ -1557,8 +1626,10 @@ function analyzeCivPerformance({
     tone: f.sign < 0 ? 'loss' : 'win',
     title: f.title,
     metric: f.metric,
+    metricWL: f.metricWL || null,
     detail: f.detail,
     takeaway: f.takeaway || null,
+    i18n: f.i18n || null,
     secondaryTags: f.secondaryTags || [],
     qValue: Number(f.qValue.toFixed(3)),
     pValue: Number(f.pValue.toFixed(4)),
@@ -1579,6 +1650,13 @@ function analyzeCivPerformance({
       : verdict === 'polarized'
         ? `${rawWrPct}% WR global (${wC}V-${lC}D), pero muy polarizada según el escenario.`
         : `En línea con tu media (${rawWrPct}% en ${nC} pj vs ${baseWrPct}% esperado).`;
+  const summaryI18n = verdict === 'weakness'
+    ? [cleanFindings.length ? 'cxe.cfSumWeakFind' : 'cxe.cfSumWeakNone', { wr: rawWrPct, _w: wC, _l: lC, base: baseWrPct, n: cleanFindings.length }]
+    : verdict === 'strength'
+      ? [cleanFindings.length ? 'cxe.cfSumStrFind' : 'cxe.cfSumStrNone', { wr: rawWrPct, _w: wC, _l: lC, base: baseWrPct, n: cleanFindings.length }]
+      : verdict === 'polarized'
+        ? ['cxe.cfSumPol', { wr: rawWrPct, _w: wC, _l: lC }]
+        : ['cxe.cfSumBal', { wr: rawWrPct, n: nC, base: baseWrPct }];
 
   return {
     ok: true,
@@ -1613,6 +1691,7 @@ function analyzeCivPerformance({
     findings: cleanFindings,
     breakdowns,
     summaryLine,
+    summaryI18n,
   };
 }
 

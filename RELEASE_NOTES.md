@@ -1,3 +1,11 @@
+## v3.3.2 · Central 100 % traducida en los 4 idiomas y nombres oficiales de civs/mapas
+
+- **Central completamente localizada (4 idiomas × 1.763 claves · `es-MX`, `es-ES`, `en`, `zh-CN`):** traducción total de todas las pestañas de **Central** (*Resumen*, *Civs y Mapas*, *Mejora y ELO*), incluyendo **ADN de jugador**, **Tridente táctico**, **Hora Dorada**, **Vitrina de récords**, **Huella de combate**, **Velocidad vs Cerebro**, **Radiografía de Team Games**, **Color de la suerte**, **Espejo / Meta / GG**, **Laboratorio de Mejora Personal**, **Motores y fugas de ELO**, **Antídotos y curva de sesión**, y todos los hallazgos dinámicos de **Diagnóstico por civilización y por mapa** con cambio de idioma instantáneo.
+- **Nombres oficiales de civilizaciones, mapas, unidades y edificios corregidos:** se unificaron los alias `AppI18n.civ` / `map` / `unit` / `building` para que Inicio, Árbol Tecnológico y Central muestren siempre la nomenclatura oficial de AoE2:DE en el idioma activo.
+- **Guardián de traducciones extendido a Central y sus motores:** `i18n-guard-test` ahora verifica también `ui/tactical-ui.js` (Central completo) y las claves dinámicas `cxe.*` de los motores analíticos para evitar regresiones de idiomas mezclados.
+
+---
+
 ## v3.3.1 · Traducción integral en los 4 idiomas y botón de oferta de vencimiento en una línea
 
 - **Botón de oferta de prueba vencida corregido:** se fijó `white-space: nowrap`, ajuste limpio del contenedor y texto más conciso (`Ver oferta (−20 %) →` / `View offer (−20%) →`) para que el botón principal nunca vuelva a partirse en dos líneas en ningún idioma.

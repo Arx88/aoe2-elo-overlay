@@ -1215,12 +1215,14 @@ function computeLastMatchVsAvg({
         metrics.push({
           id: 'eloAvg',
           label: `ELO vs media (${slice.length} pj)`,
+          labelI18n: ['cxe.lmEloAvgLbl', { n: slice.length }],
           latestText: `${Math.round(currentElo)}`,
           avgText: `${Math.round(meanElo)}`,
           deltaText: `${delta > 0 ? '+' : ''}${delta} ELO`,
           improved: delta > 0,
           neutral: delta === 0,
           sampleText: isAll ? `Media del historial ampliado (${slice.length} pj)` : `Media de tus últ. ${slice.length} clasificatorias`,
+          sampleI18n: [isAll ? 'cxe.lmEloAvgAll' : 'cxe.lmEloAvgRec', { n: slice.length }],
         });
       }
 
@@ -1237,12 +1239,15 @@ function computeLastMatchVsAvg({
         metrics.push({
           id: 'windowWr',
           label: isAll ? `Winrate (${wSlice.length} pj)` : `Winrate últ. ${wSlice.length}`,
+          labelI18n: [isAll ? 'cxe.lmWrAllLbl' : 'cxe.lmWrRecLbl', { n: wSlice.length }],
           latestText: `${wr}%`,
           avgText: `${wins}V - ${losses}D`,
+          avgWL: [wins, losses],
           deltaText: `${net > 0 ? '+' : ''}${Math.round(net)} ELO`,
           improved: net > 0 || (net === 0 && wr >= 50),
           neutral: net === 0 && wr === 50,
           sampleText: isAll ? `Balance en ${wSlice.length} partidas del modo` : `Balance en tus últ. ${wSlice.length} partidas`,
+          sampleI18n: [isAll ? 'cxe.lmWrAllSub' : 'cxe.lmWrRecSub', { n: wSlice.length }],
         });
       }
     }
@@ -1258,12 +1263,14 @@ function computeLastMatchVsAvg({
         metrics.push({
           id: 'duration',
           label: 'Duración (reloj juego)',
+          labelI18n: ['cxe.lmDurLbl', null],
           latestText: `${Math.round(lastMin * 10) / 10} min`,
           avgText: `${mean} min`,
           deltaText: `${delta > 0 ? '+' : ''}${delta} min`,
           improved: delta > 0,
           neutral: true,
           sampleText: `${durSample.length} partidas previas · reloj 1,7×`,
+          sampleI18n: ['cxe.lmDurSub', { n: durSample.length }],
         });
       }
 
@@ -1282,12 +1289,14 @@ function computeLastMatchVsAvg({
           metrics.push({
             id: 'eapm',
             label: 'Ritmo eAPM',
+            labelI18n: ['cxe.lmEapmLbl', null],
             latestText: `${Math.round(lastEapm * 10) / 10}`,
             avgText: `${mean}`,
             deltaText: `${delta > 0 ? '+' : ''}${delta}`,
             improved: delta > 0,
             neutral: true,
             sampleText: `${pool.length} replays analizados del modo`,
+            sampleI18n: ['cxe.lmEapmSub', { n: pool.length }],
           });
         }
       }
@@ -1303,12 +1312,14 @@ function computeLastMatchVsAvg({
           metrics.push({
             id: 'tc',
             label: 'Uso estimado de TC',
+            labelI18n: ['cxe.lmTcLbl', null],
             latestText: `${Math.round(lastTc * 10) / 10}%`,
             avgText: `${mean}%`,
             deltaText: `${delta > 0 ? '+' : ''}${delta} pp`,
             improved: delta > 0,
             neutral: delta === 0,
             sampleText: `${tcSample.length} replays locales válidos`,
+            sampleI18n: ['cxe.lmTcSub', { n: tcSample.length }],
           });
         }
       }

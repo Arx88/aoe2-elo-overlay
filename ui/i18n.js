@@ -202,6 +202,11 @@
       const translated = t(key);
       if (translated && translated !== key) node.setAttribute('title', translated);
     });
+    scope.querySelectorAll('[data-i18n-aria-label]').forEach((node) => {
+      const key = node.getAttribute('data-i18n-aria-label');
+      const translated = t(key);
+      if (translated && translated !== key) node.setAttribute('aria-label', translated);
+    });
     scope.querySelectorAll('template').forEach((tpl) => {
       if (tpl.content) applyToDom(tpl.content);
     });
@@ -216,11 +221,15 @@
     t,
     formatNumber,
     civName,
+    civ: civName,
     ageName,
     resourceName,
     mapName,
+    map: mapName,
     buildingName,
+    building: buildingName,
     unitName,
+    unit: unitName,
     openingName,
     flagSvg,
     applyToDom,

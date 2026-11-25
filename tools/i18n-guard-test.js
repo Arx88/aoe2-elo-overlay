@@ -62,6 +62,10 @@ const scanFiles = [
   'settings.html',
   'settings.js',
   'renderer.js',
+  'src/central.js',
+  'src/central-discoveries.js',
+  'src/central-intel.js',
+  'src/civ-diagnostic.js',
   ...fs.readdirSync(path.join(ROOT, 'ui')).filter((f) => f.endsWith('.js')).map((f) => path.join('ui', f)),
 ];
 const usedKeys = new Set();
@@ -70,8 +74,9 @@ for (const rel of scanFiles) {
   if (!fs.existsSync(full)) continue;
   const src = fs.readFileSync(full, 'utf8');
   for (const m of src.matchAll(/data-i18n(?:-[a-z-]+)?="([a-zA-Z0-9_.-]+)"/g)) usedKeys.add(m[1]);
-  for (const m of src.matchAll(/\b(?:AppI18n\.t|wt|tt|trT|i18n\.t)\(\s*['"]([a-zA-Z0-9_.-]+)['"]/g)) usedKeys.add(m[1]);
+  for (const m of src.matchAll(/\b(?:AppI18n\.t|wt|tt|trT|tr|i18n\.t)\(\s*['"]([a-zA-Z0-9_.-]+)['"]/g)) usedKeys.add(m[1]);
   for (const m of src.matchAll(/\bt\(\s*['"]([a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+)['"]/g)) usedKeys.add(m[1]);
+  for (const m of src.matchAll(/['"](cxe\.[a-zA-Z0-9_]+)['"]/g)) usedKeys.add(m[1]);
 }
 const missingUsed = [...usedKeys].filter((k) => !allKeys.has(k));
 assert.equal(
@@ -146,32 +151,39 @@ for (const htmlFile of ['settings.html', 'index.html']) {
   );
 }
 
-// 6. Cero textos en español hardcodeados fuera de wt()/tt() en módulos JS completamente localizados
-const STRICT_JS_MODULES = ['ui/welcome-ui.js', 'ui/techtree-ui.js'];
-const CALL_STRIP_RE = /\b(?:wt|tt|trT|AppI18n\.t)\(\s*(?:(['"`])[^'"`]+\1|[a-zA-Z_$][\w.$]*)\s*,\s*(['"`])(?:\\.|(?!\2).)*\2/g;
+// 6. Cero textos en español hardcodeados fuera de wt()/tt()/tr() en módulos JS completamente localizados
+const STRICT_JS_MODULES = [
+  { file: 'ui/welcome-ui.js', startMarker: null },
+  { file: 'ui/techtree-ui.js', startMarker: null },
+  { file: 'ui/tactical-ui.js', startMarker: 'function renderInteractiveEloChart(' },
+];
+const CALL_STRIP_RE = /\b(?:wt|tt|trT|tr|AppI18n\.t)\(\s*(?:(['"`])[^'"`]+\1|[a-zA-Z_$][\w.$]*)\s*,\s*(['"`])(?:\\.|(?!\2).)*\2/g;
 const STRICT_ES_RE = /[áéíóúñÁÉÍÓÚÑ¡¿]/;
-for (const rel of STRICT_JS_MODULES) {
+for (const { file: rel, startMarker } of STRICT_JS_MODULES) {
   const lines = fs.readFileSync(path.join(ROOT, rel), 'utf8').split(/\r?\n/);
+  const startIdx = startMarker ? lines.findIndex((l) => l.includes(startMarker)) : 0;
+  assert.ok(startIdx >= 0, `[i18n-guard] No se encontró marcador "${startMarker}" en ${rel}`);
   const jsOffenders = [];
   let inBlock = false;
   lines.forEach((raw, idx) => {
+    if (idx < startIdx) return;
     const trimmed = raw.trim();
     if (!trimmed) return;
     if (inBlock) { if (trimmed.includes('*/')) inBlock = false; return; }
     if (trimmed.startsWith('/*')) { if (!trimmed.includes('*/')) inBlock = true; return; }
     if (trimmed.startsWith('//') || trimmed.startsWith('*')) return;
     const code = trimmed.replace(/\s+\/\/.*$/, '');
-    // Permitir lookup tables de mapeo (GOLD_RANK_KEYS, NEWS_TAG_META, periodLabel === 'Últimos 7 días')
-    if (/GOLD_RANK_KEYS|NEWS_TAG_META|periodLabel\s*===|fallback:\s*'/.test(code)) return;
+    // Permitir lookup tables de mapeo (GOLD_RANK_KEYS, NEWS_TAG_META, locCx*, periodLabel === 'Últimos 7 días')
+    if (/GOLD_RANK_KEYS|NEWS_TAG_META|periodLabel\s*===|fallback:\s*'|CX_AXIS_KEYS|CX_BLOCK_KEYS|CX_COLOR_KEYS|CX_PHASE_KEYS|CX_CLOCK_KEYS|CX_VERDICT_KEYS|CX_TERRAIN_KEYS|CX_LM_LABEL_KEYS|includes\(['"](?:óptimo|sólido|atención|crítico)/i.test(code)) return;
     const stripped = code.replace(CALL_STRIP_RE, '');
     if (STRICT_ES_RE.test(stripped)) {
-      jsOffenders.push(`${rel}:${idx + 1}: ${code.slice(0, 90)}`);
+      jsOffenders.push(`${rel}:${idx + 1}: ${code.slice(0, 100)}`);
     }
   });
   assert.equal(
     jsOffenders.length,
     0,
-    `[i18n-guard] ${rel} tiene cadenas en español sin pasar por i18n:\n  ${jsOffenders.slice(0, 10).join('\n  ')}`
+    `[i18n-guard] ${rel} tiene cadenas en español sin pasar por i18n:\n  ${jsOffenders.slice(0, 15).join('\n  ')}`
   );
 }
 

@@ -469,13 +469,22 @@ function computeSpeedVsBrain(unifiedMatches) {
   const fasterStats = summarize(faster);
   const slowerStats = summarize(slower);
   let headline = null;
+  let headlineI18n = null;
   if (faster.length === pairs.length) {
     headline = `Más rápido en ${pairs.length}/${pairs.length} replays (${fasterStats.winRate}% WR · ${avgSelf} vs ${avgRival} eAPM).`;
+    headlineI18n = ['cxe.svbAllFaster', { n: pairs.length, wr: fasterStats.winRate, self: avgSelf, rival: avgRival }];
   } else if (fasterStats && slowerStats && fasterStats.games >= 3 && slowerStats.games >= 3) {
     const diff = fasterStats.winRate - slowerStats.winRate;
-    if (diff >= 12) headline = `Imponés ritmo: ${fasterStats.winRate}% WR cuando superás en eAPM vs ${slowerStats.winRate}% por debajo.`;
-    else if (diff <= -8) headline = `Juego cerebral: ganás el ${slowerStats.winRate}% incluso con menos clics que el rival.`;
-    else headline = `Equilibrio velocidad/decisión: ${fasterStats.winRate}% más rápido · ${slowerStats.winRate}% más lento.`;
+    if (diff >= 12) {
+      headline = `Imponés ritmo: ${fasterStats.winRate}% WR cuando superás en eAPM vs ${slowerStats.winRate}% por debajo.`;
+      headlineI18n = ['cxe.svbTempo', { fast: fasterStats.winRate, slow: slowerStats.winRate }];
+    } else if (diff <= -8) {
+      headline = `Juego cerebral: ganás el ${slowerStats.winRate}% incluso con menos clics que el rival.`;
+      headlineI18n = ['cxe.svbBrain', { slow: slowerStats.winRate }];
+    } else {
+      headline = `Equilibrio velocidad/decisión: ${fasterStats.winRate}% más rápido · ${slowerStats.winRate}% más lento.`;
+      headlineI18n = ['cxe.svbBalanced', { fast: fasterStats.winRate, slow: slowerStats.winRate }];
+    }
   }
 
   return {
@@ -485,6 +494,7 @@ function computeSpeedVsBrain(unifiedMatches) {
     fasterShare,
     faster: fasterStats,
     slower: slowerStats,
+    headlineI18n,
     smartestWin: smartestWin ? {
       myEapm: Math.round(Number(smartestWin.myEapm) * 10) / 10,
       oppEapm: Math.round(Number(smartestWin.oppEapm) * 10) / 10,
@@ -886,14 +896,17 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
   let rhythmScore = null;
   let rhythmVal = null;
   let rhythmTip = 'Ritmo mecánico (eAPM o continuidad de TC)';
+  let rhythmTipI18n = ['cxe.tipRhythmEmpty', null];
   if (speedVsBrain && speedVsBrain.avgSelf) {
     rhythmScore = clamp(Math.round((speedVsBrain.avgSelf / 75) * 100), 8, 100);
     rhythmVal = `${String(speedVsBrain.avgSelf).replace('.', ',')} eAPM`;
     rhythmTip = `Velocidad efectiva propia (${rhythmVal} · escala 0–75 eAPM)`;
+    rhythmTipI18n = ['cxe.tipRhythmEapm', { val: rhythmVal }];
   } else if (allowCombatDna && combatDna?.tcEarlyAvg != null) {
     rhythmScore = clamp(Math.round(combatDna.tcEarlyAvg), 0, 100);
     rhythmVal = `${String(combatDna.tcEarlyAvg).replace('.', ',')}% TC`;
     rhythmTip = `Uso continuo del Centro urbano en Alta + Feudal (${rhythmVal})`;
+    rhythmTipI18n = ['cxe.tipRhythmTc', { val: rhythmVal }];
   }
 
   const vsHigherWr = giantSlayer?.vsHigher?.games >= 4 ? giantSlayer.vsHigher.winRate : null;
@@ -915,6 +928,7 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
       tooltip: agroShare != null
         ? `Porcentaje de aperturas agresivas en Edad Feudal (${agroShare}%).`
         : 'Efectividad en definiciones tempranas.',
+      tooltipI18n: agroShare != null ? ['cxe.tipAggroData', { pct: agroShare }] : ['cxe.tipAggroEmpty', null],
     },
     {
       id: 'rhythm',
@@ -923,6 +937,7 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
       hasData: rhythmScore != null,
       valueText: rhythmVal || '—',
       tooltip: rhythmTip,
+      tooltipI18n: rhythmTipI18n,
     },
     {
       id: 'clutch',
@@ -933,6 +948,9 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
       tooltip: vsHigherWr != null
         ? `Tu winrate enfrentando rivales o equipos de mayor ELO (${giantSlayer.vsHigher.wins}V-${giantSlayer.vsHigher.losses}D).`
         : 'Winrate enfrentando rivales de mayor ELO (requiere ≥4 partidas).',
+      tooltipI18n: vsHigherWr != null
+        ? ['cxe.tipClutchData', { _w: giantSlayer.vsHigher.wins, _l: giantSlayer.vsHigher.losses }]
+        : ['cxe.tipClutchEmpty', null],
     },
     {
       id: 'versatility',
@@ -943,6 +961,9 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
       tooltip: pool.effCivs != null
         ? `Diversidad efectiva de civilizaciones (${String(pool.effCivs).replace('.', ',')} civs · escala 0–10).`
         : 'Diversidad efectiva de tu pool de civilizaciones.',
+      tooltipI18n: pool.effCivs != null
+        ? ['cxe.tipVersData', { eff: String(pool.effCivs).replace('.', ',') }]
+        : ['cxe.tipVersEmpty', null],
     },
     {
       id: 'late',
@@ -953,13 +974,18 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
       tooltip: lateWr != null
         ? `Tu winrate cuando la partida llega a Edad Imperial o Post-Imperial (${lateW}V-${lateG - lateW}D).`
         : 'Winrate en Edad Imperial y Post-Imperial.',
+      tooltipI18n: lateWr != null
+        ? ['cxe.tipLateData', { _w: lateW, _l: lateG - lateW }]
+        : ['cxe.tipLateEmpty', null],
     },
   ];
 
   // Arquetipo determinista priorizado por señal dominante real
   let title = 'Comandante Equilibrado';
   let tag = 'ESTILO VERSÁTIL';
+  let tagI18n = ['cxe.archBalancedTag', null];
   let punchline = 'Perfil sólido y balanceado a lo largo de todas las edades.';
+  let punchlineI18n = ['cxe.archBalancedPunch', null];
 
   const combatArchetypeAllowed = allowCombatDna
     && combatDna.cavalryShare >= 70
@@ -971,57 +997,84 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
   if (combatArchetypeAllowed) {
     title = 'Señor de los Establos';
     tag = 'CABALLERÍA DOMINANTE';
+    tagI18n = null;
     punchline = `${combatDna.cavalryShare}% de tu ejército sale de Establos (${combatDna.sample} replays)${pool.effCivs >= 6 ? ` · ${String(pool.effCivs).replace('.', ',')} civs efectivas` : ''}.`;
+    punchlineI18n = pool.effCivs >= 6
+      ? ['cxe.archStablesPunchWide', { pct: combatDna.cavalryShare, n: combatDna.sample, eff: String(pool.effCivs).replace('.', ',') }]
+      : ['cxe.archStablesPunch', { pct: combatDna.cavalryShare, n: combatDna.sample }];
   } else if (pool.top1 && pool.top1Share >= 45 && pool.total >= 20) {
     title = 'Maestro Especialista';
     tag = `FIRMA ${pool.top1Share}%`;
+    tagI18n = ['cxe.archOtpTag', { pct: pool.top1Share }];
     punchline = `Dominás un núcleo enfocado (${pool.top1Share}% de tus partidas con tu civ principal).`;
+    punchlineI18n = ['cxe.archOtpPunch', { pct: pool.top1Share }];
   } else if ((agroShare != null && agroShare >= 62) || (speedVsBrain && speedVsBrain.fasterShare >= 85 && earlyWr != null && earlyWr >= 65)) {
     title = 'Aplanadora de Feudal';
     tag = 'INICIATIVA Y VELOCIDAD';
+    tagI18n = null;
     punchline = speedVsBrain && speedVsBrain.fasterShare >= 80
       ? `Más rápido que el rival en el ${speedVsBrain.fasterShare}% de tus partidas (${earlyWr ?? speedVsBrain.faster?.winRate ?? 60}% WR temprano).`
       : `${agroShare}% aperturas de presión temprana marcando el ritmo desde Feudal.`;
+    punchlineI18n = speedVsBrain && speedVsBrain.fasterShare >= 80
+      ? ['cxe.archFeudalPunchFast', { share: speedVsBrain.fasterShare, wr: earlyWr ?? speedVsBrain.faster?.winRate ?? 60 }]
+      : ['cxe.archFeudalPunchAgro', { pct: agroShare }];
   } else if (earlyWr != null && lateWr != null && earlyWr - lateWr >= 14) {
     title = 'Relámpago de Castillos';
     tag = 'CIERRE TEMPRANO';
+    tagI18n = null;
     punchline = `Definís antes del min 35 (${earlyWr}% WR temprano vs ${lateWr}% en partidas largas).`;
+    punchlineI18n = ['cxe.archCastlePunch', { early: earlyWr, late: lateWr }];
   } else if (earlyWr != null && lateWr != null && lateWr - earlyWr >= 14) {
     title = 'Titán del Post-Imperial';
     tag = 'GUERRA LARGA';
+    tagI18n = null;
     punchline = `Cuanto más se alarga la partida, más dominás (${lateWr}% WR pasado el min 35).`;
+    punchlineI18n = ['cxe.archPostImpPunch', { late: lateWr }];
   } else if (pool.effCivs != null && pool.effCivs >= 6.5) {
     title = 'Estratega Camaleón';
     tag = 'ARSENAL AMPLIO';
+    tagI18n = null;
     punchline = `${String(pool.effCivs).replace('.', ',')} civilizaciones efectivas sin depender de un solo pick.`;
+    punchlineI18n = ['cxe.archChameleonPunch', { eff: String(pool.effCivs).replace('.', ',') }];
   }
 
   const signals = [];
   if (speedVsBrain) {
     signals.push({
       label: 'Velocidad',
+      labelI18n: ['cxe.sigSpeed', null],
       value: `${String(speedVsBrain.avgSelf).replace('.', ',')} eAPM`,
       sub: `vs ${String(speedVsBrain.avgRival).replace('.', ',')} rival`,
+      subI18n: ['cxe.sigSpeedSub', { val: String(speedVsBrain.avgRival).replace('.', ',') }],
     });
   } else if (allowCombatDna && combatDna?.tcDarkAvg != null) {
     signals.push({
       label: 'TC Alta Edad',
+      labelI18n: ['cxe.sigTcDark', null],
       value: `${String(combatDna.tcDarkAvg).replace('.', ',')}%`,
       sub: `${combatDna.sample} replays`,
+      subI18n: ['cxe.sigReplays', { n: combatDna.sample }],
     });
   }
   if (killerWindow?.peak) {
     signals.push({
       label: 'Ventana letal',
+      labelI18n: ['cxe.sigKillerWindow', null],
       value: `${killerWindow.peak.label} · ${killerWindow.peak.winRate}%`,
+      valuePhase: killerWindow.peak.label,
+      valueWr: killerWindow.peak.winRate,
       sub: `${killerWindow.peak.wins}V-${killerWindow.peak.losses}D`,
+      subWL: [killerWindow.peak.wins, killerWindow.peak.losses],
     });
   }
   if (trophies?.otpIndex) {
     signals.push({
       label: 'Pool de civs',
+      labelI18n: ['cxe.sigCivPool', null],
       value: trophies.otpIndex.label,
+      valueOtp: true,
       sub: `${String(trophies.otpIndex.effCivs).replace('.', ',')} civs efectivas`,
+      subI18n: ['cxe.sigEffCivs', { eff: String(trophies.otpIndex.effCivs).replace('.', ',') }],
     });
   }
 
@@ -1035,7 +1088,9 @@ function computePlayerDna({ modeId = 'rm_1v1', stats, insights, killerWindow, gi
   return {
     title,
     tag,
+    tagI18n,
     punchline,
+    punchlineI18n,
     mainCiv,
     axes,
     activeAxesCount: axes.filter((a) => a.hasData).length,
@@ -1121,14 +1176,21 @@ function computeTgRadiography(modeMatches, { profileId = null } = {}) {
     .map(([label, v]) => ({ label, games: v.games, wins: v.wins, losses: v.games - v.wins, winRate: pct(v.wins, v.games) }));
 
   let roleTip = null;
+  let roleTipI18n = null;
   if (pocket.archerPickGames >= 4 && pct(pocket.archerPickWins, pocket.archerPickGames) <= 45) {
-    roleTip = `En Pocket jugaste civs de Arqueros ${pocket.archerPickGames} veces (${pct(pocket.archerPickWins, pocket.archerPickGames)}% WR): priorizá Caballería o Boom.`;
+    const aWr = pct(pocket.archerPickWins, pocket.archerPickGames);
+    roleTip = `En Pocket jugaste civs de Arqueros ${pocket.archerPickGames} veces (${aWr}% WR): priorizá Caballería o Boom.`;
+    roleTipI18n = ['cxe.tgArcherPocket', { n: pocket.archerPickGames, wr: aWr }];
   } else if (pocket.games >= tgPol.minRole && flank.games >= tgPol.minRole) {
     const pWr = pct(pocket.wins, pocket.games);
     const fWr = pct(flank.wins, flank.games);
-    roleTip = pWr >= fWr + 8
-      ? `Rendís mucho mejor como Pocket (${pWr}% WR) que como Flank (${fWr}% WR).`
-      : (fWr >= pWr + 8 ? `Marcás más diferencia como Flank (${fWr}% WR) que como Pocket (${pWr}% WR).` : null);
+    if (pWr >= fWr + 8) {
+      roleTip = `Rendís mucho mejor como Pocket (${pWr}% WR) que como Flank (${fWr}% WR).`;
+      roleTipI18n = ['cxe.tgPocketBetter', { pWr, fWr }];
+    } else if (fWr >= pWr + 8) {
+      roleTip = `Marcás más diferencia como Flank (${fWr}% WR) que como Pocket (${pWr}% WR).`;
+      roleTipI18n = ['cxe.tgFlankBetter', { fWr, pWr }];
+    }
   }
 
   return {
@@ -1139,6 +1201,7 @@ function computeTgRadiography(modeMatches, { profileId = null } = {}) {
     carry: summarize(carry, tgPol.minCarryAnchor),
     anchor: summarize(anchor, tgPol.minCarryAnchor),
     roleTip,
+    roleTipI18n,
     positionNote: 'Posición por color en mapas estándar 3v3/4v4 (excluye inicios nómadas)',
   };
 }
@@ -1255,16 +1318,20 @@ function computeResignAndStyleProfile(unifiedMatches, { isTeam = false } = {}) {
 
   let resignTag = null;
   let resignSub = null;
+  let resignSubI18n = null;
   if (losses.length >= 4) {
     if (earlyLossPct >= 35) {
       resignTag = 'GG Rápido';
       resignSub = `${earlyLossPct}% de tus derrotas terminan antes del min ${earlyCut} (reloj de juego).`;
+      resignSubI18n = ['cxe.resignFastSub', { pct: earlyLossPct, cut: earlyCut }];
     } else if (medianLossMin >= lateCut || marathonLossPct >= 38) {
       resignTag = 'Hasta el Último Aldeano';
       resignSub = `Tus derrotas promedian ${medianLossMin} min (reloj de juego) — nunca regalás el GG.`;
+      resignSubI18n = ['cxe.resignWarriorSub', { min: medianLossMin }];
     } else {
       resignTag = 'Rendición Pragmática';
       resignSub = `Mediana en derrotas: ${medianLossMin} min (reloj de juego).`;
+      resignSubI18n = ['cxe.resignPragmaticSub', { min: medianLossMin }];
     }
   }
 
@@ -1300,6 +1367,7 @@ function computeResignAndStyleProfile(unifiedMatches, { isTeam = false } = {}) {
   return {
     resignTag,
     resignSub,
+    resignSubI18n,
     medianLossMin,
     earlyLossPct,
     hunterTag,
