@@ -84,6 +84,10 @@ body[data-theme='ultra'] .tr-weekly-sanctuary::after,
 body[data-theme='ultra'] .tr-wk-daily-stage::before,
 body[data-theme='ultra'] .tr-perf-ledger::before,
 body[data-theme='ultra'] .tr-arena-stage::after,
+body[data-theme='ultra'] .tr-arena-map-bg,
+body[data-theme='ultra'] .tr-lo-bg,
+body[data-theme='ultra'] .tr-uc-bg,
+body[data-theme='ultra'] .tr-arena-summary-art,
 body[data-theme='ultra'] .tr-wc-art::after,
 body[data-theme='ultra'] .tr-war-art-bg,
 body[data-theme='ultra'] .tr-panel-art-bg,
@@ -155,6 +159,11 @@ body[data-theme='ultra'] .nav-item.active {
   background: #121216 !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
   color: #ffffff !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .rail-nav:has(.rail-glide-indicator.is-ready) .nav-item.active {
+  background: transparent !important;
+  border-color: transparent !important;
   box-shadow: none !important;
 }
 body[data-theme='ultra'] .rail-glide-indicator {
@@ -291,6 +300,7 @@ body[data-theme='ultra'] .access-summary,
 body[data-theme='ultra'] .plan-redeem-card,
 body[data-theme='ultra'] .upd-card,
 body[data-theme='ultra'] .account-profile,
+body[data-theme='ultra'] .page[data-page='player'] .account-profile,
 body[data-theme='ultra'] .account-session-card,
 body[data-theme='ultra'] .account-ref-card,
 body[data-theme='ultra'] .startup-pref-card,
@@ -304,10 +314,16 @@ body[data-theme='ultra'] .pm-locked-preview {
   box-shadow: none !important;
 }
 
+/* Bloques internos de configuración (Prematch, Batalla, Postmatch, Apariencia):
+   el contenedor padre (.pm-config-details / .ux-panel) ya es la tarjeta; NO encerrar
+   el contenido interior en una segunda caja sin aire. */
 body[data-theme='ultra'] .pm-config-details .block,
-body[data-theme='ultra'] .ux-panel .block {
-  background: #040406 !important;
-  border: 1px solid rgba(255, 255, 255, 0.085) !important;
+body[data-theme='ultra'] .pm-config-details .pm-config-block,
+body[data-theme='ultra'] .ux-panel .block,
+body[data-theme='ultra'] .ux-panel .pm-config-block {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 body[data-theme='ultra'] .ux-panel-head,
@@ -677,29 +693,37 @@ body[data-theme='ultra'] .central-viewing-bar {
   border: 1px solid rgba(34, 197, 94, 0.36) !important;
 }
 
-/* Subnav de 3 pestañas de Central (alta especificidad para ganar a .page[data-page="central"]) */
+/* Subnav de 3 pestañas de Central (estilo underline limpio, sin doble caja) */
 body[data-theme='ultra'] .page[data-page='central'] .cx-subnav,
 body[data-theme='ultra'] .cx-subnav {
-  background: #09090c !important;
-  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
   box-shadow: none !important;
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-subtab,
 body[data-theme='ultra'] .cx-subtab {
   background: transparent !important;
-  border-color: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 8px 8px 0 0 !important;
   color: #a1a1aa !important;
+  box-shadow: none !important;
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-subtab:hover:not(.is-active),
 body[data-theme='ultra'] .cx-subtab:hover:not(.is-active) {
-  background: #111114 !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.22) !important;
   color: #ffffff !important;
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-subtab.is-active,
 body[data-theme='ultra'] .cx-subtab.is-active {
-  background: #141416 !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.065) !important;
+  border: 0 !important;
   border-bottom: 2px solid #ffffff !important;
+  border-radius: 8px 8px 0 0 !important;
   color: #ffffff !important;
   box-shadow: none !important;
 }
@@ -714,8 +738,9 @@ body[data-theme='ultra'] .page[data-page='central'] .cx-subtab.is-active span {
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-subtab-badge,
 body[data-theme='ultra'] .cx-subtab-badge {
-  background: #040406 !important;
+  background: #0a0a0e !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  padding: 2px 8px !important;
   color: #d4d4d8 !important;
   font-family: var(--mono-font);
 }
@@ -796,7 +821,10 @@ body[data-theme='ultra'] .page[data-page='central'] .cx-diag-finding.is-win {
   border-left-color: #4ade80 !important;
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab.is-active {
-  background: #141416 !important;
+  background: rgba(255, 255, 255, 0.065) !important;
+  border: 0 !important;
+  border-bottom: 2px solid #ffffff !important;
+  color: #ffffff !important;
 }
 body[data-theme='ultra'] .central-bar-track,
 body[data-theme='ultra'] .global-ladder-track,
@@ -854,24 +882,20 @@ body[data-theme='ultra'] .wiz-avatar {
   color: #ffffff !important;
 }
 
-/* Todos los sub-bloques internos de Central -> pozos #040406 con bordes zinc neutros */
-body[data-theme='ultra'] .cx-kpi,
-body[data-theme='ultra'] .cx-kpi.is-gold,
+/* Sub-bloques con padding propio en Central -> pozos #040406 con bordes zinc neutros.
+   NOTA: filas/columnas sin padding (.cx-dna-sig, .cx-sf-row, .cx-op-row, .cx-pt-row,
+   .cx-sess-row, .cx-elo-hero, .cx-ckpi) NO llevan caja cerrada para no pegarse al texto. */
 body[data-theme='ultra'] .central-kpi,
 body[data-theme='ultra'] .central-kpi.is-gold,
-body[data-theme='ultra'] .cx-ckpi,
 body[data-theme='ultra'] .cx-kpi-tile,
 body[data-theme='ultra'] .cx-lm-metric,
-body[data-theme='ultra'] .cx-diag-finding,
 body[data-theme='ultra'] .cx-diag-alert,
 body[data-theme='ultra'] .cx-diag-sample-gate,
 body[data-theme='ultra'] .cx-diag-neutral-note,
 body[data-theme='ultra'] .cx-acad-focus-strip,
 body[data-theme='ultra'] .cx-acad-stage-strip,
-body[data-theme='ultra'] .cx-acad-stage-cell,
 body[data-theme='ultra'] .cx-acad-habit-row,
 body[data-theme='ultra'] .cx-elo-spot,
-body[data-theme='ultra'] .cx-elo-hero,
 body[data-theme='ultra'] .cx-elo-row,
 body[data-theme='ultra'] .cx-matchup-pill,
 body[data-theme='ultra'] .cx-trophy-tile,
@@ -887,15 +911,63 @@ body[data-theme='ultra'] .cx-day-chip,
 body[data-theme='ultra'] .cx-color-chip,
 body[data-theme='ultra'] .cx-chem-chip,
 body[data-theme='ultra'] .cx-tg-role,
-body[data-theme='ultra'] .cx-dna-sig,
-body[data-theme='ultra'] .cx-sf-row,
 body[data-theme='ultra'] .cx-clock-row,
-body[data-theme='ultra'] .cx-op-row,
-body[data-theme='ultra'] .cx-pt-row,
-body[data-theme='ultra'] .cx-sess-row,
 body[data-theme='ultra'] .cx-tooltip {
   background: #040406 !important;
   border: 1px solid rgba(255, 255, 255, 0.095) !important;
+  box-shadow: none !important;
+}
+/* Columnas KPI del Hero de Central: divisores verticales limpios sin doble borde */
+body[data-theme='ultra'] .page[data-page='central'] .cx-kpi,
+body[data-theme='ultra'] .page[data-page='central'] .cx-kpi.is-gold {
+  background: #050507 !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-kpi:first-child {
+  border-left: 0 !important;
+}
+/* Columnas/filas sin padding propio: mantener limpias con divisores sutiles */
+body[data-theme='ultra'] .page[data-page='central'] .cx-dna-sig,
+body[data-theme='ultra'] .cx-dna-sig {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-dna-sig + .cx-dna-sig,
+body[data-theme='ultra'] .cx-dna-sig + .cx-dna-sig {
+  border-left: 1px solid rgba(255, 255, 255, 0.09) !important;
+}
+body[data-theme='ultra'] .cx-sf-row,
+body[data-theme='ultra'] .cx-pt-row {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-op-row,
+body[data-theme='ultra'] .cx-sess-row,
+body[data-theme='ultra'] .cx-elo-hero,
+body[data-theme='ultra'] .cx-ckpi {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-acad-stage-cell {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-acad-stage-cell + .cx-acad-stage-cell {
+  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+body[data-theme='ultra'] .cx-diag-finding {
+  background: #040406 !important;
+  border: 0 !important;
+  border-left: 3px solid rgba(255, 255, 255, 0.22) !important;
   box-shadow: none !important;
 }
 body[data-theme='ultra'] .cx-acad-focus-strip {
@@ -950,46 +1022,109 @@ body[data-theme='ultra'] .central-bar-track > i.bar-rose {
   background: #ef4444 !important;
 }
 
-/* Tabs, segmentadores y hover states en Central */
+/* Tabs, segmentadores y hover states en Central, Cuenta y Postmatch */
 body[data-theme='ultra'] .page[data-page='central'] .cx-mode-bar,
-body[data-theme='ultra'] .cx-mode-bar,
+body[data-theme='ultra'] .cx-mode-bar {
+  background: #050507 !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+}
 body[data-theme='ultra'] .central-range-pills,
 body[data-theme='ultra'] .cx-sort-pills,
-body[data-theme='ultra'] .acct-subtabs,
-body[data-theme='ultra'] .pm-tabs {
+body[data-theme='ultra'] .acct-subtabs {
   background: #040406 !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
-body[data-theme='ultra'] .cx-mode-tab,
+body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab,
+body[data-theme='ultra'] .cx-mode-tab {
+  background: transparent !important;
+  color: #a1a1aa !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 8px 8px 0 0 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab:hover,
+body[data-theme='ultra'] .cx-mode-tab:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab.is-active,
+body[data-theme='ultra'] .cx-mode-tab.is-active {
+  background: rgba(255, 255, 255, 0.065) !important;
+  border: 0 !important;
+  border-bottom: 2px solid #ffffff !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-mode-tab b {
+  background: #0b0b0f !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  padding: 2px 8px !important;
+  color: #d4d4d8 !important;
+}
+body[data-theme='ultra'] .cx-mode-tab.is-active b {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+}
 body[data-theme='ultra'] .central-range-btn,
-body[data-theme='ultra'] .cx-sort-btn {
+body[data-theme='ultra'] .cx-sort-btn,
+body[data-theme='ultra'] .acct-subtab,
+body[data-theme='ultra'] .startup-seg-btn {
   background: transparent !important;
   color: #a1a1aa !important;
   border-color: transparent !important;
 }
-body[data-theme='ultra'] .cx-mode-tab:hover,
 body[data-theme='ultra'] .central-range-btn:hover,
-body[data-theme='ultra'] .cx-sort-btn:hover {
+body[data-theme='ultra'] .cx-sort-btn:hover,
+body[data-theme='ultra'] .acct-subtab:hover,
+body[data-theme='ultra'] .startup-seg-btn:hover {
   background: #0f0f14 !important;
   color: #ffffff !important;
 }
-body[data-theme='ultra'] .cx-mode-tab b {
-  background: #09090c !important;
-  border: 1px solid rgba(255, 255, 255, 0.11) !important;
-  color: #d4d4d8 !important;
-}
-body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab.is-active,
-body[data-theme='ultra'] .cx-mode-tab.is-active,
 body[data-theme='ultra'] .central-range-btn.is-active,
 body[data-theme='ultra'] .cx-sort-btn.is-active,
-body[data-theme='ultra'] .pm-tab.is-active {
+body[data-theme='ultra'] .acct-subtab.active,
+body[data-theme='ultra'] .startup-seg-btn.is-active,
+body[data-theme='ultra'] .startup-seg-btn.active,
+body[data-theme='ultra'] .startup-seg-btn[aria-pressed='true'] {
   background: #15151a !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
   color: #ffffff !important;
 }
-body[data-theme='ultra'] .cx-mode-tab.is-active b {
+/* Postmatch Deep Dive Chapter Tabs (grilla de 3 tarjetas, sin caja externa pegada) */
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-tabs,
+body[data-theme='ultra'] .pm-tabs {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-tab {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-tab:hover {
+  background: #111116 !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-tab.is-active {
+  background: #141418 !important;
+  border-color: rgba(255, 255, 255, 0.34) !important;
+  box-shadow: inset 0 -2px 0 #ffffff !important;
+}
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-tab-ico {
   background: #040406 !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-tab.is-active .pm-tab-ico {
+  background: #0a0a0e !important;
+  border-color: rgba(255, 255, 255, 0.26) !important;
+}
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-tab.is-active .pm-tab-copy strong {
   color: #ffffff !important;
 }
 
@@ -1047,9 +1182,9 @@ body[data-theme='ultra'] #postMatchReport .review-stage {
   box-shadow: none !important;
 }
 body[data-theme='ultra'] :is(#postMatch, #postMatchReport) .pm-eyebrow {
-  background: #040406 !important;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 6px;
+  background: transparent !important;
+  border: 0 !important;
+  color: #a1a1aa !important;
 }
 body[data-theme='ultra'] .pm-kpi,
 body[data-theme='ultra'] .pm-coach-row,
@@ -1218,22 +1353,60 @@ body[data-theme='ultra'] .includes-free {
 
 /* ==================== 8) TRAINING HUB & TECH TREE ==================== */
 body[data-theme='ultra'] .tr-root {
+  --tr-surface: #09090c;
+  --tr-border: rgba(255, 255, 255, 0.115);
+  --tr-border-gold: rgba(255, 255, 255, 0.14);
   background: transparent !important;
 }
-body[data-theme='ultra'] .tr-tabs,
+body[data-theme='ultra'] .tr-nav-bar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+body[data-theme='ultra'] .tr-tab {
+  color: #a1a1aa !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 8px 8px 0 0 !important;
+  background: transparent !important;
+}
+body[data-theme='ultra'] .tr-tab:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body[data-theme='ultra'] .tr-tab.is-active {
+  background: rgba(255, 255, 255, 0.065) !important;
+  border: 0 !important;
+  border-bottom: 2px solid #ffffff !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+/* Cuando el indicador deslizante está activo, el botón queda transparente para no duplicar bordes */
+body[data-theme='ultra'] .tr-tabs-row:has(.tr-glide-indicator.is-ready) .tr-tab.is-active {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .tr-glide-indicator {
+  background: rgba(255, 255, 255, 0.065) !important;
+  border: 0 !important;
+  border-bottom: 2px solid #ffffff !important;
+  border-radius: 8px 8px 0 0 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .tr-tab-pill {
+  padding: 2px 7px !important;
+}
 body[data-theme='ultra'] .tr-map-mode-switch,
 body[data-theme='ultra'] .tr-click-mode-switch,
 body[data-theme='ultra'] .tt-mode-pills {
   background: #040406 !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
-body[data-theme='ultra'] .tr-tab.is-active,
-body[data-theme='ultra'] .tr-glide-indicator,
 body[data-theme='ultra'] .tr-map-mode-btn.is-active,
 body[data-theme='ultra'] .tt-pill.is-active,
 body[data-theme='ultra'] .tt-glide-pill {
   background: #15151a !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
   color: #ffffff !important;
 }
 body[data-theme='ultra'] .tr-perf-banner,
@@ -1245,6 +1418,12 @@ body[data-theme='ultra'] .tr-weekly-sanctuary,
 body[data-theme='ultra'] .tr-plan-hero,
 body[data-theme='ultra'] .tr-queue-card,
 body[data-theme='ultra'] .tr-bo-card,
+body[data-theme='ultra'] .tr-bo-library,
+body[data-theme='ultra'] .tr-bo-steps-panel,
+body[data-theme='ultra'] .tr-bo-detail,
+body[data-theme='ultra'] .tr-bo-civ-panel,
+body[data-theme='ultra'] .tr-bo-civ-card,
+body[data-theme='ultra'] .tr-bo-hud-panel,
 body[data-theme='ultra'] .tr-pro-refs-card,
 body[data-theme='ultra'] .tr-war-table-head,
 body[data-theme='ultra'] .tr-plan-flow-card,
@@ -1252,7 +1431,11 @@ body[data-theme='ultra'] .tr-powerspike-card,
 body[data-theme='ultra'] .tr-clash-card,
 body[data-theme='ultra'] .tr-traps-card,
 body[data-theme='ultra'] .tr-age-plan-card,
+body[data-theme='ultra'] .tr-arena-header,
 body[data-theme='ultra'] .tr-arena-stage,
+body[data-theme='ultra'] .tr-arena-lockout,
+body[data-theme='ultra'] .tr-arena-summary,
+body[data-theme='ultra'] .tr-unlock-celebration,
 body[data-theme='ultra'] .tr-hud-mockup,
 body[data-theme='ultra'] .tr-welcome-modal,
 body[data-theme='ultra'] .tr-lock-stage,
@@ -1264,6 +1447,12 @@ body[data-theme='ultra'] .tt-canvas-shell,
 body[data-theme='ultra'] .tt-inspector {
   background: #09090c !important;
   border-color: rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .tr-pel-steps {
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
   box-shadow: none !important;
 }
 body[data-theme='ultra'] .tr-age-stage,
@@ -1280,7 +1469,6 @@ body[data-theme='ultra'] .tr-q-empty,
 body[data-theme='ultra'] .tr-pm-slot,
 body[data-theme='ultra'] .tr-perf-crest-frame,
 body[data-theme='ultra'] .tr-perf-directive,
-body[data-theme='ultra'] .tr-pel-steps,
 body[data-theme='ultra'] .tr-step-row,
 body[data-theme='ultra'] .tr-pro-ref-item,
 body[data-theme='ultra'] .tr-flow-pill,

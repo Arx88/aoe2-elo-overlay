@@ -1,3 +1,11 @@
+## v3.3.10 · Pulido de precisión del skin Ultra (tabs unificados y cajas con aire en toda la app)
+
+- **Tabs unificados y sin bordes dobles en skin Ultra (`ultra-skin.css`):** se corrigieron las barras de pestañas de **Central** (`RM 1v1 / Global` y `Resumen / Civs y Mapas / Mejora y ELO`), **Entrenamiento** (eliminando el solapamiento con el indicador deslizante `.tr-glide-indicator`), **barra lateral**, **Cuenta** y **Postmatch Deep Dive**, logrando subrayados activos blancos nítidos y cero colisión de bordes.
+- **Eliminación de cajas pegadas al texto sin padding:** se quitaron los bordes forzados sobre bloques internos sin margen propio en **Prematch**, **Batalla**, **Postmatch**, **Apariencia** (`.pm-config-block`), **Central** (`.cx-dna-sig`, filas y divisores KPI), **Entrenamiento → Progreso** (`.tr-pel-steps`) y **Postmatch** (`.pm-eyebrow`).
+- **Limpieza total de restos heredados:** unificación final de **Build Orders**, **Arena** (sin arte de fondo heredado) y tarjetas de **Cuenta** al negro puro OLED (`#000000` / `#09090c`).
+
+---
+
 ## v3.3.9 · Skin exclusiva Ultra (OLED Negro Puro), Matchups conectados por edad, Prueba Ultra de 7 días y enlace de referidos renovado
 
 - **Nueva apariencia exclusiva **Ultra** (Negro Puro OLED para toda la app y overlay transparente):** tema de alta precisión exclusivo del plan Ultra con negro absoluto (`#000000`), tipografía de alto contraste, micro-bordes hairline, eliminación completa de acentos dorados heredados en Central/Postmatch/Entrenamiento y ventana de overlay 100 % transparente sin recuadro de fondo.
