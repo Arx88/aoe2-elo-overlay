@@ -1,3 +1,10 @@
+## v3.3.8 · Escudos oficiales limpios de las 4 Edades (PNG transparente) y scroll vertical sedoso global
+
+- **Emblemas oficiales de AoE2:DE en PNG transparente sin bordes sucios (`assets/icons/ages/{dark,feudal,castle,imperial}.png`):** se reemplazaron los escudos con manchas de pergamino por las versiones oficiales limpias de *Age of Empires II: Definitive Edition* (`112×112` RGBA transparente, verificados visualmente en Chromium sobre fondo oscuro en Postmatch, Central, Árbol Tecnológico y Entrenamiento).
+- **Scroll vertical sedoso global corregido (`ui/smooth-motion.js`):** se eliminaron los dos bloqueos que impedían sentir el scroll suave vertical en Central, Postmatch y el resto de las pantallas — el filtro `Math.abs(dy) < 20 && !Number.isInteger(dy)` (que descartaba eventos de rueda en monitores 4K / 175 % DPI y ratones de alta resolución) y el corte prematuro `stallFrames >= 3` en el tramo final de desaceleración — alineando la física vertical (`tau = 155 ms`, multiplicador `1.18×`) con la suavidad del Árbol Tecnológico y añadiendo soporte limpio sobre elementos SVG y cancelación instantánea con teclado o barra lateral.
+
+---
+
 ## v3.3.7 · Rediseño visual editorial del bloque eAPM en Postmatch (verificado en Chromium para 2, 6 y 8 jugadores)
 
 - **Aislamiento estricto de SVG contra estilos globales (`command.css`):** se corrigió la regla heredada de `settings.css` (`svg { stroke: currentColor; stroke-width: 1.5 }`) que dibujaba bordes blancos alrededor de los gráficos y aros blancos sobre los puntos de dispersión, usando `:where()` para preservar los contornos nítidos de cada caja intercuartil `Q1–Q3` y las píldoras de edad `F/C/I`.

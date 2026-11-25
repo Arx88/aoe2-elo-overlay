@@ -39,12 +39,12 @@
   }
 
   function findVertTarget(startEl, deltaY) {
-    let cur = startEl;
+    let cur = startEl && startEl.nodeType === 1 ? startEl : startEl?.parentElement;
     while (cur && cur !== root.document.body) {
       if (cur.tagName === 'TEXTAREA' || cur.tagName === 'SELECT') return null;
       if (isVertScrollable(cur)) {
-        const atTop = cur.scrollTop <= 0;
-        const atBottom = cur.scrollTop + cur.clientHeight >= cur.scrollHeight - 1;
+        const atTop = cur.scrollTop <= 0.5;
+        const atBottom = cur.scrollTop + cur.clientHeight >= cur.scrollHeight - 1.5;
         if ((deltaY < 0 && !atTop) || (deltaY > 0 && !atBottom)) return cur;
       }
       cur = cur.parentElement;
@@ -53,7 +53,7 @@
   }
 
   function findHorizDragTarget(startEl) {
-    let cur = startEl;
+    let cur = startEl && startEl.nodeType === 1 ? startEl : startEl?.parentElement;
     while (cur && cur !== root.document.body) {
       if (cur.id === 'ttLanesScroll') return null;
       if (cur.tagName === 'INPUT' || cur.tagName === 'TEXTAREA' || cur.tagName === 'SELECT') return null;
@@ -63,16 +63,19 @@
     return null;
   }
 
-  // ==================== 1. RUEDA VERTICAL AMORTIGUADA SEGURA (CON WATCHDOG) ====================
+  // ==================== 1. RUEDA VERTICAL SEDOSA GLOBAL (ESTILO ÁRBOL TECNOLÓGICO) ====================
   const wheelStates = new WeakMap();
+  let activeVertEl = null;
 
   function cancelVertState(el) {
+    if (!el) return;
     const st = wheelStates.get(el);
     if (!st) return;
     if (st.raf) {
       cancelAnimationFrame(st.raf);
       st.raf = null;
     }
+    if (activeVertEl === el) activeVertEl = null;
   }
 
   root.document.addEventListener('wheel', (ev) => {
@@ -81,11 +84,9 @@
     if (!ev.deltaY) return;
 
     let dy = ev.deltaY;
-    if (ev.deltaMode === 1) dy *= 36;
-    else if (ev.deltaMode === 2) dy *= 340;
-
-    // Respetar gestos nativos ultra-finos de trackpad de precisión
-    if (ev.deltaMode === 0 && Math.abs(dy) < 20 && !Number.isInteger(dy)) return;
+    if (ev.deltaMode === 1) dy *= 38;
+    else if (ev.deltaMode === 2) dy *= 360;
+    else dy *= 1.18;
 
     const targetEl = findVertTarget(ev.target, dy);
     if (!targetEl) return;
@@ -103,13 +104,11 @@
         lastFrame: nowTs,
         lastInputAt: nowTs,
         prevApplied: targetEl.scrollTop,
-        stallFrames: 0,
       };
       wheelStates.set(targetEl, st);
     }
     st.maxScroll = maxScroll;
     st.lastInputAt = nowTs;
-    st.stallFrames = 0;
     if (!st.raf) {
       st.current = targetEl.scrollTop;
       st.target = targetEl.scrollTop;
@@ -117,48 +116,54 @@
       st.lastFrame = nowTs;
     }
     st.target = Math.max(0, Math.min(st.maxScroll, st.target + dy));
+    activeVertEl = targetEl;
 
     if (!st.raf) {
       const step = (now) => {
         const dt = Math.min(40, Math.max(4, now - st.lastFrame));
         st.lastFrame = now;
 
-        // Watchdog estricto: ninguna inercia vertical dura más de 1,4 s sin nueva rueda
-        if (now - st.lastInputAt > 1400 || !targetEl.isConnected) {
+        // Watchdog de seguridad (2,4 s tras la última rueda) o contenedor desconectado
+        if (now - st.lastInputAt > 2400 || !targetEl.isConnected) {
           st.raf = null;
+          if (activeVertEl === targetEl) activeVertEl = null;
           return;
         }
 
-        // Si el usuario movió la barra de scroll manualmente, ceder al instante
-        if (Math.abs(targetEl.scrollTop - st.prevApplied) > 28) {
+        // Si el usuario arrastró la barra de scroll o saltó programáticamente, ceder al instante
+        if (Math.abs(targetEl.scrollTop - st.prevApplied) > 36) {
           st.raf = null;
+          if (activeVertEl === targetEl) activeVertEl = null;
           return;
         }
+
+        // Recalcular tope por si la altura del documento cambió dinámicamente
+        st.maxScroll = Math.max(0, targetEl.scrollHeight - targetEl.clientHeight);
+        st.target = Math.max(0, Math.min(st.maxScroll, st.target));
 
         const diff = st.target - st.current;
-        if (Math.abs(diff) < 0.5) {
-          targetEl.scrollTop = Math.round(st.target);
+        if (Math.abs(diff) < 0.35) {
+          targetEl.scrollTop = st.target;
           st.current = targetEl.scrollTop;
+          st.prevApplied = targetEl.scrollTop;
           st.raf = null;
+          if (activeVertEl === targetEl) activeVertEl = null;
           return;
         }
 
-        const alpha = 1 - Math.exp(-dt / 120);
+        // Misma curva sedosa exponencial del Árbol Tecnológico (tau = 155 ms)
+        const alpha = 1 - Math.exp(-dt / 155);
         st.current += diff * alpha;
-        const before = targetEl.scrollTop;
         targetEl.scrollTop = st.current;
-        const after = targetEl.scrollTop;
-        st.prevApplied = after;
+        st.prevApplied = targetEl.scrollTop;
 
-        // Detección de tope o cambio de altura del documento: corta al instante sin loop fantasma
-        if (Math.abs(after - before) < 0.01 && Math.abs(diff) > 1.2) {
-          st.stallFrames += 1;
-          if (st.stallFrames >= 3) {
-            st.raf = null;
-            return;
-          }
-        } else {
-          st.stallFrames = 0;
+        // Si tocamos el borde superior o inferior real con dirección hacia afuera, detener limpio
+        if ((st.target <= 0 && targetEl.scrollTop <= 0.1 && diff < 0) ||
+            (st.target >= st.maxScroll && targetEl.scrollTop >= st.maxScroll - 0.5 && diff > 0)) {
+          st.current = targetEl.scrollTop;
+          st.raf = null;
+          if (activeVertEl === targetEl) activeVertEl = null;
+          return;
         }
 
         st.raf = requestAnimationFrame(step);
@@ -168,8 +173,18 @@
   }, { passive: false });
 
   root.document.addEventListener('mousedown', (ev) => {
-    if (ev.target && wheelStates.has(ev.target)) {
+    if (activeVertEl) {
+      cancelVertState(activeVertEl);
+    } else if (ev.target && wheelStates.has(ev.target)) {
       cancelVertState(ev.target);
+    }
+  }, true);
+
+  root.document.addEventListener('keydown', (ev) => {
+    if (!activeVertEl) return;
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp' || ev.key === 'PageDown' ||
+        ev.key === 'PageUp' || ev.key === 'Home' || ev.key === 'End' || ev.key === ' ') {
+      cancelVertState(activeVertEl);
     }
   }, true);
 
