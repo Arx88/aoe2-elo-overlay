@@ -729,6 +729,79 @@ body[data-theme='sakura'] {
   --ui-slider: #f472b6;
 }
 
+/* ============ 12) Ultra: OLED Pure Black Studio — exclusivo Relic Ultra (App + Overlay) ============ */
+body[data-theme='ultra'] {
+  --font: var(--interface-font);
+  --mono-font: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  --text: #f4f4f5;
+  --strong: #ffffff;
+  --muted: #8e8e98;
+  --accent: #e8c068;
+  --accent-dim: #9e844a;
+  --ultra-emerald: #22c55e;
+  --ultra-emerald-soft: #4ade80;
+  --ultra-crimson: #f87171;
+  --ultra-bg: #000000;
+  --ultra-surface: #09090b;
+  --ultra-surface-2: #040406;
+  --ultra-elevated: #111114;
+  --ultra-line: rgba(255, 255, 255, 0.085);
+  --ultra-line-strong: rgba(255, 255, 255, 0.16);
+  --panel-bg: #070709;
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --panel-blur: none;
+  --radius: 12px;
+  --panel-pad: 0.68rem 0.88rem 0.6rem;
+  --rows-pad: 0.28rem;
+  --row-gap: 0.44rem;
+  --row-pad: 0.28rem 0.4rem;
+  --row-radius: 7px;
+  --you-bg: rgba(255, 255, 255, 0.045);
+  --name-size: 0.94rem;
+  --head-size: 0.72rem;
+  --head-weight: 600;
+  --head-spacing: 0.06em;
+  --head-transform: none;
+  --head-border: rgba(255, 255, 255, 0.085);
+  --badge-bg: #111114;
+  --badge-color: #e8c068;
+  --badge-size: 0.6rem;
+  --badge-radius: 5px;
+  --shield-size: 1.32rem;
+  --shield-filter: none;
+  --shield-opacity: 1;
+  --elo-size: 1.04rem;
+  --elo-weight: 650;
+  --rank-size: 0.68rem;
+  --peak-size: 0.7rem;
+  --dot-ring: rgba(255, 255, 255, 0.18);
+  --sep-bg: rgba(255, 255, 255, 0.085);
+  --sep-margin: 0.34rem 0 0.24rem;
+  --foot-border: rgba(255, 255, 255, 0.08);
+  --foot-color: #71717a;
+  --foot-size: 0.62rem;
+  --foot-spacing: 0.04em;
+  --foot-transform: none;
+  --credit-size: 0.58rem;
+  --credit-color: #71717a;
+  --ui-page: #000000;
+  --ui-card: #09090b;
+  --ui-card-border: rgba(255, 255, 255, 0.095);
+  --ui-radius: 10px;
+  --ui-field: #040406;
+  --ui-btn-bg: #e8c068;
+  --ui-btn-text: #050506;
+  --ui-hover: #121216;
+  --ui-status: #4ade80;
+  --ui-error: #f87171;
+  --ui-focus: rgba(232, 192, 104, 0.32);
+  --ui-chip-border: rgba(255, 255, 255, 0.13);
+  --ui-scroll: rgba(255, 255, 255, 0.16);
+  --ui-track: rgba(255, 255, 255, 0.09);
+  --ui-slider: #e8c068;
+}
+
 /* ==================== GLOBAL BLACKSMITH TECH HIGHLIGHT & HOVER TOOLTIP ==================== */
 .bs-tech {
   font-weight: 700;

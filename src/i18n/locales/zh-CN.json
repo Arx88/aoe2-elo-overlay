@@ -338,7 +338,7 @@
     "billingNote": "美元计价 · 年付支持银行卡 · 月付和年付均支持 USDT/USDC",
     "ctaPro": "继续选择 Pro",
     "ctaUltra": "选择 Ultra →",
-    "ctaTrial": "免费试用 Ultra 24 小时",
+    "ctaTrial": "免费试用 Ultra 7 天",
     "includedDefault": "默认包含",
     "proAnnualSave": "$18.99 / 年 · 立省 $4.89",
     "ultraAnnualSave": "$28.99 / 年 · 立省 $6.89",
@@ -352,7 +352,9 @@
     "ultraMonthlySub": "USD · 仅比 Pro 多 $1",
     "ultraAnnualSub": "USD/月 · 按年计费 $28.99/年",
     "periodMo": "月",
-    "periodYr": "年"
+    "periodYr": "年",
+    "ctaTrialDyn": "免费试用 Ultra {dur}",
+    "ctaTrialActivating": "正在开启 {dur} Ultra 试用…"
   },
   "skins": {
     "designGroup": "悬浮窗主题",
@@ -375,7 +377,8 @@
       "dorado": "鎏金",
       "carbono": "碳黑",
       "pergamino": "羊皮纸",
-      "sakura": "樱花"
+      "sakura": "樱花",
+      "ultra": "Ultra"
     },
     "posCustom": "自定义位置",
     "posCustomInfo": "固定在屏幕 {x}, {y} 处。",
@@ -388,7 +391,12 @@
     "opacityStatus": "不透明度：{pct}%",
     "visibilityGroup": "自动显示控制",
     "hideMinimizedTitle": "AoE2 最小化时隐藏",
-    "hideMinimizedDesc": "游戏不在前台显示时自动隐藏浮窗。"
+    "hideMinimizedDesc": "游戏不在前台显示时自动隐藏浮窗。",
+    "ultraBadge": "ULTRA",
+    "ultraScopeTag": "全应用 + 浮窗",
+    "ultraLockedTip": "Relic Ultra 专属。将整个应用与浮窗切换为高对比度纯黑极简视觉模式。",
+    "ultraUnlockedTip": "Ultra 模式：将整个应用与浮窗切换为高对比度纯黑极简风格。",
+    "ultraLockedStatus": "Ultra 纯黑皮肤包含在 Relic Ultra 方案中。"
   },
   "updater": {
     "installed": "当前版本",
@@ -858,6 +866,10 @@
     "smurfDetector": {
       "title": "小号检测器",
       "desc": "结合关联账号、极端胜率、历史峰值落差与 eAPM 识别潜在小号。"
+    },
+    "ultraSkin": {
+      "title": "Ultra 纯黑皮肤（全应用）",
+      "desc": "面向整个应用与浮窗的高对比度纯黑 OLED 极简视觉模式。"
     }
   },
   "central": {
@@ -1200,11 +1212,11 @@
     "ctaFree": "暂用 Free"
   },
   "lockShowcase": {
-    "try24h": "免费试用 24 小时",
+    "try24h": "免费试用 {dur}",
     "viewPlans": "查看方案",
     "viewUltra": "查看 Ultra 方案",
     "viewPro": "查看 Pro 方案",
-    "tryUltra24h": "免费试用 Ultra 24 小时",
+    "tryUltra24h": "免费试用 Ultra {dur}",
     "freeSettingsTip": "查看免费计时设置",
     "pmPreviewTag": "胜利 · 阿拉伯 · 随机地图 1v1",
     "pmPreviewMatch": "法兰克 vs 玛雅 · 32:14",
@@ -1215,14 +1227,14 @@
     "pmPreviewAgeTempo": "时代节奏",
     "pmPreviewCombat": "战斗与效率",
     "pmTitle": "每场对局结束即刻复盘",
-    "pmLeadTrial": "免费试用 24 小时，查看你的时代节奏、经济效率与真实瓶颈。",
+    "pmLeadTrial": "免费试用 {dur}，查看你的时代节奏、经济效率与真实瓶颈。",
     "pmLeadNoTrial": "Relic Ultra 专享：时代节奏、经济、战斗与真实提升重点。",
     "pmPerk1": "时代升级时间、城镇中心空闲与 ELO 对比",
     "pmPerk2": "对局结束自动弹出轻量复盘摘要",
     "pmPerk3": "识别出的短板直达你的训练计划",
     "tacEyebrow": "Relic Pro · Ultra",
     "tacTitle": "对局实时战术辅助",
-    "tacLeadTrial": "开局文明加成提示与局内实时建造顺序。免费试用 Ultra 24 小时。",
+    "tacLeadTrial": "开局文明加成提示与局内实时建造顺序。免费试用 Ultra {dur}。",
     "tacLeadNoTrial": "Relic Pro 与 Ultra 提供开局文明加成提示与局内实时建造顺序。",
     "tacPerk1": "双方文明加成、强势兵种与弱点速览",
     "tacPerk2": "根据你的文明与地图自动匹配智能建造顺序",
@@ -2056,9 +2068,9 @@
     "orderCreateErr": "无法创建支付订单，请重试。",
     "completePaygateNote": "请在浏览器中完成 PayGate.to 支付，此窗口将自动刷新。",
     "orderConnErr": "创建订单时连接失败。",
-    "trialSignInReq": "请先登录 Google 账号以开启 24 小时免费 Ultra 试用。",
-    "trialActErr": "无法激活 24 小时试用。",
-    "trialActOk": "24 小时 Ultra 试用已开启！尽享全部功能。",
+    "trialSignInReq": "请先登录 Google 账号以开启 {dur} 免费 Ultra 试用。",
+    "trialActErr": "无法激活 {dur} 试用。",
+    "trialActOk": "{dur} Ultra 试用已开启！尽享全部功能。",
     "trialConnErr": "开启试用时连接失败。",
     "inMyPlanTip": "已在我的计划中 · 将在后续对局自动验证（点击移除）",
     "addMyPlanTip": "加入我的计划（后续对局自动验证）",
@@ -2072,16 +2084,16 @@
     "upProHeadline": "开局前洞悉对手底细",
     "upUltraHeadline": "让你的竞技水平更上一层楼",
     "upIncPro": "包含于 Relic Pro。",
-    "upTryUltra24": "可免费试用 Ultra 24 小时。",
+    "upTryUltra24": "可免费试用 Ultra {dur}。",
     "upProSub": "Relic Pro 专属功能：开局零秒即享完整对手侦察与历史。",
-    "upUltraSub": "Relic Ultra 专属功能：免费试用 24 小时，用实战检验效果。",
+    "upUltraSub": "Relic Ultra 专属功能：免费试用 {dur}，用实战检验效果。",
     "upProPerk1": "完整读取对手常用开局与文明",
     "upProPerk2": "按地图智能推荐克制文明",
     "upProPerk3": "数据中心扩展历史与核心指标",
     "upUltraPerk1": "深度赛后复盘与自动追踪目标",
     "upUltraPerk2": "结合文明加成的实时开局流程",
     "upUltraPerk3": "数据中心诊断、职业对局与竞技场",
-    "upTry24Cta": "免费试用 24 小时",
+    "upTry24Cta": "免费试用 {dur}",
     "upSeeProCta": "查看 Pro 套餐",
     "upSeeUltraCta": "查看 Ultra 套餐 →",
     "upNotNow": "暂不",
@@ -2155,7 +2167,7 @@
     "cardOrdersSub": "结合文明加成制作可视化开局流程并在局内实时跟练。",
     "cardMatchupsSub": "56 文明优劣曲线与 400+ 题竞技场战役（7 阶兵种解锁）。",
     "welcomeStartBtn": "查看我的进步 →",
-    "lockSubTrial": "免费试用 24 小时，逐局量化你的进步。",
+    "lockSubTrial": "免费试用 {dur}，逐局量化你的进步。",
     "lockSubUltra": "开通 Relic Ultra 解锁进步、我的计划、实时流程、职业对局与竞技场。",
     "lockHeroTitle": "用你的实战录像进行训练",
     "lockBulletOrders": "结合文明加成的实时开局流程",

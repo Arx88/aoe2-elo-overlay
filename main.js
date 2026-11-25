@@ -14,6 +14,7 @@ const {
   dialog,
   powerMonitor,
   safeStorage,
+  clipboard,
 } = require('electron');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -415,10 +416,20 @@ const THEME_IDS = [
   'carbono',
   'pergamino',
   'sakura',
+  'ultra',
 ];
 const THEME_ARG = ARGV.find((arg) => arg.startsWith('--theme='));
 if (THEME_ARG) config.theme = THEME_ARG.split('=')[1];
 if (!THEME_IDS.includes(config.theme)) config.theme = 'clasico';
+
+function effectiveTheme(product = null) {
+  const raw = THEME_IDS.includes(config.theme) ? config.theme : 'clasico';
+  if (raw === 'ultra' && THEME_ARG !== '--theme=ultra') {
+    const resolved = product || productState();
+    if (!allowsFeature(resolved, 'ultraSkin')) return 'clasico';
+  }
+  return raw;
+}
 
 // Solo en memoria (las capturas no deben dejar tocada la config del usuario).
 if (CIV_HELP_DEMO) config.civHelp = true;
@@ -639,8 +650,15 @@ function loadProductPublicKeys() {
 }
 const PRODUCT_PUBLIC_KEYS = loadProductPublicKeys();
 const SESSION_TOKEN_PATH = path.join(DATA_DIR, 'session.enc');
-let remoteLicenseState = { status: 'unconfigured', lastCheckAt: null, reason: null, revoked: false };
+let remoteLicenseState = { status: 'unconfigured', lastCheckAt: null, reason: null, revoked: false, trialHours: 168 };
+let cachedTrialHours = 168;
 let remoteLicenseTimer = null;
+
+function formatTrialDurationEs(hours = cachedTrialHours) {
+  const h = Math.max(1, Math.round(Number(hours) || 168));
+  if (h % 24 === 0 && h >= 48) return `${Math.round(h / 24)} días`;
+  return h === 24 ? '24 horas' : `${h} horas`;
+}
 let remoteLicenseErrorStreak = 0;
 let cachedAuthProfile = null;
 let activeAuthServer = null;
@@ -716,6 +734,9 @@ async function fetchCurrentAuthState() {
   }
   if (!res.ok) {
     return cachedAuthProfile || { signedIn: true, offline: true, error: res.error, user: null, devices: [] };
+  }
+  if (Number.isFinite(Number(res.data?.trialHours)) && Number(res.data.trialHours) > 0) {
+    cachedTrialHours = Math.round(Number(res.data.trialHours));
   }
   cachedAuthProfile = { signedIn: true, ...res.data };
   return cachedAuthProfile;
@@ -823,7 +844,11 @@ async function syncRemoteLicense(reason = 'startup') {
     allLocalPlatformIdHashes,
     publicKeys: PRODUCT_PUBLIC_KEYS || {},
   });
-  remoteLicenseState = { ...res, lastCheckAt: Date.now(), checkReason: reason };
+  const prevTrialHours = cachedTrialHours;
+  if (Number.isFinite(Number(res.trialHours)) && Number(res.trialHours) > 0) {
+    cachedTrialHours = Math.round(Number(res.trialHours));
+  }
+  remoteLicenseState = { ...res, trialHours: cachedTrialHours, lastCheckAt: Date.now(), checkReason: reason };
   if (res.status === 'verified' && res.token && res.accountId) {
     remoteLicenseErrorStreak = 0;
     productSession = { accountId: res.accountId, entitlementToken: res.token };
@@ -834,7 +859,7 @@ async function syncRemoteLicense(reason = 'startup') {
     const hadAccess = Boolean(productSession.entitlementToken || config.accessKeyGrant);
     if ((res.revoked || res.paywallEnabled) && config.accessKeyGrant) persistConfig({ accessKeyGrant: null });
     productSession = { accountId: null, entitlementToken: null };
-    if (hadAccess || res.revoked || res.paywallEnabled || res.status === 'invalid-signature') {
+    if (hadAccess || res.revoked || res.paywallEnabled || res.status === 'invalid-signature' || cachedTrialHours !== prevTrialHours) {
       log(`acceso remoto retirado (${res.reason || res.status}) · ${reason}`);
       refreshAccessPresentation();
     }
@@ -924,7 +949,9 @@ function refreshAccessPresentation(product = productState()) {
   sendView(true);
   broadcastPostMatch();
   if (settingsWin && !settingsWin.isDestroyed()) {
-    settingsWin.webContents.send('product:update', { ...product, remoteLicense: remoteLicenseState });
+    const resolvedTheme = effectiveTheme(product);
+    try { settingsWin.setBackgroundColor(resolvedTheme === 'ultra' ? '#000000' : '#0c1014'); } catch {}
+    settingsWin.webContents.send('product:update', { ...product, remoteLicense: remoteLicenseState, trialHours: cachedTrialHours, effectiveTheme: resolvedTheme });
     settingsWin.webContents.send('tactics:update', tacticalPayload());
     if (!allowsFeature(product, 'trainingHub')) {
       settingsWin.webContents.send('training:update', { unlocked: false, plan: product.plan || 'free' });
@@ -1099,7 +1126,7 @@ function overlayConfig() {
     alias: playerAlias,
     pollSeconds: config.pollSeconds,
     configPath: CONFIG_PATH,
-    theme: config.theme,
+    theme: effectiveTheme(),
     shields: CIV_SLUGS,
     civAliases: CIV_ALIASES,
     // Dataset offline en español: se manda una sola vez al renderer, que no
@@ -2636,6 +2663,7 @@ function openSettings() {
   const minW = Math.min(920, Math.max(760, wa.width - 24));
   const minH = Math.min(600, Math.max(480, wa.height - 24));
 
+  const initTheme = effectiveTheme();
   settingsWin = new BrowserWindow({
     width: initWidth,
     height: initHeight,
@@ -2643,7 +2671,7 @@ function openSettings() {
     minHeight: minH,
     title: 'Relic',
     icon: WINDOW_ICON,
-    backgroundColor: '#0c1014',
+    backgroundColor: initTheme === 'ultra' ? '#000000' : '#0c1014',
     autoHideMenuBar: true,
     show: false,
     // Sin barra nativa de Windows: la ventana dibuja su propia barra oscura
@@ -2682,7 +2710,7 @@ function openSettings() {
       settingsWin.webContents.send('settings:maximized', false);
     }
   });
-  settingsWin.loadFile(path.join(__dirname, 'settings.html'), { query: { theme: config.theme } });
+  settingsWin.loadFile(path.join(__dirname, 'settings.html'), { query: { theme: initTheme } });
   settingsWin.webContents.on('did-fail-load', (_event, code, description) =>
     log(`la configuración no cargó: ${description} (${code})`),
   );
@@ -3776,12 +3804,13 @@ function registerIpc() {
 
   ipcMain.handle('settings:get', async () => {
     await ensureProfileReady();
+    const resolvedProduct = productState();
     return {
     profileId,
     alias: playerAlias,
     origin: config.profileId ? 'manual' : 'auto',
     configPath: CONFIG_PATH,
-    theme: config.theme,
+    theme: effectiveTheme(resolvedProduct),
     opacity: clamp(Number(config.opacity) || 1, 0.15, 1),
     position: config.position,
     x: config.x,
@@ -3817,7 +3846,8 @@ function registerIpc() {
     wizardCompleted: Boolean(config.wizardCompleted),
     i18nBundles: i18n.getAllBundles(),
     remoteLicense: remoteLicenseState,
-    product: productState(),
+    trialHours: cachedTrialHours,
+    product: resolvedProduct,
     matchStartedAt: intro && intro.engaged ? intro.startedAt : null,
     exampleClockElapsedMs:
       exampleFrozenAt != null && intro && intro.engaged
@@ -3899,8 +3929,14 @@ function registerIpc() {
   ipcMain.handle('settings:theme', (_event, raw) => {
     const theme = String(raw || '');
     if (!THEME_IDS.includes(theme)) return { ok: false, error: 'Ese diseño no existe.' };
+    if (theme === 'ultra' && !allowsFeature(productState(), 'ultraSkin')) {
+      return { ok: false, ultraRequired: true, error: 'El skin Ultra está incluido en Relic Ultra.' };
+    }
 
     persistConfig({ theme });
+    if (settingsWin && !settingsWin.isDestroyed()) {
+      try { settingsWin.setBackgroundColor(theme === 'ultra' ? '#000000' : '#0c1014'); } catch {}
+    }
     send('overlay:config', overlayConfig());
     log(`diseño del overlay: ${theme}`);
     return { ok: true, theme };
@@ -4754,27 +4790,42 @@ function registerIpc() {
     return { ok: true, order: data };
   });
 
+  ipcMain.handle('app:copyText', (_event, text) => {
+    const clean = String(text ?? '');
+    if (!clean) return { ok: false, error: 'empty' };
+    try {
+      clipboard.writeText(clean);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err?.message || 'clipboard-failed' };
+    }
+  });
+
   ipcMain.handle('trial:claim', async () => {
     const apiUrl = licenseApiUrl();
     const sessionToken = loadSessionToken();
+    const durLabel = formatTrialDurationEs(cachedTrialHours);
     if (!apiUrl) return { ok: false, error: 'Servidor de licencias no configurado.' };
-    if (!sessionToken) return { ok: false, authRequired: true, error: 'Iniciá sesión con Google para activar tus 24 h gratis de Ultra.' };
+    if (!sessionToken) return { ok: false, authRequired: true, error: `Iniciá sesión con Google para activar tu prueba gratis de ${durLabel} de Ultra.` };
     const res = await licenseClient.claimUltraTrial({ apiUrl, sessionToken });
     if (!res.ok) {
       const code = res.error;
       const msg = code === 'trial-already-claimed'
-        ? 'Esta cuenta ya utilizó su prueba gratuita de 24 horas.'
+        ? 'Esta cuenta ya utilizó su prueba gratuita de Relic Ultra.'
         : code === 'trial-device-already-used'
-          ? 'Esta PC ya utilizó la prueba gratuita de 24 horas.'
+          ? 'Esta PC ya utilizó la prueba gratuita de Relic Ultra.'
           : code === 'already-has-active-plan'
             ? 'Tu cuenta ya tiene un plan pago activo.'
-            : (res.error || 'No se pudo activar la prueba de 24 horas.');
+            : (res.error || `No se pudo activar la prueba de ${durLabel}.`);
       return { ok: false, unauthorized: Boolean(res.unauthorized), code, error: msg };
+    }
+    if (Number.isFinite(Number(res.data?.trialHours)) && Number(res.data.trialHours) > 0) {
+      cachedTrialHours = Math.round(Number(res.data.trialHours));
     }
     await syncRemoteLicense('trial-claimed').catch(() => {});
     const auth = await fetchCurrentAuthState().catch(() => null);
     if (auth) broadcastAuthState(auth);
-    return { ok: true, trial: res.data, product: productState(), auth };
+    return { ok: true, trial: res.data, trialHours: cachedTrialHours, product: productState(), auth };
   });
 
   ipcMain.handle('referrals:me', async () => {

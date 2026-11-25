@@ -168,8 +168,17 @@ function escapeHtml(value) {
 }
 
 function paintThemes() {
+  const ultraAllowed = Boolean(currentProduct?.featureAccess?.ultraSkin);
   for (const button of themeButtons) {
+    const isUltraBtn = button.dataset.theme === 'ultra';
     button.classList.toggle('active', button.dataset.theme === currentTheme);
+    if (isUltraBtn) {
+      button.classList.toggle('is-locked', !ultraAllowed);
+      button.setAttribute('aria-disabled', String(!ultraAllowed));
+      button.title = ultraAllowed
+        ? t('skins.ultraUnlockedTip', 'Modo Ultra: transforma toda la aplicación y el overlay en negro puro de alto contraste.')
+        : t('skins.ultraLockedTip', 'Exclusivo de Relic Ultra. Transforma toda la aplicación y el overlay en negro puro de alto contraste.');
+    }
   }
 }
 
@@ -240,9 +249,45 @@ function paintPostmatchReference() {
       : t('postmatchPage.availableProMax', 'Disponible con Ultra.');
 }
 
+let currentTrialHours = 168;
+
+function syncTrialHoursFrom(source) {
+  const candidates = [
+    source?.trialHours,
+    source?.remoteLicense?.trialHours,
+    source?.product?.trialHours,
+    source?.product?.remoteLicense?.trialHours,
+  ];
+  for (const cand of candidates) {
+    const num = Number(cand);
+    if (Number.isFinite(num) && num >= 1 && num <= 720) {
+      currentTrialHours = Math.round(num);
+      return currentTrialHours;
+    }
+  }
+  return currentTrialHours;
+}
+
+function formatTrialDuration(hours = currentTrialHours, { short = false } = {}) {
+  const h = Math.max(1, Math.min(720, Math.round(Number(hours) || 168)));
+  const lang = typeof AppI18n === 'object' && typeof AppI18n.getLocale === 'function' ? AppI18n.getLocale() : (selectedLanguage || 'es-MX');
+  const isEn = lang === 'en';
+  const isZh = lang === 'zh-CN';
+  if (h >= 48 && h % 24 === 0) {
+    const days = h / 24;
+    if (isZh) return `${days} 天`;
+    if (isEn) return `${days} days`;
+    return `${days} días`;
+  }
+  if (isZh) return `${h} 小时`;
+  if (isEn) return short ? `${h}h` : (h === 1 ? '1 hour' : `${h} hours`);
+  return short ? `${h} h` : (h === 1 ? '1 hora' : `${h} horas`);
+}
+
 function renderProduct(product) {
   if (!product) return;
   currentProduct = product;
+  syncTrialHoursFrom(product);
   const features = Array.isArray(product.features) ? product.features : [];
   const proAccess = Boolean(product.featureAccess && product.featureAccess.postMatchComparison);
   const replayAccess = Boolean(product.featureAccess && product.featureAccess.postMatchReplay);
@@ -395,7 +440,7 @@ function renderProduct(product) {
   if (typeof trainingUi !== 'undefined' && trainingUi) {
     const trialAvail = typeof isUltraTrialAvailable === 'function' ? isUltraTrialAvailable(product) : true;
     if (typeof trainingUi.syncProduct === 'function') {
-      trainingUi.syncProduct(product, { trialAvailable: trialAvail });
+      trainingUi.syncProduct(product, { trialAvailable: trialAvail, trialHours: currentTrialHours });
     }
     if (activePage === 'training' && product.featureAccess?.trainingHub) {
       trainingUi.refresh();
@@ -407,6 +452,13 @@ function renderProduct(product) {
     syncLockedPageShowcases(product);
   }
   const resolvedPlan = product?.plan || 'free';
+  if (product?.effectiveTheme) {
+    applyTheme(product.effectiveTheme);
+  } else if (!product?.featureAccess?.ultraSkin && currentTheme === 'ultra') {
+    applyTheme('clasico');
+  } else {
+    paintThemes();
+  }
   if (resolvedPlan !== 'free') {
     try { localStorage.removeItem('relic.expiredModalDismissedV1'); } catch { /* ignore */ }
     pendingExpiredOfferLicense = null;
@@ -1508,10 +1560,19 @@ goToCentralBtn?.addEventListener('click', () => goTo('central'));
 /* ---------- diseño ---------- */
 for (const button of themeButtons) {
   button.addEventListener('click', async () => {
-    applyTheme(button.dataset.theme);
-    const response = await window.settings.theme(button.dataset.theme);
+    const targetTheme = button.dataset.theme;
+    if (targetTheme === 'ultra' && !currentProduct?.featureAccess?.ultraSkin) {
+      setStatus(t('skins.ultraLockedStatus', 'El skin Ultra está incluido en Relic Ultra.'), true);
+      goTo('plans');
+      return;
+    }
+    const previousTheme = currentTheme;
+    applyTheme(targetTheme);
+    const response = await window.settings.theme(targetTheme);
     if (!response.ok) {
+      applyTheme(previousTheme);
       setStatus(response.error || t('ui.errTheme', 'No se pudo cambiar el diseño'), true);
+      if (response.ultraRequired) goTo('plans');
       return;
     }
     setStatus(t('ui.statusTheme', 'Diseño: {name}', { name: button.querySelector('.tname').textContent }));
@@ -2088,7 +2149,8 @@ async function loadCurrent() {
   }
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
   smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
-  if (info.product) renderProduct({ ...info.product, remoteLicense: info.remoteLicense || info.product.remoteLicense });
+  if (info.trialHours != null) syncTrialHoursFrom(info);
+  if (info.product) renderProduct({ ...info.product, remoteLicense: info.remoteLicense || info.product.remoteLicense, trialHours: info.trialHours ?? info.product.trialHours });
   if (!initialBootDone && !info.profileId && window.settings?.auto) {
     try {
       const autoRes = await window.settings.auto();
@@ -3473,9 +3535,17 @@ function syncPlanPricingUi() {
   const trialAvail = isUltraTrialAvailable(currentProduct);
   if (trialBtn) {
     trialBtn.hidden = !trialAvail;
+    if (!trialBtn.disabled) {
+      trialBtn.textContent = t('plansPage.ctaTrialDyn', 'Probar Ultra {dur} gratis', { dur: formatTrialDuration(currentTrialHours, { short: true }) });
+    }
   }
-  if (typeof trainingUi !== 'undefined' && trainingUi && typeof trainingUi.setTrialAvailable === 'function') {
-    trainingUi.setTrialAvailable(trialAvail);
+  if (typeof trainingUi !== 'undefined' && trainingUi) {
+    if (typeof trainingUi.setTrialHours === 'function') {
+      trainingUi.setTrialHours(currentTrialHours);
+    }
+    if (typeof trainingUi.setTrialAvailable === 'function') {
+      trainingUi.setTrialAvailable(trialAvail);
+    }
   }
   if (currentProduct && typeof syncLockedPageShowcases === 'function') {
     syncLockedPageShowcases(currentProduct);
@@ -3780,6 +3850,12 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
   const btn = el('claimUltraTrialBtn');
   const statusEl = el('claimUltraTrialStatus');
   if (typeof window.settings?.claimUltraTrial !== 'function') return;
+  const durShort = formatTrialDuration(currentTrialHours, { short: true });
+  const restoreBtnLabel = () => {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.textContent = t('plansPage.ctaTrialDyn', 'Probar Ultra {dur} gratis', { dur: formatTrialDuration(currentTrialHours, { short: true }) });
+  };
   const setStatus = (msg, cls = '') => {
     if (!statusEl) return;
     statusEl.textContent = msg;
@@ -3788,35 +3864,30 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
   };
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Activando 24 h de Ultra...';
+    btn.textContent = t('plansPage.ctaTrialActivating', 'Activando {dur} de Ultra…', { dur: durShort });
   }
   setStatus('');
   try {
     const res = await window.settings.claimUltraTrial();
+    if (res?.trialHours != null) syncTrialHoursFrom(res);
     if (!res?.ok) {
       if (res?.authRequired || res?.unauthorized) {
-        setStatus(t('ui.trialSignInReq', 'Iniciá sesión con Google para activar tus 24 h gratis de Ultra.'));
+        setStatus(t('ui.trialSignInReq', 'Iniciá sesión con Google para activar tu prueba gratis de {dur} de Ultra.', { dur: formatTrialDuration(currentTrialHours, { short: true }) }));
         if (typeof window.settings?.authGoogleLogin === 'function') {
           await window.settings.authGoogleLogin();
         }
       } else {
-        setStatus(res?.error || t('ui.trialActErr', 'No se pudo activar la prueba de 24 h.'), 'is-err');
+        setStatus(res?.error || t('ui.trialActErr', 'No se pudo activar la prueba de {dur}.', { dur: formatTrialDuration(currentTrialHours, { short: true }) }), 'is-err');
       }
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Probar Ultra 24 h gratis';
-      }
+      restoreBtnLabel();
       return;
     }
     if (res.product) renderProduct(res.product);
     if (btn) btn.hidden = true;
-    setStatus(t('ui.trialActOk', '¡Prueba Ultra de 24 h activada! Disfrutá la experiencia completa.'), 'is-ok');
+    setStatus(t('ui.trialActOk', '¡Prueba Ultra de {dur} activada! Disfrutá la experiencia completa.', { dur: formatTrialDuration(res.trialHours || currentTrialHours, { short: true }) }), 'is-ok');
   } catch (_) {
     setStatus(t('ui.trialConnErr', 'Error de conexión al activar la prueba.'), 'is-err');
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'Probar Ultra 24 h gratis';
-    }
+    restoreBtnLabel();
   }
 });
 
@@ -4025,12 +4096,14 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
     .trim();
   const capFeature = cleanFeature ? cleanFeature.charAt(0).toUpperCase() + cleanFeature.slice(1) : '';
 
+  const durLong = formatTrialDuration(currentTrialHours, { short: false });
+  const durShort = formatTrialDuration(currentTrialHours, { short: true });
   const headline = capFeature || (isPro ? t('ui.upProHeadline', 'Conocé a tu rival antes de empezar') : t('ui.upUltraHeadline', 'Llevá tu juego un paso más allá'));
   const lead = featureDesc
-    ? `${featureDesc} ${isPro ? t('ui.upIncPro', 'Incluido en Relic Pro.') : t('ui.upTryUltra24', 'Podés probar Ultra gratis 24 horas.')}`
+    ? `${featureDesc} ${isPro ? t('ui.upIncPro', 'Incluido en Relic Pro.') : t('ui.upTryUltra24', 'Podés probar Ultra gratis {dur}.', { dur: durLong })}`
     : (isPro
       ? t('ui.upProSub', 'Forma parte de Relic Pro. Lectura completa de rivales e historial desde el minuto cero.')
-      : t('ui.upUltraSub', 'Forma parte de Relic Ultra. Probalo gratis durante 24 horas y decidí con tus partidas.'));
+      : t('ui.upUltraSub', 'Forma parte de Relic Ultra. Probalo gratis durante {dur} y decidí con tus partidas.', { dur: durLong }));
 
   const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -4072,7 +4145,7 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
       </ul>
       <div class="rum-actions">
         ${!isPro && isUltraTrialAvailable()
-          ? `<button type="button" class="rum-cta" id="rumTrialBtn">${escapeHtml(t('ui.upTry24Cta', 'Probar 24 h gratis'))}</button><button type="button" class="rum-link" id="rumPlansBtn">${escapeHtml(t('plans.viewPlans', 'Ver planes'))} <span aria-hidden="true">→</span></button>`
+          ? `<button type="button" class="rum-cta" id="rumTrialBtn">${escapeHtml(t('ui.upTry24Cta', 'Probar {dur} gratis', { dur: durShort }))}</button><button type="button" class="rum-link" id="rumPlansBtn">${escapeHtml(t('plans.viewPlans', 'Ver planes'))} <span aria-hidden="true">→</span></button>`
           : `<button type="button" class="rum-cta" id="rumPlansBtn">${escapeHtml(isPro ? t('ui.upSeeProCta', 'Ver Plan Pro') : t('ui.upSeeUltraCta', 'Ver Plan Ultra →'))}</button><button type="button" class="rum-link" id="rumDismissBtn">${escapeHtml(t('ui.upNotNow', 'Ahora no'))}</button>`}
       </div>
     </div>
@@ -4239,6 +4312,8 @@ function bindPageLockActions(rootNode) {
 function syncLockedPageShowcases(product) {
   const access = product?.featureAccess || {};
   const trialAvail = isUltraTrialAvailable(product);
+  const durLong = formatTrialDuration(currentTrialHours, { short: false });
+  const durShort = formatTrialDuration(currentTrialHours, { short: true });
   const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const icoShield = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -4282,14 +4357,14 @@ function syncLockedPageShowcases(product) {
         eyebrow: 'Relic Ultra',
         title: t('lockShowcase.pmTitle', 'Revisa cada partida apenas termina'),
         lead: trialAvail
-          ? t('lockShowcase.pmLeadTrial', 'Pruébalo gratis durante 24 horas y mira tus tiempos, economía y focos reales de mejora.')
+          ? t('lockShowcase.pmLeadTrial', 'Pruébalo gratis durante {dur} y mira tus tiempos, economía y focos reales de mejora.', { dur: durLong })
           : t('lockShowcase.pmLeadNoTrial', 'Incluido en Relic Ultra: tiempos de edad, economía, combate y focos reales de mejora.'),
         perks: [
           { ico: icoTrend, text: t('lockShowcase.pmPerk1', 'Tiempos de Edad, inactividad del CU y comparativa ELO') },
           { ico: icoStar, text: t('lockShowcase.pmPerk2', 'Resumen flotante automático al terminar cada partida') },
           { ico: icoList, text: t('lockShowcase.pmPerk3', 'Focos detectados enviados directo a tu plan de Entrenamiento') },
         ],
-        primaryLabel: trialAvail ? t('lockShowcase.try24h', 'Probar 24 h gratis') : t('lockShowcase.viewUltra', 'Ver Plan Ultra'),
+        primaryLabel: trialAvail ? t('lockShowcase.try24h', 'Probar {dur} gratis', { dur: durShort }) : t('lockShowcase.viewUltra', 'Ver Plan Ultra'),
         secondaryLabel: t('lockShowcase.viewPlans', 'Ver planes'),
         isTrial: trialAvail,
       });
@@ -4315,14 +4390,14 @@ function syncLockedPageShowcases(product) {
         eyebrow: t('lockShowcase.tacEyebrow', 'Relic Pro · Ultra'),
         title: t('lockShowcase.tacTitle', 'Ayuda táctica en batalla'),
         lead: trialAvail
-          ? t('lockShowcase.tacLeadTrial', 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego. Prueba Ultra gratis 24 horas.')
+          ? t('lockShowcase.tacLeadTrial', 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego. Prueba Ultra gratis {dur}.', { dur: durLong })
           : t('lockShowcase.tacLeadNoTrial', 'Bonos de civilización al empezar y Build Orders en vivo sobre el juego con Relic Pro y Ultra.'),
         perks: [
           { ico: icoShield, text: t('lockShowcase.tacPerk1', 'Bonos, unidades fuertes y debilidades de ambas civs') },
           { ico: icoList, text: t('lockShowcase.tacPerk2', 'Smart Build Order en pantalla según tu civ y mapa') },
           { ico: icoStar, text: t('lockShowcase.tacPerk3', 'Overlay discreto pensado para no distraerte en partida') },
         ],
-        primaryLabel: trialAvail ? t('lockShowcase.try24h', 'Probar 24 h gratis') : t('lockShowcase.viewUltra', 'Ver Plan Ultra'),
+        primaryLabel: trialAvail ? t('lockShowcase.try24h', 'Probar {dur} gratis', { dur: durShort }) : t('lockShowcase.viewUltra', 'Ver Plan Ultra'),
         secondaryLabel: t('lockShowcase.viewPlans', 'Ver planes'),
         isTrial: trialAvail,
       });
@@ -4357,7 +4432,7 @@ function syncLockedPageShowcases(product) {
           { ico: icoTrend, text: t('lockShowcase.ovPerk3', 'Enfrentamientos previos y balance de equipos en TG') },
         ],
         primaryLabel: t('lockShowcase.viewPro', 'Ver Plan Pro'),
-        secondaryLabel: trialAvail ? t('lockShowcase.tryUltra24h', 'Probar Ultra 24 h') : t('lockShowcase.viewPlans', 'Ver planes'),
+        secondaryLabel: trialAvail ? t('lockShowcase.tryUltra24h', 'Probar Ultra {dur}', { dur: durShort }) : t('lockShowcase.viewPlans', 'Ver planes'),
         isTrial: false,
       });
       const veil = wrap.firstElementChild;
@@ -4722,23 +4797,37 @@ el('referralSignInBtn')?.addEventListener('click', async () => {
 async function copyReferralText(text, btn, defaultLabel) {
   const clean = String(text || '').trim();
   if (!clean || clean === '—') return;
+  let copied = false;
   try {
-    await navigator.clipboard.writeText(clean);
+    if (typeof window.settings?.copyText === 'function') {
+      const res = await window.settings.copyText(clean);
+      copied = Boolean(res?.ok);
+    }
+  } catch (_) {}
+  if (!copied) {
+    try {
+      await navigator.clipboard.writeText(clean);
+      copied = true;
+    } catch (_) {}
+  }
+  if (copied) {
     if (typeof UiSfx === 'object') UiSfx.play('confirm');
     if (btn) {
       btn.textContent = t('ui.copiedExcl', '¡Copiado!');
       setTimeout(() => { btn.textContent = defaultLabel; }, 1600);
     }
-  } catch (_) {
+  } else {
     setStatus(t('ui.copyErr', 'No se pudo copiar al portapapeles.'));
   }
 }
 
 el('referralCopyLinkBtn')?.addEventListener('click', () => {
-  copyReferralText(el('referralShareUrl')?.textContent, el('referralCopyLinkBtn'), t('ui.copyInviteLink', 'Copiar enlace de invitación'));
+  const shareUrl = latestReferralsState?.shareUrl || el('referralShareUrl')?.textContent;
+  copyReferralText(shareUrl, el('referralCopyLinkBtn'), t('referrals.copyLink', 'Copiar enlace de invitación'));
 });
 el('referralCopyCodeBtn')?.addEventListener('click', () => {
-  copyReferralText(el('referralCodeVal')?.textContent, el('referralCopyCodeBtn'), 'Copiar');
+  const code = latestReferralsState?.code || el('referralCodeVal')?.textContent;
+  copyReferralText(code, el('referralCopyCodeBtn'), t('common.copy', 'Copiar'));
 });
 
 el('referralApplyBtn')?.addEventListener('click', async () => {

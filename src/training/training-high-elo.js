@@ -2258,6 +2258,14 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
       label: `${CIV_GUIDE[m.myCiv]?.name || m.myCiv} vs ${CIV_GUIDE[m.rivalCiv]?.name || m.rivalCiv} (${m.wins}V-${m.losses}D)`,
     }));
 
+  // Evaluación táctica contra-aware por edad (Feudal, Castillos, Imperial) para conectar las 3 edades
+  // considerando las amenazas reales del rival y evitando fallbacks genéricos contradictorios.
+  const tacticalAges = {
+    2: evaluateAgeMatchup(mySlug, rivalSlug, 2),
+    3: evaluateAgeMatchup(mySlug, rivalSlug, 3),
+    4: evaluateAgeMatchup(mySlug, rivalSlug, 4),
+  };
+
   return buildProMatchupReport({
     myCivSlug: mySlug,
     rivalCivSlug: rivalSlug,
@@ -2281,6 +2289,7 @@ function computeMatchupWarRoom({ myCivSlug = 'franks', rivalCivSlug = 'hindustan
     rivalHoles,
     clashLines,
     recentMatchups,
+    tacticalAges,
   });
 }
 

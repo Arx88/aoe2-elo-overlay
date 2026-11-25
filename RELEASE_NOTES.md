@@ -1,3 +1,12 @@
+## v3.3.9 · Skin exclusiva Ultra (OLED Negro Puro), Matchups conectados por edad, Prueba Ultra de 7 días y enlace de referidos renovado
+
+- **Nueva apariencia exclusiva **Ultra** (Negro Puro OLED para toda la app y overlay transparente):** tema de alta precisión exclusivo del plan Ultra con negro absoluto (`#000000`), tipografía de alto contraste, micro-bordes hairline, eliminación completa de acentos dorados heredados en Central/Postmatch/Entrenamiento y ventana de overlay 100 % transparente sin recuadro de fondo.
+- **Entrenamiento → Matchups rediseñado con cadena conectada de 3 edades (3.080 cruces):** plan de partida paso a paso (**PASO 1 · Edad Feudal → PASO 2 · Edad de los Castillos → PASO 3 · Edad Imperial**) sensible a los counters reales del rival (ej. Camellos contra Francos, Huscarles contra Britanos, Fast Castle limpio en Arena), puentes explícitos de transición entre edades, badges claros en español (*Tu ventaja*, *Tramo parejo*, *Peligro rival*) y curva de reloj reordenada debajo del plan táctico con leyendas claras.
+- **Prueba gratuita de Relic Ultra ampliada a 7 días (configurable en tiempo real):** la prueba gratuita de Ultra ahora dura **7 días** y sincroniza dinámicamente su duración desde el servidor en todas las pantallas (Planes, modales de mejora, pantallas bloqueadas y Entrenamiento) en los 4 idiomas (`es-MX`, `es-ES`, `en`, `zh-CN`).
+- **Enlace de referidos reparado y página oficial de invitación:** los enlaces de invitación ahora apuntan a la página oficial de Relic (`https://relic-aoe2.pages.dev/r/<código>`) con descarga directa para Windows y copiado nativo desde el portapapeles de Electron en el modal de Referidos.
+
+---
+
 ## v3.3.8 · Escudos oficiales limpios de las 4 Edades (PNG transparente) y scroll vertical sedoso global
 
 - **Emblemas oficiales de AoE2:DE en PNG transparente sin bordes sucios (`assets/icons/ages/{dark,feudal,castle,imperial}.png`):** se reemplazaron los escudos con manchas de pergamino por las versiones oficiales limpias de *Age of Empires II: Definitive Edition* (`112×112` RGBA transparente, verificados visualmente en Chromium sobre fondo oscuro en Postmatch, Central, Árbol Tecnológico y Entrenamiento).

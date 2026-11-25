@@ -13,14 +13,15 @@ const FEATURE_ICONS = { elo: 'users', rivalCivs: 'history', rivalFavorites: 'map
   rivalOpenings: 'bow', smartTips: 'target', rivalH2H: 'sword', civRecommender: 'castle',
   civCounterPick: 'crown', smurfDetector: 'target',
   postMatchComparison: 'trend', postMatchReplay: 'clock', smartBuildOrder: 'villager',
-  centralWindow20: 'history', centralExpandedHistory: 'chart', trainingHub: 'target' };
+  centralWindow20: 'history', centralExpandedHistory: 'chart', trainingHub: 'target',
+  ultraSkin: 'palette' };
 const FEATURE_PLANS = { elo: 'free', rivalH2H: 'free', rosterDetails: 'pro',
   rivalCivs: 'pro', rivalFavorites: 'pro', civHelp: 'pro', tgBalance: 'pro',
   rivalOpenings: 'pro', smartTips: 'pro', civRecommender: 'pro', civCounterPick: 'pro',
   centralWindow20: 'pro',
   smurfDetector: 'promax', smartBuildOrder: 'promax', postMatch: 'promax',
   postMatchComparison: 'promax', postMatchReplay: 'promax', centralExpandedHistory: 'promax',
-  trainingHub: 'promax' };
+  trainingHub: 'promax', ultraSkin: 'promax' };
 const PLAN_RANK = { free: 0, pro: 1, promax: 2, beta: 2 };
 
 const FEATURES = Object.freeze([
@@ -84,6 +85,9 @@ const FEATURES = Object.freeze([
   { key: 'trainingHub', title: 'Entrenamiento (Beta)', plan: 'promax', alwaysOn: true,
     description: 'Progreso en radar, Mi Plan, Build Orders en vivo, Matchups de 56 civs y Arena.',
     dataNote: 'Incluido en Relic Ultra · basado en tus partidas y replays.' },
+  { key: 'ultraSkin', title: 'Skin Ultra (App completa)', plan: 'promax', alwaysOn: true,
+    description: 'Modo visual oscuro puro OLED de alto contraste para toda la app y el overlay.',
+    dataNote: 'Incluido en Relic Ultra · transforma toda la aplicación y el overlay.' },
 ].filter((feature) => feature.key !== 'scoutF2').map((feature) => Object.freeze({ ...feature,
   plan: FEATURE_PLANS[feature.key], icon: FEATURE_ICONS[feature.key] || 'compass' })));
 

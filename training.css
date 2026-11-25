@@ -2843,8 +2843,139 @@
 .tr-powerspike-svg { width: 100%; height: 168px; display: block; }
 
 /* Tactical Age Briefing Cards · Central Medallion Showcase */
+.tr-plan-flow-card {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 26, 35, 0.94) 0%, rgba(12, 16, 23, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tr-plan-flow-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tr-plan-flow-lead {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #dfe7ee;
+}
+.tr-plan-flow-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tr-leg-chip {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #b5c3cf;
+}
+.tr-leg-chip.is-em {
+  color: #8ee8ba;
+  border-color: rgba(120, 216, 166, 0.32);
+  background: rgba(120, 216, 166, 0.08);
+}
+.tr-leg-chip.is-warn {
+  color: #f4a49d;
+  border-color: rgba(239, 138, 129, 0.32);
+  background: rgba(239, 138, 129, 0.08);
+}
+.tr-plan-flow-chain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.tr-flow-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(8, 12, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  min-width: 0;
+}
+.tr-flow-pill.is-em { border-color: rgba(120, 216, 166, 0.28); }
+.tr-flow-pill.is-warn { border-color: rgba(239, 138, 129, 0.28); }
+.tr-flow-num {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f4f6f8;
+}
+.tr-flow-pill.is-em .tr-flow-num { background: rgba(120, 216, 166, 0.16); color: #8ee8ba; }
+.tr-flow-pill.is-warn .tr-flow-num { background: rgba(239, 138, 129, 0.16); color: #f4a49d; }
+.tr-flow-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tr-flow-copy small { font-size: 10px; color: #8c9ba8; text-transform: uppercase; letter-spacing: 0.05em; }
+.tr-flow-copy strong { font-size: 12.5px; color: #f3f6fa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-flow-arrow { color: #7e8d9c; font-weight: 700; font-size: 14px; text-align: center; }
+
 .tr-age-gameplan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-@container training-page (max-width: 720px) { .tr-age-gameplan-grid { grid-template-columns: 1fr; } }
+.tr-age-gameplan-grid.is-chained {
+  grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr) 20px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+.tr-age-step-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #7c8b99;
+  user-select: none;
+}
+.tr-age-bridge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #b7c4d0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  align-self: flex-start;
+}
+.tr-age-stat-note {
+  margin: -4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #8c9aa6;
+}
+.tr-age-edge-badge {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tr-clash-explain {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #93a2b0;
+}
+@container training-page (max-width: 780px) {
+  .tr-plan-flow-chain { grid-template-columns: 1fr; }
+  .tr-flow-arrow { display: none; }
+  .tr-age-gameplan-grid,
+  .tr-age-gameplan-grid.is-chained { grid-template-columns: 1fr; gap: 12px; }
+  .tr-age-step-arrow { display: none; }
+}
 .tr-age-plan-card {
   position: relative;
   overflow: hidden;

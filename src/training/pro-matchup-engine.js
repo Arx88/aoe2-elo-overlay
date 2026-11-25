@@ -177,6 +177,7 @@ function buildProMatchupReport({
   rivalHoles = [],
   clashLines = [],
   recentMatchups = [],
+  tacticalAges = null,
 } = {}) {
   const dataset = loadProMatchupDataset();
   const mapType = resolveLandMapType(mapSlug);
@@ -315,7 +316,18 @@ function buildProMatchupReport({
     overallEdge,
     mapType,
     rivalHoles,
+    tacticalAges,
   });
+
+  const planSummary = {
+    headline: clockDirective,
+    steps: gameplanByAge.map((g) => ({
+      step: g.stepNum,
+      ageLabel: g.ageLabel,
+      short: g.shortLabel || g.bestLine,
+      tone: g.edge >= 4 ? 'is-em' : (g.edge <= -4 ? 'is-warn' : 'is-even'),
+    })),
+  };
 
   // Trampas reales comprobadas + brechas verificadas del rival
   const empiricalTraps = [];
@@ -392,6 +404,7 @@ function buildProMatchupReport({
       nodes: svgNodes,
     },
     bestChain: mySide?.chain ? { label: mySide.chain[0], games: mySide.chain[1], wins: mySide.chain[2] } : null,
+    planSummary,
     gameplanByAge,
     clashLines,
     empiricalTraps,
@@ -402,219 +415,252 @@ function buildProMatchupReport({
   };
 }
 
-function buildEmpiricalGameplanByAge({ mySide, rivSide, myCivTr, rivCivTr, myName, rivalName, totalGames, clockWindows, overallEdge, mapType, rivalHoles }) {
-  if (!totalGames || !mySide) {
-    return [
-      {
-        age: 2,
-        ageLabel: 'Edad Feudal',
-        icon: 'assets/icons/ages/feudal.png',
-        bestLine: myCivTr?.op ? myCivTr.op[0] : 'Sin replays directos en este mapa',
-        compTag: myCivTr?.op ? `Patrón Pro ${myName} (${myCivTr.n} replays)` : 'Sin muestra directa',
-        edge: 0,
-        badgeTxt: 'Sin muestra del par',
-        advice: myCivTr?.op
-          ? `No hay partidas recientes de este par exacto en ${mapType === 'closed' ? 'Cerrados' : 'Abiertos'}, pero en ${myCivTr.n} replays Pro de ${myName} la apertura ganadora es ${myCivTr.op[0]} (${myCivTr.op[2]}V–${myCivTr.op[1] - myCivTr.op[2]}D).`
-          : 'No se registraron partidas directas de este par en el padrón competitivo reciente.',
-      },
-      {
-        age: 3,
-        ageLabel: 'Edad de los Castillos',
-        icon: 'assets/icons/ages/castle.png',
-        bestLine: myCivTr?.cas ? myCivTr.cas[0] : 'Transición según exploración',
-        compTag: myCivTr?.post ? `${myCivTr.post[0]} · Patrón Pro ${myName}` : 'Árbol verificado',
-        edge: 0,
-        badgeTxt: 'Sin muestra del par',
-        advice: myCivTr?.cas
-          ? `Transición Pro habitual de ${myName} en este tipo de mapa: ${myCivTr.cas[0]}${myCivTr.post ? ` con ${myCivTr.post[0]}` : ''}${rivCivTr?.cas ? ` (frente al estándar de ${rivalName}: ${rivCivTr.cas[0]})` : ''}.`
-          : 'Sin repeticiones directas analizadas para este cruce en este tipo de mapa.',
-      },
-      {
-        age: 4,
-        ageLabel: 'Edad Imperial',
-        icon: 'assets/icons/ages/imperial.png',
-        bestLine: myCivTr?.imp ? myCivTr.imp[0] : (rivalHoles[0] ? `Explotar falta de ${rivalHoles[0].es}` : 'Cierre por árbol tecnológico'),
-        compTag: myCivTr?.imp ? `Patrón Pro ${myName}` : 'Referencia técnica',
-        edge: 0,
-        badgeTxt: 'Sin muestra del par',
-        advice: rivalHoles[0]
-          ? `${rivalName} carece de ${rivalHoles[0].es}: ${rivalHoles[0].desc}`
-          : 'Apoyate en el comparador de choque Imperial de abajo para evaluar techos de mejora.',
-      },
-    ];
+function formatTacticalUnitLine(ev) {
+  if (!ev || !ev.bestPrimary) return null;
+  const primary = ev.bestPrimary.unitEs;
+  if (ev.complement && ev.complement.unitEs && ev.complement.unitEs !== primary) {
+    return `${primary} + ${ev.complement.unitEs}`;
   }
+  return primary;
+}
 
-  // 1. EDAD FEUDAL (exigir >= 2 partidas directas antes de pisar el patrón Pro consolidado de la civ con un 1V-0D aislado)
-  const hasDirectOp = Boolean(mySide.op && (mySide.op[1] >= 2 || !myCivTr?.op));
-  const op = hasDirectOp ? mySide.op : (myCivTr?.op || mySide.op || null);
-  const opIsCivFallback = !hasDirectOp && Boolean(myCivTr?.op);
-  const opAlt = hasDirectOp ? mySide.opAlt : (mySide.op && mySide.op[0] !== op?.[0] ? mySide.op : null);
-  const sw = mySide.sw && mySide.sw[1] >= 2 ? mySide.sw : null;
-  const rivOp = (rivSide?.op && rivSide.op[1] >= 2) ? rivSide.op : (rivCivTr?.op || rivSide?.op || null);
-  const fMedStr = fmtClockSec((mySide.fMed && mySide.op?.[1] >= 2) ? mySide.fMed : (myCivTr?.fMed || mySide.fMed));
+function pickRivalCounterLine(ev) {
+  if (!ev) return null;
+  const sig = ev.bestPrimary?.sigAnsLine;
+  const sigEff = Number(ev.bestPrimary?.sigAnsEff || 0);
+  if (sig && sig.key !== 'siege' && sigEff >= 0.52 && sig.unitEs) return sig.unitEs;
+  if (ev.rivTop1?.unitEs) return ev.rivTop1.unitEs;
+  if (sig && sig.unitEs) return sig.unitEs;
+  const worst = ev.bestPrimary?.worstAnsLine;
+  if (worst?.unitEs) return worst.unitEs;
+  return null;
+}
+
+function shortenPlanLabel(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return 'Plan estándar';
+  return s
+    .replace(/\bCaballería de exploración\b/gi, 'Scouts')
+    .replace(/\bLanzadores de hachas de élite\b/gi, 'Lanzadores de hachas')
+    .replace(/\bGuerrilleros de élite\b/gi, 'Guerrilleros')
+    .replace(/\bArqueros con arco largo de élite\b/gi, 'Arcos largos')
+    .replace(/\bJinetes a camello pesados\b/gi, 'Camellos pesados')
+    .replace(/\bJinetes a camello imperiales\b/gi, 'Camellos imperiales')
+    .replace(/\bJinetes a camello\b/gi, 'Camellos');
+}
+
+function buildWindowStatus(winObj, edge, rivalName) {
+  if (!winObj || !winObj.games) {
+    return {
+      badgeTxt: 'Sin muestra directa',
+      statusHint: 'Sin partidas medidas en este tramo de duración.',
+    };
+  }
+  if (winObj.games < 3) {
+    return {
+      badgeTxt: '● Muestra chica',
+      statusHint: `Solo ${winObj.wins}V–${winObj.losses}D medidos en ${winObj.shortLabel}; guiate por el plan táctico.`,
+    };
+  }
+  if (edge >= 4) {
+    return {
+      badgeTxt: '✓ Tu ventaja',
+      statusHint: `Ganás el ${winObj.winRatePct}% (${winObj.wins}V–${winObj.losses}D) si la partida se define en ${winObj.shortLabel}.`,
+    };
+  }
+  if (edge <= -4) {
+    return {
+      badgeTxt: '⚠ Peligro rival',
+      statusHint: `${rivalName} gana el ${100 - winObj.winRatePct}% (${winObj.wins}V–${winObj.losses}D) si fuerza peleas en ${winObj.shortLabel}.`,
+    };
+  }
+  return {
+    badgeTxt: '● Tramo parejo',
+    statusHint: `Cruce parejo (${winObj.winRatePct}% · ${winObj.wins}V–${winObj.losses}D) en ${winObj.shortLabel}.`,
+  };
+}
+
+function buildEmpiricalGameplanByAge({
+  mySide,
+  rivSide,
+  myCivTr,
+  rivCivTr,
+  myName,
+  rivalName,
+  totalGames,
+  clockWindows,
+  overallEdge,
+  mapType,
+  rivalHoles,
+  tacticalAges,
+}) {
+  const isClosed = mapType === 'closed';
+  const t2 = tacticalAges?.[2] || null;
+  const t3 = tacticalAges?.[3] || null;
+  const t4 = tacticalAges?.[4] || null;
+
   const fEdge = clockWindows[0].games > 0 ? clockWindows[0].edge : overallEdge;
-
-  let feudalHeadline = op ? op[0] : (mapType === 'closed' ? 'Pase limpio hacia Castillos' : 'Apertura según exploración');
-  if (!opIsCivFallback && op && sw && !feudalHeadline.includes(sw[0].replace('+ ', '').replace('→ ', ''))) {
-    feudalHeadline = `${op[0]} ${sw[0]}`;
-  }
-  const feudalTag = op
-    ? (opIsCivFallback ? `Patrón Pro ${myName} (${op[2]}V–${op[1] - op[2]}D)` : fmtRecordTag(op, fMedStr ? `Feudal ~${fMedStr}` : ''))
-    : (fMedStr ? `Pase mediano ~${fMedStr}` : 'Medido en partidas reales');
-
-  const feudalParts = [];
-  if (rivSide?.op && rivSide.op[1] >= 2) {
-    feudalParts.push(`${rivalName} abrió ${rivSide.op[0]} (${rivSide.op[1]} pj en este cruce).`);
-  } else if (rivOp) {
-    feudalParts.push(`Estándar Pro de ${rivalName}: ${rivOp[0]}.`);
-  }
-  if (op && !opIsCivFallback) {
-    const wr = Math.round((op[2] / op[1]) * 100);
-    feudalParts.push(`Mejor respuesta de ${myName} en el cruce: ${op[0]} (${op[2]}V–${op[1] - op[2]}D, ${wr}%).`);
-  } else if (op && opIsCivFallback) {
-    const wr = Math.round((op[2] / op[1]) * 100);
-    feudalParts.push(`Apertura Pro consolidada de ${myName}: ${op[0]} (${wr}% en ${op[1]} repeticiones).`);
-  }
-  if (opAlt) {
-    const altWr = Math.round((opAlt[2] / opAlt[1]) * 100);
-    feudalParts.push(`También jugado en el cruce: ${opAlt[0]} (${altWr}% en ${opAlt[1]} pj).`);
-  }
-
-  // 2. EDAD DE LOS CASTILLOS (exigir >= 2 repeticiones directas para evitar anomalías 1V-0D)
-  const hasDirectCas = Boolean(mySide.cas && (mySide.cas[1] >= 2 || !myCivTr?.cas));
-  const cas = hasDirectCas ? mySide.cas : (myCivTr?.cas || mySide.cas || null);
-  const casIsCivFallback = !hasDirectCas && Boolean(myCivTr?.cas);
-  const hasDirectPost = Boolean(mySide.post && (mySide.post[1] >= 2 || !myCivTr?.post));
-  const post = hasDirectPost ? mySide.post : (myCivTr?.post || mySide.post || null);
-  const postIsCivFallback = !hasDirectPost && Boolean(myCivTr?.post);
-  const rivCas = (rivSide?.cas && rivSide.cas[1] >= 2) ? rivSide.cas : (rivCivTr?.cas || rivSide?.cas || null);
-  const cMedStr = fmtClockSec((mySide.cMed && hasDirectCas) ? mySide.cMed : (myCivTr?.cMed || mySide.cMed));
   const cEdge = clockWindows[1].games > 0 ? clockWindows[1].edge : overallEdge;
-
-  const castleHeadline = cas
-    ? cas[0]
-    : (post ? post[0] : 'Transición medida en partida');
-  const castleTag = casIsCivFallback
-    ? `Patrón Pro ${myName}${post ? ` · ${post[0]}` : ''}`
-    : ([
-        post ? post[0] : null,
-        cas ? `${cas[2]}V–${cas[1] - cas[2]}D` : null,
-        cMedStr ? `~${cMedStr}` : null,
-      ].filter(Boolean).join(' · ') || 'Etapa media');
-
-  const castleParts = [];
-  if (post && !postIsCivFallback) {
-    const pWr = Math.round((post[2] / post[1]) * 100);
-    castleParts.push(`Postura ganadora en este cruce: ${post[0]} (${pWr}% en ${post[1]} repeticiones).`);
-  } else if (post && postIsCivFallback) {
-    castleParts.push(`Postura Pro habitual de ${myName}: ${post[0]}.`);
-  }
-  if (mySide.chain && mySide.chain[1] >= 2) {
-    castleParts.push(`Ruta ganadora verificada: ${mySide.chain[0]}.`);
-  } else if (cas && !casIsCivFallback) {
-    castleParts.push(`Núcleo principal en este cruce: ${cas[0]} (${cas[2]}V–${cas[1] - cas[2]}D).`);
-  } else if (cas && casIsCivFallback) {
-    castleParts.push(`Transición Pro sólida de ${myName}: ${cas[0]} (${cas[2]}V–${cas[1] - cas[2]}D).`);
-  }
-  if (rivSide?.cas && rivSide.cas[1] >= 2) {
-    castleParts.push(`Vigilá el giro de ${rivalName} hacia ${rivSide.cas[0]}.`);
-  } else if (rivCas) {
-    castleParts.push(`Transición típica de ${rivalName}: ${rivCas[0]}.`);
-  }
-
-  // 3. EDAD IMPERIAL (exigir >= 2 repeticiones directas o respaldo Pro de la civ)
-  const hasDirectImp = Boolean(mySide.imp && (mySide.imp[1] >= 2 || !myCivTr?.imp));
-  const imp = hasDirectImp ? mySide.imp : (clockWindows[2].games > 0 ? (myCivTr?.imp || mySide.imp) : null);
-  const impIsCivFallback = !hasDirectImp && Boolean(imp && myCivTr?.imp && imp === myCivTr.imp);
-  const rivImp = (rivSide?.imp && rivSide.imp[1] >= 2) ? rivSide.imp : (rivCivTr?.imp || rivSide?.imp || null);
   const iEdge = clockWindows[2].games > 0 ? clockWindows[2].edge : overallEdge;
 
-  const impHeadline = imp
-    ? imp[0]
-    : (clockWindows[2].games === 0 ? 'Se define antes de Imperial' : 'Cierre de juego tardío');
-  const impTag = imp
-    ? (impIsCivFallback ? `Patrón Pro ${myName} · +38m: ${clockWindows[2].winRatePct}%` : fmtRecordTag(imp, clockWindows[2].games > 0 ? `+38m: ${clockWindows[2].winRatePct}%` : ''))
-    : (clockWindows[2].games > 0 ? `${clockWindows[2].wins}V–${clockWindows[2].losses}D en +38 min` : '0 cierres largos');
+  const fStatus = buildWindowStatus(clockWindows[0], fEdge, rivalName);
+  const cStatus = buildWindowStatus(clockWindows[1], cEdge, rivalName);
+  const iStatus = buildWindowStatus(clockWindows[2], iEdge, rivalName);
 
-  const impParts = [];
-  if (imp && !impIsCivFallback) {
-    const iWr = Math.round((imp[2] / imp[1]) * 100);
-    impParts.push(`Cierre ganador en repeticiones del cruce: ${imp[0]} (${imp[2]}V–${imp[1] - imp[2]}D, ${iWr}%).`);
-  } else if (clockWindows[2].games === 0) {
-    impParts.push(`Las ${totalGames} partidas reales de este cruce terminaron antes del minuto 38 (ninguna llegó al juego largo).`);
-  } else if (imp && impIsCivFallback) {
-    impParts.push(`En +38 min registrás ${clockWindows[2].wins}V–${clockWindows[2].losses}D (${clockWindows[2].winRatePct}%). Cierre Pro estándar de ${myName}: ${imp[0]}.`);
+  // 1. PASO 1 · EDAD FEUDAL (coherente con el tipo de mapa y conectada hacia Castillos)
+  const hasStrongDirectOp = Boolean(mySide?.op && mySide.op[1] >= 4);
+  const fMedStr = fmtClockSec((mySide?.fMed && mySide.op?.[1] >= 2) ? mySide.fMed : (myCivTr?.fMed || mySide?.fMed));
+
+  let feudalHeadline;
+  let feudalTag;
+  let feudalRivalLine;
+  if (isClosed) {
+    feudalHeadline = 'Fast Castle limpio';
+    feudalTag = fMedStr ? `Mapa cerrado · Pase ~${fMedStr}` : 'Mapa cerrado · Priorizá Castillos';
+    feudalRivalLine = 'Fast Castle / Reliquias';
   } else {
-    impParts.push(`En partidas de +38 min el registro real es ${clockWindows[2].wins}V–${clockWindows[2].losses}D (${clockWindows[2].winRatePct}%).`);
-  }
-  if (rivSide?.imp && rivSide.imp[1] >= 2) {
-    impParts.push(`Cierre observado en ${rivalName}: ${rivSide.imp[0]}.`);
-  } else if (rivalHoles[0]) {
-    impParts.push(`Brecha de ${rivalName} en late-game: sin ${rivalHoles[0].es}.`);
+    feudalHeadline = hasStrongDirectOp
+      ? mySide.op[0]
+      : (formatTacticalUnitLine(t2) || mySide?.op?.[0] || myCivTr?.op?.[0] || 'Apertura según exploración');
+    feudalTag = hasStrongDirectOp
+      ? `Datos del cruce · ${mySide.op[2]}V–${mySide.op[1] - mySide.op[2]}D${fMedStr ? ` · ~${fMedStr}` : ''}`
+      : (fMedStr ? `Apertura recomendada · Pase ~${fMedStr}` : 'Apertura recomendada');
+    feudalRivalLine = (rivSide?.op && rivSide.op[1] >= 4)
+      ? rivSide.op[0]
+      : (pickRivalCounterLine(t2) || rivSide?.op?.[0] || rivCivTr?.op?.[0] || 'Presión estándar en Feudal');
   }
 
-  const feudalRivalLine = (rivSide?.op && rivSide.op[1] >= 2)
-    ? rivSide.op[0]
-    : (rivOp ? rivOp[0] : null);
-  const castleRivalLine = (rivSide?.cas && rivSide.cas[1] >= 2)
+  // 2. PASO 2 · EDAD DE LOS CASTILLOS (siempre contra-aware frente a la respuesta real del rival)
+  const hasStrongDirectCas = Boolean(mySide?.cas && mySide.cas[1] >= 4);
+  const cMedStr = fmtClockSec((mySide?.cMed && hasStrongDirectCas) ? mySide.cMed : (myCivTr?.cMed || mySide?.cMed));
+  const castleHeadline = hasStrongDirectCas
+    ? mySide.cas[0]
+    : (formatTacticalUnitLine(t3) || mySide?.cas?.[0] || myCivTr?.cas?.[0] || 'Transición según exploración');
+  const castleRivalLine = (rivSide?.cas && rivSide.cas[1] >= 4)
     ? rivSide.cas[0]
-    : (rivCas ? rivCas[0] : null);
-  const impRivalLine = (rivSide?.imp && rivSide.imp[1] >= 2)
+    : (pickRivalCounterLine(t3) || rivSide?.cas?.[0] || rivCivTr?.cas?.[0] || 'Ejército principal de Castillos');
+
+  let castlePosture;
+  if (cEdge <= -4 && iEdge > cEdge) {
+    castlePosture = 'Defendé y escalá (Boom 3 TC)';
+  } else if (cEdge >= 4) {
+    castlePosture = 'Presioná tu ventaja (1–2 TC)';
+  } else if (mySide?.post?.[1] >= 3) {
+    castlePosture = mySide.post[0];
+  } else if (isClosed) {
+    castlePosture = 'Boom 3 TC + Reliquias';
+  } else {
+    castlePosture = 'Economía sólida (2–3 TC)';
+  }
+
+  const castleTag = hasStrongDirectCas
+    ? `${castlePosture} · ${mySide.cas[2]}V–${mySide.cas[1] - mySide.cas[2]}D`
+    : `${castlePosture}${cMedStr ? ` · ~${cMedStr}` : ''}`;
+
+  // 3. PASO 3 · EDAD IMPERIAL (composición de cierre contra-aware + brecha del rival)
+  const hasStrongDirectImp = Boolean(mySide?.imp && mySide.imp[1] >= 4);
+  const impHeadline = hasStrongDirectImp
+    ? mySide.imp[0]
+    : (formatTacticalUnitLine(t4) || mySide?.imp?.[0] || myCivTr?.imp?.[0] || 'Cierre de partida');
+  const impRivalLine = (rivSide?.imp && rivSide.imp[1] >= 4)
     ? rivSide.imp[0]
-    : (rivImp ? rivImp[0] : (rivalHoles[0] ? `Sin ${rivalHoles[0].es}` : null));
-  const impRivalIsHole = !(rivSide?.imp && rivSide.imp[1] >= 2) && !rivImp && Boolean(rivalHoles[0]);
+    : (pickRivalCounterLine(t4) || rivSide?.imp?.[0] || rivCivTr?.imp?.[0] || (rivalHoles[0] ? `Sin ${rivalHoles[0].es}` : null));
+  const impRivalIsHole = !impRivalLine && Boolean(rivalHoles[0]);
 
-  const feudalShort = opAlt
-    ? `Alternativa medida: ${opAlt[0]} (${Math.round((opAlt[2] / opAlt[1]) * 100)}% en ${opAlt[1]} pj).`
-    : (op ? `Mejor respuesta Pro de ${myName} en la apertura.` : 'Priorizá exploración limpia.');
+  const impTag = hasStrongDirectImp
+    ? `Cierre verificado · ${mySide.imp[2]}V–${mySide.imp[1] - mySide.imp[2]}D`
+    : (clockWindows[2].games > 0
+      ? `Composición de cierre · +38m: ${clockWindows[2].winRatePct}%`
+      : 'Composición de cierre Imperial');
 
-  const castleShort = (mySide.chain && mySide.chain[1] >= 2)
-    ? `Ruta ganadora: ${mySide.chain[0]}.`
-    : (post ? `Postura óptima: ${post[0]}.` : 'Ajustá TCs según presión rival.');
+  // Textos humanos y conexiones explícitas Paso 1 -> Paso 2 -> Paso 3
+  const feudalShort = shortenPlanLabel(feudalHeadline);
+  const castleShort = shortenPlanLabel(castleHeadline);
+  const impShort = shortenPlanLabel(impHeadline);
 
-  const impShort = clockWindows[2].games === 0
-    ? `Las ${totalGames} partidas terminaron antes del min 38.`
-    : (rivalHoles[0] ? `Explotá que ${rivalName} juega sin ${rivalHoles[0].es}.` : `Registro en +38m: ${clockWindows[2].wins}V–${clockWindows[2].losses}D.`);
+  let feudalAdvice;
+  if (isClosed) {
+    feudalAdvice = `En mapa cerrado no gastes recursos peleando en Feudal: subí limpio para llegar a ${castleShort} antes que ${rivalName}.`;
+  } else if (t2?.complement && t2.complementReason) {
+    feudalAdvice = `Arrancá con ${feudalShort} (${t2.complementReason}) para controlar el mapa y preparar la transición a ${castleShort}.`;
+  } else {
+    feudalAdvice = `Abrí con ${feudalShort} para marcar ritmo frente a ${rivalName} y llegar ordenado a ${castleShort} en Castillos.`;
+  }
+
+  let castleAdvice;
+  if (t3?.complement && t3.complementReason) {
+    castleAdvice = `${rivalName} suele responder con ${shortenPlanLabel(castleRivalLine)}; combiná ${castleShort} (${t3.complementReason}) para no regalar peleas.`;
+  } else if (cEdge <= -4) {
+    castleAdvice = `En 26–38 min ${rivalName} aprieta con ${shortenPlanLabel(castleRivalLine)}: jugá defensivo con ${castleShort} y prepará tu salto a ${impShort}.`;
+  } else {
+    castleAdvice = `Transicioná a ${castleShort} para presionar a ${rivalName} frente a ${shortenPlanLabel(castleRivalLine)} sin perder ritmo económico.`;
+  }
+
+  let impAdvice;
+  const impRivalShort = shortenPlanLabel(impRivalLine);
+  if (t4?.complement && t4.complementReason) {
+    const holeNote = rivalHoles[0] ? ` Además, ${rivalName} no tiene ${rivalHoles[0].es}.` : '';
+    const alreadyMentionsRival = impRivalShort && t4.complementReason.toLowerCase().includes(impRivalShort.toLowerCase());
+    impAdvice = alreadyMentionsRival
+      ? `Cerrá con ${impShort} (${t4.complementReason}).${holeNote}`
+      : `Cerrá con ${impShort} (${t4.complementReason}) frente a ${impRivalShort}.${holeNote}`;
+  } else if (rivalHoles[0]) {
+    impAdvice = `Tu cierre ideal es ${impShort} frente a ${impRivalShort}. Explotá que ${rivalName} no tiene ${rivalHoles[0].es}.`;
+  } else {
+    impAdvice = `Consolidá ${impShort} con asedio y mejoras completas para imponerte a ${impRivalShort} en juego largo.`;
+  }
 
   return [
     {
+      stepNum: 1,
       age: 2,
       ageLabel: 'Edad Feudal',
       icon: 'assets/icons/ages/feudal.png',
       bestLine: feudalHeadline,
+      shortLabel: feudalShort,
+      transitionFrom: isClosed ? 'Inicio · Economía limpia' : 'Inicio · Apertura del cruce',
       compTag: feudalTag,
       posture: fMedStr ? `Pase ~${fMedStr}` : null,
       rivalLine: feudalRivalLine,
       rivalIsHole: false,
       edge: fEdge,
-      badgeTxt: clockWindows[0].games > 0 ? `${clockWindows[0].winRatePct}% · <26m` : null,
-      advice: feudalShort,
+      badgeTxt: fStatus.badgeTxt,
+      statusHint: fStatus.statusHint,
+      advice: feudalAdvice,
     },
     {
+      stepNum: 2,
       age: 3,
       ageLabel: 'Edad de los Castillos',
       icon: 'assets/icons/ages/castle.png',
       bestLine: castleHeadline,
+      shortLabel: castleShort,
+      transitionFrom: `Desde ${feudalShort} →`,
       compTag: castleTag,
-      posture: post ? post[0] : (cMedStr ? `Pase ~${cMedStr}` : null),
+      posture: castlePosture,
       rivalLine: castleRivalLine,
       rivalIsHole: false,
       edge: cEdge,
-      badgeTxt: clockWindows[1].games > 0 ? `${clockWindows[1].winRatePct}% · 26–38m` : null,
-      advice: castleShort,
+      badgeTxt: cStatus.badgeTxt,
+      statusHint: cStatus.statusHint,
+      advice: castleAdvice,
     },
     {
+      stepNum: 3,
       age: 4,
       ageLabel: 'Edad Imperial',
       icon: 'assets/icons/ages/imperial.png',
       bestLine: impHeadline,
+      shortLabel: impShort,
+      transitionFrom: `Desde ${castleShort} →`,
       compTag: impTag,
       posture: clockWindows[2].games > 0 ? `${clockWindows[2].wins}V–${clockWindows[2].losses}D en +38m` : null,
       rivalLine: impRivalLine,
       rivalIsHole: impRivalIsHole,
       edge: iEdge,
-      badgeTxt: clockWindows[2].games > 0 ? `${clockWindows[2].winRatePct}% · +38m` : null,
-      advice: impShort,
+      badgeTxt: iStatus.badgeTxt,
+      statusHint: iStatus.statusHint,
+      advice: impAdvice,
     },
   ];
 }

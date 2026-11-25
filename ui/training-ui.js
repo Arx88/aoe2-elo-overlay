@@ -626,6 +626,23 @@
     }
 
     let trialAvailable = true;
+    let trialHours = 168;
+
+    function formatTrainingTrialDuration(hours = trialHours, { short = false } = {}) {
+      const h = Math.max(1, Math.min(720, Math.round(Number(hours) || 168)));
+      const lang = typeof root.AppI18n?.getLocale === 'function' ? root.AppI18n.getLocale() : 'es-MX';
+      const isEn = lang === 'en';
+      const isZh = lang === 'zh-CN';
+      if (h >= 48 && h % 24 === 0) {
+        const days = h / 24;
+        if (isZh) return `${days} 天`;
+        if (isEn) return `${days} days`;
+        return `${days} días`;
+      }
+      if (isZh) return `${h} 小时`;
+      if (isEn) return short ? `${h}h` : (h === 1 ? '1 hour' : `${h} hours`);
+      return short ? `${h} h` : (h === 1 ? '1 hora' : `${h} horas`);
+    }
 
     function enforceLockedState() {
       stopPacerClock();
@@ -643,12 +660,14 @@
 
     function renderLockVeil() {
       if (state?.unlocked) return '<div class="tr-lock-veil" hidden></div>';
+      const durLong = formatTrainingTrialDuration(trialHours, { short: false });
+      const durShort = formatTrainingTrialDuration(trialHours, { short: true });
       const leadCopy = trialAvailable
-        ? trT('trui.lockSubTrial', 'Probalo gratis durante 24 horas y medí tu evolución partida a partida.')
+        ? trT('trui.lockSubTrial', 'Probalo gratis durante {dur} y medí tu evolución partida a partida.', { dur: durLong })
         : trT('trui.lockSubUltra', 'Desbloqueá Progreso, Mi Plan, Build Orders en vivo, Matchups y Arena con Relic Ultra.');
       const primaryAction = trialAvailable
-        ? '<button type="button" class="tr-lock-cta" id="trLockTrialBtn">Probar 24 h gratis</button><button type="button" class="tr-lock-link" id="trLockPlanesBtn">Ver planes <span aria-hidden="true">→</span></button>'
-        : '<button type="button" class="tr-lock-cta" id="trLockPlanesBtn">Ver Plan Ultra →</button>';
+        ? `<button type="button" class="tr-lock-cta" id="trLockTrialBtn">${esc(trT('lockShowcase.try24h', 'Probar {dur} gratis', { dur: durShort }))}</button><button type="button" class="tr-lock-link" id="trLockPlanesBtn">${esc(trT('plans.viewPlans', 'Ver planes'))} <span aria-hidden="true">→</span></button>`
+        : `<button type="button" class="tr-lock-cta" id="trLockPlanesBtn">${esc(trT('ui.upSeeUltraCta', 'Ver Plan Ultra →'))}</button>`;
       return `<div class="tr-lock-veil">
         <div class="tr-lock-stage">
           <img class="tr-lock-art" src="assets/art/central-hero.jpg" alt="" draggable="false" />
@@ -1363,10 +1382,46 @@
         `<button type="button" class="tr-nemesis-pill" data-tr-matchup-my="${esc(m.myCiv)}" data-tr-matchup-rival="${esc(m.rivalCiv)}">${esc(m.label)}</button>`
       ).join('');
 
+      const planSteps = Array.isArray(lab.planSummary?.steps) && lab.planSummary.steps.length === 3
+        ? lab.planSummary.steps
+        : (lab.gameplanByAge || []).map((g, idx) => ({
+            step: idx + 1,
+            ageLabel: g.ageLabel,
+            short: g.shortLabel || g.bestLine || 'Plan',
+            tone: (Number(g.edge) || 0) >= 4 ? 'is-em' : ((Number(g.edge) || 0) <= -4 ? 'is-warn' : 'is-even'),
+          }));
+
+      const planFlowStripHtml = planSteps.length
+        ? `<div class="tr-plan-flow-card">
+            <div class="tr-plan-flow-head">
+              <div>
+                <span class="eyebrow">PLAN DE PARTIDA · FEUDAL → CASTILLOS → IMPERIAL</span>
+                <p class="tr-plan-flow-lead">${esc(lab.planSummary?.headline || lab.clockDirective || 'Seguí los 3 pasos conectados desde la apertura hasta el cierre en Imperial.')}</p>
+              </div>
+              <div class="tr-plan-flow-legend">
+                <span class="tr-leg-chip is-em">✓ Verde = tu ventaja</span>
+                <span class="tr-leg-chip is-warn">⚠ Rojo = peligro rival</span>
+              </div>
+            </div>
+            <div class="tr-plan-flow-chain">
+              ${planSteps.map((st, idx) => `
+                ${idx > 0 ? '<span class="tr-flow-arrow" aria-hidden="true">→</span>' : ''}
+                <div class="tr-flow-pill ${esc(st.tone || 'is-even')}">
+                  <span class="tr-flow-num mono">${st.step}</span>
+                  <div class="tr-flow-copy">
+                    <small>${esc(st.ageLabel)}</small>
+                    <strong>${esc(st.short)}</strong>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>`
+        : '';
+
       const gameplanHtml = (lab.gameplanByAge || []).map((g, idx) => {
         const edgeVal = Number(g.edge) || 0;
         const edgeCls = edgeVal >= 4 ? 'is-em' : (edgeVal <= -4 ? 'is-warn' : 'is-even');
-        const badgeLabel = g.badgeTxt || (edgeVal >= 4 ? 'Ventaja' : (edgeVal <= -4 ? 'Cuidado' : 'Parejo'));
+        const badgeLabel = g.badgeTxt || (edgeVal >= 4 ? '✓ Tu ventaja' : (edgeVal <= -4 ? '⚠ Momento peligroso' : '● Tramo parejo'));
         const rawLine = String(g.bestLine || 'Economía y control');
         const tokens = iconRegistry
           ? iconRegistry.tokenizePlanLine(rawLine, mySlugNorm)
@@ -1380,11 +1435,19 @@
           </div>`;
         }).join('');
 
-        const tagText = String(g.compTag || 'Medido en replays');
+        const tagText = String(g.compTag || 'Plan recomendado');
         const isProDirect = /\d+V–\d+D/.test(tagText);
         const hasTcPosture = /\b[123]\s*TC\b/i.test(tagText);
         const tcIconHtml = hasTcPosture
           ? `<img class="tr-inline-tc-ico" src="${getUnitIcon('2 TC', mySlugNorm)}" alt="" draggable="false" />`
+          : '';
+
+        const stepNum = g.stepNum || (idx + 1);
+        const bridgeHtml = g.transitionFrom
+          ? `<div class="tr-age-bridge">${esc(g.transitionFrom)}</div>`
+          : '';
+        const statusHintHtml = g.statusHint
+          ? `<p class="tr-age-stat-note">${esc(g.statusHint)}</p>`
           : '';
 
         const rivalLine = g.rivalLine ? String(g.rivalLine) : '';
@@ -1393,7 +1456,7 @@
           : '';
         const rivalStripHtml = rivalLine
           ? `<div class="tr-age-rival-strip${g.rivalIsHole ? ' is-hole' : ''}">
-              <span class="tr-age-rival-kicker">${g.rivalIsHole ? 'BRECHA' : 'VS RIVAL'}</span>
+              <span class="tr-age-rival-kicker">${g.rivalIsHole ? 'BRECHA RIVAL' : 'RIVAL SUELE SACAR'}</span>
               <span class="tr-age-rival-chip">
                 <img src="${rivalIcon}" alt="" draggable="false" />
                 <b>${esc(rivalLine)}</b>
@@ -1401,16 +1464,21 @@
             </div>`
           : '';
 
-        return `<article class="tr-age-plan-card ${edgeCls} tr-stagger-${idx + 1}">
+        const arrowHtml = idx > 0 ? '<span class="tr-age-step-arrow" aria-hidden="true">→</span>' : '';
+
+        const compactAge = g.age === 2 ? 'Feudal' : (g.age === 3 ? 'Castillos' : (g.age === 4 ? 'Imperial' : g.ageLabel));
+        return `${arrowHtml}<article class="tr-age-plan-card ${edgeCls} tr-stagger-${idx + 1}">
         <div class="tr-age-plan-top">
-          <span class="tr-age-plan-age"><img src="${resolveAsset(g.icon, 'assets/icons/ages/feudal.png')}" alt="" draggable="false" />${esc(g.ageLabel)}</span>
+          <span class="tr-age-plan-age"><img src="${resolveAsset(g.icon, 'assets/icons/ages/feudal.png')}" alt="" draggable="false" />PASO ${stepNum} · ${esc(compactAge)}</span>
           <span class="tr-age-edge-badge ${edgeCls}">${esc(badgeLabel)}</span>
         </div>
+        ${bridgeHtml}
         <div class="tr-unit-showcase">${showcaseHtml}</div>
         <div class="tr-age-meta-row">
           <span class="tr-comp-tag${isProDirect ? ' is-uu' : ''}">${tcIconHtml}${esc(tagText)}</span>
         </div>
         <p class="tr-age-micro">${esc(g.advice)}</p>
+        ${statusHintHtml}
         ${rivalStripHtml}
       </article>`;
       }).join('');
@@ -1596,13 +1664,17 @@
             </div>
           </div>
 
+          ${planFlowStripHtml}
+
+          <div class="tr-age-gameplan-grid is-chained">${gameplanHtml}</div>
+
           <div class="tr-powerspike-card">
             <img class="tr-panel-art-bg is-subtle" src="assets/art/durante.webp" alt="" aria-hidden="true" draggable="false" />
             <div class="tr-ps-header">
               <div class="tr-ps-title-wrap">
-                <span class="tr-ps-eyebrow">CURVA REAL DE RELOJ · QUIÉN TIENE EL TEMPO (${esc(lab.mapTypeLabel || 'Mapas Abiertos')})</span>
+                <span class="tr-ps-eyebrow">CUÁNDO CONVIENE DEFINIR LA PARTIDA (${esc(lab.mapTypeLabel || 'Mapas Abiertos')})</span>
                 <h3>${esc(lab.verdictTitle || 'Ventanas reales de victoria por duración')}</h3>
-                ${lab.clockDirective ? `<p class="tr-ps-directive">${esc(lab.clockDirective)}</p>` : ''}
+                <p class="tr-ps-directive">Cómo cambia tu % de victoria en +2000 ELO según la duración de la partida: verde arriba = te conviene definir ahí; rojo abajo = ahí te supera ${esc(rivalCiv.name)}.</p>
               </div>
               <div class="tr-ps-badges">
                 <span class="tr-ps-badge is-gold">${esc(lab.peakWindowLabel || 'Mejor tramo')}</span>
@@ -1651,14 +1723,15 @@
             </svg>
           </div>
 
-          <div class="tr-age-gameplan-grid">${gameplanHtml}</div>
-
           ${proExamplesHtml}
 
           <div class="tr-lab-bottom-split">
             <div class="tr-clash-card">
               <div class="tr-clash-head">
-                <span class="eyebrow">${esc(trT('trui.muImpClash', 'CHOQUE IMPERIAL · TECHO DE ÁRBOL'))}</span>
+                <div>
+                  <span class="eyebrow">${esc(trT('trui.muImpClash', 'CHOQUE IMPERIAL · TECHO DE ÁRBOL'))}</span>
+                  <small class="tr-clash-explain">Fuerza de cada rama al máximo en Imperial (0–100): verde = superior tu civ · rojo = gana rival · 0 = sin acceso.</small>
+                </div>
                 <div class="tr-clash-legend">
                   <span class="is-ally"><img src="${resolveCivCrest(mySlugNorm)}" alt="" draggable="false" />${esc(myCiv.name)}</span>
                   <em>vs</em>
@@ -1669,8 +1742,8 @@
             </div>
             <div class="tr-traps-card">
               <div class="tr-traps-head">
-                <span class="eyebrow">TRAMPAS REALES Y BRECHAS</span>
-                <small>${esc(trT('trui.muVerifiedSub', 'Partidas reales + árbol verificado'))}</small>
+                <span class="eyebrow">DEBILIDADES Y TRAMPAS DEL CRUCE</span>
+                <small>Mejoras clave que le faltan a ${esc(rivalCiv.name)} y errores frecuentes a evitar.</small>
               </div>
               <div class="tr-traps-list">${trapsHtml}</div>
             </div>
@@ -3354,6 +3427,9 @@
 
     function syncProduct(product, opts = {}) {
       if (typeof opts.trialAvailable === 'boolean') trialAvailable = opts.trialAvailable;
+      if (Number.isFinite(Number(opts.trialHours)) && Number(opts.trialHours) > 0) {
+        trialHours = Math.round(Number(opts.trialHours));
+      }
       const nowUnlocked = Boolean(product?.featureAccess?.trainingHub);
       if (!nowUnlocked) {
         enforceLockedState();
@@ -3437,6 +3513,14 @@
         const next = Boolean(avail);
         if (next === trialAvailable) return;
         trialAvailable = next;
+        if (state && !state.unlocked) render();
+      },
+      setTrialHours: (hours) => {
+        const next = Number(hours);
+        if (!Number.isFinite(next) || next <= 0) return;
+        const rounded = Math.round(next);
+        if (rounded === trialHours) return;
+        trialHours = rounded;
         if (state && !state.unlocked) render();
       },
       switchSubtab,

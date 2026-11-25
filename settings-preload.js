@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('settings', {
   referralsGet: () => ipcRenderer.invoke('referrals:me'),
   referralsApply: (code) => ipcRenderer.invoke('referrals:apply', code),
   referralsActivate: () => ipcRenderer.invoke('referrals:activate'),
+  copyText: (text) => ipcRenderer.invoke('app:copyText', text),
   onReferrals: (callback) => ipcRenderer.on('referrals:update', (_event, payload) => callback(payload)),
   trainingGet: () => ipcRenderer.invoke('training:get'),
   trainingMissionAction: (payload) => ipcRenderer.invoke('training:mission-action', payload),

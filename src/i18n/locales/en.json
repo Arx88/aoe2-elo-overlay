@@ -338,7 +338,7 @@
     "billingNote": "Prices in USD · Card on Annual plan · USDT/USDC on Monthly & Annual",
     "ctaPro": "Continue with Pro",
     "ctaUltra": "Choose Ultra →",
-    "ctaTrial": "Try Ultra free for 24h",
+    "ctaTrial": "Try Ultra free for 7 days",
     "includedDefault": "Included by default",
     "proAnnualSave": "$18.99 / yr · Save $4.89",
     "ultraAnnualSave": "$28.99 / yr · Save $6.89",
@@ -352,7 +352,9 @@
     "ultraMonthlySub": "USD · Just +$1 over Pro",
     "ultraAnnualSub": "USD/mo · Billed $28.99/yr",
     "periodMo": "mo",
-    "periodYr": "yr"
+    "periodYr": "yr",
+    "ctaTrialDyn": "Try Ultra free for {dur}",
+    "ctaTrialActivating": "Activating {dur} of Ultra…"
   },
   "skins": {
     "designGroup": "Panel theme",
@@ -375,7 +377,8 @@
       "dorado": "Gold",
       "carbono": "Carbon",
       "pergamino": "Parchment",
-      "sakura": "Sakura"
+      "sakura": "Sakura",
+      "ultra": "Ultra"
     },
     "posCustom": "Custom position",
     "posCustomInfo": "Pinned at {x}, {y} on screen.",
@@ -388,7 +391,12 @@
     "opacityStatus": "Opacity: {pct}%",
     "visibilityGroup": "Automatic visibility",
     "hideMinimizedTitle": "Hide when AoE2 minimized",
-    "hideMinimizedDesc": "Hides the overlay whenever the game is not on screen."
+    "hideMinimizedDesc": "Hides the overlay whenever the game is not on screen.",
+    "ultraBadge": "ULTRA",
+    "ultraScopeTag": "Full App + Overlay",
+    "ultraLockedTip": "Relic Ultra exclusive. Transforms the entire app and overlay into high-contrast pure black.",
+    "ultraUnlockedTip": "Ultra Mode: transforms the entire app and overlay into high-contrast pure black.",
+    "ultraLockedStatus": "The Ultra skin is included with Relic Ultra."
   },
   "updater": {
     "installed": "Installed version",
@@ -858,6 +866,10 @@
     "smurfDetector": {
       "title": "Smurf Detector",
       "desc": "Flags potential smurfs using linked accounts, extreme win rate, peak drop, and eAPM."
+    },
+    "ultraSkin": {
+      "title": "Ultra Skin (Full App)",
+      "desc": "High-contrast pure OLED black studio skin for the entire app and overlay."
     }
   },
   "central": {
@@ -1200,11 +1212,11 @@
     "ctaFree": "Continue on Free"
   },
   "lockShowcase": {
-    "try24h": "Try 24h free",
+    "try24h": "Try {dur} free",
     "viewPlans": "View plans",
     "viewUltra": "View Ultra Plan",
     "viewPro": "View Pro Plan",
-    "tryUltra24h": "Try Ultra 24h",
+    "tryUltra24h": "Try Ultra {dur}",
     "freeSettingsTip": "View free timer settings",
     "pmPreviewTag": "VICTORY · ARABIA · RM 1V1",
     "pmPreviewMatch": "Franks vs Mayans · 32:14",
@@ -1215,14 +1227,14 @@
     "pmPreviewAgeTempo": "Age tempo",
     "pmPreviewCombat": "Combat & efficiency",
     "pmTitle": "Review every match the moment it ends",
-    "pmLeadTrial": "Try it free for 24 hours and inspect your timings, economy, and real improvement bottlenecks.",
+    "pmLeadTrial": "Try it free for {dur} and inspect your timings, economy, and real improvement bottlenecks.",
     "pmLeadNoTrial": "Included in Relic Ultra: age timings, economy, combat, and real improvement bottlenecks.",
     "pmPerk1": "Age timings, Town Center idle time, and ELO comparison",
     "pmPerk2": "Automatic floating summary right after each match",
     "pmPerk3": "Detected bottlenecks sent straight to your Training plan",
     "tacEyebrow": "Relic Pro · Ultra",
     "tacTitle": "Tactical help in battle",
-    "tacLeadTrial": "Civilization bonuses at match start and live Build Orders over the game. Try Ultra free for 24 hours.",
+    "tacLeadTrial": "Civilization bonuses at match start and live Build Orders over the game. Try Ultra free for {dur}.",
     "tacLeadNoTrial": "Civilization bonuses at match start and live Build Orders over the game with Relic Pro and Ultra.",
     "tacPerk1": "Bonuses, key units, and weaknesses for both civilizations",
     "tacPerk2": "Smart Build Order on screen tailored to your civ and map",
@@ -2056,9 +2068,9 @@
     "orderCreateErr": "Could not create payment order. Please try again.",
     "completePaygateNote": "Complete payment on PayGate.to in your browser. This window updates automatically.",
     "orderConnErr": "Connection error while creating order.",
-    "trialSignInReq": "Sign in with Google to activate your free 24h Ultra trial.",
-    "trialActErr": "Could not activate 24h trial.",
-    "trialActOk": "24h Ultra trial activated! Enjoy the full experience.",
+    "trialSignInReq": "Sign in with Google to activate your free {dur} Ultra trial.",
+    "trialActErr": "Could not activate {dur} trial.",
+    "trialActOk": "{dur} Ultra trial activated! Enjoy the full experience.",
     "trialConnErr": "Connection error activating trial.",
     "inMyPlanTip": "In My Plan · Auto-verified in your next matches (click to remove)",
     "addMyPlanTip": "Add to My Plan (auto-verified in your upcoming matches)",
@@ -2072,16 +2084,16 @@
     "upProHeadline": "Know your opponent before the match starts",
     "upUltraHeadline": "Take your gameplay to the next level",
     "upIncPro": "Included in Relic Pro.",
-    "upTryUltra24": "Try Ultra free for 24 hours.",
+    "upTryUltra24": "Try Ultra free for {dur}.",
     "upProSub": "Part of Relic Pro. Full opponent scouting and history from minute zero.",
-    "upUltraSub": "Part of Relic Ultra. Try it free for 24 hours and decide with your own matches.",
+    "upUltraSub": "Part of Relic Ultra. Try it free for {dur} and decide with your own matches.",
     "upProPerk1": "Full opponent openings and civ scouting",
     "upProPerk2": "Map-aware civilization recommender",
     "upProPerk3": "Extended history and metrics in Central",
     "upUltraPerk1": "Postmatch analysis & automatic progress goals",
     "upUltraPerk2": "Live build orders tailored to civ bonuses",
     "upUltraPerk3": "Central diagnostics, Pro Matchups & Arena",
-    "upTry24Cta": "Try 24h free",
+    "upTry24Cta": "Try {dur} free",
     "upSeeProCta": "View Pro Plan",
     "upSeeUltraCta": "View Ultra Plan →",
     "upNotNow": "Not now",
@@ -2155,7 +2167,7 @@
     "cardOrdersSub": "Build visual build orders with civ bonuses and follow them live in-game.",
     "cardMatchupsSub": "Win curves for 56 civs plus the 400+ question campaign with 7 unlockable units.",
     "welcomeStartBtn": "View my Progress →",
-    "lockSubTrial": "Try it free for 24 hours and track your progress match by match.",
+    "lockSubTrial": "Try it free for {dur} and track your progress match by match.",
     "lockSubUltra": "Unlock Progress, My Plan, live Build Orders, Matchups, and Arena with Relic Ultra.",
     "lockHeroTitle": "Train with your own matches",
     "lockBulletOrders": "Live build orders with civilization bonuses",

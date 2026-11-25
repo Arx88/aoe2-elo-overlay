@@ -1,0 +1,1553 @@
+/* ============================================================================
+   RELIC ULTRA SKIN — OLED Pure Black Monochrome Studio Mode
+   Exclusivo de Relic Ultra · Transforma 100% de la aplicación y el overlay.
+   Activado únicamente bajo body[data-theme='ultra'].
+
+   Lenguaje visual (fiel al modo Ultra):
+   - Lienzo negro puro OLED (#000000) en Centro de Mando; transparente en Overlay
+   - Tarjetas mate (#09090c) + pozos internos (#040406) con hairlines 1px zinc
+   - Cero campos dorados, cero bordes dorados heredados, cero fondos con color
+   - Acentos quirúrgicos estrictamente funcionales:
+       · Verde esmeralda (#22c55e / #4ade80) -> vivo, victoria, racha, activo
+       · Rojo quirúrgico (#ef4444 / #f87171) -> derrota, alerta, agresivo
+       · Oro sobrio (#e8c068) -> solo insignia ULTRA, CTA principal y dato pico
+   ============================================================================ */
+
+/* ==================== 1) BASE TOKENS & WINDOW TRANSPARENCY ==================== */
+body[data-theme='ultra'] {
+  --ui-page: #000000;
+  --ui-card: #09090c;
+  --ui-surface: #09090c;
+  --ui-surface-deep: #040406;
+  --ui-card-border: rgba(255, 255, 255, 0.115);
+  --ui-field: #040406;
+  --ui-hover: #121216;
+  --ui-focus: rgba(255, 255, 255, 0.34);
+  --text: #f4f4f5;
+  --strong: #ffffff;
+  --muted: #a1a1aa;
+  --accent: #e4e4e7;
+  --accent-dim: #71717a;
+  --line: rgba(255, 255, 255, 0.095);
+  --brass-soft: #a1a1aa;
+  --success: #4ade80;
+  --error: #f87171;
+  --ultra-gold: #e8c068;
+  --ultra-emerald: #22c55e;
+  --ultra-emerald-soft: #4ade80;
+  --ultra-crimson: #f87171;
+  --mono-font: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  --radius-control: 7px;
+  --radius-surface: 11px;
+  color: #f4f4f5;
+}
+
+/* Negro puro OLED únicamente en el Centro de Mando (settings.html) */
+body[data-theme='ultra']:has(.shell) {
+  background: #000000 !important;
+  color-scheme: dark;
+}
+
+/* Ventana transparente del Overlay (index.html): NUNCA pintar fondo negro al body */
+html:has(body[data-theme='ultra'] #stage),
+body[data-theme='ultra']:has(#stage) {
+  background: transparent !important;
+}
+
+/* Eliminar TODA ilustración atmosférica/scrim con color en modo Ultra (Central, Postmatch, Training, Overlay) */
+body[data-theme='ultra']::before,
+body[data-theme='ultra'] .launcher-rail-art,
+body[data-theme='ultra'] .account-profile::before,
+body[data-theme='ultra'] .wh-bg-flag,
+body[data-theme='ultra'] .wh-bg-veil,
+body[data-theme='ultra'] .page[data-page='central'] .cx-dna-banner::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-card-head::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-chart-head::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-hero-id::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-civs-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-civ-master-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-maps-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-academy-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-elo-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-intel-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-circadian-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-trophies-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-combat-dna-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .cx-tempo-card::before,
+body[data-theme='ultra'] .page[data-page='central'] .empty-report::before,
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-hero-v6::before,
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-focus::before,
+body[data-theme='ultra'] #postMatchReport .pm-v2 .pm-civ-mastery::before,
+body[data-theme='ultra'] .tr-weekly-sanctuary::before,
+body[data-theme='ultra'] .tr-weekly-sanctuary::after,
+body[data-theme='ultra'] .tr-wk-daily-stage::before,
+body[data-theme='ultra'] .tr-perf-ledger::before,
+body[data-theme='ultra'] .tr-arena-stage::after,
+body[data-theme='ultra'] .tr-wc-art::after,
+body[data-theme='ultra'] .tr-war-art-bg,
+body[data-theme='ultra'] .tr-panel-art-bg,
+body[data-theme='ultra'] .pm-v2 > .pm-head::after,
+body[data-theme='ultra'] .rm-map-wash,
+body[data-theme='ultra'] .rum-scrim,
+body[data-theme='ultra'] .referral-hero-scrim,
+body[data-theme='ultra'] :is(#panel #head, #scouting .scout-head, #civHelp .civhelp-head, #smartBuildOrder .smart-build > header, #postMatch .pm-head, #postMatch .review-header, #postMatch .review-scan)::after {
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+}
+
+/* Boot loader & Scrollbars */
+body[data-theme='ultra'] .app-boot-loader {
+  background: #000000 !important;
+}
+body[data-theme='ultra'] .app-boot-track {
+  background: rgba(255, 255, 255, 0.09);
+}
+body[data-theme='ultra'] ::-webkit-scrollbar-track,
+body[data-theme='ultra'] .tt-lanes-scroll::-webkit-scrollbar-track {
+  background: #000000 !important;
+}
+body[data-theme='ultra'] ::-webkit-scrollbar-thumb,
+body[data-theme='ultra'] .tt-insp-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-radius: 999px;
+}
+body[data-theme='ultra'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* ==================== 2) WINDOW CHROME & NAVIGATION RAIL ==================== */
+body[data-theme='ultra'] .winbar {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+}
+body[data-theme='ultra'] .winbtn {
+  color: #8e8e98;
+}
+body[data-theme='ultra'] .winbtn:hover {
+  background: #141418;
+  color: #ffffff;
+}
+body[data-theme='ultra'] .winbtn.close:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+body[data-theme='ultra'] .rail {
+  background: #040405 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.09) !important;
+}
+body[data-theme='ultra'] .rail-nav-sep {
+  background: rgba(255, 255, 255, 0.08);
+}
+body[data-theme='ultra'] .nav-item {
+  color: #9b9ba6;
+  border-radius: 8px;
+}
+body[data-theme='ultra'] .nav-item:hover {
+  color: #ffffff;
+  background: #0d0d11;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+body[data-theme='ultra'] .rail-nav .nav-item.active,
+body[data-theme='ultra'] .nav-item.active {
+  background: #121216 !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .rail-glide-indicator {
+  background: #121216 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .rail-glide-indicator::before {
+  background: #ffffff !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35) !important;
+}
+body[data-theme='ultra'] .nav-beta-pill,
+body[data-theme='ultra'] .nav-plan-pill,
+body[data-theme='ultra'] .rail-plan-badge {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #a1a1aa !important;
+  font-family: var(--mono-font);
+  border-radius: 5px;
+}
+body[data-theme='ultra'] .nav-plan-pill[data-tier='ultra'] {
+  background: rgba(232, 192, 104, 0.09) !important;
+  border-color: rgba(232, 192, 104, 0.42) !important;
+  color: #e8c068 !important;
+}
+
+body[data-theme='ultra'] .rail-ref-btn,
+body[data-theme='ultra'] .rail-profile-row,
+body[data-theme='ultra'] .rail-profile-card,
+body[data-theme='ultra'] .rail-user,
+body[data-theme='ultra'] .rail-plan,
+body[data-theme='ultra'] .rail-plan[data-tier='ultra'],
+body[data-theme='ultra'] .rail-plan[data-tier='pro'] {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .rail-ref-btn:hover,
+body[data-theme='ultra'] .rail-profile-row:hover,
+body[data-theme='ultra'] .rail-profile-card:hover,
+body[data-theme='ultra'] .rail-user:hover,
+body[data-theme='ultra'] .rail-plan:hover {
+  background: #121216 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+body[data-theme='ultra'] .rail-ref-ico,
+body[data-theme='ultra'] .rail-plan-emblem,
+body[data-theme='ultra'] .rail-user-avatar {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  color: #d4d4d8 !important;
+}
+body[data-theme='ultra'] .rail-ref-badge {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #f4f4f5 !important;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .rail-user-tier {
+  color: #e8c068 !important;
+}
+body[data-theme='ultra'] .rail-user-dot {
+  background: #52525b !important;
+}
+body[data-theme='ultra'] .rail-gear {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #a1a1aa;
+}
+body[data-theme='ultra'] .rail-gear:hover,
+body[data-theme='ultra'] .rail-gear[aria-expanded='true'] {
+  background: #141418 !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff;
+}
+body[data-theme='ultra'] .rail-build {
+  color: #52525b;
+}
+
+/* Content Header & Status Bar */
+body[data-theme='ultra'] main.content {
+  background: #000000 !important;
+}
+body[data-theme='ultra'] #pageTitle {
+  color: #ffffff;
+  letter-spacing: -0.035em;
+}
+body[data-theme='ultra'] #pageSub {
+  color: #a1a1aa;
+}
+body[data-theme='ultra'] #pageIndex,
+body[data-theme='ultra'] .eyebrow,
+body[data-theme='ultra'] .cx-eyebrow {
+  font-family: var(--mono-font);
+  color: #a1a1aa !important;
+  letter-spacing: 0.11em;
+}
+body[data-theme='ultra'] .content-head::after {
+  display: none !important;
+}
+body[data-theme='ultra'] .rule {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+body[data-theme='ultra'] .session-badge {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #e4e4e7 !important;
+  font-family: var(--mono-font);
+  backdrop-filter: none;
+}
+body[data-theme='ultra'] .status-bar {
+  background: #040405 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #a1a1aa;
+}
+body[data-theme='ultra'] .status-light {
+  background: #22c55e;
+  border-radius: 50%;
+  transform: none;
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
+}
+
+/* ==================== 3) CORE CARDS, CONTROLS, BUTTONS, INPUTS ==================== */
+body[data-theme='ultra'] .block,
+body[data-theme='ultra'] .pm-config-details,
+body[data-theme='ultra'] .ux-panel,
+body[data-theme='ultra'] .workflow,
+body[data-theme='ultra'] .phase-intro,
+body[data-theme='ultra'] .section-banner,
+body[data-theme='ultra'] .empty-report,
+body[data-theme='ultra'] .access-summary,
+body[data-theme='ultra'] .plan-redeem-card,
+body[data-theme='ultra'] .upd-card,
+body[data-theme='ultra'] .account-profile,
+body[data-theme='ultra'] .account-session-card,
+body[data-theme='ultra'] .account-ref-card,
+body[data-theme='ultra'] .startup-pref-card,
+body[data-theme='ultra'] .relic-auth-card,
+body[data-theme='ultra'] .training-hero,
+body[data-theme='ultra'] .training-card,
+body[data-theme='ultra'] .pm-civ-mastery,
+body[data-theme='ultra'] .pm-locked-preview {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+
+body[data-theme='ultra'] .pm-config-details .block,
+body[data-theme='ultra'] .ux-panel .block {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.085) !important;
+}
+
+body[data-theme='ultra'] .ux-panel-head,
+body[data-theme='ultra'] .pm-config-details > summary {
+  color: #ffffff;
+  border-bottom-color: rgba(255, 255, 255, 0.085);
+}
+body[data-theme='ultra'] .ux-panel-count,
+body[data-theme='ultra'] .account-ref-count {
+  font-family: var(--mono-font);
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  color: #a1a1aa !important;
+}
+body[data-theme='ultra'] .phase-intro-icon,
+body[data-theme='ultra'] .section-banner > .product-icon,
+body[data-theme='ultra'] .result-avatar {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+body[data-theme='ultra'] .block > .row,
+body[data-theme='ultra'] .row {
+  border-bottom-color: rgba(255, 255, 255, 0.075) !important;
+}
+body[data-theme='ultra'] .rname {
+  color: #ffffff;
+}
+body[data-theme='ultra'] .tog:hover .rname {
+  color: #ffffff;
+}
+body[data-theme='ultra'] .rdesc,
+body[data-theme='ultra'] .mini,
+body[data-theme='ultra'] .section-intro,
+body[data-theme='ultra'] .feature-note {
+  color: #a1a1aa;
+}
+body[data-theme='ultra'] .feature-note.locked-note {
+  color: #e8c068 !important;
+}
+
+/* Buttons — monocromo limpio; oro reservado a CTA principal */
+body[data-theme='ultra'] .btn,
+body[data-theme='ultra'] .account-profile .account-detect,
+body[data-theme='ultra'] .central-refresh-btn,
+body[data-theme='ultra'] .central-back-btn,
+body[data-theme='ultra'] .central-search-submit,
+body[data-theme='ultra'] .train-pin-btn,
+body[data-theme='ultra'] .tr-perf-pin-cta,
+body[data-theme='ultra'] .tr-wk-calm-btn,
+body[data-theme='ultra'] .tr-q-go,
+body[data-theme='ultra'] .tr-swap-civs-btn,
+body[data-theme='ultra'] .tt-ghost-btn,
+body[data-theme='ultra'] .wh-news-cta {
+  background: #111115 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #f4f4f5 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .btn:hover:not(:disabled),
+body[data-theme='ultra'] .account-profile .account-detect:hover:not(:disabled),
+body[data-theme='ultra'] .central-refresh-btn:hover:not(:disabled),
+body[data-theme='ultra'] .central-back-btn:hover:not(:disabled),
+body[data-theme='ultra'] .central-search-submit:hover:not(:disabled),
+body[data-theme='ultra'] .train-pin-btn:hover:not(:disabled),
+body[data-theme='ultra'] .tr-perf-pin-cta:hover:not(:disabled),
+body[data-theme='ultra'] .tr-wk-calm-btn:hover:not(:disabled),
+body[data-theme='ultra'] .tr-q-go:hover:not(:disabled),
+body[data-theme='ultra'] .tr-swap-civs-btn:hover:not(:disabled),
+body[data-theme='ultra'] .tt-ghost-btn:hover:not(:disabled),
+body[data-theme='ultra'] .wh-news-cta:hover:not(:disabled) {
+  background: #1a1a20 !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .train-pin-btn.is-pinned {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border-color: rgba(34, 197, 94, 0.45) !important;
+  color: #4ade80 !important;
+}
+body[data-theme='ultra'] .btn.gold,
+body[data-theme='ultra'] .wh-btn-main,
+body[data-theme='ultra'] .plan-cta-btn,
+body[data-theme='ultra'] .rum-cta,
+body[data-theme='ultra'] .tr-lock-cta {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #000000 !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .btn.gold:hover:not(:disabled),
+body[data-theme='ultra'] .wh-btn-main:hover:not(:disabled),
+body[data-theme='ultra'] .plan-cta-btn:hover:not(:disabled),
+body[data-theme='ultra'] .rum-cta:hover:not(:disabled),
+body[data-theme='ultra'] .tr-lock-cta:hover:not(:disabled) {
+  background: #e4e4e7 !important;
+  border-color: #e4e4e7 !important;
+}
+body[data-theme='ultra'] .plan-card.ultra-featured .plan-cta-btn {
+  background: #e8c068 !important;
+  border-color: #e8c068 !important;
+  color: #050506 !important;
+}
+body[data-theme='ultra'] .plan-card.ultra-featured .plan-cta-btn:hover:not(:disabled) {
+  background: #f2cf7e !important;
+  border-color: #f2cf7e !important;
+}
+body[data-theme='ultra'] .btn.active {
+  background: #16161b !important;
+  border-color: rgba(255, 255, 255, 0.34) !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .link-btn {
+  color: #d4d4d8;
+}
+body[data-theme='ultra'] .link-btn:hover {
+  color: #ffffff;
+}
+
+/* Fields, Selects, Toggles, Sliders */
+body[data-theme='ultra'] .field,
+body[data-theme='ultra'] .search-box,
+body[data-theme='ultra'] select.field,
+body[data-theme='ultra'] .select-row select,
+body[data-theme='ultra'] .tactical-controls select,
+body[data-theme='ultra'] .tt-select,
+body[data-theme='ultra'] .tt-search-input,
+body[data-theme='ultra'] .tr-war-select,
+body[data-theme='ultra'] .cx-civ-filter {
+  background-color: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #f4f4f5 !important;
+}
+body[data-theme='ultra'] .field:focus,
+body[data-theme='ultra'] .search-box:focus-within,
+body[data-theme='ultra'] select.field:focus-visible,
+body[data-theme='ultra'] .select-row select:focus-visible,
+body[data-theme='ultra'] .tt-select:focus,
+body[data-theme='ultra'] .tt-search-input:focus,
+body[data-theme='ultra'] .cx-civ-filter:focus {
+  border-color: rgba(255, 255, 255, 0.36) !important;
+}
+body[data-theme='ultra'] .sw {
+  background: #18181c;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+body[data-theme='ultra'] .sw::after {
+  background: #71717a;
+}
+body[data-theme='ultra'] .tog input:checked + .sw {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+body[data-theme='ultra'] .tog input:checked + .sw::after {
+  background: #040406;
+}
+body[data-theme='ultra'] input[type='range'] {
+  background: linear-gradient(to right, #ffffff var(--fill, 60%), #1f1f24 var(--fill, 60%));
+}
+body[data-theme='ultra'] input[type='range']::-webkit-slider-thumb {
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 50%;
+  transform: none;
+}
+
+/* Universal Mono Pills & Chips (cero tintes dorados sucios) */
+body[data-theme='ultra'] .feature-plan,
+body[data-theme='ultra'] .phase-intro-pills span,
+body[data-theme='ultra'] .stage-pill,
+body[data-theme='ultra'] .cx-meta-pill,
+body[data-theme='ultra'] .cx-peak-pill,
+body[data-theme='ultra'] .cx-mini-pill,
+body[data-theme='ultra'] .cx-patch-pill,
+body[data-theme='ultra'] .cx-spot-pill,
+body[data-theme='ultra'] .cx-antidote-pill,
+body[data-theme='ultra'] .cx-map-eapm,
+body[data-theme='ultra'] .cx-sync-pill,
+body[data-theme='ultra'] .cx-diag-conf,
+body[data-theme='ultra'] .cx-diag-meta-chip,
+body[data-theme='ultra'] .cx-diag-tags em,
+body[data-theme='ultra'] .central-kpi-pill,
+body[data-theme='ultra'] .central-sample-tag,
+body[data-theme='ultra'] .central-vs-chip,
+body[data-theme='ultra'] .ladder-mini-pct,
+body[data-theme='ultra'] .elo-stat-chip,
+body[data-theme='ultra'] .elo-stat-chip.is-peak,
+body[data-theme='ultra'] .identity-clan,
+body[data-theme='ultra'] .rm-mode-pill,
+body[data-theme='ultra'] .rm-telemetry,
+body[data-theme='ultra'] .rm-outcome,
+body[data-theme='ultra'] .rm-outcome-pill,
+body[data-theme='ultra'] .pm-badge,
+body[data-theme='ultra'] .pm-mode-tag,
+body[data-theme='ultra'] .pm-streak-pill,
+body[data-theme='ultra'] .pm-cm-pill,
+body[data-theme='ultra'] .pm-cm-pill.is-mid,
+body[data-theme='ultra'] .pm-apm-count-pill,
+body[data-theme='ultra'] .pm-apm-you,
+body[data-theme='ultra'] .tg-pill,
+body[data-theme='ultra'] .lobby-alt-pill,
+body[data-theme='ultra'] .tr-sample-pill,
+body[data-theme='ultra'] .tr-tab-count,
+body[data-theme='ultra'] .tr-tab-pill,
+body[data-theme='ultra'] .tr-subtab-badge,
+body[data-theme='ultra'] .tr-wc-pill,
+body[data-theme='ultra'] .tr-wk-pb-tag,
+body[data-theme='ultra'] .tr-q-goal-pill,
+body[data-theme='ultra'] .tr-q-metric,
+body[data-theme='ultra'] .tr-hud-pop-pill,
+body[data-theme='ultra'] .tr-hud-res,
+body[data-theme='ultra'] .tr-cbc-chip,
+body[data-theme='ultra'] .tr-badge-time,
+body[data-theme='ultra'] .tr-badge-pop,
+body[data-theme='ultra'] .tr-badge-res,
+body[data-theme='ultra'] .tr-vills-total-pill,
+body[data-theme='ultra'] .tr-ref-unit-chip,
+body[data-theme='ultra'] .tr-nemesis-pill,
+body[data-theme='ultra'] .tr-age-edge-badge,
+body[data-theme='ultra'] .tr-comp-tag,
+body[data-theme='ultra'] .tr-age-rival-chip,
+body[data-theme='ultra'] .tr-lvl-pill,
+body[data-theme='ultra'] .tr-ans-key,
+body[data-theme='ultra'] .tt-coverage-pill,
+body[data-theme='ultra'] .tt-search-hits,
+body[data-theme='ultra'] .tt-mini-pill,
+body[data-theme='ultra'] .tt-res-chip,
+body[data-theme='ultra'] .tt-bonus-chip,
+body[data-theme='ultra'] .relic-seats-badge,
+body[data-theme='ultra'] .relic-this-pc,
+body[data-theme='ultra'] .acc-google-chip,
+body[data-theme='ultra'] .wiz-perk-pill,
+body[data-theme='ultra'] .wh-news-tag,
+body[data-theme='ultra'] .wh-counter-chip,
+body[data-theme='ultra'] .referral-pending-chip,
+body[data-theme='ultra'] .referral-code-pill,
+body[data-theme='ultra'] .checkout-coin-pill {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  color: #d4d4d8 !important;
+  font-family: var(--mono-font);
+  border-radius: 5px;
+  box-shadow: none !important;
+}
+
+/* Estados semánticos limpios (Verde = bueno/vivo, Rojo = malo/alerta, Oro = pico/Ultra) */
+body[data-theme='ultra'] .pm-badge.is-good,
+body[data-theme='ultra'] .cx-verdict-pill.is-win,
+body[data-theme='ultra'] .cx-diag-alert.is-win,
+body[data-theme='ultra'] .rm-telemetry.is-ready,
+body[data-theme='ultra'] .plan-current-badge,
+body[data-theme='ultra'] .tr-subtab-badge.is-em,
+body[data-theme='ultra'] .tr-q-verified-tag,
+body[data-theme='ultra'] .tr-age-edge-badge.is-em,
+body[data-theme='ultra'] .wh-news-tag.is-emerald,
+body[data-theme='ultra'] .checkout-cycle-opt em,
+body[data-theme='ultra'] .checkout-deposit-badge.is-paid,
+body[data-theme='ultra'] .referral-status-pill.is-activated,
+body[data-theme='ultra'] .referral-banner.is-success,
+body[data-theme='ultra'] .wiz-auth-ok-chip,
+body[data-theme='ultra'] .plan-verified-toast .pvt-badge {
+  background: rgba(34, 197, 94, 0.11) !important;
+  border: 1px solid rgba(34, 197, 94, 0.38) !important;
+  color: #4ade80 !important;
+}
+body[data-theme='ultra'] .pm-badge.is-warn,
+body[data-theme='ultra'] .cx-sess-tilt-alert,
+body[data-theme='ultra'] .relic-limit-alert,
+body[data-theme='ultra'] .tr-ps-badge.is-crimson,
+body[data-theme='ultra'] .wh-news-tag.is-alert,
+body[data-theme='ultra'] .referral-status-pill.is-rejected,
+body[data-theme='ultra'] .referral-feedback.is-err {
+  background: rgba(248, 113, 113, 0.1) !important;
+  border: 1px solid rgba(248, 113, 113, 0.36) !important;
+  color: #f87171 !important;
+}
+body[data-theme='ultra'] .tg-pill.is-gold,
+body[data-theme='ultra'] .lobby-counter-badge.is-gold,
+body[data-theme='ultra'] .pm-trophy-tag,
+body[data-theme='ultra'] .checkout-deposit-badge,
+body[data-theme='ultra'] .referral-status-pill.is-pending,
+body[data-theme='ultra'] .referral-status-pill.is-review {
+  background: rgba(232, 192, 104, 0.09) !important;
+  border: 1px solid rgba(232, 192, 104, 0.42) !important;
+  color: #e8c068 !important;
+}
+body[data-theme='ultra'] .cx-sync-pill::before,
+body[data-theme='ultra'] .tr-live-dot,
+body[data-theme='ultra'] .central-viewing-badge,
+body[data-theme='ultra'] .wh-action-dot {
+  background: #22c55e !important;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.7) !important;
+}
+body[data-theme='ultra'] .cx-lm-outcome.neutral,
+body[data-theme='ultra'] .cx-delta.neutral {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #d4d4d8 !important;
+}
+
+/* ==================== 4) WELCOME HOME ==================== */
+body[data-theme='ultra'] .wh-stage-hero,
+body[data-theme='ultra'] .wh-spot,
+body[data-theme='ultra'] .wh-treasury,
+body[data-theme='ultra'] .wh-news-banner,
+body[data-theme='ultra'] .wh-news-banner.is-editorial {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .wh-news-banner:hover,
+body[data-theme='ultra'] .wh-treasury:hover,
+body[data-theme='ultra'] .wh-runner:hover {
+  background: #111115 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+body[data-theme='ultra'] .wh-tick,
+body[data-theme='ultra'] .wh-text-action,
+body[data-theme='ultra'] .wh-map-item,
+body[data-theme='ultra'] .wh-hero-caption,
+body[data-theme='ultra'] .wh-news-media,
+body[data-theme='ultra'] .wh-gold-orb,
+body[data-theme='ultra'] .startup-seg {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+body[data-theme='ultra'] .wh-runner-track,
+body[data-theme='ultra'] .wh-gold-rank-track,
+body[data-theme='ultra'] .wh-tr-track {
+  background: #141418 !important;
+}
+body[data-theme='ultra'] .wh-runner-track > i.is-emerald {
+  background: #22c55e !important;
+}
+body[data-theme='ultra'] .wh-gold-rank-track > i,
+body[data-theme='ultra'] .wh-tr-track > i {
+  background: #e4e4e7 !important;
+}
+body[data-theme='ultra'] .wh-act-dot {
+  background: #22c55e !important;
+}
+body[data-theme='ultra'] .wh-act-day.is-even .wh-act-dot {
+  background: #71717a !important;
+}
+
+/* ==================== 5) CENTRAL DASHBOARD (100% UNIFICADO · CERO DORADO RESIDUAL) ==================== */
+body[data-theme='ultra'] .central-search-shell {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .central-search-shell:hover,
+body[data-theme='ultra'] .central-search-shell:focus-within {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+body[data-theme='ultra'] .central-search-results {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.94) !important;
+}
+body[data-theme='ultra'] .central-search-row:hover,
+body[data-theme='ultra'] .central-search-clear:hover {
+  background: #141418 !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+body[data-theme='ultra'] .central-viewing-bar {
+  background: #09090c !important;
+  border: 1px solid rgba(34, 197, 94, 0.36) !important;
+}
+
+/* Subnav de 3 pestañas de Central (alta especificidad para ganar a .page[data-page="central"]) */
+body[data-theme='ultra'] .page[data-page='central'] .cx-subnav,
+body[data-theme='ultra'] .cx-subnav {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab,
+body[data-theme='ultra'] .cx-subtab {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #a1a1aa !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab:hover:not(.is-active),
+body[data-theme='ultra'] .cx-subtab:hover:not(.is-active) {
+  background: #111114 !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab.is-active,
+body[data-theme='ultra'] .cx-subtab.is-active {
+  background: #141416 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-bottom: 2px solid #ffffff !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab.is-active::after,
+body[data-theme='ultra'] .cx-subtab.is-active::after {
+  display: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab.is-active .cx-subtab-copy strong,
+body[data-theme='ultra'] .cx-subtab.is-active .cx-subtab-copy strong,
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab.is-active span {
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab-badge,
+body[data-theme='ultra'] .cx-subtab-badge {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #d4d4d8 !important;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-subtab-ico,
+body[data-theme='ultra'] .cx-subtab-ico {
+  background: transparent !important;
+  border: 0 !important;
+  color: #d4d4d8 !important;
+}
+
+/* Alta especificidad para Master-Detail, filas Civ/Mapa, Spotlight, ADN y Academy en Central */
+body[data-theme='ultra'] .page[data-page='central'] .cx-diag-panel,
+body[data-theme='ultra'] .cx-master-detail .cx-diag-panel {
+  background: #060608 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row,
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row.is-map-btn,
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row.is-civ-btn {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row:hover,
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row.is-map-btn:hover,
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row.is-civ-btn:hover {
+  background: #101012 !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row.is-selected,
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row.is-map-btn.is-selected,
+body[data-theme='ultra'] .page[data-page='central'] .cx-entity-row.is-civ-btn.is-selected {
+  background: #131316 !important;
+  border: 1px solid rgba(255, 255, 255, 0.34) !important;
+  border-left: 2px solid #ffffff !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-card,
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-card.is-civ-spot,
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-card.is-map-spot,
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-card.is-nemesis-spot,
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-card.is-upset-spot {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  border-top-width: 1px !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-card:hover {
+  background: #111114 !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-map-frame,
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-medal-frame,
+body[data-theme='ultra'] .page[data-page='central'] .cx-acad-focus-ico {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-dna-copy h3,
+body[data-theme='ultra'] .page[data-page='central'] .cx-dna-banner h3,
+body[data-theme='ultra'] .page[data-page='central'] .cx-dna-banner h2,
+body[data-theme='ultra'] .page[data-page='central'] .cx-spot-num.is-gold,
+body[data-theme='ultra'] .page[data-page='central'] .cx-acad-focus-pct b {
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-diag-f-metric {
+  color: #f4f4f5 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-diag-tabs-wrap button,
+body[data-theme='ultra'] .page[data-page='central'] .cx-diag-tabs-wrap .is-active {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-diag-finding.is-loss {
+  border-left-color: #f87171 !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-diag-finding.is-win {
+  border-left-color: #4ade80 !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab.is-active {
+  background: #141416 !important;
+}
+body[data-theme='ultra'] .central-bar-track,
+body[data-theme='ultra'] .global-ladder-track,
+body[data-theme='ultra'] .cx-circ-track,
+body[data-theme='ultra'] .cx-pt-track,
+body[data-theme='ultra'] .upd-track {
+  background: #161618 !important;
+}
+
+/* Hero, KPIs, Mode Tabs y Tarjetas de Central */
+body[data-theme='ultra'] .cx-hero,
+body[data-theme='ultra'] .cx-hero-card,
+body[data-theme='ultra'] .cx-card,
+body[data-theme='ultra'] .central-card,
+body[data-theme='ultra'] .central-elo-chart,
+body[data-theme='ultra'] .cx-chart-card,
+body[data-theme='ultra'] .cx-radar-card,
+body[data-theme='ultra'] .cx-tempo-card,
+body[data-theme='ultra'] .cx-maps-card,
+body[data-theme='ultra'] .cx-civ-master-card,
+body[data-theme='ultra'] .cx-academy-card,
+body[data-theme='ultra'] .cx-trophies-card,
+body[data-theme='ultra'] .cx-curious-card,
+body[data-theme='ultra'] .cx-fun-card,
+body[data-theme='ultra'] .cx-circadian-card,
+body[data-theme='ultra'] .cx-combat-dna-card,
+body[data-theme='ultra'] .cx-comfort-card,
+body[data-theme='ultra'] .cx-dna-banner,
+body[data-theme='ultra'] .cx-spot-card,
+body[data-theme='ultra'] .cx-spot,
+body[data-theme='ultra'] .rm-card,
+body[data-theme='ultra'] .ladder-mini-card,
+body[data-theme='ultra'] .bvn-card,
+body[data-theme='ultra'] .cx-lm-card,
+body[data-theme='ultra'] .cx-diag-panel {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-hero.is-external {
+  border-color: rgba(34, 197, 94, 0.38) !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-hero-id {
+  background: transparent !important;
+}
+body[data-theme='ultra'] .cx-avatar,
+body[data-theme='ultra'] .account-profile .avatar,
+body[data-theme='ultra'] .avatar,
+body[data-theme='ultra'] .acc-auth-avatar,
+body[data-theme='ultra'] .relic-user-avatar,
+body[data-theme='ultra'] .wiz-avatar {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+/* Todos los sub-bloques internos de Central -> pozos #040406 con bordes zinc neutros */
+body[data-theme='ultra'] .cx-kpi,
+body[data-theme='ultra'] .cx-kpi.is-gold,
+body[data-theme='ultra'] .central-kpi,
+body[data-theme='ultra'] .central-kpi.is-gold,
+body[data-theme='ultra'] .cx-ckpi,
+body[data-theme='ultra'] .cx-kpi-tile,
+body[data-theme='ultra'] .cx-lm-metric,
+body[data-theme='ultra'] .cx-diag-finding,
+body[data-theme='ultra'] .cx-diag-alert,
+body[data-theme='ultra'] .cx-diag-sample-gate,
+body[data-theme='ultra'] .cx-diag-neutral-note,
+body[data-theme='ultra'] .cx-acad-focus-strip,
+body[data-theme='ultra'] .cx-acad-stage-strip,
+body[data-theme='ultra'] .cx-acad-stage-cell,
+body[data-theme='ultra'] .cx-acad-habit-row,
+body[data-theme='ultra'] .cx-elo-spot,
+body[data-theme='ultra'] .cx-elo-hero,
+body[data-theme='ultra'] .cx-elo-row,
+body[data-theme='ultra'] .cx-matchup-pill,
+body[data-theme='ultra'] .cx-trophy-tile,
+body[data-theme='ultra'] .cx-fun-tile,
+body[data-theme='ultra'] .cx-trend-row,
+body[data-theme='ultra'] .cx-stat-chip,
+body[data-theme='ultra'] .social-player-chip,
+body[data-theme='ultra'] .global-ladder-row,
+body[data-theme='ultra'] .central-tempo-pills > div,
+body[data-theme='ultra'] .central-empty-matches,
+body[data-theme='ultra'] .central-chart-empty,
+body[data-theme='ultra'] .cx-day-chip,
+body[data-theme='ultra'] .cx-color-chip,
+body[data-theme='ultra'] .cx-chem-chip,
+body[data-theme='ultra'] .cx-tg-role,
+body[data-theme='ultra'] .cx-dna-sig,
+body[data-theme='ultra'] .cx-sf-row,
+body[data-theme='ultra'] .cx-clock-row,
+body[data-theme='ultra'] .cx-op-row,
+body[data-theme='ultra'] .cx-pt-row,
+body[data-theme='ultra'] .cx-sess-row,
+body[data-theme='ultra'] .cx-tooltip {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.095) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-acad-focus-strip {
+  border-left: 2px solid #ffffff !important;
+}
+body[data-theme='ultra'] .cx-kpi.is-gold b,
+body[data-theme='ultra'] .central-kpi.is-gold b,
+body[data-theme='ultra'] .cx-elo-now {
+  color: #ffffff !important;
+}
+
+/* Iconos / crest frames de Central y Partidas Recientes (sin fondos dorados) */
+body[data-theme='ultra'] .central-entity-crest,
+body[data-theme='ultra'] .central-entity-crest.is-map,
+body[data-theme='ultra'] .cx-diag-crest,
+body[data-theme='ultra'] .cx-diag-crest.is-map-art,
+body[data-theme='ultra'] .cx-elo-ico,
+body[data-theme='ultra'] .cx-elo-ico.is-map,
+body[data-theme='ultra'] .cx-trophy-ico,
+body[data-theme='ultra'] .cx-spot-map-frame,
+body[data-theme='ultra'] .cx-spot-medal-frame,
+body[data-theme='ultra'] .cx-dna-fallback-ico,
+body[data-theme='ultra'] .rm-map-frame,
+body[data-theme='ultra'] .rm-crest,
+body[data-theme='ultra'] .rm-vs-medallion,
+body[data-theme='ultra'] .pm-cm-crest {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.11) !important;
+  box-shadow: none !important;
+}
+
+/* Barras de progreso de Central */
+body[data-theme='ultra'] .central-bar-track,
+body[data-theme='ultra'] .global-ladder-track,
+body[data-theme='ultra'] .cx-circ-track,
+body[data-theme='ultra'] .cx-pt-track,
+body[data-theme='ultra'] .upd-track {
+  background: #15151a !important;
+}
+body[data-theme='ultra'] .central-bar-track > i.bar-gold,
+body[data-theme='ultra'] .global-bar-cur,
+body[data-theme='ultra'] .upd-fill {
+  background: #e4e4e7 !important;
+}
+body[data-theme='ultra'] .global-bar-peak {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+body[data-theme='ultra'] .central-bar-track > i.bar-emerald {
+  background: #22c55e !important;
+}
+body[data-theme='ultra'] .central-bar-track > i.bar-rose {
+  background: #ef4444 !important;
+}
+
+/* Tabs, segmentadores y hover states en Central */
+body[data-theme='ultra'] .page[data-page='central'] .cx-mode-bar,
+body[data-theme='ultra'] .cx-mode-bar,
+body[data-theme='ultra'] .central-range-pills,
+body[data-theme='ultra'] .cx-sort-pills,
+body[data-theme='ultra'] .acct-subtabs,
+body[data-theme='ultra'] .pm-tabs {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+body[data-theme='ultra'] .cx-mode-tab,
+body[data-theme='ultra'] .central-range-btn,
+body[data-theme='ultra'] .cx-sort-btn {
+  background: transparent !important;
+  color: #a1a1aa !important;
+  border-color: transparent !important;
+}
+body[data-theme='ultra'] .cx-mode-tab:hover,
+body[data-theme='ultra'] .central-range-btn:hover,
+body[data-theme='ultra'] .cx-sort-btn:hover {
+  background: #0f0f14 !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .cx-mode-tab b {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.11) !important;
+  color: #d4d4d8 !important;
+}
+body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab.is-active,
+body[data-theme='ultra'] .cx-mode-tab.is-active,
+body[data-theme='ultra'] .central-range-btn.is-active,
+body[data-theme='ultra'] .cx-sort-btn.is-active,
+body[data-theme='ultra'] .pm-tab.is-active {
+  background: #15151a !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .cx-mode-tab.is-active b {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+body[data-theme='ultra'] .rm-card:hover,
+body[data-theme='ultra'] .cx-entity-row:hover,
+body[data-theme='ultra'] .global-ladder-row:hover,
+body[data-theme='ultra'] .social-player-chip:hover {
+  background: #111116 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+body[data-theme='ultra'] .rm-card.is-selected,
+body[data-theme='ultra'] .cx-entity-row.is-selected,
+body[data-theme='ultra'] .ladder-mini-card.is-primary {
+  background: #121218 !important;
+  border-color: rgba(255, 255, 255, 0.34) !important;
+}
+body[data-theme='ultra'] .cx-ultra-veil {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+body[data-theme='ultra'] .cx-skel-bar,
+body[data-theme='ultra'] .cx-skel-kpi,
+body[data-theme='ultra'] .cx-skel-block {
+  background: #0d0d11 !important;
+}
+body[data-theme='ultra'] .cx-skel-bar::after,
+body[data-theme='ultra'] .cx-skel-kpi::after,
+body[data-theme='ultra'] .cx-skel-block::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent) !important;
+}
+
+/* ==================== 6) POSTMATCH & eAPM TELEMETRY ==================== */
+body[data-theme='ultra'] .pm-v2 > .pm-head,
+body[data-theme='ultra'] .pm-hero,
+body[data-theme='ultra'] .report-head,
+body[data-theme='ultra'] .map-benchmark,
+body[data-theme='ultra'] .pm-opening-bar,
+body[data-theme='ultra'] .pm-stage-card,
+body[data-theme='ultra'] .pm-zone,
+body[data-theme='ultra'] .pm-duel,
+body[data-theme='ultra'] .pm-curve-wrap,
+body[data-theme='ultra'] .pm-queue-box,
+body[data-theme='ultra'] .pm-army-grid,
+body[data-theme='ultra'] .pm-focus,
+body[data-theme='ultra'] .pm-trophy-banner,
+body[data-theme='ultra'] .pm-verdict-bar,
+body[data-theme='ultra'] .pm-apm-card,
+body[data-theme='ultra'] .pm-apm-panel,
+body[data-theme='ultra'] .report-stage,
+body[data-theme='ultra'] .report-metric,
+body[data-theme='ultra'] .report-improvements,
+body[data-theme='ultra'] #postMatchReport .review-stage {
+  background: #09090c !important;
+  border-color: rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] :is(#postMatch, #postMatchReport) .pm-eyebrow {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+}
+body[data-theme='ultra'] .pm-kpi,
+body[data-theme='ultra'] .pm-coach-row,
+body[data-theme='ultra'] .pm-race-row,
+body[data-theme='ultra'] .pm-tech-chip,
+body[data-theme='ultra'] .pm-macro-pills > span,
+body[data-theme='ultra'] .pm-apm-card-item,
+body[data-theme='ultra'] .pm-apm-tooltip,
+body[data-theme='ultra'] .pm-icon-tile,
+body[data-theme='ultra'] .pm-side .civ-badge,
+body[data-theme='ultra'] .pm-issue-clean,
+body[data-theme='ultra'] .pm-issue-metric,
+body[data-theme='ultra'] .review-personal-highlights p,
+body[data-theme='ultra'] .review-highlight,
+body[data-theme='ultra'] .opportunity-card,
+body[data-theme='ultra'] :is(#postMatch, #postMatchReport) .pm-v2 .pm-medal-card,
+body[data-theme='ultra'] :is(#postMatch, #postMatchReport) .pm-v2 .pm-issue-card {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.095) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .pm-v2 .pm-zone-head {
+  background: #050507 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.085) !important;
+}
+body[data-theme='ultra'] .pm-v2 .pm-zone.is-good .pm-zone-head {
+  border-bottom-color: rgba(34, 197, 94, 0.26) !important;
+}
+body[data-theme='ultra'] .pm-v2 .pm-zone.is-bad .pm-zone-head {
+  border-bottom-color: rgba(248, 113, 113, 0.26) !important;
+}
+body[data-theme='ultra'] .pm-kpi.is-best,
+body[data-theme='ultra'] .pm-stage-card.grade-S,
+body[data-theme='ultra'] .pm-opening-bar.grade-S,
+body[data-theme='ultra'] .pm-trophy-banner.is-record,
+body[data-theme='ultra'] :is(#postMatch, #postMatchReport) .pm-v2 .pm-medal-card.is-gold {
+  border-color: rgba(232, 192, 104, 0.4) !important;
+}
+body[data-theme='ultra'] .pm-kpi.is-win,
+body[data-theme='ultra'] .pm-race-row.is-win,
+body[data-theme='ultra'] .pm-coach-row.is-ok,
+body[data-theme='ultra'] .pm-medal-card.is-green {
+  border-color: rgba(34, 197, 94, 0.36) !important;
+}
+body[data-theme='ultra'] .pm-kpi.is-loss,
+body[data-theme='ultra'] .pm-race-row.is-loss,
+body[data-theme='ultra'] .pm-coach-row.is-warn,
+body[data-theme='ultra'] .pm-stage-card.grade-D,
+body[data-theme='ultra'] .pm-issue-card {
+  border-color: rgba(248, 113, 113, 0.34) !important;
+}
+body[data-theme='ultra'] .pm-bar-track,
+body[data-theme='ultra'] .pm-half {
+  background: #141418 !important;
+}
+body[data-theme='ultra'] .pm-grade-stamp,
+body[data-theme='ultra'] .pm-lp-grade {
+  background: #040406 !important;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .pm-delta.win,
+body[data-theme='ultra'] .report-head .won,
+body[data-theme='ultra'] .win {
+  color: #4ade80 !important;
+}
+body[data-theme='ultra'] .pm-delta.loss,
+body[data-theme='ultra'] .report-head .lost,
+body[data-theme='ultra'] .loss {
+  color: #f87171 !important;
+}
+body[data-theme='ultra'] .result-history span {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.36);
+  color: #4ade80;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .result-history span.loss {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.34);
+  color: #f87171;
+}
+body[data-theme='ultra'] .pm-medal-name {
+  color: #ffffff;
+}
+
+/* ==================== 7) SKINS & PLANS PAGES ==================== */
+body[data-theme='ultra'] .theme {
+  background: #09090c;
+  border-color: rgba(255, 255, 255, 0.11);
+  color: #a1a1aa;
+}
+body[data-theme='ultra'] .theme:hover {
+  background: #131318;
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+body[data-theme='ultra'] .theme.active {
+  background: #111116;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 -2px #ffffff;
+}
+body[data-theme='ultra'] .theme.theme-ultra.active {
+  border-color: rgba(232, 192, 104, 0.65);
+  box-shadow: inset 0 -2px #e8c068;
+}
+
+body[data-theme='ultra'] .plans-billing-bar {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+}
+body[data-theme='ultra'] .plans-billing-switch {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+body[data-theme='ultra'] .plans-cycle-btn {
+  color: #a1a1aa !important;
+}
+body[data-theme='ultra'] .plans-cycle-btn.is-active {
+  background: #15151a !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .plans-save-pill {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border: 1px solid rgba(34, 197, 94, 0.4) !important;
+  color: #4ade80 !important;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .plan-trial-btn {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  color: #f4f4f5 !important;
+}
+body[data-theme='ultra'] .plan-trial-btn:hover:not(:disabled) {
+  background: #141418 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+body[data-theme='ultra'] .plan-card {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .plan-card.pro {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+body[data-theme='ultra'] .plan-card.ultra-featured {
+  background: #09090c !important;
+  border-color: rgba(232, 192, 104, 0.5) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .plan-price-hero,
+body[data-theme='ultra'] .plan-price-hero.is-ultra {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+}
+body[data-theme='ultra'] .plan-ribbon {
+  background: #040406 !important;
+  border-bottom: 1px solid rgba(232, 192, 104, 0.34);
+  color: #e8c068 !important;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .includes-free {
+  border-top-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ==================== 8) TRAINING HUB & TECH TREE ==================== */
+body[data-theme='ultra'] .tr-root {
+  background: transparent !important;
+}
+body[data-theme='ultra'] .tr-tabs,
+body[data-theme='ultra'] .tr-map-mode-switch,
+body[data-theme='ultra'] .tr-click-mode-switch,
+body[data-theme='ultra'] .tt-mode-pills {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+body[data-theme='ultra'] .tr-tab.is-active,
+body[data-theme='ultra'] .tr-glide-indicator,
+body[data-theme='ultra'] .tr-map-mode-btn.is-active,
+body[data-theme='ultra'] .tt-pill.is-active,
+body[data-theme='ultra'] .tt-glide-pill {
+  background: #15151a !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .tr-perf-banner,
+body[data-theme='ultra'] .tr-perf-timeline-panel,
+body[data-theme='ultra'] .tr-perf-ledger,
+body[data-theme='ultra'] .tr-perf-chart-studio,
+body[data-theme='ultra'] .tr-perf-empty-lab,
+body[data-theme='ultra'] .tr-weekly-sanctuary,
+body[data-theme='ultra'] .tr-plan-hero,
+body[data-theme='ultra'] .tr-queue-card,
+body[data-theme='ultra'] .tr-bo-card,
+body[data-theme='ultra'] .tr-pro-refs-card,
+body[data-theme='ultra'] .tr-war-table-head,
+body[data-theme='ultra'] .tr-plan-flow-card,
+body[data-theme='ultra'] .tr-powerspike-card,
+body[data-theme='ultra'] .tr-clash-card,
+body[data-theme='ultra'] .tr-traps-card,
+body[data-theme='ultra'] .tr-age-plan-card,
+body[data-theme='ultra'] .tr-arena-stage,
+body[data-theme='ultra'] .tr-hud-mockup,
+body[data-theme='ultra'] .tr-welcome-modal,
+body[data-theme='ultra'] .tr-lock-stage,
+body[data-theme='ultra'] .tt-loading-card,
+body[data-theme='ultra'] .tt-toolbar-card,
+body[data-theme='ultra'] .tt-bonuses-card,
+body[data-theme='ultra'] .tt-jump-dock,
+body[data-theme='ultra'] .tt-canvas-shell,
+body[data-theme='ultra'] .tt-inspector {
+  background: #09090c !important;
+  border-color: rgba(255, 255, 255, 0.115) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .tr-age-stage,
+body[data-theme='ultra'] .tr-wk-daily-stage,
+body[data-theme='ultra'] .tr-wk-foot,
+body[data-theme='ultra'] .tr-wk-summary,
+body[data-theme='ultra'] .tr-wk-gain-row,
+body[data-theme='ultra'] .tr-wk-fact-card,
+body[data-theme='ultra'] .tr-wk-calm-card,
+body[data-theme='ultra'] .tr-wk-medallion,
+body[data-theme='ultra'] .tr-wk-ico-frame,
+body[data-theme='ultra'] .tr-q-item,
+body[data-theme='ultra'] .tr-q-empty,
+body[data-theme='ultra'] .tr-pm-slot,
+body[data-theme='ultra'] .tr-perf-crest-frame,
+body[data-theme='ultra'] .tr-perf-directive,
+body[data-theme='ultra'] .tr-pel-steps,
+body[data-theme='ultra'] .tr-step-row,
+body[data-theme='ultra'] .tr-pro-ref-item,
+body[data-theme='ultra'] .tr-flow-pill,
+body[data-theme='ultra'] .tr-age-bridge,
+body[data-theme='ultra'] .tr-leg-chip,
+body[data-theme='ultra'] .tr-war-crest-ring,
+body[data-theme='ultra'] .tr-war-uu-ico,
+body[data-theme='ultra'] .tr-vs-diamond-lg,
+body[data-theme='ultra'] .tr-vs-diamond,
+body[data-theme='ultra'] .tr-unit-showcase,
+body[data-theme='ultra'] .tr-unit-medallion,
+body[data-theme='ultra'] .tr-clash-ico,
+body[data-theme='ultra'] .tr-trap-row,
+body[data-theme='ultra'] .tr-trap-medallion,
+body[data-theme='ultra'] .tr-arena-kpi,
+body[data-theme='ultra'] .tr-arena-ctx,
+body[data-theme='ultra'] .tr-arena-feedback,
+body[data-theme='ultra'] .tr-arena-penalty-note,
+body[data-theme='ultra'] .tr-ans-card,
+body[data-theme='ultra'] .tr-alloc-card,
+body[data-theme='ultra'] .tr-cat-tab,
+body[data-theme='ultra'] .tr-action-chip,
+body[data-theme='ultra'] .tr-step-adj,
+body[data-theme='ultra'] .tr-cb-lives-col,
+body[data-theme='ultra'] .tr-un-circle,
+body[data-theme='ultra'] .tr-lo-crest,
+body[data-theme='ultra'] .tr-hud-next-bright,
+body[data-theme='ultra'] .tr-welcome-card,
+body[data-theme='ultra'] .tr-welcome-x,
+body[data-theme='ultra'] .tr-guide-icon-btn,
+body[data-theme='ultra'] .tt-civ-crest-ring,
+body[data-theme='ultra'] .tt-age-rail,
+body[data-theme='ultra'] .tt-age-rail-spacer,
+body[data-theme='ultra'] .tt-age-rail-band,
+body[data-theme='ultra'] .tt-age-band,
+body[data-theme='ultra'] .tt-lane-head,
+body[data-theme='ultra'] .tt-lane-ico,
+body[data-theme='ultra'] .tt-node,
+body[data-theme='ultra'] .tt-node-frame,
+body[data-theme='ultra'] .tt-jump-pill,
+body[data-theme='ultra'] .tt-meta-pill-box,
+body[data-theme='ultra'] .tt-insp-hero,
+body[data-theme='ultra'] .tt-insp-portrait,
+body[data-theme='ultra'] .tt-insp-close,
+body[data-theme='ultra'] .tt-insp-costs-box,
+body[data-theme='ultra'] .tt-insp-codex,
+body[data-theme='ultra'] .tt-rarity-box,
+body[data-theme='ultra'] .tt-evo-step,
+body[data-theme='ultra'] .tt-scroll-btn {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.095) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .tr-ledger-row.is-selected,
+body[data-theme='ultra'] .tr-pm-slot.is-active,
+body[data-theme='ultra'] .tr-ans-card:hover,
+body[data-theme='ultra'] .tt-lane-head:hover,
+body[data-theme='ultra'] .tt-lane-head.is-selected,
+body[data-theme='ultra'] .tt-node.is-selected,
+body[data-theme='ultra'] .tt-evo-step.is-current {
+  background: #131318 !important;
+  border-color: rgba(255, 255, 255, 0.34) !important;
+}
+body[data-theme='ultra'] .tr-q-item.is-verified,
+body[data-theme='ultra'] .tr-ans-card.is-correct,
+body[data-theme='ultra'] .tr-flow-pill.is-em,
+body[data-theme='ultra'] .tr-leg-chip.is-em {
+  border-color: rgba(34, 197, 94, 0.42) !important;
+  color: #4ade80 !important;
+}
+body[data-theme='ultra'] .tr-ans-card.is-wrong,
+body[data-theme='ultra'] .tr-perf-directive.is-crimson,
+body[data-theme='ultra'] .tr-flow-pill.is-warn,
+body[data-theme='ultra'] .tr-leg-chip.is-warn {
+  border-color: rgba(248, 113, 113, 0.42) !important;
+  color: #f87171 !important;
+}
+body[data-theme='ultra'] .tr-age-plan-card.is-em {
+  border-top: 2px solid #22c55e !important;
+}
+body[data-theme='ultra'] .tr-age-plan-card.is-warn {
+  border-top: 2px solid #ef4444 !important;
+}
+body[data-theme='ultra'] .tr-age-plan-card.is-even {
+  border-top: 2px solid rgba(255, 255, 255, 0.28) !important;
+}
+body[data-theme='ultra'] .tr-age-edge-badge.is-warn {
+  background: rgba(248, 113, 113, 0.11) !important;
+  border-color: rgba(248, 113, 113, 0.38) !important;
+  color: #f87171 !important;
+}
+body[data-theme='ultra'] .tr-flow-pill .tr-flow-copy strong {
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .tr-flow-pill .tr-flow-copy small {
+  color: #a1a1aa !important;
+}
+body[data-theme='ultra'] .tt-edge-fade.is-left {
+  background: linear-gradient(90deg, #09090c, transparent) !important;
+}
+body[data-theme='ultra'] .tt-edge-fade.is-right {
+  background: linear-gradient(270deg, #09090c, transparent) !important;
+}
+
+/* ==================== 9) MODALS, REFERRALS, CHECKOUT, POPOVERS & WIZARD ==================== */
+body[data-theme='ultra'] .modal,
+body[data-theme='ultra'] .tr-welcome-backdrop,
+body[data-theme='ultra'] .checkout-modal-backdrop,
+body[data-theme='ultra'] .relic-upgrade-backdrop,
+body[data-theme='ultra'] .referral-backdrop {
+  background: rgba(0, 0, 0, 0.84) !important;
+  backdrop-filter: blur(6px);
+}
+body[data-theme='ultra'] .modal-card,
+body[data-theme='ultra'] .feedback-modal-card,
+body[data-theme='ultra'] .checkout-modal,
+body[data-theme='ultra'] .relic-upgrade-stage,
+body[data-theme='ultra'] .referral-modal,
+body[data-theme='ultra'] .plan-verified-toast,
+body[data-theme='ultra'] .prefs-popover,
+body[data-theme='ultra'] .bs-tooltip {
+  background: #09090c !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.94) !important;
+}
+body[data-theme='ultra'] .fb-cat,
+body[data-theme='ultra'] .feedback-diag-check,
+body[data-theme='ultra'] .relic-device-item,
+body[data-theme='ultra'] .result:hover,
+body[data-theme='ultra'] .result.active,
+body[data-theme='ultra'] .prefs-lang-item.active,
+body[data-theme='ultra'] .prefs-pop-link:hover,
+body[data-theme='ultra'] .checkout-cycle-opt,
+body[data-theme='ultra'] .checkout-method-opt,
+body[data-theme='ultra'] .checkout-deposit-box,
+body[data-theme='ultra'] .checkout-deposit-addr,
+body[data-theme='ultra'] .checkout-summary-box,
+body[data-theme='ultra'] .checkout-close,
+body[data-theme='ultra'] .referral-hero,
+body[data-theme='ultra'] .referral-gate,
+body[data-theme='ultra'] .referral-progress-card,
+body[data-theme='ultra'] .referral-share-card,
+body[data-theme='ultra'] .referral-apply-card,
+body[data-theme='ultra'] .referral-friends-card,
+body[data-theme='ultra'] .referral-my-status,
+body[data-theme='ultra'] .referral-friend-row,
+body[data-theme='ultra'] .referral-close,
+body[data-theme='ultra'] .rum-offer-banner,
+body[data-theme='ultra'] .wiz-lang-card,
+body[data-theme='ultra'] .wiz-account-card,
+body[data-theme='ultra'] .wiz-auth-card,
+body[data-theme='ultra'] .wiz-sum-row,
+body[data-theme='ultra'] .wiz-top-lang-bar {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .wiz-lang-card.selected,
+body[data-theme='ultra'] .prefs-lang-item.active,
+body[data-theme='ultra'] .checkout-cycle-opt:hover,
+body[data-theme='ultra'] .checkout-method-opt:hover {
+  border-color: rgba(255, 255, 255, 0.32) !important;
+}
+body[data-theme='ultra'] .ref-seg {
+  background: #141418 !important;
+}
+body[data-theme='ultra'] .ref-seg.is-filled {
+  background: #22c55e !important;
+}
+body[data-theme='ultra'] .ref-seg.is-pending {
+  background: #e8c068 !important;
+}
+
+/* ==================== 10) OVERLAY WINDOW (index.html — 100% transparente fuera de tarjetas) ==================== */
+body[data-theme='ultra'] #stage {
+  background: transparent !important;
+}
+body[data-theme='ultra'] #panel,
+body[data-theme='ultra'] #scouting,
+body[data-theme='ultra'] #civHelp,
+body[data-theme='ultra'] #smartBuildOrder,
+body[data-theme='ultra'] #postMatch {
+  background: #08080a !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: none !important;
+}
+body[data-theme='ultra'] #head,
+body[data-theme='ultra'] #scouting .scout-head {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.085) !important;
+}
+body[data-theme='ultra'] #head .head-title,
+body[data-theme='ultra'] .scout-title,
+body[data-theme='ultra'] .intel-identity h3 {
+  color: #ffffff;
+}
+body[data-theme='ultra'] #scouting .intel-rival,
+body[data-theme='ultra'] #scouting .intel-block {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+body[data-theme='ultra'] #scouting .intel-history-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.025) !important;
+}
+body[data-theme='ultra'] .civ-picks-list li,
+body[data-theme='ultra'] .intel-block.tactical-block,
+body[data-theme='ultra'] .intel-block.lobby-counter,
+body[data-theme='ultra'] .tg-team-col,
+body[data-theme='ultra'] .tg-block,
+body[data-theme='ultra'] .tg-kpi-tile,
+body[data-theme='ultra'] .tg-civ-pill,
+body[data-theme='ultra'] .tg-last5-chip,
+body[data-theme='ultra'] .tg-no-crest,
+body[data-theme='ultra'] .lobby-factor,
+body[data-theme='ultra'] .scout-carousel-pill,
+body[data-theme='ultra'] .intel-history.intel-history-grid > div,
+body[data-theme='ultra'] .pred-random-note,
+body[data-theme='ultra'] .pred-threat,
+body[data-theme='ultra'] .review-opening,
+body[data-theme='ultra'] .review-skill,
+body[data-theme='ultra'] .review-history-highlights {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.095) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .civ-picks-list li.pred-lead,
+body[data-theme='ultra'] .tg-civ-pill.is-lead,
+body[data-theme='ultra'] .tg-counter-line.is-rec,
+body[data-theme='ultra'] .intel-block.lobby-counter.is-triple,
+body[data-theme='ultra'] .scout-carousel-pill.is-active,
+body[data-theme='ultra'] .review-skill.graded {
+  background: #0d0d11 !important;
+  border-color: rgba(232, 192, 104, 0.42) !important;
+}
+body[data-theme='ultra'] .pred-bar,
+body[data-theme='ultra'] .scout-carousel-track {
+  background: #141418 !important;
+}
+body[data-theme='ultra'] .pred-lead .pred-bar > i {
+  background: #e8c068 !important;
+}
+body[data-theme='ultra'] .intel-crest,
+body[data-theme='ultra'] .lobby-counter-crest,
+body[data-theme='ultra'] .review-step-art {
+  background: #040406 !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+}
+body[data-theme='ultra'] .intel-scope {
+  background: #040406 !important;
+  border-left: 2px solid #ffffff;
+}
+body[data-theme='ultra'] .row .elo,
+body[data-theme='ultra'] .intel-rating,
+body[data-theme='ultra'] .intel-value,
+body[data-theme='ultra'] .tg-rival-elo,
+body[data-theme='ultra'] .review-metrics b {
+  font-family: var(--mono-font);
+  font-variant-numeric: tabular-nums;
+}
+body[data-theme='ultra'] .review-close {
+  background: #040406;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #a1a1aa;
+}
+body[data-theme='ultra'] .review-close:hover {
+  background: #141418;
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
