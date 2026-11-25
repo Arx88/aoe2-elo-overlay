@@ -1,3 +1,11 @@
+## v3.3.5 · Traducción real verificada en Chromium en las 22 pantallas (4.162 frases · 0 fugas en `en` y `zh-CN`)
+
+- **Árbol Tecnológico (56 civilizaciones y 486 nodos) y Entrenamiento al 100 %:** se tradujeron al inglés y chino simplificado oficial de AoE2:DE todas las bonificaciones de civilización, tecnologías únicas, unidades únicas, bonificaciones de equipo, clases de armadura, bonificaciones de daño y plantillas dinámicas de Progreso, Mi Plan, Build Orders, Matchups Pro y Arena (`4.162` frases totales).
+- **Corrección del traductor reactivo del DOM (`ui/i18n.js`):** se eliminó el salto prematuro en nodos con `data-i18n` sobrescritos dinámicamente por JS, se normalizaron espacios no separables (`\u00a0`), prefijos con viñetas y búsqueda insensible a mayúsculas.
+- **Verificación real en Electron/Chromium (22 pantallas × `en` y `zh-CN`):** auditoría en vivo sobre el DOM renderizado de Inicio, Central (todas las vistas y diagnósticos), Prematch, Batalla, Postmatch, las 6 pestañas de Entrenamiento desbloqueadas, Apariencia, Planes, Actualizaciones, Cuenta, Preferencias y Referidos con **0 errores y 0 fugas**.
+
+---
+
 ## v3.3.4 · Traducción universal al 100 % en los 4 idiomas (0 fugas verificadas en toda la app)
 
 - **Cobertura total del 100 % en `es-MX`, `es-ES`, `en` y `zh-CN` (0 fugas reales):** se integró el motor universal de traducción de contenido (`src/i18n/content-translator.js`, `ui/content-rules.js` y `ui/i18n.js`) con **2.873 frases oficiales de AoE2:DE**, reglas dinámicas para todas las plantillas de motor y traductor reactivo del DOM (`MutationObserver` + reversibilidad completa al cambiar idioma).

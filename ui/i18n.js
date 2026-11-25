@@ -52,6 +52,7 @@
   let bundles = {};
   let active = null;
   let entityIndex = {};
+  let lowerPhrasebooks = {};
   let dynamicRules = null;
   let observer = null;
   let pendingRoots = new Set();
@@ -131,6 +132,7 @@
   function configure({ locale, bundle, allBundles } = {}) {
     if (allBundles && typeof allBundles === 'object') bundles = { ...bundles, ...allBundles };
     if (bundle && bundle.locale) bundles[bundle.locale] = bundle;
+    lowerPhrasebooks = {};
     if (locale && bundles[locale]) {
       currentLocale = locale;
       active = bundles[locale];
@@ -278,11 +280,35 @@
     return String(raw || '');
   }
 
+  function getLowerPhrasebook(lang) {
+    if (!lowerPhrasebooks[lang]) {
+      const map = new Map();
+      const pb = (bundles[lang] || active)?.phrasebook || {};
+      for (const [k, v] of Object.entries(pb)) {
+        const lk = k.toLowerCase();
+        if (!map.has(lk)) map.set(lk, v);
+      }
+      lowerPhrasebooks[lang] = map;
+    }
+    return lowerPhrasebooks[lang];
+  }
+
   function translateSegment(trimmed, lang, allowEntity) {
     const targetBundle = bundles[lang] || active;
     const pb = targetBundle?.phrasebook;
     if (pb && Object.prototype.hasOwnProperty.call(pb, trimmed)) {
       return pb[trimmed];
+    }
+    const lpb = getLowerPhrasebook(lang);
+    if (lpb) {
+      const lowHit = lpb.get(trimmed.toLowerCase());
+      if (lowHit) {
+        // Preserve ALL-CAPS style on short headings/badges in EN
+        if (lang === 'en' && trimmed === trimmed.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(trimmed) && trimmed.length <= 42) {
+          return lowHit.toUpperCase();
+        }
+        return lowHit;
+      }
     }
     if (allowEntity && trimmed.length <= 36 && !/\d/.test(trimmed)) {
       const op = openingName(trimmed);
@@ -307,16 +333,29 @@
     }
     if (lang !== 'en' && lang !== 'zh-CN') return raw;
 
-    const trimmed = raw.trim();
+    const trimmed = raw.replace(/\u00a0/g, ' ').trim();
     if (!trimmed || trimmed.length < 2) return raw;
     if (/^(?:https?:|data:|assets\/|#[0-9a-f]{3,8}$|[+\-−]?\d[\d.,:%/×x–—\-+\s]*$)/i.test(trimmed)) return raw;
 
     const direct = translateSegment(trimmed, lang, allowEntity);
     if (direct != null) {
-      return raw === trimmed ? direct : raw.replace(trimmed, direct);
+      const lead = raw.match(/^\s*/)?.[0] || '';
+      const trail = raw.match(/\s*$/)?.[0] || '';
+      return `${lead}${direct}${trail}`;
     }
 
-    for (const sep of [' · ', ' — ', ' —', '— ']) {
+    // Handle leading bullet prefixes like '· ', '★ ', '● '
+    const bulletMatch = /^([·★●↑↓←→]\s+)(.+)$/.exec(trimmed);
+    if (bulletMatch) {
+      const restHit = translateSegment(bulletMatch[2].trim(), lang, allowEntity);
+      if (restHit != null && restHit !== bulletMatch[2].trim()) {
+        const lead = raw.match(/^\s*/)?.[0] || '';
+        const trail = raw.match(/\s*$/)?.[0] || '';
+        return `${lead}${bulletMatch[1]}${restHit}${trail}`;
+      }
+    }
+
+    for (const sep of [' · ', ' — ', ': ']) {
       if (trimmed.includes(sep)) {
         const parts = trimmed.split(sep);
         let changed = false;
@@ -332,7 +371,9 @@
         });
         if (changed) {
           const joined = mapped.join(sep);
-          return raw === trimmed ? joined : raw.replace(trimmed, joined);
+          const lead = raw.match(/^\s*/)?.[0] || '';
+          const trail = raw.match(/\s*$/)?.[0] || '';
+          return `${lead}${joined}${trail}`;
         }
       }
     }
@@ -345,7 +386,7 @@
   function isSkippedElement(el) {
     if (!el || el.nodeType !== 1) return false;
     if (SKIP_TAGS.has(el.tagName)) return true;
-    if (el.hasAttribute && (el.hasAttribute('data-no-i18n') || el.hasAttribute('data-i18n'))) return true;
+    if (el.hasAttribute && el.hasAttribute('data-no-i18n')) return true;
     return false;
   }
 
@@ -362,22 +403,21 @@
     if (!node || node.nodeType !== 3) return;
     const parent = node.parentElement;
     if (!parent || SKIP_TAGS.has(parent.tagName)) return;
-    if (parent.hasAttribute('data-i18n') || parent.closest?.('[data-no-i18n], .no-i18n')) return;
+    if (parent.closest?.('[data-no-i18n], .no-i18n')) return;
 
     const current = node.nodeValue;
     if (!current || !current.trim()) return;
 
+    const allowEntity = !isPlayerNameNode(parent);
     let orig = ORIG_TEXT.get(node);
     if (orig == null) {
       orig = current;
       ORIG_TEXT.set(node, orig);
-    } else if (current !== orig && current !== locText(orig, currentLocale, { allowEntity: !isPlayerNameNode(parent) })) {
-      // Dynamic JS updated this node with new source text; adopt it as new original
+    } else if (current !== orig && current !== locText(orig, currentLocale, { allowEntity })) {
       orig = current;
       ORIG_TEXT.set(node, orig);
     }
 
-    const allowEntity = !isPlayerNameNode(parent);
     const next = currentLocale === 'es-MX' ? orig : locText(orig, currentLocale, { allowEntity });
     if (next !== current) {
       node.nodeValue = next;
@@ -391,7 +431,6 @@
     let saved = ORIG_ATTRS.get(el);
     for (let i = 0; i < attrs.length; i += 1) {
       const attr = attrs[i];
-      if (el.hasAttribute(`data-i18n-${attr}`)) continue;
       const cur = el.getAttribute(attr);
       if (!cur || !cur.trim()) continue;
       if (!saved) {

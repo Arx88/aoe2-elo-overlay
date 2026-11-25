@@ -266,6 +266,121 @@
       [/^Civilización identificada en$/, (_, l) => (l === 'zh-CN' ? '文明已识别于' : 'Civilization identified in')],
       [/^\$([\d.,]+)\/año$/, (m, l) => (l === 'zh-CN' ? `$${m[1]}/年` : `$${m[1]}/yr`)],
       [/^\$([\d.,]+)\/mes$/, (m, l) => (l === 'zh-CN' ? `$${m[1]}/月` : `$${m[1]}/mo`)],
+
+      // Additional tactical, postmatch, settings, and live HUD dynamic templates
+      [/^Sin aperturas de (.+) en este mapa en la muestra\.$/, (m, l) => (l === 'zh-CN' ? `样本中暂无${ent(m[1], l)}在此地图的开局记录。` : `No ${ent(m[1], l)} openings on this map in sample.`)],
+      [/^·?\s*(\d+)% victoria \((\d+) pj\)$/, (m, l) => (l === 'zh-CN' ? `· ${m[1]}% 胜率（${m[2]} 场）` : `· ${m[1]}% win rate (${m[2]}g)`)],
+      [/^Ante (.+) · (\d+)\/(\d+) derrotas$/, (m, l) => (l === 'zh-CN' ? `面对${tr(m[1], l)} · ${m[2]}/${m[3]} 负` : `Vs ${tr(m[1], l)} · ${m[2]}/${m[3]} losses`)],
+      [/^(Su equipo perdió|Perdió) (\d+)\/(\d+) ante esta apertura en el contexto consultado\.$/, (m, l) => {
+        const subj = m[1] === 'Su equipo perdió' ? (l === 'zh-CN' ? '其队伍' : 'Their team') : (l === 'zh-CN' ? '对手' : 'Lost');
+        return l === 'zh-CN' ? `${subj}在当前样本面对此开局输了 ${m[2]}/${m[3]} 场。` : `${subj} lost ${m[2]}/${m[3]} against this opening in this sample.`;
+      }],
+      [/^El rival volcó \+(\d+) militares más en ese tramo\.$/, (m, l) => (l === 'zh-CN' ? `对手在此阶段多投入了 +${m[1]} 个军事单位。` : `Opponent fielded +${m[1]} more military units in that window.`)],
+      [/^La Gran Muralla \(([\d.,]+) muros\)$/, (m, l) => (l === 'zh-CN' ? `万里长城（${m[1]} 段城墙）` : `The Great Wall (${m[1]} walls)`)],
+      [/^([\d.,]+)\s+mejoras?$/, (m, l) => (l === 'zh-CN' ? `${m[1]} 项科技` : `${m[1]} upgrades`)],
+      [/^Mov\. ataque \/ Patrullar · ([\d.,]+) form\.$/, (m, l) => (l === 'zh-CN' ? `攻击移动 / 巡逻 · ${m[1]} 次阵型` : `Attack-move / Patrol · ${m[1]} form.`)],
+      [/^Vos vs (.+?)( \(TG\))?$/, (m, l) => (l === 'zh-CN' ? `你 vs ${m[1]}${m[2] || ''}` : `You vs ${m[1]}${m[2] || ''}`)],
+      [/^Perfil #(\d+)$/, (m, l) => (l === 'zh-CN' ? `档案 #${m[1]}` : `Profile #${m[1]}`)],
+      [/^Perfil (\d+|\?)$/, (m, l) => (l === 'zh-CN' ? `档案 ${m[1]}` : `Profile ${m[1]}`)],
+      [/^Listo:\s*(.+?) \(#(\d+)\)$/, (m, l) => (l === 'zh-CN' ? `完成：${m[1]}（#${m[2]}）` : `Ready: ${m[1]} (#${m[2]})`)],
+      [/^Buscando "(.+)"…$/, (m, l) => (l === 'zh-CN' ? `正在搜索“${m[1]}”…` : `Searching "${m[1]}"…`)],
+      [/^(.+?) · sin resultados suficientes$/, (m, l) => (l === 'zh-CN' ? `${tr(m[1], l)} · 样本不足` : `${tr(m[1], l)} · insufficient results`)],
+      [/^sin rivales confirmados · (.+) de aliados$/, (m, l) => (l === 'zh-CN' ? `无已确认对手 · 曾当队友 ${tr(m[1], l)}` : `no confirmed rival games · ${tr(m[1], l)} as allies`)],
+      [/^·?\s*([\d.,]+) sin equipos$/, (m, l) => (l === 'zh-CN' ? `${m[1]} 场未分队` : `${m[1]} unresolved teams`)],
+      [/^([\d.,]+) sin resultado$/, (m, l) => (l === 'zh-CN' ? `${m[1]} 场无结果` : `${m[1]} unknown result`)],
+      [/^Vos con (.+?) · (.+?) · (.+)$/, (m, l) => (l === 'zh-CN' ? `你使用${ent(m[1], l)} · ${tr(m[2], l)} · ${ent(m[3], l)}` : `You on ${ent(m[1], l)} · ${tr(m[2], l)} · ${ent(m[3], l)}`)],
+      [/^solo ([\d.,]+) · muestra chica$/, (m, l) => (l === 'zh-CN' ? `仅 ${m[1]} 场 · 小样本` : `only ${m[1]} · small sample`)],
+      [/^(?:en )?([\d.,]+) de sus (?:últimas )?([\d.,]+) partidas acá(.*)$/, (m, l) => (l === 'zh-CN' ? `此图近 ${m[2]} 场中出现 ${m[1]} 次${tr(m[3], l)}` : `${m[1]} of their ${m[2]} games here${tr(m[3], l)}`)],
+      [/^juega de todo · (.+?) es su más usada: ([\d.,]+) de ([\d.,]+) acá(.*)$/, (m, l) => (l === 'zh-CN' ? `文明多变 · 最常用${ent(m[1], l)}：此图 ${m[2]}/${m[3]} 场${tr(m[4], l)}` : `plays varied civs · most picked is ${ent(m[1], l)}: ${m[2]} of ${m[3]} here${tr(m[4], l)}`)],
+      [/^Contra equipos con (.+)$/, (m, l) => (l === 'zh-CN' ? `面对包含${ent(m[1], l)}的队伍` : `Against teams with ${ent(m[1], l)}`)],
+      [/^Actualización v([\d.]+) (lista|disponible)$/, (m, l) => {
+        if (l === 'zh-CN') return m[2] === 'lista' ? `v${m[1]} 更新已就绪` : `发现新版本 v${m[1]}`;
+        return m[2] === 'lista' ? `Update v${m[1]} ready` : `Update v${m[1]} available`;
+      }],
+      [/^No encontré el perfil #(.+)\.$/, (m, l) => (l === 'zh-CN' ? `未找到档案 #${m[1]}。` : `Profile #${m[1]} not found.`)],
+      [/^No encontré ningún jugador llamado "(.+)"\.$/, (m, l) => (l === 'zh-CN' ? `未找到名为“${m[1]}”的玩家。` : `No player found named "${m[1]}".`)],
+      [/^No se pudo abrir el enlace:\s*(.+)$/, (m, l) => (l === 'zh-CN' ? `无法打开链接：${m[1]}` : `Could not open link: ${m[1]}`)],
+      [/^(\d+) aperturas reales$/, (m, l) => (l === 'zh-CN' ? `${m[1]} 场真实开局` : `${m[1]} real openings`)],
+      [/^CU Alta Edad \(([^)]+)\)$/, (m, l) => (l === 'zh-CN' ? `黑暗时代城镇中心（${m[1]}）` : `Dark Age TC (${m[1]})`)],
+      [/^CU Feudal \(([^)]+)\)$/, (m, l) => (l === 'zh-CN' ? `封建时代城镇中心（${m[1]}）` : `Feudal TC (${m[1]})`)],
+      [/^CU Castillos \(([^)]+)\)$/, (m, l) => (l === 'zh-CN' ? `城堡时代城镇中心（${m[1]}）` : `Castle TC (${m[1]})`)],
+      [/^BRECHA EN DERROTAS \((\d+)V[–-](\d+)D\)$/, (m, l) => (l === 'zh-CN' ? `败局差距（${m[1]}胜–${m[2]}负）` : `GAP IN LOSSES (${m[1]}W–${m[2]}L)`)],
+      [/^(·\s*)?(\d+)\/(\d+)\s+partidas?$/, (m, l) => (l === 'zh-CN' ? `${m[1] || ''}${m[2]}/${m[3]} 场对局` : `${m[1] || ''}${m[2]}/${m[3]} matches`)],
+
+      // Training Perf, Weekly, Plan, Orders, Matchups, TechTree, Arena dynamic rules (live Chromium verified)
+      [/^Pase a (Edad Feudal|Edad de los Castillos|Edad Imperial):\s*([+\-−]?[\d,.]+\s*(?:s|min))\s+más (lento|rápido) que tu promedio$/, (m, l) => {
+        const age = tr(m[1], l);
+        const dir = m[3] === 'lento' ? (l === 'zh-CN' ? '慢' : 'slower') : (l === 'zh-CN' ? '快' : 'faster');
+        return l === 'zh-CN' ? `升级${age}：比个人均值${dir} ${m[2]}` : `${age} uptime: ${m[2]} ${dir} than your average`;
+      }],
+      [/^Esta partida:\s*([^\s]+)\s+frente a tu promedio de\s*([^\s.]+)\.?$/, (m, l) => (l === 'zh-CN' ? `本局：${m[1]}，对比个人均值 ${m[2]}。` : `This match: ${m[1]} vs your average of ${m[2]}.`)],
+      [/^([\d,.]+)\s+aldeanos?$/, (m, l) => (l === 'zh-CN' ? `${m[1]} 名村民` : `${m[1]} villagers`)],
+      [/^CUELLO DE BOTELLA #1 · (.+)$/, (m, l) => (l === 'zh-CN' ? `首要瓶颈 #1 · ${tr(m[1], l)}` : `BOTTLENECK #1 · ${tr(m[1], l)}`)],
+      [/^En tus derrotas, tu demora en (.+?) empeora ([+\-−]?[\d,.]+\s*s) \(([\d.,]+\s*s) en victorias vs ([\d.,]+\s*s) en derrotas\)$/, (m, l) => (l === 'zh-CN'
+        ? `在败局中，你的${tr(m[1], l)}延迟恶化了 ${m[2]}（胜局 ${m[3]} vs 败局 ${m[4]}）`
+        : `In losses, your ${tr(m[1], l)} delay worsens by ${m[2]} (${m[3]} in wins vs ${m[4]} in losses)`)],
+      [/^En tus derrotas, tu (.+?) empeora (.+?) \((.+?) en victorias vs (.+?) en derrotas\)$/, (m, l) => (l === 'zh-CN'
+        ? `在败局中，你的${tr(m[1], l)}恶化了 ${m[2]}（胜局 ${m[3]} vs 败局 ${m[4]}）`
+        : `In losses, your ${tr(m[1], l)} worsens by ${m[2]} (${m[3]} in wins vs ${m[4]} in losses)`)],
+      [/^Esta semana mejoraste (\d+) fundamentos? reales?$/, (m, l) => (l === 'zh-CN' ? `本周你在 ${m[1]} 项核心基本功上取得真实进步` : `You improved ${m[1]} real fundamental(s) this week`)],
+      [/^(\d+) partidas? esta semana vs (\d+) previas\. Cada mejora supera el margen de ruido real\.$/, (m, l) => (l === 'zh-CN'
+        ? `本周 ${m[1]} 场对比此前 ${m[2]} 场。每项进步均超过真实波动阈值。`
+        : `${m[1]} match(es) this week vs ${m[2]} prior. Every gain clears the real noise threshold.`)],
+      [/^Mediana de (\d+) partidas? esta semana vs (\d+) previas$/, (m, l) => (l === 'zh-CN' ? `本周 ${m[1]} 场 vs 此前 ${m[2]} 场中位数` : `Median of ${m[1]} matches this week vs ${m[2]} prior`)],
+      [/^([+\-−]?[\d,.]+\s*s) (antes|después) en (Edad Feudal|Edad de los Castillos|Edad Imperial)$/, (m, l) => {
+        const age = tr(m[3], l);
+        const dir = m[2] === 'antes' ? (l === 'zh-CN' ? '提前' : 'earlier') : (l === 'zh-CN' ? '延后' : 'later');
+        return l === 'zh-CN' ? `${age}${dir} ${m[1]}` : `${m[1]} ${dir} in ${age}`;
+      }],
+      [/^([+\-−]?[\d,.]+\s*s) · ([+\-−]?[\d,.]+) aldeanos? (ganados?|perdidos?)$/, (m, l) => {
+        const verb = m[3].startsWith('ganad') ? (l === 'zh-CN' ? '多产' : 'gained') : (l === 'zh-CN' ? '损失' : 'lost');
+        return l === 'zh-CN' ? `${m[1]} · ${verb} ${m[2]} 名村民` : `${m[1]} · ${m[2]} villagers ${verb}`;
+      }],
+      [/^Nuevo récord en (.+)$/, (m, l) => (l === 'zh-CN' ? `刷新个人纪录：${tr(m[1], l)}` : `New record in ${tr(m[1], l)}`)],
+      [/^Pase a (Edad Feudal|Edad de los Castillos|Edad Imperial)$/, (m, l) => (l === 'zh-CN' ? `升级${tr(m[1], l)}` : `${tr(m[1], l)} uptime`)],
+      [/^Objetivos de Mi Plan \((\d+) activos? · (\d+) cumplidos?\)$/, (m, l) => (l === 'zh-CN' ? `我的计划目标（${m[1]} 进行中 · ${m[2]} 已达成）` : `My Plan Goals (${m[1]} active · ${m[2]} completed)`)],
+      [/^Cumplido en (.+?):\s*pausa de CU en (Feudal|Alta Edad|Castillos) de ([\d.,]+\s*s) \(meta ≤ ([\d.,]+\s*s)\)\.?$/, (m, l) => (l === 'zh-CN'
+        ? `在${ent(m[1], l)}达成：${tr(m[2], l)}城镇中心空闲 ${m[3]}（目标 ≤ ${m[4]}）。`
+        : `Completed on ${ent(m[1], l)}: ${tr(m[2], l)} TC idle ${m[3]} (goal ≤ ${m[4]}).`)],
+      [/^Cumplido en (.+?):\s*(.+)$/, (m, l) => (l === 'zh-CN' ? `在${ent(m[1], l)}达成：${tr(m[2], l)}` : `Completed on ${ent(m[1], l)}: ${tr(m[2], l)}`)],
+      [/^Meta:\s*Investigar (.+?) en ≤ (\d+)\s*s tras (Feudal|Castillos|Imperial)$/, (m, l) => (l === 'zh-CN'
+        ? `目标：升${tr(m[3], l)}后 ≤ ${m[2]} 秒内研究${tr(m[1], l)}`
+        : `Goal: Research ${tr(m[1], l)} within ≤ ${m[2]}s of ${tr(m[3], l)}`)],
+      [/^Meta:\s*(.+)$/, (m, l) => (l === 'zh-CN' ? `目标：${tr(m[1], l)}` : `Goal: ${tr(m[1], l)}`)],
+      [/^Pasos de «(.+)» \((\d+)\)$/, (m, l) => (l === 'zh-CN' ? `《${tr(m[1], l)}》步骤（${m[2]}）` : `Steps for "${tr(m[1], l)}" (${m[2]})`)],
+      [/^(.+?) \((\d+) de población\)$/, (m, l) => (l === 'zh-CN' ? `${tr(m[1], l)}（${m[2]} 人口）` : `${tr(m[1], l)} (${m[2]} pop)`)],
+      [/^Peligro rival:\s*(.+)$/, (m, l) => (l === 'zh-CN' ? `对手威胁窗口：${m[1]}` : `Opponent threat window: ${m[1]}`)],
+      [/^Postura óptima:\s*(.+)$/, (m, l) => (l === 'zh-CN' ? `最佳经济姿态：${tr(m[1], l)}` : `Optimal eco posture: ${tr(m[1], l)}`)],
+      [/^Reloj a favor · escalá hacia (.+)$/, (m, l) => (l === 'zh-CN' ? `时长曲线占优 · 稳步拖向 ${m[1]}` : `Clock favors you · scale toward ${m[1]}`)],
+      [/^Explotá que (.+?) juega sin\s*(.*)$/, (m, l) => {
+        const rest = m[2] ? tr(m[2].replace(/\.$/, ''), l) : '';
+        return l === 'zh-CN'
+          ? `针对${ent(m[1], l)}缺少${rest ? `${rest}的弱点` : ''}`
+          : `Exploit that ${ent(m[1], l)} lacks${rest ? ` ${rest}` : ''}`;
+      }],
+      [/^(.+?) sin\s*(.*)$/, (m, l) => {
+        const civ = ent(m[1], l);
+        if (civ === m[1] && !/^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+$/.test(m[1])) return m[0];
+        const rest = m[2] ? tr(m[2], l) : '';
+        return l === 'zh-CN' ? `${civ}缺少${rest}` : `${civ} lacks${rest ? ` ${rest}` : ''}`;
+      }],
+      [/^(?:Nivel|Level) (\d+) · (.+?) \(([^)]+)\)$/, (m, l) => (l === 'zh-CN' ? `第 ${m[1]} 级 · ${tr(m[2], l)}（${m[3]}）` : `Level ${m[1]} · ${tr(m[2], l)} (${m[3]})`)],
+      [/^Mejora (\d+) de defensa de (caballería|infantería|arqueros) \((.+)\)$/, (m, l) => {
+        const clsEn = { 'caballería': 'cavalry', 'infantería': 'infantry', arqueros: 'archer' };
+        const clsZh = { 'caballería': '骑兵', 'infantería': '步兵', arqueros: '弓箭手' };
+        const inner = m[3]
+          .replace(/cuerpo a cuerpo/gi, l === 'zh-CN' ? '近战' : 'melee')
+          .replace(/antiproyectil/gi, l === 'zh-CN' ? '远程' : 'pierce')
+          .replace(/armadura/gi, l === 'zh-CN' ? '护甲' : 'armor')
+          .replace(/total/gi, l === 'zh-CN' ? '总计' : 'total')
+          .replace(/caballería/gi, l === 'zh-CN' ? '骑兵' : 'cavalry')
+          .replace(/infantería/gi, l === 'zh-CN' ? '步兵' : 'infantry')
+          .replace(/arqueros/gi, l === 'zh-CN' ? '弓箭手' : 'archers')
+          .replace(/\by\b/g, l === 'zh-CN' ? '与' : 'and');
+        return l === 'zh-CN'
+          ? `${clsZh[m[2]] || m[2]}防御 ${m[1]} 级（${inner}）`
+          : `Tier ${m[1]} ${clsEn[m[2]] || m[2]} armor (${inner})`;
+      }],
     ];
   }
 

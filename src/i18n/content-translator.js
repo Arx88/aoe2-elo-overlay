@@ -78,7 +78,7 @@ function translateText(text, locale) {
   if (locale === 'es-ES') return applyEsEs(text);
   if (locale !== 'en' && locale !== 'zh-CN') return text;
 
-  const trimmed = text.trim();
+  const trimmed = text.replace(/\u00a0/g, ' ').trim();
   if (!trimmed || trimmed.length < 2) return text;
 
   const direct = translateSegment(trimmed, locale);
