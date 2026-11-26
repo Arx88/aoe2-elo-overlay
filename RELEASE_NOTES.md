@@ -1,3 +1,13 @@
+## v3.3.18 · Explicador por clic derecho ultra-específico en cada sub-tarjeta, pestaña y curiosidad
+
+- **Cobertura granular en toda la app (`ui/help-explainer.js`, `ui/tactical-ui.js`, `ui/training-ui.js`, `ui/welcome-ui.js`):** ahora cada sub-elemento tiene su propia explicación dedicada y distinta (90+ guías verificadas automáticamente por test) en lugar de repetir el cuadro padre:
+  - **Central:** cada una de las 6 marcas de *Récords, batacazos y curiosidades* (Mayor Batacazo, Racha Récord, Mejor Sesión, GG Más Rápido, Batalla Más Épica, Versatilidad de Pool), las 6 curiosidades individuales (El Espejo, Vs Meta, Perfil en Derrotas, Estilo Rival, Resaca Post-Maratón, Karma de Revanchas), Color Talismán, Pocket vs Flank, los 4 KPIs del hero, las 3 pestañas, Velocidad vs Cerebro, Ventana Letal y cada KPI de combate y maestría.
+  - **Entrenamiento:** las 7 pestañas, cada módulo de *Progreso* por separado (*Fundamentos medidos* + cada una de sus 6 filas individuales, *Evolución partida a partida*, *Referencias de curva*, *Ejecución por edades* para cada edad, *Brecha en derrotas*, *Balance semanal* mejoras vs actividad diaria, *Veredicto*, *Prioridad*, KPIs y *APM*), los sub-bloques de *Matchups* y *Build Orders*, y cada indicador del HUD de *APM* y *Arena*.
+  - **Postmatch e Inicio:** las 4 edades individuales, las 3 pestañas, los 7 hallazgos individuales (*Aldeanos Fantasma*, *Minuto del Quiebre*, *Herrería*, *Tech-Switch*, *Eficiencia de Gasto*, *Castle Drop*, *Rol en Equipo*) y cada celda del *Tesoro Semanal* y *Meta Global*.
+- **Panel más limpio:** eliminado el texto redundante inferior dentro del propio cuadro de explicación.
+
+---
+
 ## v3.3.17 · Explicador contextual por clic derecho en toda la app
 
 - **Explicación clara de cada cuadro y métrica con clic derecho (`ui/help-explainer.js`, `settings.css`, `ultra-skin.css`):** hacé clic derecho sobre cualquier tarjeta, gráfico o fila de **Inicio**, **Central**, **Postmatch** o **Entrenamiento** para abrir un panel flotante limpio (sin llenar la interfaz de íconos `?`) que explica en lenguaje sencillo **qué mide**, **cómo se calcula** y **en qué influye** ese dato. Respeta el menú nativo dentro de campos de texto y selecciones para copiar/pegar, soporta Clásico y Ultra OLED, cumple CSP estricto (`0` estilos inline) y está traducido a `es-MX`, `es-ES`, `en` y `zh-CN`.

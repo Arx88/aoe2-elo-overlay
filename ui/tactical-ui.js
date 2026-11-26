@@ -1623,7 +1623,7 @@
         const tileTone = ready && showCommunity ? (STAGE_TONE[s.grade] || 'is-slate') : 'is-slate';
         const stageJumpTab = s.id === 'imperial' ? 'evo' : 'duel';
         const stageJumpSel = s.id === 'imperial' ? '.pm-habits' : '.pm-race-box, .pm-duel';
-        return `<article class="pm-stage-card is-jumpable${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}" data-pm-jump-tab="${stageJumpTab}" data-scroll-target="${stageJumpSel}"${s.tip ? ` title="${esc(s.tip)}"` : ''}>
+        return `<article class="pm-stage-card is-jumpable${ready ? ` is-ready${showCommunity ? ` grade-${s.grade}` : ''}` : ' is-dim'}" data-help-id="pm_stage_${esc(s.id || 'dark')}" data-pm-jump-tab="${stageJumpTab}" data-scroll-target="${stageJumpSel}"${s.tip ? ` title="${esc(s.tip)}"` : ''}>
           <div class="pm-stage-top">
             <span class="pm-icon-tile ${tileTone} sm pm-age-tile">${ageBrandEmblem(s.id, 34)}</span>
             <div class="pm-stage-head">
@@ -1952,15 +1952,15 @@
     const techTabSub = `${number(selfTechTotal)} mejoras · ${number(self.workshopsCount || 0)} edif.`;
     const deepDive = `<section class="pm-deep-dive" aria-label="${esc(tr('pm.techDeepDiveAria', 'Análisis técnico detallado'))}">
       <div class="pm-tabs" role="tablist">
-        <button type="button" class="pm-tab is-tab-evo is-active" role="tab" aria-selected="true" data-pm-tab="evo">
+        <button type="button" class="pm-tab is-tab-evo is-active" role="tab" aria-selected="true" data-pm-tab="evo" data-help-id="pm_tab_evo">
           <span class="pm-tab-ico" aria-hidden="true">${reportIcon('trend')}</span>
           <span class="pm-tab-copy"><strong>${esc(tr('postmatch.tabEvo', 'Evolución y Curva'))}</strong><small>${esc(evoTabSub)}</small></span>
         </button>
-        <button type="button" class="pm-tab is-tab-duel" role="tab" aria-selected="false" data-pm-tab="duel">
+        <button type="button" class="pm-tab is-tab-duel" role="tab" aria-selected="false" data-pm-tab="duel" data-help-id="pm_tab_duel">
           <span class="pm-tab-ico" aria-hidden="true">${reportIcon('combat')}</span>
           <span class="pm-tab-copy"><strong>${esc(tr('postmatch.tabDuel', 'Duelo vs Rival'))}</strong><small>${esc(duelTabSub)}</small></span>
         </button>
-        <button type="button" class="pm-tab is-tab-tech" role="tab" aria-selected="false" data-pm-tab="tech">
+        <button type="button" class="pm-tab is-tab-tech" role="tab" aria-selected="false" data-pm-tab="tech" data-help-id="pm_tab_tech">
           <span class="pm-tab-ico" aria-hidden="true">${reportIcon('blacksmith')}</span>
           <span class="pm-tab-copy"><strong>${esc(tr('postmatch.tabTech', 'Mejoras y Producción'))}</strong><small>${esc(techTabSub)}</small></span>
         </button>
@@ -2042,7 +2042,7 @@
     const pmInsightCards = [];
     if (pmIns?.ghostVillagers) {
       const gv = pmIns.ghostVillagers;
-      pmInsightCards.push(`<article class="pm-ins-card is-loss">
+      pmInsightCards.push(`<article class="pm-ins-card is-loss" data-help-id="pm_ins_ghost">
         <span class="pm-icon-tile is-rose sm">${reportIcon('villager')}</span>
         <div class="pm-ins-copy">
           <span class="pm-ins-k">ALDEANOS FANTASMA</span>
@@ -2054,7 +2054,7 @@
     if (pmIns?.turningPoint) {
       const tp = pmIns.turningPoint;
       const tCls = tp.tone === 'win' ? 'is-win' : tp.tone === 'loss' ? 'is-loss' : 'is-gold';
-      pmInsightCards.push(`<article class="pm-ins-card ${tCls}">
+      pmInsightCards.push(`<article class="pm-ins-card ${tCls}" data-help-id="pm_ins_turning">
         <span class="pm-icon-tile ${tp.tone === 'win' ? 'is-emerald' : tp.tone === 'loss' ? 'is-rose' : 'is-gold'} sm">${reportIcon('trend')}</span>
         <div class="pm-ins-copy">
           <span class="pm-ins-k">MINUTO DEL QUIEBRE</span>
@@ -2065,7 +2065,7 @@
     }
     if (pmIns?.tgRoleEval) {
       const r = pmIns.tgRoleEval;
-      pmInsightCards.push(`<article class="pm-ins-card ${r.tone === 'win' ? 'is-win' : 'is-gold'}">
+      pmInsightCards.push(`<article class="pm-ins-card ${r.tone === 'win' ? 'is-win' : 'is-gold'}" data-help-id="pm_ins_tgrole">
         <span class="pm-icon-tile ${r.tone === 'win' ? 'is-emerald' : 'is-gold'} sm">${reportIcon('shield')}</span>
         <div class="pm-ins-copy">
           <span class="pm-ins-k">ROL EN EQUIPO · ${esc(r.roleLabel.toUpperCase())}</span>
@@ -2076,7 +2076,7 @@
     }
     if (pmIns?.blacksmithGap) {
       const bg = pmIns.blacksmithGap;
-      pmInsightCards.push(`<article class="pm-ins-card ${bg.tone === 'win' ? 'is-win' : 'is-loss'}">
+      pmInsightCards.push(`<article class="pm-ins-card ${bg.tone === 'win' ? 'is-win' : 'is-loss'}" data-help-id="pm_ins_bsgap">
         <span class="pm-icon-tile ${bg.tone === 'win' ? 'is-emerald' : 'is-rose'} sm">${reportIcon('blacksmith')}</span>
         <div class="pm-ins-copy">
           <span class="pm-ins-k">${esc(tr('pm.bsTimingKicker', 'TIMING DE HERRERÍA'))}</span>
@@ -2087,7 +2087,7 @@
     }
     if (pmIns?.techSwitch) {
       const ts = pmIns.techSwitch;
-      pmInsightCards.push(`<article class="pm-ins-card ${ts.tone === 'win' ? 'is-win' : 'is-loss'}">
+      pmInsightCards.push(`<article class="pm-ins-card ${ts.tone === 'win' ? 'is-win' : 'is-loss'}" data-help-id="pm_ins_techswitch">
         <span class="pm-icon-tile ${ts.tone === 'win' ? 'is-emerald' : 'is-rose'} sm">${reportIcon('sword')}</span>
         <div class="pm-ins-copy">
           <span class="pm-ins-k">${esc(tr('pm.techSwitchKicker', 'ADAPTACIÓN & TECH-SWITCH'))}</span>
@@ -2098,7 +2098,7 @@
     }
     if (pmIns?.trappedResources) {
       const trRes = pmIns.trappedResources;
-      pmInsightCards.push(`<article class="pm-ins-card ${trRes.tone === 'win' ? 'is-win' : 'is-loss'}">
+      pmInsightCards.push(`<article class="pm-ins-card ${trRes.tone === 'win' ? 'is-win' : 'is-loss'}" data-help-id="pm_ins_trapped">
         <span class="pm-icon-tile ${trRes.tone === 'win' ? 'is-emerald' : 'is-amber'} sm">${reportIcon('market')}</span>
         <div class="pm-ins-copy">
           <span class="pm-ins-k">EFICIENCIA DE GASTO</span>
@@ -2109,7 +2109,7 @@
     }
     if (pmIns?.castleDrop) {
       const cd = pmIns.castleDrop;
-      pmInsightCards.push(`<article class="pm-ins-card ${cd.tone === 'win' ? 'is-gold' : 'is-loss'}">
+      pmInsightCards.push(`<article class="pm-ins-card ${cd.tone === 'win' ? 'is-gold' : 'is-loss'}" data-help-id="pm_ins_castle">
         <span class="pm-icon-tile ${cd.tone === 'win' ? 'is-gold' : 'is-rose'} sm">${reportIcon('castle')}</span>
         <div class="pm-ins-copy">
           <span class="pm-ins-k">CASTLE DROP</span>
@@ -3156,7 +3156,7 @@
       const comboTxt = sc.combo
         ? tr('cx.comboFoot', 'Combo: {civ} en {map} ({wr}%)', { civ: locCiv(sc.combo.civ) || sc.combo.civ, map: locMap(sc.combo.mapName) || sc.combo.mapName, wr: sc.combo.winRate })
         : `${sc.deltaPp >= 0 ? tr('cx.aboveAvgFoot', '+{pp} pp sobre tu media', { pp: sc.deltaPp }) : `${number(sc.games)} ${tr('cx.gamesWord', 'partidas')}`} · ${cxWL(sc.wins, sc.losses)}`;
-      cards.push(`<button type="button" class="cx-spot-card is-civ-spot is-win" data-jump-civ="${esc(sc.civSlug || '')}">
+      cards.push(`<button type="button" class="cx-spot-card is-civ-spot is-win" data-help-id="cx_spot_civ" data-jump-civ="${esc(sc.civSlug || '')}">
         <div class="cx-spot-head">
           <span class="cx-eyebrow is-win">${esc(tr('cx.secretWeapon', 'TU ARMA SECRETA'))}</span>
           <span class="cx-spot-pill is-win">${esc(cxWL(sc.wins, sc.losses))}</span>
@@ -3179,7 +3179,7 @@
       const foot = fm.avgEapm != null
         ? `${cxWL(fm.wins, fm.losses)} · ${tr('cx.avgEapmFoot', '{val} eAPM promedio', { val: dec(fm.avgEapm, 1) })}`
         : `${cxWL(fm.wins, fm.losses)} · ${fm.deltaPp >= 0 ? tr('cx.vsAvgFoot', '+{pp} pp vs media', { pp: fm.deltaPp }) : `${number(fm.games)} ${tr('cx.gamesWord', 'partidas')}`}`;
-      cards.push(`<button type="button" class="cx-spot-card is-map-spot is-gold" data-jump-map="${esc(fm.mapKey || '')}">
+      cards.push(`<button type="button" class="cx-spot-card is-map-spot is-gold" data-help-id="cx_spot_map" data-jump-map="${esc(fm.mapKey || '')}">
         <div class="cx-spot-head">
           <span class="cx-eyebrow is-gold">${esc(tr('cx.fortressMap', 'TU MAPA FORTALEZA'))}</span>
           <span class="cx-spot-pill is-gold">${number(fm.games)} ${esc(cxPj())}</span>
@@ -3202,7 +3202,7 @@
       const preyNote = trident.prey && trident.prey.kind === 'civ'
         ? tr('cx.favPreyFoot', 'Presa favorita: {civ} ({wr}%)', { civ: locCiv(trident.prey.civ) || trident.prey.civ, wr: trident.prey.winRate })
         : tr('cx.hardestMatchupFoot', 'Tu cruce más difícil en este modo · {n} partidas', { n: number(nem.games) });
-      cards.push(`<button type="button" class="cx-spot-card is-nemesis-spot is-loss" data-scroll-view="intel" data-scroll-target="#cxMatchupSessionCard">
+      cards.push(`<button type="button" class="cx-spot-card is-nemesis-spot is-loss" data-help-id="cx_spot_nemesis" data-scroll-view="intel" data-scroll-target="#cxMatchupSessionCard">
         <div class="cx-spot-head">
           <span class="cx-eyebrow is-loss">${esc(tr('cx.nemesisTitle', 'TU BESTIA NEGRA'))}</span>
           <span class="cx-spot-pill is-loss">${esc(cxWL(nem.wins, nem.losses))}</span>
@@ -3228,7 +3228,7 @@
       const jumpAttr = isMap
         ? ` data-jump-map="${esc(st.mapKey || '')}"`
         : ` data-jump-civ="${esc(st.civSlug || '')}"`;
-      cards.push(`<button type="button" class="cx-spot-card is-nemesis-spot is-loss"${jumpAttr}>
+      cards.push(`<button type="button" class="cx-spot-card is-nemesis-spot is-loss" data-help-id="cx_spot_trap"${jumpAttr}>
         <div class="cx-spot-head">
           <span class="cx-eyebrow is-loss">${esc(tr('cx.silentTrap', 'TRAMPA SILENCIOSA'))}</span>
           <span class="cx-spot-pill is-loss">${esc(cxWL(st.wins, st.losses))}</span>
@@ -3247,7 +3247,7 @@
       const mapLabel = up.mapName ? (locMap(up.mapName) || up.mapName) : '';
       const vsLabel = up.rivalName ? `vs ${up.rivalName}` : (giantSlayer.isTeam ? tr('cx.vsHigherTeam', 'vs equipo superior') : tr('cx.vsHigherRival', 'vs rival superior'));
       const upPill = up.ratingDiff > 0 ? `+${up.ratingDiff} ELO` : tr('cx.upsetPill', 'Batacazo');
-      cards.push(`<div class="cx-spot-card is-upset-spot is-gold">
+      cards.push(`<div class="cx-spot-card is-upset-spot is-gold" data-help-id="cx_trophy_upset">
         <div class="cx-spot-head">
           <span class="cx-eyebrow is-gold">${esc(tr('cx.giantSlayer', 'MATAGIGANTES'))}</span>
           <span class="cx-spot-pill is-win">${esc(upPill)}</span>
@@ -3262,7 +3262,7 @@
         <small class="cx-spot-foot">${esc([up.myCiv ? (locCiv(up.myCiv) || up.myCiv) : null, mapLabel, giantSlayer.vsLower ? tr('cx.vsLowerShort', 'vs menor ELO: {wr}%', { wr: giantSlayer.vsLower.winRate }) : null].filter(Boolean).join(' · '))}</small>
       </div>`);
     } else if (ladder?.peak) {
-      cards.push(`<div class="cx-spot-card is-upset-spot is-gold">
+      cards.push(`<div class="cx-spot-card is-upset-spot is-gold" data-help-id="cx_trophy_upset">
         <div class="cx-spot-head">
           <span class="cx-eyebrow is-gold">${esc(tr('cx.careerPeak', 'PICO DE CARRERA'))}</span>
           <span class="cx-spot-pill is-gold">${esc(tr('cx.recordPill', 'Récord'))}</span>
@@ -3324,6 +3324,7 @@
     if (giantSlayer?.biggestUpset) {
       const up = giantSlayer.biggestUpset;
       trophyItems.push({
+        helpId: 'cx_trophy_upset',
         ico: up.myCiv ? civBadge(up.myCiv) : (up.mapName ? mapBadge(up.mapName, 'sm') : icon('sword')),
         tone: 'gold',
         kicker: tr('cx.biggestUpset', 'MAYOR BATACAZO'),
@@ -3333,6 +3334,7 @@
     }
     if (trophies?.bestWinStreak) {
       trophyItems.push({
+        helpId: 'cx_trophy_streak',
         ico: icon('trophy'),
         tone: 'win',
         kicker: trophies.bestWinStreak.active ? tr('cx.bestStreakActive', 'RACHA RÉCORD · ACTIVA') : tr('cx.bestStreak', 'RACHA RÉCORD'),
@@ -3342,6 +3344,7 @@
     }
     if (trophies?.bestSession) {
       trophyItems.push({
+        helpId: 'cx_trophy_session',
         ico: icon('trend'),
         tone: 'win',
         kicker: tr('cx.bestSession', 'MEJOR SESIÓN'),
@@ -3351,6 +3354,7 @@
     }
     if (trophies?.fastestWin) {
       trophyItems.push({
+        helpId: 'cx_trophy_fastest',
         ico: trophies.fastestWin.mapName ? mapBadge(trophies.fastestWin.mapName, 'sm') : icon('clock'),
         tone: 'gold',
         kicker: tr('cx.fastestGg', 'GG MÁS RÁPIDO'),
@@ -3360,6 +3364,7 @@
     }
     if (trophies?.longestWin) {
       trophyItems.push({
+        helpId: 'cx_trophy_epic',
         ico: trophies.longestWin.mapName ? mapBadge(trophies.longestWin.mapName, 'sm') : icon('castle'),
         tone: 'neutral',
         kicker: tr('cx.epicBattle', 'BATALLA MÁS ÉPICA'),
@@ -3369,6 +3374,7 @@
     }
     if (trophies?.otpIndex) {
       trophyItems.push({
+        helpId: 'cx_trophy_pool',
         ico: civBadge(trophies.otpIndex.topCiv) || icon('shield'),
         tone: 'neutral',
         kicker: tr('cx.poolVersatility', 'VERSATILIDAD DE POOL'),
@@ -3386,7 +3392,7 @@
         ${giantSlayer?.vsLower ? `<span class="cx-meta-pill">${esc(tr('cx.vsLowerShort', 'vs menor ELO: {wr}%', { wr: giantSlayer.vsLower.winRate }))}</span>` : ''}
       </header>
       <div class="cx-trophies-grid">
-        ${trophyItems.slice(0, 6).map((t) => `<article class="cx-trophy-tile is-${t.tone}">
+        ${trophyItems.slice(0, 6).map((t) => `<article class="cx-trophy-tile is-${t.tone}" data-help-id="${esc(t.helpId || 'cx_trophies')}">
           <span class="cx-trophy-ico">${t.ico}</span>
           <div class="cx-trophy-copy">
             <span>${esc(t.kicker)}</span>
@@ -3421,10 +3427,10 @@
         </div>`).join('')}
       </div>
       <div class="cx-combat-kpis">
-        ${combatDna.tcDarkAvg != null ? `<div class="cx-ckpi"><span>${esc(tr('cx.tcDarkLabel', 'TC Alta Edad'))}</span><b class="win">${dec(combatDna.tcDarkAvg, 1)}%</b></div>` : ''}
-        <div class="cx-ckpi"><span>${esc(tr('cx.noBellLabel', 'Sin Campana'))}</span><b class="${combatDna.cleanDefensePct >= 80 ? 'win' : 'loss'}">${combatDna.cleanDefensePct}%</b></div>
-        ${combatDna.blacksmithPct != null ? `<div class="cx-ckpi"><span>${esc(tr('cx.blacksmithLabel', 'Herrería al día'))}</span><b class="${combatDna.blacksmithPct >= 70 ? 'win' : ''}">${combatDna.blacksmithPct}%</b></div>` : ''}
-        ${combatDna.peakEapm ? `<div class="cx-ckpi"><span>${esc(tr('cx.peakAdrenaline', 'Pico adrenalina'))}</span><b class="gold">${combatDna.peakEapm.peakEapm}</b><small>${esc(tr('cx.minShort', 'min {m}', { m: combatDna.peakEapm.minute || '—' }))}</small></div>` : ''}
+        ${combatDna.tcDarkAvg != null ? `<div class="cx-ckpi" data-help-id="cx_ckpi_tc_dark"><span>${esc(tr('cx.tcDarkLabel', 'TC Alta Edad'))}</span><b class="win">${dec(combatDna.tcDarkAvg, 1)}%</b></div>` : ''}
+        <div class="cx-ckpi" data-help-id="metric_townbell"><span>${esc(tr('cx.noBellLabel', 'Sin Campana'))}</span><b class="${combatDna.cleanDefensePct >= 80 ? 'win' : 'loss'}">${combatDna.cleanDefensePct}%</b></div>
+        ${combatDna.blacksmithPct != null ? `<div class="cx-ckpi" data-help-id="metric_blacksmith"><span>${esc(tr('cx.blacksmithLabel', 'Herrería al día'))}</span><b class="${combatDna.blacksmithPct >= 70 ? 'win' : ''}">${combatDna.blacksmithPct}%</b></div>` : ''}
+        ${combatDna.peakEapm ? `<div class="cx-ckpi" data-help-id="cx_ckpi_adrenaline"><span>${esc(tr('cx.peakAdrenaline', 'Pico adrenalina'))}</span><b class="gold">${combatDna.peakEapm.peakEapm}</b><small>${esc(tr('cx.minShort', 'min {m}', { m: combatDna.peakEapm.minute || '—' }))}</small></div>` : ''}
       </div>`, { locked: !isUltra, ctaLabel: tr('cx.unlockCombatDna', 'Desbloquea tu Huella de Combate desde replays locales'), compact: true })}
     </section>` : '';
 
@@ -3436,7 +3442,7 @@
         </div>
       </header>
       ${wrapUltraGate(`<div class="cx-tempo-body">
-        ${speedVsBrain ? `<div class="cx-speed-split">
+        ${speedVsBrain ? `<div class="cx-speed-split" data-help-id="cx_speed_vs_brain">
           <div class="cx-gauge-wrap">${svgSpeedGauge(speedVsBrain.avgSelf, speedVsBrain.avgRival)}</div>
           <div class="cx-speed-facts">
             ${speedVsBrain.faster ? `<div class="cx-sf-row is-win"><span>${esc(tr('cx.fasterLabel', 'Más rápido ({n} pj)', { n: number(speedVsBrain.faster.games) }))}</span><b>${speedVsBrain.faster.winRate}% WR</b></div>` : ''}
@@ -3444,7 +3450,7 @@
             ${speedVsBrain.smartestWin ? `<small class="cx-sf-gem">${esc(tr('cx.smartestWin', 'Victoria más cerebral:'))} <b>${dec(speedVsBrain.smartestWin.myEapm, 1)} vs ${dec(speedVsBrain.smartestWin.oppEapm, 1)} eAPM</b> (${esc(locCiv(speedVsBrain.smartestWin.civ) || speedVsBrain.smartestWin.civ)})</small>` : (speedVsBrain.headline ? `<small class="cx-sf-gem">${esc(speedVsBrain.headlineI18n ? locRef(speedVsBrain.headlineI18n, speedVsBrain.headline) : speedVsBrain.headline)}</small>` : '')}
           </div>
         </div>` : ''}
-        ${killerWindow ? `<div class="cx-killer-cols">
+        ${killerWindow ? `<div class="cx-killer-cols" data-help-id="cx_killer_window">
           ${(killerWindow.phases || []).map((p) => {
             const tone = p.isPeak ? 'gold' : p.isValley ? 'loss' : (p.winRate >= 55 ? 'win' : p.winRate != null && p.winRate < 45 ? 'loss' : 'neutral');
             return `<div class="cx-circ-col is-${tone}${p.isPeak ? ' is-golden' : ''}">
@@ -3473,8 +3479,8 @@
     const tg = disc.tgRadiography;
     if (tg) {
       const roleBoxes = [
-        tg.pocket ? `<div class="cx-tg-role is-pocket"><span>${esc(tr('cx.rolePocket', 'POCKET'))}</span><b class="${tg.pocket.games >= 4 ? (tg.pocket.winRate >= 54 ? 'win' : tg.pocket.winRate < 46 ? 'loss' : '') : ''}">${tg.pocket.games >= 4 ? `${tg.pocket.winRate}%` : `${tg.pocket.games} ${esc(cxPj())}`}</b><small>${esc(tg.pocket.games >= 4 ? `${cxWL(tg.pocket.wins, tg.pocket.losses)} (${tg.pocket.games} ${cxPj()})` : tr('cx.smallSample4', 'Muestra chica (<4 pj)'))}</small></div>` : '',
-        tg.flank ? `<div class="cx-tg-role is-flank"><span>${esc(tr('cx.roleFlank', 'FLANK'))}</span><b class="${tg.flank.games >= 4 ? (tg.flank.winRate >= 54 ? 'win' : tg.flank.winRate < 46 ? 'loss' : '') : ''}">${tg.flank.games >= 4 ? `${tg.flank.winRate}%` : `${tg.flank.games} ${esc(cxPj())}`}</b><small>${esc(tg.flank.games >= 4 ? `${cxWL(tg.flank.wins, tg.flank.losses)} (${tg.flank.games} ${cxPj()})` : tr('cx.smallSample4', 'Muestra chica (<4 pj)'))}</small></div>` : '',
+        tg.pocket ? `<div class="cx-tg-role is-pocket" data-help-id="cx_tg_pocket"><span>${esc(tr('cx.rolePocket', 'POCKET'))}</span><b class="${tg.pocket.games >= 4 ? (tg.pocket.winRate >= 54 ? 'win' : tg.pocket.winRate < 46 ? 'loss' : '') : ''}">${tg.pocket.games >= 4 ? `${tg.pocket.winRate}%` : `${tg.pocket.games} ${esc(cxPj())}`}</b><small>${esc(tg.pocket.games >= 4 ? `${cxWL(tg.pocket.wins, tg.pocket.losses)} (${tg.pocket.games} ${cxPj()})` : tr('cx.smallSample4', 'Muestra chica (<4 pj)'))}</small></div>` : '',
+        tg.flank ? `<div class="cx-tg-role is-flank" data-help-id="cx_tg_flank"><span>${esc(tr('cx.roleFlank', 'FLANK'))}</span><b class="${tg.flank.games >= 4 ? (tg.flank.winRate >= 54 ? 'win' : tg.flank.winRate < 46 ? 'loss' : '') : ''}">${tg.flank.games >= 4 ? `${tg.flank.winRate}%` : `${tg.flank.games} ${esc(cxPj())}`}</b><small>${esc(tg.flank.games >= 4 ? `${cxWL(tg.flank.wins, tg.flank.losses)} (${tg.flank.games} ${cxPj()})` : tr('cx.smallSample4', 'Muestra chica (<4 pj)'))}</small></div>` : '',
       ].filter(Boolean).join('');
       const sizePills = (tg.sizes || []).map((s) =>
         `<span class="cx-mini-pill"><b>${esc(s.label)}</b> ${s.winRate}% <small>(${s.games})</small></span>`
@@ -3483,7 +3489,7 @@
         ${tg.carry ? `<span class="cx-mini-pill is-gold">${esc(tr('cx.carryLabel', 'Capitán (Carry):'))} <b>${tg.carry.winRate}%</b> (${tg.carry.games})</span>` : ''}
         ${tg.anchor ? `<span class="cx-mini-pill">${esc(tr('cx.anchorLabel', 'Ancla del equipo:'))} <b>${tg.anchor.winRate}%</b> (${tg.anchor.games})</span>` : ''}
       </div>` : '';
-      cards.push(`<section class="cx-card cx-curious-card cx-tg-radio-card">
+      cards.push(`<section class="cx-card cx-curious-card cx-tg-radio-card" data-help-id="cx_tg_radio">
         <header class="cx-card-head">
           <div>
             <span class="cx-eyebrow">${esc(tr('cx.tgRadioEyebrow', 'RADIOGRAFÍA DE TEAM GAMES · {n} PARTIDAS', { n: number(tg.sample) }))}</span>
@@ -3515,7 +3521,7 @@
       const headline = lc.lucky
         ? tr('cx.luckyColorTitle', 'Tu color talismán: {color} ({wr}% WR)', { color: locCxColor(lc.lucky), wr: lc.lucky.winRate })
         : tr('cx.favColorTitle', 'Color favorito: {color} ({n} pj)', { color: locCxColor(lc.favorite), n: lc.favorite.games });
-      cards.push(`<section class="cx-card cx-curious-card cx-color-card">
+      cards.push(`<section class="cx-card cx-curious-card cx-color-card" data-help-id="cx_color_card">
         <header class="cx-card-head">
           <div>
             <span class="cx-eyebrow">${esc(tr('cx.curiosityEyebrow', 'CURIOSIDAD AOE2'))} · ${number(lc.sample)} ${esc(tr('cx.gamesWord', 'partidas'))}</span>
@@ -3534,21 +3540,21 @@
     if (mm || rp || mr) {
       const tiles = [];
       if (mm?.mirror) {
-        tiles.push(`<div class="cx-fun-tile is-gold">
+        tiles.push(`<div class="cx-fun-tile is-gold" data-help-id="cx_fun_mirror">
           <span>${esc(tr('cx.mirrorsTile', 'EL ESPEJO (MIRRORS)'))}</span>
           <b>${mm.mirror.winRate}% WR</b>
           <small>${esc(tr('cx.sameCivSub', '{w}V-{l}D con misma civ', { w: mm.mirror.wins, l: mm.mirror.losses }))}</small>
         </div>`);
       }
       if (mm?.vsMeta) {
-        tiles.push(`<div class="cx-fun-tile ${mm.vsMeta.winRate >= 54 ? 'is-win' : mm.vsMeta.winRate < 46 ? 'is-loss' : ''}">
+        tiles.push(`<div class="cx-fun-tile ${mm.vsMeta.winRate >= 54 ? 'is-win' : mm.vsMeta.winRate < 46 ? 'is-loss' : ''}" data-help-id="cx_fun_meta">
           <span>${esc(tr('cx.vsMetaTile', 'VS META'))}</span>
           <b>${mm.vsMeta.winRate}% WR</b>
           <small>${esc(tr('cx.vsTopMetaSub', '{n} pj vs Top 8 meta', { n: mm.vsMeta.games }))}${mm.vsOffMeta ? ` · ${esc(tr('cx.offMetaSub', '{wr}% off-meta', { wr: mm.vsOffMeta.winRate }))}` : ''}</small>
         </div>`);
       }
       if (rp?.resignTag) {
-        tiles.push(`<div class="cx-fun-tile">
+        tiles.push(`<div class="cx-fun-tile" data-help-id="cx_fun_resign">
           <span>${esc(tr('cx.resignTile', 'PERFIL EN DERROTAS'))}</span>
           <b>${esc(locCxResignTag(rp.resignTag))}</b>
           <small>${esc(rp.resignSubI18n ? locRef(rp.resignSubI18n, rp.resignSub || '') : (rp.resignSub || ''))}</small>
@@ -3559,21 +3565,21 @@
           rp.vsRush ? tr('cx.vsRushShort', 'vs Rush {wr}%', { wr: rp.vsRush.winRate }) : null,
           rp.vsBoom ? tr('cx.vsBoomShort', 'vs Boom {wr}%', { wr: rp.vsBoom.winRate }) : null,
         ].filter(Boolean).join(' · ');
-        tiles.push(`<div class="cx-fun-tile ${/Asesino|Muro/.test(rp.hunterTag) ? 'is-win' : 'is-loss'}">
+        tiles.push(`<div class="cx-fun-tile ${/Asesino|Muro/.test(rp.hunterTag) ? 'is-win' : 'is-loss'}" data-help-id="cx_fun_hunter">
           <span>${esc(tr('cx.rivalStyleTile', 'ESTILO RIVAL'))}</span>
           <b>${esc(locCxHunterTag(rp.hunterTag))}</b>
           <small>${esc(sub)}</small>
         </div>`);
       }
       if (mr?.afterMarathon) {
-        tiles.push(`<div class="cx-fun-tile ${mr.afterMarathon.winRate < 46 ? 'is-loss' : 'is-win'}">
+        tiles.push(`<div class="cx-fun-tile ${mr.afterMarathon.winRate < 46 ? 'is-loss' : 'is-win'}" data-help-id="cx_fun_marathon">
           <span>${esc(tr('cx.postMarathonTile', 'RESACA POST-MARATÓN'))}</span>
           <b>${mr.afterMarathon.winRate}% WR</b>
           <small>${esc(tr('cx.afterMarathonSub', 'Tras guerra 45m+ ({n} pj)', { n: mr.afterMarathon.games }))}${mr.afterQuick ? ` ${esc(tr('cx.afterQuickSub', 'vs {wr}% tras rápida', { wr: mr.afterQuick.winRate }))}` : ''}</small>
         </div>`);
       }
       if (mr?.rematch) {
-        tiles.push(`<div class="cx-fun-tile ${mr.rematch.winRate >= 55 ? 'is-win' : mr.rematch.winRate < 45 ? 'is-loss' : ''}">
+        tiles.push(`<div class="cx-fun-tile ${mr.rematch.winRate >= 55 ? 'is-win' : mr.rematch.winRate < 45 ? 'is-loss' : ''}" data-help-id="cx_fun_rematch">
           <span>${esc(tr('cx.rematchTile', 'KARMA DE REVANCHAS'))}</span>
           <b>${mr.rematch.winRate}% WR</b>
           <small>${esc(tr('cx.rematchSub', '{w}V-{l}D en revanchas <24h', { w: mr.rematch.wins, l: mr.rematch.losses }))}${mr.rematch.revengeWinRate != null ? ` · ${esc(tr('cx.revengeSub', 'revancha tras perder: {wr}%', { wr: mr.rematch.revengeWinRate }))}` : ''}</small>
@@ -3850,10 +3856,10 @@
         ${wrapUltraGate(`<div class="cx-cmh-top">
           ${ringHtml}
           <div class="cx-cmh-kpis">
-            <div class="cx-ckpi"><span>${esc(tr('cx.siegeLbl', 'Asedio'))}</span><b class="${cmh.siegePct != null ? (cmh.siegePct >= 35 ? 'win' : cmh.siegePct < 15 ? 'loss' : '') : ''}">${siegeTxt}</b></div>
-            <div class="cx-ckpi"><span>${esc(tr('cx.monksLbl', 'Monjes'))}</span><b class="${cmh.monkPct != null && cmh.monkPct >= 25 ? 'win' : ''}">${monkTxt}</b></div>
-            <div class="cx-ckpi"><span>${esc(tr('cx.castlesLbl', 'Castillos'))}</span><b class="gold">${castleTxt}</b></div>
-            ${cmh.goldUnitPct != null ? `<div class="cx-ckpi"><span>${esc(tr('cx.goldTrashLbl', 'Oro / Basura'))}</span><b>${cmh.goldUnitPct}% / ${cmh.trashUnitPct}%</b></div>` : ''}
+            <div class="cx-ckpi" data-help-id="cx_ckpi_siege"><span>${esc(tr('cx.siegeLbl', 'Asedio'))}</span><b class="${cmh.siegePct != null ? (cmh.siegePct >= 35 ? 'win' : cmh.siegePct < 15 ? 'loss' : '') : ''}">${siegeTxt}</b></div>
+            <div class="cx-ckpi" data-help-id="cx_ckpi_monks"><span>${esc(tr('cx.monksLbl', 'Monjes'))}</span><b class="${cmh.monkPct != null && cmh.monkPct >= 25 ? 'win' : ''}">${monkTxt}</b></div>
+            <div class="cx-ckpi" data-help-id="cx_ckpi_castles"><span>${esc(tr('cx.castlesLbl', 'Castillos'))}</span><b class="gold">${castleTxt}</b></div>
+            ${cmh.goldUnitPct != null ? `<div class="cx-ckpi" data-help-id="cx_ckpi_goldtrash"><span>${esc(tr('cx.goldTrashLbl', 'Oro / Basura'))}</span><b>${cmh.goldUnitPct}% / ${cmh.trashUnitPct}%</b></div>` : ''}
           </div>
         </div>
         ${missedList ? `<div class="cx-cmh-missed"><span class="central-mini-k">${esc(tr('cx.missedBonusesKicker', 'BONOS POR EXPLOTAR MÁS RECURRENTES'))}</span><ul>${missedList}</ul></div>` : ''}`, { locked: !isUltra, ctaLabel: tr('cx.unlockMasteryHist', 'Desbloquea tu Maestría Histórica de 56 Civs'), compact: true })}
@@ -4225,22 +4231,22 @@
           </div>
         </div>
         <div class="cx-kpi-row">
-          <button type="button" class="cx-kpi is-gold is-jumpable" data-scroll-view="overview" data-scroll-target="#cxSectionChart">
+          <button type="button" class="cx-kpi is-gold is-jumpable" data-help-id="cx_kpi_elo" data-scroll-view="overview" data-scroll-target="#cxSectionChart">
             <span>${esc(modeId === 'global' ? tr('cx.bestElo', 'MEJOR ELO') : tr('cx.eloMode', 'ELO {mode}', { mode: mode.label }))}</span>
             <strong>${ladder.rating != null ? number(ladder.rating) : '—'}</strong>
             <small>${esc(ladder.peak ? `${tr('cx.peakWord', 'Pico')} ${number(ladder.peak)}` : tr('cx.noPeak', 'Sin pico'))}</small>
           </button>
-          <button type="button" class="cx-kpi is-jumpable" data-scroll-view="overview" data-scroll-target="#cxSectionLastMatch, #cxSectionChart">
+          <button type="button" class="cx-kpi is-jumpable" data-help-id="cx_kpi_wins" data-scroll-view="overview" data-scroll-target="#cxSectionLastMatch, #cxSectionChart">
             <span>${esc(tr('cx.winsKpi', 'VICTORIAS'))}</span>
             <strong class="${ladder.winRate >= 54 ? 'win' : ladder.winRate != null && ladder.winRate < 46 ? 'loss' : ''}">${ladder.winRate != null ? `${ladder.winRate}%` : '—'}${streakPill}</strong>
             <small>${esc(cxWL(ladder.wins || 0, ladder.losses || 0))}</small>
           </button>
-          <button type="button" class="cx-kpi is-jumpable" data-scroll-view="mastery" data-scroll-target="#cxSectionCivs">
+          <button type="button" class="cx-kpi is-jumpable" data-help-id="cx_kpi_rank" data-scroll-view="mastery" data-scroll-target="#cxSectionCivs">
             <span>${esc(modeId === 'global' ? tr('cx.bestRank', 'MEJOR RANKING') : tr('cx.modeRank', 'RANKING DEL MODO'))}</span>
             <strong>${ladder.rank ? `#${number(ladder.rank)}` : '—'}</strong>
             <small>${esc(ladder.ladderPercentile ? `Top ${dec(ladder.ladderPercentile, 1)}%` : (ladder.rankModeLabel || tr('cx.unranked', 'Sin clasificar')))}</small>
           </button>
-          <button type="button" class="cx-kpi is-jumpable" data-scroll-view="mastery" data-scroll-target="#cxSectionMaps"${hasMapEapm ? ' data-scroll-map-eapm="1"' : ''}>
+          <button type="button" class="cx-kpi is-jumpable" data-help-id="cx_kpi_eapm" data-scroll-view="mastery" data-scroll-target="#cxSectionMaps"${hasMapEapm ? ' data-scroll-map-eapm="1"' : ''}>
             <span>${esc(kpi4Title)}</span>
             <strong>${esc(kpi4Val)}</strong>
             <small>${esc(kpi4Sub)}</small>

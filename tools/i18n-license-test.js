@@ -336,16 +336,58 @@ async function run() {
   assert.match(settingsHtml, /id="feedbackModal"/, 'Modal de feedback debe existir');
   assert.match(settingsHtml, /src="ui\/help-explainer\.js"/, 'help-explainer.js debe estar cargado en settings.html');
 
-  // Explicador contextual por clic derecho: 0 inline style=, guías completas en ES/EN/ZH y resolución de objetivos
+  // Explicador contextual por clic derecho: 0 inline style=, 0 footer redundante, guías completas en ES/EN/ZH y resolución granular sin duplicados
   const helpSrc = fs.readFileSync(path.join(__dirname, '..', 'ui', 'help-explainer.js'), 'utf8');
   assert.doesNotMatch(helpSrc, /\sstyle=["']/, 'help-explainer.js no debe usar atributos style= inline (CSP)');
+  assert.doesNotMatch(helpSrc, /rx-help-foot/, 'help-explainer.js no debe incluir pie redundante dentro del popover');
   require('../ui/help-explainer.js');
   const helpApi = globalThis.RelicHelpExplainer;
-  assert.ok(helpApi && helpApi.GUIDES && Object.keys(helpApi.GUIDES).length >= 30, 'Debe exponer ≥30 guías contextuales');
+  assert.ok(helpApi && helpApi.GUIDES && Object.keys(helpApi.GUIDES).length >= 80, 'Debe exponer ≥80 guías contextuales granulares');
   for (const [gid, g] of Object.entries(helpApi.GUIDES)) {
     for (const lg of ['es', 'en', 'zh']) {
       assert.ok(g[lg] && g[lg].title && g[lg].what && g[lg].how && g[lg].why, `Guía ${gid} incompleta en ${lg}`);
     }
+  }
+  // Verificar que todo data-help-id estático usado en ui/*.js existe en GUIDES
+  for (const relUi of ['ui/tactical-ui.js', 'ui/training-ui.js', 'ui/welcome-ui.js', 'ui/apm-trainer.js']) {
+    const uiTxt = fs.readFileSync(path.join(__dirname, '..', relUi), 'utf8');
+    for (const m of uiTxt.matchAll(/data-help-id="([a-z0-9_]+)"/g)) {
+      assert.ok(helpApi.GUIDES[m[1]], `data-help-id="${m[1]}" en ${relUi} no existe en help-explainer.js`);
+    }
+  }
+  // Verificar que los módulos de Entrenamiento → Progreso resuelven a guías DISTINTAS (nunca todas iguales)
+  const makeTarget = (selMatch, attrs = {}) => ({
+    textContent: '',
+    getAttribute: (k) => attrs[k] ?? null,
+    closest: (sel) => (sel.split(',').map((s) => s.trim()).includes(selMatch) ? {
+      textContent: '',
+      getAttribute: (k) => attrs[k] ?? null,
+      classList: { contains: () => false },
+    } : null),
+  });
+  const progDistinct = [
+    helpApi.resolveGuideForTarget(makeTarget('.tr-perf-ledger')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-perf-chart-studio')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-perf-banner')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-perf-directive')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-perf-matchbar')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-perf-timeline-panel')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-wk-gains')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-wk-daily-stage')),
+    helpApi.resolveGuideForTarget(makeTarget('.tr-perf-apm-bar')),
+  ];
+  assert.equal(new Set(progDistinct).size, progDistinct.length, 'Cada módulo de Entrenamiento → Progreso debe resolver a una guía única distinta');
+  // Verificar que las 7 pestañas de Entrenamiento resuelven a 7 guías distintas
+  const tabGuides = ['perf', 'plan', 'orders', 'matchups', 'arena', 'apm', 'techtree'].map((tb) =>
+    helpApi.resolveGuideForTarget(makeTarget('.tr-tab[data-tr-tab]', { 'data-tr-tab': tb })),
+  );
+  assert.equal(new Set(tabGuides.filter(Boolean)).size, 7, 'Las 7 pestañas de Entrenamiento deben tener guías distintas');
+  // Verificar que las 6 marcas de Vitrina y 6 Curiosidades tienen guías distintas vía data-help-id
+  const trophyIds = ['cx_trophy_upset', 'cx_trophy_streak', 'cx_trophy_session', 'cx_trophy_fastest', 'cx_trophy_epic', 'cx_trophy_pool'];
+  const funIds = ['cx_fun_mirror', 'cx_fun_meta', 'cx_fun_resign', 'cx_fun_hunter', 'cx_fun_marathon', 'cx_fun_rematch'];
+  for (const id of [...trophyIds, ...funIds]) {
+    const res = helpApi.resolveGuideForTarget(makeTarget('[data-help-id]', { 'data-help-id': id }));
+    assert.equal(res, helpApi.GUIDES[id], `Sub-tarjeta ${id} debe resolver a su propia guía`);
   }
   const fakeRow = {
     textContent: 'Pausa del CU en Alta Edad 29 s',

@@ -12400,11 +12400,3 @@ body[data-page="welcome"] .pages {
 .rx-help-sec.is-impact p {
   color: #f0ebe0;
 }
-.rx-help-foot {
-  padding: 8px 15px 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(6, 9, 13, 0.55);
-  font-size: 10.5px;
-  color: #7c8b97;
-  line-height: 1.3;
-}

@@ -2702,22 +2702,22 @@
                 </div>
               </div>
               <div class="tr-perf-kpi-strip">
-                <div class="tr-perf-kpi">
+                <div class="tr-perf-kpi" data-help-id="tr_perf_kpi_above">
                   <span>ARRIBA DE TU PROMEDIO</span>
                   <strong class="tr-perf-num${improvedCount >= Math.ceil(measured.length * 0.6) ? ' is-good' : ''}">${improvedCount} / ${measured.length} fundamentos</strong>
                 </div>
-                <div class="tr-perf-kpi">
+                <div class="tr-perf-kpi" data-help-id="tr_perf_kpi_vils">
                   <span>ALDEANOS PERDIDOS</span>
                   <strong class="tr-perf-num${(hi.villagerLossSummary?.combinedEarlyVillagers || 0) >= 2 ? ' is-warn' : ' is-good'}">${esc(hi.villagerLossSummary?.combinedDisplay || '—')}</strong>
                 </div>
-                <div class="tr-perf-kpi">
+                <div class="tr-perf-kpi" data-help-id="tr_perf_kpi_best">
                   <span>${esc(trT('trui.progBestExec', 'MEJOR EJECUCIÓN'))}</span>
                   <strong class="is-gold">${bestExecMetric ? `${esc(bestExecMeta.shortRadar)} (${esc(bestExecMetric.isPersonalBest ? trT('trui.recordStar', '★ Récord') : bestExecMetric.signedDeltaShort)})` : 'Base inicial'}</strong>
                 </div>
               </div>
             </div>
 
-            <aside class="tr-perf-directive${diag?.severity === 'crimson' ? ' is-crimson' : diag?.severity === 'gold' ? ' is-gold' : ' is-emerald'}">
+            <aside class="tr-perf-directive${diag?.severity === 'crimson' ? ' is-crimson' : diag?.severity === 'gold' ? ' is-gold' : ' is-emerald'}" data-help-id="tr_perf_directive">
               <div class="tr-perf-dir-body">
                 <span class="eyebrow">${esc(diag?.eyebrow || 'PRIORIDAD DE ENTRENAMIENTO')}</span>
                 <strong>${esc(diag?.targetDisplay || 'Superar tu promedio en la próxima partida')}</strong>

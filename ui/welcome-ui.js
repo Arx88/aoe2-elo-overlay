@@ -589,22 +589,22 @@
         <p class="wh-gold-hint">${esc(wt('welcome.goldAutoHint', 'Se actualiza solo cada vez que terminás una partida.'))}</p>
 
         <dl class="wh-ledger-grid">
-          <div class="wh-ledger-cell">
+          <div class="wh-ledger-cell" data-help-id="wh_ledger_villagers">
             <dt><img src="assets/icons/villager.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.villagers', 'Aldeanos'))}</span></dt>
             <dd class="mono">${fmtInt(warLedger.villagers)}</dd>
             <small>${esc(wt('welcome.created', 'creados'))}</small>
           </div>
-          <div class="wh-ledger-cell">
+          <div class="wh-ledger-cell" data-help-id="wh_ledger_army">
             <dt><img src="assets/icons/sword.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.army', 'Ejército'))}</span></dt>
             <dd class="mono">${fmtInt(warLedger.military)}</dd>
             <small>${esc(wt('welcome.units', 'unidades'))}</small>
           </div>
-          <div class="wh-ledger-cell">
+          <div class="wh-ledger-cell" data-help-id="wh_ledger_castles">
             <dt><img src="assets/icons/castle.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.castlesFarms', 'Castillos · Granjas'))}</span></dt>
             <dd class="mono">${fmtInt(warLedger.castles)} <span class="wh-ledger-sep">/</span> ${fmtInt(warLedger.farms)}</dd>
             <small>${esc(wt('welcome.built', 'construidos'))}</small>
           </div>
-          <div class="wh-ledger-cell">
+          <div class="wh-ledger-cell" data-help-id="wh_ledger_eapm">
             <dt><img src="assets/icons/clock.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.peakEapm', 'Pico eAPM'))}</span></dt>
             <dd class="mono">${warLedger.peakEapm ? `${warLedger.peakEapm}` : '—'}</dd>
             <small>${esc(tcDark)}</small>
@@ -850,13 +850,13 @@
           </section>
 
           <section class="wh-editorial-strip">
-            <div class="wh-strip-col">
+            <div class="wh-strip-col" data-help-id="wh_strip_terrain">
               <span class="wh-kicker">${esc(wt('welcome.recentTerrain', 'TU TERRENO RECIENTE'))}</span>
               ${personalColHtml}
               <button type="button" class="wh-link-subtle" data-wh-go="central">${esc(wt('welcome.openCentral', 'Abrir diagnóstico en Central'))} <span class="wh-arrow" aria-hidden="true">→</span></button>
             </div>
 
-            <div class="wh-strip-col">
+            <div class="wh-strip-col" data-help-id="wh_strip_codex">
               <span class="wh-kicker">${esc(cur.tag || wt('welcome.codexDefaultTag', 'CÓDICE AOE2:DE'))} · ${esc(wt('welcome.factOfDay', 'DATO DEL DÍA'))}</span>
               <h3>${esc(cur.title)}</h3>
               <p class="wh-strip-note">${esc(cur.body)}</p>
@@ -864,7 +864,7 @@
               <button type="button" class="wh-link-subtle" data-wh-go="${esc(cur.action || 'techtree')}">${esc(cur.ctaLabel || wt('welcome.codexExplore', 'Explorar'))} <span class="wh-arrow" aria-hidden="true">→</span></button>
             </div>
 
-            <div class="wh-strip-col">
+            <div class="wh-strip-col" data-help-id="wh_strip_training">
               <span class="wh-kicker">${esc(wt('welcome.trainingSession', 'SESIÓN DE ENTRENAMIENTO'))}</span>
               <h3>${esc(tr?.unlocked ? wt('welcome.labActive', 'Laboratorio activo') : wt('welcome.trainingModule', 'Módulo de Entrenamiento'))}</h3>
               <p class="wh-strip-note">${esc(trDetail)}</p>

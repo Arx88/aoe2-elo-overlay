@@ -2067,8 +2067,3 @@ body[data-theme='ultra'] .rx-help-sec.is-impact .rx-help-k {
 body[data-theme='ultra'] .rx-help-sec.is-impact p {
   color: #f4f4f5;
 }
-body[data-theme='ultra'] .rx-help-foot {
-  background: #040406 !important;
-  border-top-color: rgba(255, 255, 255, 0.08) !important;
-  color: #71717a;
-}
