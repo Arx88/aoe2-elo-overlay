@@ -2342,7 +2342,8 @@
     "studioArmedHint": "已就绪 · 请在局内设置开启流程助手",
     "studioExtracted": "已从录像提取",
     "studioNewStep": "新战术步骤",
-    "subHintApm": "使用帝国时代 II 官方兵种头像训练点击速度、精准度与兵种识别，并在回合结束后评级。"
+    "subHintApm": "使用帝国时代 II 官方兵种头像训练点击速度、精准度与兵种识别，并在回合结束后评级。",
+    "planClearDone": "清理已完成"
   },
   "apm": {
     "eyebrow": "APM 与微操训练",

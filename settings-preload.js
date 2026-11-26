@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('settings', {
   trainingQueueAdd: (payload) => ipcRenderer.invoke('training:queue-add', payload),
   trainingQueueToggle: (itemId) => ipcRenderer.invoke('training:queue-toggle', itemId),
   trainingQueueRemove: (itemId) => ipcRenderer.invoke('training:queue-remove', itemId),
+  trainingQueueClearCompleted: () => ipcRenderer.invoke('training:queue-clear-completed'),
   trainingApmLeaderboard: (payload) => ipcRenderer.invoke('training:apm-leaderboard', payload),
   trainingApmComplete: (payload) => ipcRenderer.invoke('training:apm-complete', payload),
   trainingArenaStatus: () => ipcRenderer.invoke('training:arena-status'),

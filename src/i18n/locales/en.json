@@ -2342,7 +2342,8 @@
     "studioArmedHint": "Armed · enable Build Order Helper in Battle",
     "studioExtracted": "Extracted from replay",
     "studioNewStep": "New tactical step",
-    "subHintApm": "Train click speed, precision, and AoE2:DE unit recognition with instant round grading."
+    "subHintApm": "Train click speed, precision, and AoE2:DE unit recognition with instant round grading.",
+    "planClearDone": "Clear completed"
   },
   "apm": {
     "eyebrow": "APM & MICRO TRAINER",

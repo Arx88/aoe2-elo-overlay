@@ -2342,7 +2342,8 @@
     "studioArmedHint": "Armada · activá Build Order Helper en Batalla",
     "studioExtracted": "Extraída del replay",
     "studioNewStep": "Nuevo paso táctico",
-    "subHintApm": "Entrená velocidad de clic, precisión y lectura de unidades de AoE2:DE con calificación de ronda."
+    "subHintApm": "Entrená velocidad de clic, precisión y lectura de unidades de AoE2:DE con calificación de ronda.",
+    "planClearDone": "Limpiar completadas"
   },
   "apm": {
     "eyebrow": "ENTRENAMIENTO DE APM Y MICRO",

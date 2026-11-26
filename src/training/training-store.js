@@ -422,6 +422,18 @@ class TrainingStore {
     return p.trainingQueue;
   }
 
+  clearCompletedTrainingQueueItems(profileId) {
+    const p = this.getProfile(profileId);
+    const prev = Array.isArray(p.trainingQueue) ? p.trainingQueue : [];
+    const next = prev.filter((x) => x && !x.done);
+    if (next.length !== prev.length) {
+      p.trainingQueue = next;
+      this.touch(profileId);
+      this.flush();
+    }
+    return p.trainingQueue;
+  }
+
   _normalizeArenaCooldown(arena, now = Date.now()) {
     if (!arena) return false;
     if (arena.lockedUntilTs != null && now >= arena.lockedUntilTs) {

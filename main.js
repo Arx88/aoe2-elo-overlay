@@ -5123,6 +5123,12 @@ function registerIpc() {
     return trainingController.removeQueueItem({ profileId: pid, itemId: String(itemId || '') });
   });
 
+  ipcMain.handle('training:queue-clear-completed', () => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    return trainingController.clearCompletedQueueItems({ profileId: pid });
+  });
+
   function resolveOwnAoeIdentityForApm() {
     let centralCacheRaw = null;
     try {

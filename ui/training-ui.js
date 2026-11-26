@@ -800,8 +800,9 @@
         </div>
       </div>`;
 
+      const clearDoneLabel = trT('trui.planClearDone', 'Limpiar completadas');
       const listBody = items.length
-        ? `${completed.length ? `<div class="tr-q-section-label is-verified">CUMPLIDOS (${completed.length})</div><div class="tr-q-list">${completed.map(renderCompletedRow).join('')}</div>` : ''}
+        ? `${completed.length ? `<div class="tr-q-section-head"><div class="tr-q-section-label is-verified">CUMPLIDOS (${completed.length})</div><button type="button" class="tr-q-clear-done" data-tr-q-clear-done="1">${esc(clearDoneLabel)}</button></div><div class="tr-q-list">${completed.map(renderCompletedRow).join('')}</div>` : ''}
            ${pending.length ? `<div class="tr-q-section-label">EN SEGUIMIENTO (${pending.length})</div><div class="tr-q-list">${pending.map(renderPendingRow).join('')}</div>` : ''}`
         : `<div class="tr-q-empty">
             <div class="tr-q-status-ico is-pending">${renderDumbbellSvg()}</div>
@@ -821,7 +822,7 @@
                 <h4>Objetivos de Mi Plan (${pending.length} activos · ${completed.length} cumplidos)</h4>
                 <small class="tr-plan-sub">${esc(trT('trui.planSub', 'Cada objetivo se verifica solo al terminar tus próximas partidas reales.'))}</small>
               </div>
-              ${completed.length ? `<span class="tr-subtab-badge is-em">✓ ${completed.length} ${completed.length === 1 ? 'cumplido' : 'cumplidos'}</span>` : ''}
+              ${completed.length ? `<div class="tr-qc-head-actions"><span class="tr-subtab-badge is-em">✓ ${completed.length} ${completed.length === 1 ? 'cumplido' : 'cumplidos'}</span><button type="button" class="tr-q-clear-done" data-tr-q-clear-done="1">${esc(clearDoneLabel)}</button></div>` : ''}
             </div>
           </div>
           ${listBody}
@@ -3019,6 +3020,17 @@
           const res = await root.settings.trainingQueueRemove(btn.dataset.trQDel);
           if (res?.ok && Array.isArray(res.trainingQueue)) {
             state.trainingQueue = res.trainingQueue;
+            render();
+          }
+        });
+      });
+      container.querySelectorAll('[data-tr-q-clear-done]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (typeof root.settings?.trainingQueueClearCompleted !== 'function') return;
+          const res = await root.settings.trainingQueueClearCompleted();
+          if (res?.ok && Array.isArray(res.trainingQueue)) {
+            state.trainingQueue = res.trainingQueue;
+            playSfx('confirm');
             render();
           }
         });

@@ -672,6 +672,7 @@ function createTrainingController({ storePath }) {
     },
     toggleQueueItem: ({ profileId, itemId }) => ({ ok: true, trainingQueue: store.toggleTrainingQueueItem(profileId, itemId) }),
     removeQueueItem: ({ profileId, itemId }) => ({ ok: true, trainingQueue: store.removeTrainingQueueItem(profileId, itemId) }),
+    clearCompletedQueueItems: ({ profileId }) => ({ ok: true, trainingQueue: store.clearCompletedTrainingQueueItems(profileId) }),
     recordApmDrillRun: ({ profileId, run }) => {
       const p = store.getProfile(profileId);
       const evalRes = evaluatePlanQueueAgainstApmRun(p.trainingQueue || [], run);

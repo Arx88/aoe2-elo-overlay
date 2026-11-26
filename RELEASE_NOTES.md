@@ -1,3 +1,9 @@
+## v3.3.14 · Botón «Limpiar completadas» en Entrenamiento → Mi Plan
+
+- **Limpieza en 1 clic de objetivos cumplidos en Mi Plan (`src/training/training-store.js`, `ui/training-ui.js`):** nuevo botón **«Limpiar completadas»** en **Entrenamiento → Mi Plan** que archiva de una sola vez todas las metas marcadas como `✓ CUMPLIDO` y conserva intactos tus objetivos activos en seguimiento (traducido en `es-MX`, `es-ES`, `en` y `zh-CN`).
+
+---
+
 ## v3.3.13 · Inicio automático con Windows activado por defecto
 
 - **Inicio silencioso con Windows activado de fábrica (`openAtLogin: true`):** toda instalación nueva o actualización arranca Relic automáticamente en la bandeja del sistema al encender la PC (con el overlay oculto hasta que abrís Age of Empires II: DE). Puede desactivarse cuando quieras desde **Apariencia → Visibilidad automática** o desde el menú rápido de preferencias.

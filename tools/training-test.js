@@ -625,6 +625,18 @@ const CIV_TECH = require('../src/civ-tech.json').civilizations;
   assert.equal(q2.trainingQueue.length, 1);
   assert.equal(q2.itemId, q1.itemId);
   assert.equal(planRuleKey({ type: 'tc_idle_feudal' }), 'rule:tc_idle_feudal');
+
+  // Clear all completed items in Mi Plan while keeping pending items intact
+  const q3 = ctrlDedup.addQueueItem({
+    profileId: 888,
+    item: { source: 'Central', title: 'Hacha de Doble Filo en ≤ 30 s', detail: '45 s', ruleType: 'dba_delay' },
+  });
+  ctrlDedup.toggleQueueItem({ profileId: 888, itemId: q1.itemId }); // mark q1 done
+  const cleared = ctrlDedup.clearCompletedQueueItems({ profileId: 888 });
+  assert.equal(cleared.ok, true);
+  assert.equal(cleared.trainingQueue.length, 1, 'clearCompletedQueueItems must remove done items and keep pending ones');
+  assert.equal(cleared.trainingQueue[0].id, q3.itemId);
+  assert.equal(cleared.trainingQueue[0].done, false);
   try { fs.unlinkSync(tmpDedup); } catch (_) {}
 
   // Regression: #trTrainBottleneckBtn MUST open Mi Plan ('plan'), NEVER jump to Build Orders ('orders')
