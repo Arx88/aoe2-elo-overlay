@@ -1557,30 +1557,22 @@ body[data-theme='ultra'] .tr-apm-hud {
   background: #060608 !important;
   border-bottom-color: rgba(255, 255, 255, 0.095) !important;
 }
-body[data-theme='ultra'] .tr-apm-hud-top {
-  background: #030305 !important;
-  border-bottom-color: rgba(255, 255, 255, 0.07) !important;
-}
-body[data-theme='ultra'] .tr-apm-directive-bar {
-  background: #060608 !important;
-}
 body[data-theme='ultra'] .tr-apm-directive {
-  background: #0c0c10 !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
-  box-shadow: 0 0 24px rgba(255, 255, 255, 0.06) !important;
+  background: #0b0b0e !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
 }
 body[data-theme='ultra'] .tr-apm-directive.is-counter-threat {
-  background: #14080a !important;
-  border-color: rgba(248, 113, 113, 0.55) !important;
+  background: #12080a !important;
+  border-color: rgba(248, 113, 113, 0.42) !important;
 }
 body[data-theme='ultra'] .tr-apm-dir-ico {
   background: #030305 !important;
-  border-color: rgba(255, 255, 255, 0.42) !important;
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.30) !important;
+  box-shadow: none !important;
 }
 body[data-theme='ultra'] .tr-apm-directive.is-counter-threat .tr-apm-dir-ico {
-  border-color: rgba(248, 113, 113, 0.72) !important;
-  box-shadow: 0 0 16px rgba(248, 113, 113, 0.20) !important;
+  border-color: rgba(248, 113, 113, 0.62) !important;
 }
 body[data-theme='ultra'] .tr-apm-pip.is-filled {
   background: #4ade80 !important;

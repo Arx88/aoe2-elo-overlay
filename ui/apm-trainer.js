@@ -1378,41 +1378,41 @@
 
         <section class="tr-apm-stage">
           <header class="tr-apm-hud">
-            <div class="tr-apm-hud-top">
-              <div class="tr-apm-hud-kpis">
-                <div class="tr-apm-kpi">
-                  <span>${esc(t('apm.hudTime', 'TIEMPO'))}</span>
-                  <b class="mono" id="trApmHudTime">${durationSec.toFixed(1)}s</b>
+            <div class="tr-apm-hud-side is-left">
+              <div class="tr-apm-kpi">
+                <span>${esc(t('apm.hudTime', 'TIEMPO'))}</span>
+                <b class="mono" id="trApmHudTime">${durationSec.toFixed(1)}s</b>
+              </div>
+              <div class="tr-apm-kpi">
+                <span>eAPM</span>
+                <b class="mono" id="trApmHudApm">0</b>
+              </div>
+            </div>
+
+            <div class="tr-apm-directive${mode === 'counter' ? ' is-counter-threat' : (mode === 'reflex' ? ' is-reflex-mode' : '')}" id="trApmDirBox">
+              <span class="tr-apm-dir-ico">
+                <img id="trApmDirIcon" src="${UNITS[snipeUnitId]?.icon || UNITS.monk.icon}" alt="" draggable="false" />
+              </span>
+              <div class="tr-apm-dir-copy">
+                <div class="tr-apm-dir-head">
+                  <span class="tr-apm-dir-kicker" id="trApmDirKicker">${esc(t('apm.dirSnipeKicker', 'OBJETIVO A ELIMINAR'))}</span>
+                  <span class="tr-apm-dir-pips" id="trApmDirPips" aria-hidden="true"></span>
                 </div>
-                <div class="tr-apm-kpi">
-                  <span>eAPM</span>
-                  <b class="mono" id="trApmHudApm">0</b>
-                </div>
-                <div class="tr-apm-kpi">
-                  <span>${esc(t('apm.hudAcc', 'PRECISIÓN'))}</span>
-                  <b class="mono" id="trApmHudAcc">100%</b>
-                </div>
-                <div class="tr-apm-kpi">
-                  <span>${esc(t('apm.hudMs', 'REACCIÓN'))}</span>
-                  <b class="mono" id="trApmHudMs">—</b>
-                </div>
+                <strong id="trApmDirName">—</strong>
+                <small id="trApmDirSub">—</small>
+              </div>
+            </div>
+
+            <div class="tr-apm-hud-side is-right">
+              <div class="tr-apm-kpi">
+                <span>${esc(t('apm.hudAcc', 'PRECISIÓN'))}</span>
+                <b class="mono" id="trApmHudAcc">100%</b>
+              </div>
+              <div class="tr-apm-kpi">
+                <span>${esc(t('apm.hudMs', 'REACCIÓN'))}</span>
+                <b class="mono" id="trApmHudMs">—</b>
               </div>
               ${phase === 'running' ? `<button type="button" class="btn tr-apm-abort-btn" id="trApmAbortBtn">${esc(t('apm.restartBtn', 'Reiniciar'))}</button>` : ''}
-            </div>
-            <div class="tr-apm-directive-bar">
-              <div class="tr-apm-directive${mode === 'counter' ? ' is-counter-threat' : (mode === 'reflex' ? ' is-reflex-mode' : '')}" id="trApmDirBox">
-                <span class="tr-apm-dir-ico">
-                  <img id="trApmDirIcon" src="${UNITS[snipeUnitId]?.icon || UNITS.monk.icon}" alt="" draggable="false" />
-                </span>
-                <div class="tr-apm-dir-copy">
-                  <div class="tr-apm-dir-head">
-                    <span class="tr-apm-dir-kicker" id="trApmDirKicker">${esc(t('apm.dirSnipeKicker', 'OBJETIVO A ELIMINAR'))}</span>
-                    <span class="tr-apm-dir-pips" id="trApmDirPips" aria-hidden="true"></span>
-                  </div>
-                  <strong id="trApmDirName">—</strong>
-                  <small id="trApmDirSub">—</small>
-                </div>
-              </div>
             </div>
           </header>
 

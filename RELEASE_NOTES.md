@@ -1,3 +1,9 @@
+## v3.3.16 · Barra única refinada y centrada para el objetivo de APM
+
+- **HUD de Entrenamiento de APM en una sola fila simétrica (`ui/apm-trainer.js`, `training.css`, `ultra-skin.css`):** se eliminó el bloque apilado voluminoso y se integró el objetivo en una píldora limpia centrada en el medio exacto de la barra única (`Tiempo / eAPM` a la izquierda · retrato circular `48×48` con puntos de progreso al centro · `Precisión / Reacción / Reiniciar` a la derecha), verificado visualmente en Clásico y Ultra OLED.
+
+---
+
 ## v3.3.15 · Objetivo centrado, más grande y con señal sonora sutil en Entrenamiento de APM
 
 - **Tarjeta de objetivo centrada y de gran visibilidad en APM (`ui/apm-trainer.js`, `training.css`, `ultra-skin.css`):** la unidad objetivo (*Caza de Unidad*) y la amenaza rival (*Counter Relámpago*) ahora aparecen centradas justo sobre el centro de la arena con retrato ampliado (`68×68`), tipografía de `24 px`, puntos de progreso hasta el próximo cambio (`● ● ● ○ ○`) y pulso luminoso al rotar de unidad.
