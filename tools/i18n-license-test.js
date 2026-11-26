@@ -308,6 +308,23 @@ async function run() {
   assert.equal(shownCalls, 1);
   assert.equal(ctrl.isHiddenByMinimized(), false);
 
+  // Only-when-AoE2-running mode: hides immediately on 'not-running' (0s delay) and shows on 'visible'
+  let gameOnlyHide = 0;
+  let gameOnlyShow = 0;
+  const gameCtrl = createMinimizeController({
+    canHide: () => true,
+    onHide: () => { gameOnlyHide += 1; },
+    onShow: () => { gameOnlyShow += 1; },
+  });
+  gameCtrl.setRules({ hideWhenMinimized: false, hideWhenNotRunning: true });
+  assert.equal(gameOnlyHide, 1, 'AoE2 closed at start must hide overlay immediately');
+  assert.equal(gameCtrl.isHiddenByNotRunning(), true);
+  gameCtrl.updateState('visible');
+  assert.equal(gameOnlyShow, 1, 'Launching AoE2 must automatically reveal overlay');
+  assert.equal(gameCtrl.isHiddenByNotRunning(), false);
+  gameCtrl.updateState('not-running');
+  assert.equal(gameOnlyHide, 2, 'Closing AoE2 must immediately hide overlay again');
+
   const settingsHtml = fs.readFileSync(path.join(__dirname, '..', 'settings.html'), 'utf8');
   const overlaySec = settingsHtml.split('<section class="page" data-page="overlay">')[1].split('<section class="page" data-page="tactics">')[0];
   const tacticsSec = settingsHtml.split('<section class="page" data-page="tactics">')[1].split('<section class="page" data-page="postmatch">')[0];

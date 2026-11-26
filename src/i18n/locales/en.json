@@ -396,7 +396,11 @@
     "ultraScopeTag": "Full App + Overlay",
     "ultraLockedTip": "Relic Ultra exclusive. Transforms the entire app and overlay into high-contrast pure black.",
     "ultraUnlockedTip": "Ultra Mode: transforms the entire app and overlay into high-contrast pure black.",
-    "ultraLockedStatus": "The Ultra skin is included with Relic Ultra."
+    "ultraLockedStatus": "The Ultra skin is included with Relic Ultra.",
+    "onlyWhenGameTitle": "Show overlay only while AoE2 is open",
+    "onlyWhenGameDesc": "Automatically displays the top bar when Age of Empires II: DE launches and hides it when closed.",
+    "openAtLoginTitle": "Start automatically with Windows",
+    "openAtLoginDesc": "Starts Relic quietly in the system tray at PC login so you never forget to open it."
   },
   "updater": {
     "installed": "Installed version",
@@ -991,7 +995,9 @@
     "soundsOn": "UI sounds · On",
     "soundsOff": "UI sounds · Muted",
     "welcomeOn": "Home on startup · On",
-    "welcomeOff": "Home on startup · Hidden"
+    "welcomeOff": "Home on startup · Hidden",
+    "autoStartOn": "Start with Windows · On",
+    "autoStartOff": "Start with Windows · Off"
   },
   "checkout": {
     "payUsdc": "Pay with USDC (Polygon)",
@@ -1077,7 +1083,7 @@
     "goldWeekUnit": "gold gathered this week",
     "goldRecentUnit": "gold across your recent matches",
     "goldEmptyHint": "Every match you play with Relic running automatically adds your gold to this treasury.",
-    "goldAutoHint": "Updates automatically after every match.",
+    "goldAutoHint": "Counts Monday through Sunday and resets every Monday.",
     "goldRankNext": "{gold} more for {next}",
     "goldRankMax": "Top weekly rank reached",
     "weeklyRecord": "WEEKLY RECORD",
@@ -1134,8 +1140,8 @@
     "dayRecordOne": "{day}: {w}W–{l}L ({n} match)",
     "dayRecordMany": "{day}: {w}W–{l}L ({n} matches)",
     "dayNoMatches": "{day}: No matches",
-    "weekScopeOne": "This week · {n} match",
-    "weekScopeMany": "This week · {n} matches",
+    "weekScopeOne": "Mon–Sun · {n} match",
+    "weekScopeMany": "Mon–Sun · {n} matches",
     "recentScope": "Last {n} matches",
     "recentLabel": "Recent",
     "goldEq": "Equal to {knights} Knights or {trebs} Trebuchets",
@@ -1199,7 +1205,8 @@
       "blockPrintTag": "CODEX · MONASTERY",
       "blockPrintTitle": "{name} (+3 range)",
       "blockPrintBody": "{count} of the {total} civilizations get {name}, extending Monk conversion range to 12 tiles to punish siege from a safe distance."
-    }
+    },
+    "weekScopeZero": "Mon–Sun · 0 matches"
   },
   "expiredModal": {
     "eyebrow": "RELIC ULTRA · ACCESS ENDED",

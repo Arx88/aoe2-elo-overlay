@@ -554,7 +554,9 @@
       const todayGoldVal = Math.max(0, Math.round(Number(warLedger.todayGold) || 0));
       const todayInlineHtml = `<span class="wh-gold-today-sep" aria-hidden="true">·</span><span class="wh-gold-today${todayGoldVal > 0 ? ' has-gain' : ''} mono" title="${esc(wt('welcome.goldTodayTip', 'Oro juntado en tus partidas de hoy'))}">+${fmtInt(todayGoldVal)} ${esc(wt('welcome.today', 'hoy'))}</span>`;
       const scopeLabelText = warLedger.scope === 'week'
-        ? wt(warLedger.matchesCount === 1 ? 'welcome.weekScopeOne' : 'welcome.weekScopeMany', 'Esta semana · {n} partidas', { n: warLedger.matchesCount || 0 })
+        ? (warLedger.matchesCount === 0
+          ? wt('welcome.weekScopeZero', 'Lun–Dom · 0 partidas')
+          : wt(warLedger.matchesCount === 1 ? 'welcome.weekScopeOne' : 'welcome.weekScopeMany', 'Lun–Dom · {n} partidas', { n: warLedger.matchesCount || 0 }))
         : wt('welcome.recentScope', 'Últimas {n} partidas', { n: warLedger.matchesCount || 0 });
       const knightsEq = Number.isFinite(warLedger.paladinsEq) ? warLedger.paladinsEq : Math.max(1, Math.round((warLedger.goldTotal || 0) / 75));
       const trebsEq = Number.isFinite(warLedger.trebsEq) ? warLedger.trebsEq : Math.max(1, Math.round((warLedger.goldTotal || 0) / 200));

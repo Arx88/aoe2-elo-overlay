@@ -36,7 +36,7 @@ public static class RelicWin32 {
 $ownPid = ${Number(ownPid) || 0}
 $lastState = ''
 while ($true) {
-  $procs = @(Get-Process -Name 'AoE2DE_s' -ErrorAction SilentlyContinue)
+  $procs = @(Get-Process -Name 'AoE2DE_s','AoE2DE' -ErrorAction SilentlyContinue)
   $state = 'not-running'
   if ($procs.Count -gt 0) {
     $p = $procs | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
@@ -94,7 +94,9 @@ function createMinimizeController({
   let currentState = 'not-running';
   let timer = null;
   let hiddenByMinimized = false;
-  let enabled = false;
+  let hiddenByNotRunning = false;
+  let hideWhenMinimized = false;
+  let hideWhenNotRunning = false;
 
   function clearPending() {
     if (timer != null) {
@@ -105,18 +107,15 @@ function createMinimizeController({
 
   function restoreIfNeeded() {
     clearPending();
-    if (hiddenByMinimized) {
+    if (hiddenByMinimized || hiddenByNotRunning) {
       hiddenByMinimized = false;
+      hiddenByNotRunning = false;
       onShow();
     }
   }
 
   function evaluate() {
-    if (!enabled) {
-      restoreIfNeeded();
-      return;
-    }
-    if (currentState !== 'minimized') {
+    if (!hideWhenMinimized && !hideWhenNotRunning) {
       restoreIfNeeded();
       return;
     }
@@ -124,25 +123,72 @@ function createMinimizeController({
       restoreIfNeeded();
       return;
     }
-    if (hiddenByMinimized || timer != null) return;
-    timer = setTimer(() => {
-      timer = null;
-      if (!enabled || currentState !== 'minimized' || !canHide()) return;
-      if (!hiddenByMinimized) {
-        hiddenByMinimized = true;
-        onHide();
+    if (currentState === 'not-running') {
+      clearPending();
+      if (hideWhenNotRunning) {
+        hiddenByMinimized = false;
+        if (!hiddenByNotRunning) {
+          hiddenByNotRunning = true;
+          onHide('not-running');
+        }
+      } else {
+        restoreIfNeeded();
       }
-    }, Math.max(0, Number(delayMs) || DEFAULT_DELAY_MS));
+      return;
+    }
+    if (currentState === 'minimized') {
+      if (!hideWhenMinimized) {
+        restoreIfNeeded();
+        return;
+      }
+      if (hiddenByNotRunning) {
+        hiddenByNotRunning = false;
+        hiddenByMinimized = true;
+        return;
+      }
+      if (hiddenByMinimized || timer != null) return;
+      timer = setTimer(() => {
+        timer = null;
+        if (!hideWhenMinimized || currentState !== 'minimized' || !canHide()) return;
+        if (!hiddenByMinimized) {
+          hiddenByMinimized = true;
+          onHide('minimized');
+        }
+      }, Math.max(0, Number(delayMs) || DEFAULT_DELAY_MS));
+      return;
+    }
+    restoreIfNeeded();
   }
 
   return {
     setEnabled(next) {
-      enabled = Boolean(next);
-      if (!enabled) {
+      hideWhenMinimized = Boolean(next);
+      if (!hideWhenMinimized && !hideWhenNotRunning) {
         currentState = 'not-running';
         restoreIfNeeded();
       } else {
         evaluate();
+      }
+    },
+    setRules(rules = {}) {
+      if (Object.prototype.hasOwnProperty.call(rules, 'hideWhenMinimized')) {
+        hideWhenMinimized = Boolean(rules.hideWhenMinimized);
+      }
+      if (Object.prototype.hasOwnProperty.call(rules, 'hideWhenNotRunning')) {
+        hideWhenNotRunning = Boolean(rules.hideWhenNotRunning);
+      }
+      if (!hideWhenMinimized && !hideWhenNotRunning) {
+        restoreIfNeeded();
+      } else {
+        evaluate();
+      }
+    },
+    shouldSuppressShow() {
+      return Boolean(hideWhenNotRunning && currentState === 'not-running' && canHide());
+    },
+    markSuppressedAtBoot() {
+      if (hideWhenNotRunning && currentState === 'not-running' && canHide()) {
+        hiddenByNotRunning = true;
       }
     },
     updateState(nextState) {
@@ -159,15 +205,20 @@ function createMinimizeController({
       restoreIfNeeded();
     },
     isHiddenByMinimized() {
-      return hiddenByMinimized;
+      return hiddenByMinimized || hiddenByNotRunning;
+    },
+    isHiddenByNotRunning() {
+      return hiddenByNotRunning;
     },
     getState() {
       return currentState;
     },
     dispose() {
-      enabled = false;
+      hideWhenMinimized = false;
+      hideWhenNotRunning = false;
       clearPending();
       hiddenByMinimized = false;
+      hiddenByNotRunning = false;
     },
   };
 }

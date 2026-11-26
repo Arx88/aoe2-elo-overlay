@@ -1,3 +1,10 @@
+## v3.3.12 · Semana fija Lunes–Domingo para el Tesoro de Oro, Inicio automático con Windows y Overlay inteligente solo con AoE2 abierto
+
+- **Tesoro de Oro y tira semanal en bloque fijo de Lunes a Domingo (`src/welcome-home.js`, `ui/welcome-ui.js`):** el oro recaudado y la tira de actividad `L M X J V S D` en **Inicio** ahora cuentan exclusivamente de **lunes 00:00 a domingo 23:59** y se reinician automáticamente a `0` cada lunes (en lugar de una ventana móvil de 7 días).
+- **Inicio automático silencioso con Windows (`--autostart`) + Overlay visible solo con Age of Empires II abierto (`src/game-window.js`, `main.js`):** nueva opción **«Iniciar automáticamente con Windows»** (disponible en **Apariencia → Visibilidad automática** y en el menú rápido de preferencias) que levanta Relic silenciosamente en la bandeja del sistema al encender la PC, junto con **«Mostrar overlay solo con AoE2 abierto»** (compatible tanto con Steam `AoE2DE_s.exe` como con Xbox / Microsoft Store `AoE2DE.exe`), mostrando la barra superior únicamente cuando abrís el juego y ocultándola al instante al cerrarlo.
+
+---
+
 ## v3.3.11 · Motor determinista unificado (`engineRev: 2`), Hoja de Ruta ELO v3 con iconografía oficial y Ranking Esports de APM
 
 - **Motor de telemetría 100 % determinista y unificado en toda la app (`src/engine/postmatch-engine.js`, `engineRev: 2`):** alineado con el reloj oficial y avisos de servidor del `.aoe2record` (estándar AoE2Insights / `aoc-mgz`), con cota física exacta de tiempo muerto en Alta Edad Media, manejo real de cancelaciones (`Unqueue`) sin descontar aldeanos por tecnologías canceladas, filtrado de ráfagas sin recursos, recorte de ventana final previa a rendición en Feudal, soporte completo de bonificaciones de las **56 civilizaciones** (incluyendo 2.º Centro Urbano cumano en Feudal, Carretilla borgoñesa temprana y tecnologías únicas de velocidad militar) y rehidratación automática de caché local desde `savegame/` en `< 50 ms` sin llamadas de red.

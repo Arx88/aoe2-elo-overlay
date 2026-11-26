@@ -69,6 +69,8 @@ const RIVAL_LABELS = {
 const tgBalanceInput = el('tgBalance');
 const smurfDetectorInput = el('smurfDetector');
 const hideWhenMinimizedInput = el('hideWhenMinimized');
+const onlyWhenGameRunningInput = el('onlyWhenGameRunning');
+const openAtLoginInput = el('openAtLogin');
 // "Resumen con F2": vista resumida del scouting con su atajo. Apagada de
 // fábrica: sin permiso explícito no se captura una tecla global y el
 // informe se ve completo.
@@ -1755,6 +1757,28 @@ hideWhenMinimizedInput?.addEventListener('change', () =>
     t('skins.hideMinimizedTitle', 'Ocultar si AoE2 está minimizado'),
   ),
 );
+onlyWhenGameRunningInput?.addEventListener('change', () =>
+  applyToggle(
+    onlyWhenGameRunningInput,
+    (on) => window.settings.onlyWhenGameRunning(on),
+    t('skins.onlyWhenGameTitle', 'Mostrar overlay solo con AoE2 abierto'),
+  ),
+);
+openAtLoginInput?.addEventListener('change', () =>
+  applyToggle(
+    openAtLoginInput,
+    async (on) => {
+      const res = await window.settings.openAtLogin(on);
+      openAtLoginPref = Boolean(res?.openAtLogin ?? on);
+      if (res?.onlyWhenGameRunning != null && onlyWhenGameRunningInput) {
+        onlyWhenGameRunningInput.checked = Boolean(res.onlyWhenGameRunning);
+      }
+      paintAutoStartToggle();
+      return res;
+    },
+    t('skins.openAtLoginTitle', 'Iniciar automáticamente con Windows'),
+  ),
+);
 
 // Resumen con F2: el atajo y la vista compacta son opt-in. Al apagarlo se
 // libera la tecla (deja de ser global) y el panel vuelve al informe completo.
@@ -2138,6 +2162,10 @@ async function loadCurrent() {
   tgBalanceInput.checked = Boolean(info.tgBalance);
   if (smurfDetectorInput) smurfDetectorInput.checked = Boolean(info.smurfDetector);
   if (hideWhenMinimizedInput) hideWhenMinimizedInput.checked = Boolean(info.hideWhenMinimized);
+  if (onlyWhenGameRunningInput) onlyWhenGameRunningInput.checked = info.onlyWhenGameRunning !== false;
+  openAtLoginPref = Boolean(info.openAtLogin);
+  if (openAtLoginInput) openAtLoginInput.checked = openAtLoginPref;
+  paintAutoStartToggle();
   postMatchInput.checked = info.postMatch !== false;
   if (postMatchPopupInput) postMatchPopupInput.checked = info.postMatchPopup !== false;
   paintPostMatchPopupHide(info.postMatchHideSeconds != null ? Number(info.postMatchHideSeconds) : 60);
@@ -2570,6 +2598,7 @@ const welcomeHomeUi = (typeof WelcomeHomeUI === 'object' && typeof WelcomeHomeUI
   : null;
 
 let showWelcomeHomePref = true;
+let openAtLoginPref = false;
 async function loadWelcome(force = false) {
   if (!welcomeHomeUi || typeof window.settings?.welcomeGet !== 'function') return;
   try {
@@ -2775,6 +2804,8 @@ function applyLanguageUi(lang) {
   paintHideAt(Number(hideAtInput?.value) || 20);
   paintPosition(lastPosInfo);
   paintSoundToggle();
+  paintWelcomeToggle();
+  paintAutoStartToggle();
   paintSearchHelp(Boolean(results.length));
   paintPostmatchReference();
   if (lastLoadedInfo) paintAccountHeader(lastLoadedInfo);
@@ -3014,6 +3045,28 @@ async function setStartupWelcomePref(nextVal) {
   }
 }
 el('prefsWelcomeBtn')?.addEventListener('click', () => setStartupWelcomePref(!showWelcomeHomePref));
+
+function paintAutoStartToggle() {
+  const btn = el('prefsAutoStartBtn');
+  if (btn) {
+    btn.textContent = openAtLoginPref
+      ? t('prefs.autoStartOn', 'Iniciar con Windows · Activo')
+      : t('prefs.autoStartOff', 'Iniciar con Windows · Desactivado');
+  }
+}
+el('prefsAutoStartBtn')?.addEventListener('click', async () => {
+  const nextVal = !openAtLoginPref;
+  openAtLoginPref = nextVal;
+  if (openAtLoginInput) openAtLoginInput.checked = nextVal;
+  paintAutoStartToggle();
+  if (typeof UiSfx === 'object') UiSfx.play('toggle');
+  if (typeof window.settings?.openAtLogin === 'function') {
+    const res = await window.settings.openAtLogin(nextVal);
+    if (res?.onlyWhenGameRunning != null && onlyWhenGameRunningInput) {
+      onlyWhenGameRunningInput.checked = Boolean(res.onlyWhenGameRunning);
+    }
+  }
+});
 document.querySelectorAll('[data-startup-page]').forEach((segBtn) => {
   segBtn.addEventListener('click', () => {
     const wantsWelcome = segBtn.getAttribute('data-startup-page') === 'welcome';

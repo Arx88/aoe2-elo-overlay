@@ -264,6 +264,10 @@ const DEFAULT_CONFIG = {
   smurfDetector: false,
   // Ocultar overlay si Age of Empires II: DE queda minimizado por más de 5 segundos.
   hideWhenMinimized: false,
+  // Mostrar el panel superior únicamente cuando Age of Empires II: DE está abierto (ocultar si se cierra).
+  onlyWhenGameRunning: true,
+  // Iniciar Relic automáticamente en segundo plano (bandeja) al prender Windows.
+  openAtLogin: false,
   // Mostrar el panel efímero de bienvenida (Inicio) al abrir Relic.
   showWelcomeHome: true,
   // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
@@ -317,6 +321,7 @@ const NO_PROFILE = ARGV.includes('--no-profile');
 const MOVE_TEST = ARGV.includes('--move');
 const SETTINGS = ARGV.includes('--settings');
 const SETTINGS_SHOT = ARGV.includes('--settings-shot');
+const AUTOSTART = ARGV.includes('--autostart');
 // Prueba local: simula el evento `matched` para verificar el panel sin hacer cola.
 const FAKE_FOUND = ARGV.includes('--fake-found');
 const CIV_HELP_ARG = ARGV.find((a) => a === '--civ-help' || a.startsWith('--civ-help='));
@@ -2392,34 +2397,57 @@ function sendPreviewHighlight(feature = null) {
   send('overlay:highlight', activePreviewHighlight);
 }
 
+function syncAutoStartWithWindows(enabled) {
+  if (process.platform !== 'win32' || !app.isPackaged || DEV_SESSION) return;
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: Boolean(enabled),
+      path: process.execPath,
+      args: Boolean(enabled) ? ['--autostart'] : [],
+    });
+    log(`inicio automático con Windows: ${enabled ? 'activado (--autostart)' : 'desactivado'}`);
+  } catch (err) {
+    log(`no se pudo configurar inicio con Windows: ${err.message}`);
+  }
+}
+
 function initMinimizeWatcher() {
   if (!minimizeController) {
     minimizeController = createMinimizeController({
       delayMs: 5000,
       canHide: () => Boolean(
-        config.hideWhenMinimized &&
         win && !win.isDestroyed() &&
+        !DEMO && !SHOT && !EXAMPLE_QUERY && !FAKE_FOUND &&
         !exampleActive &&
+        !postMatchPreviewActive &&
         !moving &&
+        !(trainingController && trainingController.liveOverlayState?.testActive) &&
         !manuallyHiddenByHotkey,
       ),
-      onHide: () => {
+      onHide: (reason) => {
         if (win && !win.isDestroyed() && win.isVisible()) {
           win.hide();
-          log('overlay oculto automáticamente: AoE2 minimizado por más de 5s');
+          log(reason === 'not-running'
+            ? 'overlay oculto automáticamente: Age of Empires II: DE cerrado'
+            : 'overlay oculto automáticamente: AoE2 minimizado por más de 5s');
         }
       },
       onShow: () => {
         if (win && !win.isDestroyed() && !manuallyHiddenByHotkey) {
           win.setAlwaysOnTop(true, 'screen-saver');
           win.showInactive();
-          log('overlay restaurado automáticamente: AoE2 volvió a primer plano');
+          log('overlay visible automáticamente: Age of Empires II: DE detectado activo');
         }
       },
     });
   }
-  const wanted = Boolean(config.hideWhenMinimized) && !DEMO && !SHOT;
-  minimizeController.setEnabled(wanted);
+  const wantMin = Boolean(config.hideWhenMinimized) && !DEMO && !SHOT && !EXAMPLE_QUERY && !FAKE_FOUND;
+  const wantGameOnly = (config.onlyWhenGameRunning !== false) && !DEMO && !SHOT && !EXAMPLE_QUERY && !FAKE_FOUND;
+  const wanted = wantMin || wantGameOnly;
+  minimizeController.setRules({
+    hideWhenMinimized: wantMin,
+    hideWhenNotRunning: wantGameOnly,
+  });
   if (wanted) {
     if (!gameWindowWatcher) {
       gameWindowWatcher = new GameWindowWatcher({
@@ -2663,7 +2691,12 @@ function createWindow() {
   );
 
   win.once('ready-to-show', () => {
-    win.showInactive();
+    if (minimizeController && minimizeController.shouldSuppressShow()) {
+      minimizeController.markSuppressedAtBoot();
+      log('overlay en espera silenciosa: se mostrará automáticamente al abrir Age of Empires II: DE');
+    } else {
+      win.showInactive();
+    }
 
     // Diagnóstico: confirma que la ventana existe, es visible y dónde está.
     setTimeout(() => {
@@ -3657,6 +3690,7 @@ async function setExampleClock(clockMode, options = {}) {
 function stopExample() {
   if (!exampleActive) return { ok: true, active: false };
   deactivateExample();
+  if (minimizeController) minimizeController.recheck();
   log('modo ejemplo terminado: el panel vuelve al estado real');
   // Si ya había una partida apareada en el socket, la mostramos al instante.
   if (queueWatcher && queueWatcher.reemitIfMatched()) {
@@ -3902,6 +3936,8 @@ function registerIpc() {
     tgBalance: Boolean(config.tgBalance),
     smurfDetector: Boolean(config.smurfDetector),
     hideWhenMinimized: Boolean(config.hideWhenMinimized),
+    onlyWhenGameRunning: config.onlyWhenGameRunning !== false,
+    openAtLogin: Boolean(config.openAtLogin),
     showWelcomeHome: config.showWelcomeHome !== false,
     autoUpdate: Boolean(config.autoUpdate),
     postMatch: config.postMatch !== false,
@@ -4034,6 +4070,30 @@ function registerIpc() {
     initMinimizeWatcher();
     log(`ocultar si AoE2 minimizado (>5s): ${enabled ? 'activado' : 'desactivado'}`);
     return { ok: true, hideWhenMinimized: enabled };
+  });
+
+  ipcMain.handle('settings:onlyWhenGameRunning', (_event, raw) => {
+    const enabled = Boolean(raw);
+    persistConfig({ onlyWhenGameRunning: enabled });
+    initMinimizeWatcher();
+    log(`mostrar overlay solo con AoE2 abierto: ${enabled ? 'activado' : 'desactivado'}`);
+    return { ok: true, onlyWhenGameRunning: enabled };
+  });
+
+  ipcMain.handle('settings:openAtLogin', (_event, raw) => {
+    const enabled = Boolean(raw);
+    const patch = { openAtLogin: enabled };
+    if (enabled && config.onlyWhenGameRunning === false) {
+      patch.onlyWhenGameRunning = true;
+    }
+    persistConfig(patch);
+    syncAutoStartWithWindows(enabled);
+    initMinimizeWatcher();
+    return {
+      ok: true,
+      openAtLogin: enabled,
+      onlyWhenGameRunning: config.onlyWhenGameRunning !== false,
+    };
   });
 
   ipcMain.handle('settings:showWelcomeHome', (_event, raw) => {
@@ -5849,6 +5909,7 @@ function dismissPostMatch(reason = 'cerrado', options = {}) {
   send('postmatch:update', null);
   if (win && !win.isDestroyed()) applyHeight(lastReportedCssHeight);
   syncReviewInteraction();
+  if (minimizeController) minimizeController.recheck();
   if (wasVisible || force) log(`postmatch: informe cerrado (${reason})`);
   return true;
 }
@@ -6600,13 +6661,14 @@ async function bootstrap() {
       log('config.json sin profileId: detectando la cuenta del juego…');
     }
   }
+  initMinimizeWatcher();
   createWindow();
   screen.on('display-metrics-changed', () => {
     applyAdaptiveZoom(win, 'overlay');
     applyAdaptiveZoom(settingsWin, 'settings');
     sendView(true);
   });
-  initMinimizeWatcher();
+  syncAutoStartWithWindows(Boolean(config.openAtLogin));
   if (profileId) {
     startPolling();
     startLive();
@@ -6689,8 +6751,11 @@ async function bootstrap() {
     }, 900);
   }
 
-  // La app siempre abre la configuración primero, para que empieces eligiendo la cuenta.
-  openSettings();
+  if (AUTOSTART && config.wizardCompleted && !SETTINGS) {
+    log('arranque silencioso con Windows (--autostart): Relic activo en bandeja esperando Age of Empires II: DE');
+  } else {
+    openSettings();
+  }
 }
 
 const gotLock = app.requestSingleInstanceLock();

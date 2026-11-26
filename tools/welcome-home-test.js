@@ -126,7 +126,37 @@ assert.equal(ledger.goldRank.label, 'Saqueador');
 assert.ok(ledger.weeklyRecord && ledger.weeklyRecord.primary, 'Expected weeklyRecord primary highlight');
 
 assert.equal(pulse.activityStrip.length, 7, 'Activity strip must always have 7 days');
+assert.deepEqual(pulse.activityStrip.map((d) => d.dayLabel), ['L', 'M', 'X', 'J', 'V', 'S', 'D'], 'Activity strip must always run Monday through Sunday');
 assert.equal(pulse.activityStrip.reduce((acc, d) => acc + d.games, 0), 4);
+
+// Fixed Monday->Sunday reset test: Sunday match must NOT leak into Monday 00:01 of the next week
+const sundayLate = new Date(2026, 10, 29, 23, 30, 0).getTime(); // Sun Nov 29, 2026 23:30
+const nextMondayMorning = new Date(2026, 10, 30, 0, 5, 0);       // Mon Nov 30, 2026 00:05
+const sundayNow = new Date(2026, 10, 29, 23, 55, 0);             // Sun Nov 29, 2026 23:55
+const sunRec = [{
+  matchId: 'sun-1',
+  startedAt: sundayLate - 1200_000,
+  finishedAt: sundayLate,
+  elapsedSeconds: 1200,
+  telemetry: {
+    engineSummary: {
+      self: {
+        villagersOrdered: 80,
+        militaryOrdered: 40,
+        topUnits: [{ unitId: 38, name: 'Caballero', count: 20 }], // 1500g
+        timings: { castleSeconds: 950 }, // 200g -> 1700g
+        macroBuilds: { castles: 1, farms: 30 },
+        techProfile: { ecoNames: [], blacksmithNames: [], combatKeyNames: [] },
+      },
+    },
+  },
+}];
+const ledgerSunday = welcomeHome.summarizeWarLedger({ techTreeData, now: sundayNow, performanceRecords: sunRec });
+assert.equal(ledgerSunday.goldTotal, 1700, 'Sunday 23:55 must still count Sunday match in Mon-Sun week');
+const ledgerMondayReset = welcomeHome.summarizeWarLedger({ techTreeData, now: nextMondayMorning, performanceRecords: sunRec });
+assert.equal(ledgerMondayReset.scope, 'week');
+assert.equal(ledgerMondayReset.goldTotal, 0, 'Monday 00:05 must reset weekly gold to 0');
+assert.equal(ledgerMondayReset.matchesCount, 0, 'Monday 00:05 must reset weekly match count to 0');
 
 const rivalPulseTest = welcomeHome.summarizePersonalPulse({
   profileId: 1,

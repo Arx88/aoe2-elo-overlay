@@ -138,6 +138,7 @@
               <button id="prefsFeedbackBtn" class="prefs-pop-link prefs-pop-feedback" type="button" data-i18n="feedback.openBtn">Enviar feedback</button>
               <button id="prefsSoundBtn" class="prefs-pop-link" type="button" data-i18n="prefs.soundsOn">Sonidos de interfaz · Activos</button>
               <button id="prefsWelcomeBtn" class="prefs-pop-link" type="button" data-i18n="prefs.welcomeOn">Inicio al abrir · Activo</button>
+              <button id="prefsAutoStartBtn" class="prefs-pop-link" type="button" data-i18n="prefs.autoStartOff">Iniciar con Windows · Desactivado</button>
               <button id="reopenWizardBtn" class="prefs-pop-link" type="button" data-i18n="account.reopenWizard">Abrir asistente inicial</button>
             </div>
           </div>
@@ -697,6 +698,15 @@
             <section class="pm-config-details ux-panel ux-panel-static">
               <div class="ux-panel-head"><span data-i18n="skins.visibilityGroup">Visibilidad automática</span></div>
               <div class="block pm-config-block">
+                <label class="row tog" for="onlyWhenGameRunning">
+                  <span class="ric"><img class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
+                  <span class="tcopy">
+                    <span class="rname" data-i18n="skins.onlyWhenGameTitle">Mostrar overlay solo con AoE2 abierto</span>
+                    <span class="rdesc" data-i18n="skins.onlyWhenGameDesc">El panel superior aparece automáticamente cuando abrís Age of Empires II: DE y se oculta al cerrarlo</span>
+                  </span>
+                  <input id="onlyWhenGameRunning" type="checkbox" />
+                  <span class="sw" aria-hidden="true"></span>
+                </label>
                 <label class="row tog" for="hideWhenMinimized">
                   <span class="ric"><img class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
                   <span class="tcopy">
@@ -704,6 +714,15 @@
                     <span class="rdesc" data-i18n="skins.hideMinimizedDesc">Oculta el overlay si Age of Empires II queda minimizado más de 5 segundos y vuelve al restaurarlo</span>
                   </span>
                   <input id="hideWhenMinimized" type="checkbox" />
+                  <span class="sw" aria-hidden="true"></span>
+                </label>
+                <label class="row tog" for="openAtLogin">
+                  <span class="ric"><img class="product-icon" src="assets/icons/update.png" alt="" draggable="false"></span>
+                  <span class="tcopy">
+                    <span class="rname" data-i18n="skins.openAtLoginTitle">Iniciar automáticamente con Windows</span>
+                    <span class="rdesc" data-i18n="skins.openAtLoginDesc">Abre Relic silenciosamente en la bandeja al encender la PC para detectar partidas sin tener que abrirlo</span>
+                  </span>
+                  <input id="openAtLogin" type="checkbox" />
                   <span class="sw" aria-hidden="true"></span>
                 </label>
               </div>

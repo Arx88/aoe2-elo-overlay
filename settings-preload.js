@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('settings', {
   theme: (theme) => ipcRenderer.invoke('settings:theme', theme),
   opacity: (value) => ipcRenderer.invoke('settings:opacity', value),
   hideWhenMinimized: (on) => ipcRenderer.invoke('settings:hideWhenMinimized', on),
+  onlyWhenGameRunning: (on) => ipcRenderer.invoke('settings:onlyWhenGameRunning', on),
+  openAtLogin: (on) => ipcRenderer.invoke('settings:openAtLogin', on),
   showWelcomeHome: (on) => ipcRenderer.invoke('settings:showWelcomeHome', on),
   welcomeGet: (opts) => ipcRenderer.invoke('welcome:get', opts),
   welcomeOpenAnnouncementUrl: () => ipcRenderer.invoke('welcome:open-announcement-url'),

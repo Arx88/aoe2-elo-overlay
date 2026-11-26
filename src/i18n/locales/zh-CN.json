@@ -396,7 +396,11 @@
     "ultraScopeTag": "全应用 + 浮窗",
     "ultraLockedTip": "Relic Ultra 专属。将整个应用与浮窗切换为高对比度纯黑极简视觉模式。",
     "ultraUnlockedTip": "Ultra 模式：将整个应用与浮窗切换为高对比度纯黑极简风格。",
-    "ultraLockedStatus": "Ultra 纯黑皮肤包含在 Relic Ultra 方案中。"
+    "ultraLockedStatus": "Ultra 纯黑皮肤包含在 Relic Ultra 方案中。",
+    "onlyWhenGameTitle": "仅在帝国时代 II 运行时显示悬浮窗",
+    "onlyWhenGameDesc": "启动《帝国时代 II：决定版》时自动显示顶部悬浮栏，关闭游戏后自动隐藏。",
+    "openAtLoginTitle": "随 Windows 开机自动启动",
+    "openAtLoginDesc": "开机后在系统托盘静默运行 Relic，自动检测对局，无需手动打开。"
   },
   "updater": {
     "installed": "当前版本",
@@ -991,7 +995,9 @@
     "soundsOn": "界面音效 · 开启",
     "soundsOff": "界面音效 · 静音",
     "welcomeOn": "启动时显示首页 · 开启",
-    "welcomeOff": "启动时显示首页 · 隐藏"
+    "welcomeOff": "启动时显示首页 · 隐藏",
+    "autoStartOn": "开机自启 · 已开启",
+    "autoStartOff": "开机自启 · 已关闭"
   },
   "checkout": {
     "payUsdc": "使用 USDC 支付 (Polygon)",
@@ -1077,7 +1083,7 @@
     "goldWeekUnit": "本周累计黄金",
     "goldRecentUnit": "近期对局累计黄金",
     "goldEmptyHint": "每次开启 Relic 完成对局后，你消耗与收集的黄金都会自动计入此处。",
-    "goldAutoHint": "每局结束后自动更新。",
+    "goldAutoHint": "按周一至周日累计，每周一零点自动重置。",
     "goldRankNext": "距 {next} 还差 {gold}",
     "goldRankMax": "已达本周最高头衔",
     "weeklyRecord": "本周最佳纪录",
@@ -1134,8 +1140,8 @@
     "dayRecordOne": "{day}：{w}胜–{l}负（{n} 场）",
     "dayRecordMany": "{day}：{w}胜–{l}负（{n} 场）",
     "dayNoMatches": "{day}：无对局",
-    "weekScopeOne": "本周 · {n} 场",
-    "weekScopeMany": "本周 · {n} 场",
+    "weekScopeOne": "周一至周日 · {n} 局",
+    "weekScopeMany": "周一至周日 · {n} 局",
     "recentScope": "最近 {n} 场",
     "recentLabel": "近期",
     "goldEq": "相当于 {knights} 名骑士或 {trebs} 台巨型投石机",
@@ -1199,7 +1205,8 @@
       "blockPrintTag": "法典 · 修道院",
       "blockPrintTitle": "{name}（+3 射程）",
       "blockPrintBody": "{count}/{total} 个文明拥有 {name}，将僧侣招降射程提升至 12 格，在安全距离压制敌方攻城器。"
-    }
+    },
+    "weekScopeZero": "周一至周日 · 0 局"
   },
   "expiredModal": {
     "eyebrow": "RELIC ULTRA · 权限已到期",

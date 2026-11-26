@@ -392,20 +392,43 @@ function computeMatchGoldSpent(record, costIndex) {
   return Math.round(gold);
 }
 
+function getMondayWeekBounds(now = new Date()) {
+  const d = now instanceof Date ? now : new Date(now || Date.now());
+  const day = d.getDay(); // 0 = Domingo, 1 = Lunes .. 6 = Sábado
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const mondayDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0);
+  const nextMondayDate = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + 7, 0, 0, 0, 0);
+  return {
+    startMs: mondayDate.getTime(),
+    endMs: nextMondayDate.getTime(),
+    mondayDate,
+  };
+}
+
 function summarizeWarLedger({ performanceRecords = [], techTreeData = null, now = new Date() } = {}) {
   const records = Array.isArray(performanceRecords) ? performanceRecords : [];
   if (!records.length) return null;
 
   const d = now instanceof Date ? now : new Date(now || Date.now());
-  const weekCutoff = d.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const { startMs: weekStartMs, endMs: weekEndMs } = getMondayWeekBounds(d);
   const costIndex = buildGoldCostIndex(techTreeData);
 
   const valid = records.filter((r) => r && r.telemetry && r.telemetry.engineSummary && r.telemetry.engineSummary.self);
   if (!valid.length) return null;
 
-  const weekValid = valid.filter((r) => Number(r.startedAt || r.finishedAt || r.updatedAt || 0) >= weekCutoff);
-  const useWeek = weekValid.length > 0;
-  const pool = useWeek ? weekValid : valid;
+  const matchTimestampOf = (r) => {
+    const startTs = Number(r.startedAt || 0);
+    const durMs = Math.max(0, Number(r.elapsedSeconds || r.telemetry?.durationSeconds || 0)) * 1000;
+    return Number(r.finishedAt || 0) || (startTs > 0 ? startTs + durMs : Number(r.updatedAt || 0)) || startTs;
+  };
+
+  // Semana fija Lunes 00:00 → Domingo 23:59:59 (se reinicia a 0 cada lunes)
+  const weekValid = valid.filter((r) => {
+    const ts = matchTimestampOf(r);
+    return ts >= weekStartMs && ts < weekEndMs;
+  });
+  const useWeek = true;
+  const pool = weekValid;
 
   function aggregate(list) {
     let goldTotal = 0;
@@ -552,10 +575,10 @@ function summarizeWarLedger({ performanceRecords = [], techTreeData = null, now 
     : 'Jugá una partida con Relic abierto para empezar a juntar oro';
 
   return {
-    scope: useWeek ? 'week' : 'all',
-    scopeLabel: useWeek
-      ? `Esta semana · ${active.matchesCount} ${active.matchesCount === 1 ? 'partida' : 'partidas'}`
-      : `Últimas ${active.matchesCount} partidas`,
+    scope: 'week',
+    weekStartMs,
+    weekEndMs,
+    scopeLabel: `Lun–Dom · ${active.matchesCount} ${active.matchesCount === 1 ? 'partida' : 'partidas'}`,
     ...active,
     todayGold,
     todayMatchesCount,
@@ -586,7 +609,8 @@ function summarizePersonalPulse({
 } = {}) {
   const d = now instanceof Date ? now : new Date(now || Date.now());
   const nowMs = d.getTime();
-  const weekCutoff = nowMs - 7 * 24 * 60 * 60 * 1000;
+  const { startMs: weekStartMs, endMs: weekEndMs, mondayDate } = getMondayWeekBounds(d);
+  const weekCutoff = weekStartMs;
 
   const raw = centralCacheRaw?.raw || centralCacheRaw || null;
   const pid = Number(profileId || centralCacheRaw?.profileId || raw?.profileId || 0) || null;
@@ -759,12 +783,14 @@ function summarizePersonalPulse({
     };
   }
 
-  // Tira de actividad de los últimos 7 días (L M X J V S D, de hace 6 días hasta hoy)
+  // Tira de actividad fija de Lunes a Domingo de la semana actual (L M X J V S D)
   const SHORT_DAYS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+  const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const todayMidnightMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const dayBuckets = new Map();
   const activityStrip = [];
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate() - offset);
+  for (let i = 0; i < 7; i += 1) {
+    const dt = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + i);
     const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     const entry = {
       key,
@@ -772,14 +798,15 @@ function summarizePersonalPulse({
       games: 0,
       wins: 0,
       losses: 0,
-      isToday: offset === 0,
+      isToday: key === todayKey,
+      isFuture: dt.getTime() > todayMidnightMs,
       polarity: 'idle',
     };
     dayBuckets.set(key, entry);
     activityStrip.push(entry);
   }
   for (const m of recentMatches) {
-    if (!m.startedAt || m.startedAt < nowMs - 8 * 24 * 60 * 60 * 1000) continue;
+    if (!m.startedAt || m.startedAt < weekStartMs || m.startedAt >= weekEndMs) continue;
     const md = new Date(m.startedAt);
     const key = `${md.getFullYear()}-${String(md.getMonth() + 1).padStart(2, '0')}-${String(md.getDate()).padStart(2, '0')}`;
     const bucket = dayBuckets.get(key);
@@ -1184,6 +1211,7 @@ module.exports = {
   ANNOUNCEMENT_TTL_MS,
   GOLD_RANKS,
   computeGoldRank,
+  getMondayWeekBounds,
   normalizeClientAnnouncement,
   readGlobalMetaCache,
   fetchGlobalMeta,

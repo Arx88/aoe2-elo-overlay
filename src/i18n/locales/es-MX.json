@@ -396,7 +396,11 @@
     "ultraScopeTag": "App + Overlay",
     "ultraLockedTip": "Exclusivo de Relic Ultra. Transforma toda la aplicación y el overlay en negro puro de alto contraste.",
     "ultraUnlockedTip": "Modo Ultra: transforma toda la aplicación y el overlay en negro puro de alto contraste.",
-    "ultraLockedStatus": "El skin Ultra está incluido en Relic Ultra."
+    "ultraLockedStatus": "El skin Ultra está incluido en Relic Ultra.",
+    "onlyWhenGameTitle": "Mostrar overlay solo con AoE2 abierto",
+    "onlyWhenGameDesc": "El panel superior aparece automáticamente cuando abres Age of Empires II: DE y se oculta al cerrarlo.",
+    "openAtLoginTitle": "Iniciar automáticamente con Windows",
+    "openAtLoginDesc": "Abre Relic silenciosamente en la bandeja al encender la PC para detectar partidas sin tener que abrirlo."
   },
   "updater": {
     "installed": "Versión instalada",
@@ -991,7 +995,9 @@
     "soundsOn": "Sonidos de interfaz · Activos",
     "soundsOff": "Sonidos de interfaz · Silenciados",
     "welcomeOn": "Inicio al abrir · Activo",
-    "welcomeOff": "Inicio al abrir · Oculto"
+    "welcomeOff": "Inicio al abrir · Oculto",
+    "autoStartOn": "Iniciar con Windows · Activo",
+    "autoStartOff": "Iniciar con Windows · Desactivado"
   },
   "checkout": {
     "payUsdc": "Pagar con USDC (Polygon)",
@@ -1077,7 +1083,7 @@
     "goldWeekUnit": "de oro juntado esta semana",
     "goldRecentUnit": "de oro en tus últimas partidas",
     "goldEmptyHint": "Cada vez que jugás una partida con Relic abierto, se suma automáticamente todo el oro que juntaste.",
-    "goldAutoHint": "Se actualiza solo cada vez que terminás una partida.",
+    "goldAutoHint": "Cuenta de lunes a domingo y se reinicia cada lunes.",
     "goldRankNext": "Faltan {gold} para {next}",
     "goldRankMax": "Rango máximo semanal",
     "weeklyRecord": "RÉCORD DE LA SEMANA",
@@ -1134,8 +1140,8 @@
     "dayRecordOne": "{day}: {w}V–{l}D ({n} partida)",
     "dayRecordMany": "{day}: {w}V–{l}D ({n} partidas)",
     "dayNoMatches": "{day}: Sin partidas",
-    "weekScopeOne": "Esta semana · {n} partida",
-    "weekScopeMany": "Esta semana · {n} partidas",
+    "weekScopeOne": "Lun–Dom · {n} partida",
+    "weekScopeMany": "Lun–Dom · {n} partidas",
     "recentScope": "Últimas {n} partidas",
     "recentLabel": "Reciente",
     "goldEq": "Equivale a {knights} Caballeros o {trebs} Lanzapiedras",
@@ -1199,7 +1205,8 @@
       "blockPrintTag": "CÓDICE · MONASTERIO",
       "blockPrintTitle": "{name} (+3 de alcance)",
       "blockPrintBody": "{count} de las {total} civilizaciones tienen {name}, llevando el alcance de conversión de los monjes a 12 casillas para castigar asedio a distancia."
-    }
+    },
+    "weekScopeZero": "Lun–Dom · 0 partidas"
   },
   "expiredModal": {
     "eyebrow": "RELIC ULTRA · ACCESO FINALIZADO",
