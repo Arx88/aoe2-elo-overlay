@@ -1657,6 +1657,8 @@ function computeCentralAnalytics({
       unifiedMatches: unifiedModeMatches,
       insightsMatches: insightsOnlyMatches,
       storedRecords: validRecords,
+      competitiveIntel,
+      mapDiagnostics,
     });
 
     modes[modeId] = {

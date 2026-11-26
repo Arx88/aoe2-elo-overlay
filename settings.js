@@ -3965,6 +3965,26 @@ function syncAllTrainPinButtons(queue = latestTrainingQueue) {
 
 // Delegado global "Pesita en círculo" (favorito de entrenamiento) -> Mi Plan con verificación automática en partidas reales
 document.addEventListener('click', async (ev) => {
+  const navBtn = ev.target?.closest?.('[data-open-training-tab]');
+  if (navBtn) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const target = String(navBtn.dataset.openTrainingTab || '').trim();
+    if (typeof UiSfx === 'object') UiSfx.play('tap');
+    if (target === 'postmatch') {
+      goTo('postmatch');
+      return;
+    }
+    goTo('training');
+    if (trainingUi) {
+      try {
+        if (typeof trainingUi.load === 'function') await trainingUi.load();
+        if (target && typeof trainingUi.switchSubtab === 'function') trainingUi.switchSubtab(target);
+      } catch (_) {}
+    }
+    return;
+  }
+
   const btn = ev.target?.closest?.('[data-train-pin]');
   if (!btn) return;
   ev.preventDefault();

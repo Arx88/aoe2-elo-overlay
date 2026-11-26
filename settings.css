@@ -8926,11 +8926,74 @@ select.field,
   opacity: 0.45;
 }
 
-.page[data-page="central"] .cx-elo-track-svg {
-  width: 100%;
-  height: 18px;
+.page[data-page="central"] .cx-elo-goal-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 2px;
+}
+.page[data-page="central"] .cx-elo-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page[data-page="central"] .cx-elo-goal-lbl {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #9baab8;
+}
+.page[data-page="central"] .cx-elo-goal-rem {
+  font-size: 11.5px;
+  font-weight: 660;
+  color: #ebd091;
+}
+.page[data-page="central"] .cx-elo-rail {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.page[data-page="central"] .cx-elo-tick {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+.page[data-page="central"] .cx-elo-tick.is-t25 { left: 25%; }
+.page[data-page="central"] .cx-elo-tick.is-t50 { left: 50%; }
+.page[data-page="central"] .cx-elo-tick.is-t75 { left: 75%; }
+.page[data-page="central"] .cx-elo-fill {
+  position: relative;
   display: block;
-  overflow: visible;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(214, 184, 117, 0.72) 0%, #f0cf82 100%);
+  transition: width 920ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.page[data-page="central"] .cx-elo-fill::after {
+  content: "";
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: #faf0d4;
+  border: 2.5px solid #0d1219;
+  box-shadow: 0 0 0 1px rgba(240, 207, 130, 0.45);
+  box-sizing: border-box;
+}
+.page[data-page="central"] .cx-elo-fill.is-peak {
+  background: linear-gradient(90deg, rgba(84, 191, 137, 0.75) 0%, #78d8a6 100%);
+}
+.page[data-page="central"] .cx-elo-fill.is-peak::after {
+  background: #b8f5d4;
+  box-shadow: 0 0 0 1px rgba(120, 216, 166, 0.55);
 }
 
 .page[data-page="central"] .cx-elo-axis {
@@ -8938,13 +9001,16 @@ select.field,
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  font-size: 11.5px;
+  font-size: 11px;
   color: #7e8d9b;
+  font-variant-numeric: tabular-nums;
 }
-.page[data-page="central"] .cx-elo-axis b {
-  color: #cfd8e1;
-  font-weight: 620;
-  margin-left: 3px;
+.page[data-page="central"] .cx-elo-axis .cx-elo-pct {
+  color: #8f9dab;
+}
+.page[data-page="central"] .cx-elo-axis .is-target {
+  color: #dbe4ec;
+  font-weight: 660;
 }
 
 .page[data-page="central"] .cx-comfort-metrics {
@@ -8985,6 +9051,338 @@ select.field,
 .page[data-page="central"] .cx-comfort-metrics small {
   font-size: 11px;
   color: #6e7d8b;
+}
+
+/* ==================== ROAD TO NEXT ELO BENCHMARK PILLARS (v3) ==================== */
+.page[data-page="central"] .cx-roadmap-card {
+  grid-column: 1 / -1;
+  container-type: inline-size;
+}
+.page[data-page="central"] .cx-roadmap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+.page[data-page="central"] .cx-rm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page[data-page="central"] .cx-rm-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-rm-head-copy small {
+  font-size: 11.5px;
+  color: #8493a2;
+}
+.page[data-page="central"] .cx-rm-ready {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-rm-ready.is-win { color: #78d8a6; border-color: rgba(120, 216, 166, 0.28); background: rgba(120, 216, 166, 0.07); }
+.page[data-page="central"] .cx-rm-ready.is-gold { color: #ebd091; border-color: rgba(235, 208, 145, 0.28); background: rgba(235, 208, 145, 0.07); }
+.page[data-page="central"] .cx-rm-ready.is-gap { color: #ef9188; border-color: rgba(239, 145, 136, 0.25); background: rgba(239, 145, 136, 0.06); }
+
+/* 4-Dimension Status Strip with Official AoE2:DE Emblems */
+.page[data-page="central"] .cx-rm-dims {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.page[data-page="central"] .cx-rm-dim {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(12, 17, 24, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-top-width: 2px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-rm-dim.is-solid { border-top-color: rgba(111, 209, 156, 0.72); }
+.page[data-page="central"] .cx-rm-dim.is-inconsistent { border-top-color: rgba(232, 192, 104, 0.72); }
+.page[data-page="central"] .cx-rm-dim.is-bottleneck { border-top-color: rgba(229, 131, 122, 0.78); }
+.page[data-page="central"] .cx-rm-dim.is-calibrating { border-top-color: rgba(148, 163, 184, 0.35); }
+
+.page[data-page="central"] .cx-rm-dim-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(6, 9, 14, 0.85);
+  border: 1px solid rgba(214, 184, 117, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.page[data-page="central"] .cx-rm-dim-ico img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+.page[data-page="central"] .cx-rm-dim-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-rm-dim-name {
+  font-size: 11px;
+  font-weight: 640;
+  color: #96a5b4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page[data-page="central"] .cx-rm-dim-st {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 720;
+  color: #9ba8b5;
+}
+.page[data-page="central"] .cx-rm-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #647382;
+  flex-shrink: 0;
+}
+.page[data-page="central"] .cx-rm-dim.is-solid .cx-rm-dim-st { color: #78d8a6; }
+.page[data-page="central"] .cx-rm-dim.is-solid .cx-rm-dot { background: #6fd19c; }
+.page[data-page="central"] .cx-rm-dim.is-inconsistent .cx-rm-dim-st { color: #ebd091; }
+.page[data-page="central"] .cx-rm-dim.is-inconsistent .cx-rm-dot { background: #e8c068; }
+.page[data-page="central"] .cx-rm-dim.is-bottleneck .cx-rm-dim-st { color: #ef9188; }
+.page[data-page="central"] .cx-rm-dim.is-bottleneck .cx-rm-dot { background: #e5837a; }
+
+/* Bottleneck Rows: 4 Strict Pixel-Aligned Columns */
+.page[data-page="central"] .cx-rm-rows {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+.page[data-page="central"] .cx-rm-row {
+  display: grid;
+  grid-template-columns: 40px minmax(200px, 1fr) 246px 116px;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.page[data-page="central"] .cx-rm-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+.page[data-page="central"] .cx-rm-crest {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(18, 25, 36, 0.92), rgba(9, 13, 20, 0.95));
+  border: 1px solid rgba(214, 184, 117, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.page[data-page="central"] .cx-rm-crest img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+}
+.page[data-page="central"] .cx-rm-crest.is-map {
+  padding: 0;
+}
+
+.page[data-page="central"] .cx-rm-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-rm-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.page[data-page="central"] .cx-rm-info strong {
+  font-size: 13.5px;
+  font-weight: 680;
+  color: #edf3f8;
+  line-height: 1.25;
+}
+.page[data-page="central"] .cx-rm-dim-tag {
+  font-size: 9.5px;
+  font-weight: 740;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #8f9fb0;
+}
+.page[data-page="central"] .cx-rm-ctx {
+  font-size: 11px;
+  font-weight: 620;
+  color: #e2bf78;
+  line-height: 1.3;
+}
+.page[data-page="central"] .cx-rm-drill {
+  margin: 0;
+  font-size: 11.5px;
+  color: #97a6b5;
+  line-height: 1.4;
+}
+
+/* Direct Comparator + Bullet Track with Target Notch (Zero Synthetic %) */
+.page[data-page="central"] .cx-rm-versus {
+  display: grid;
+  grid-template-columns: 78px 74px 78px;
+  align-items: center;
+  gap: 8px;
+}
+.page[data-page="central"] .cx-rm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.page[data-page="central"] .cx-rm-stat.is-you {
+  text-align: right;
+  align-items: flex-end;
+}
+.page[data-page="central"] .cx-rm-stat.is-goal {
+  text-align: left;
+  align-items: flex-start;
+}
+.page[data-page="central"] .cx-rm-stat small {
+  font-size: 9px;
+  font-weight: 740;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #778797;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-rm-stat b {
+  font-size: 13px;
+  font-weight: 740;
+  color: #e6eef5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page[data-page="central"] .cx-rm-stat b.loss { color: #ef9188; }
+.page[data-page="central"] .cx-rm-stat b.gold { color: #ebd091; }
+
+.page[data-page="central"] .cx-rm-bullet {
+  position: relative;
+  width: 74px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.085);
+}
+.page[data-page="central"] .cx-rm-bullet > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.page[data-page="central"] .cx-rm-bullet > i.bar-emerald { background: #6fd19c; }
+.page[data-page="central"] .cx-rm-bullet > i.bar-gold { background: #d9bc7a; }
+.page[data-page="central"] .cx-rm-bullet > i.bar-rose { background: #e5837a; }
+.page[data-page="central"] .cx-rm-notch {
+  position: absolute;
+  left: 78%;
+  top: -3px;
+  width: 2px;
+  height: 12px;
+  border-radius: 1px;
+  background: #ebd091;
+  box-shadow: 0 0 6px rgba(235, 208, 145, 0.55);
+  pointer-events: none;
+}
+
+/* Action Column: Ghost Module Link + Circular Glowing Dumbbell (.train-pin-btn) */
+.page[data-page="central"] .cx-rm-act {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.page[data-page="central"] .cx-rm-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #b7c4d1;
+  font-size: 11px;
+  font-weight: 620;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+.page[data-page="central"] .cx-rm-jump i {
+  font-style: normal;
+  font-size: 10px;
+  opacity: 0.75;
+}
+.page[data-page="central"] .cx-rm-jump:hover {
+  border-color: rgba(232, 192, 104, 0.45);
+  background: rgba(232, 192, 104, 0.09);
+  color: #faf0d4;
+}
+.page[data-page="central"] .cx-rm-jump.is-primary {
+  border-color: rgba(232, 192, 104, 0.42);
+  color: #f0cf82;
+}
+
+.page[data-page="central"] .cx-rm-empty-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 11.5px;
+  color: #8f9dab;
+}
+.page[data-page="central"] .cx-rm-empty-cta.is-solid {
+  color: #78d8a6;
+}
+
+@container (max-width: 760px) {
+  .page[data-page="central"] .cx-rm-dims {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page[data-page="central"] .cx-rm-row {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+  }
+  .page[data-page="central"] .cx-rm-versus {
+    grid-column: 2 / 4;
+    justify-self: start;
+  }
 }
 
 .page[data-page="central"] .cx-patch-table {

@@ -24,6 +24,7 @@ const {
 } = require('./civ-mastery');
 
 const VERSION = 'postmatch-engine-v1';
+const ENGINE_REV = 2;
 const UNIT_TABLE = TABLE.units || {};
 const BUILDING_TABLE = TABLE.buildings || {};
 const VILLAGERS = new Set([83, 293]);
@@ -562,6 +563,10 @@ function militaryTrainSpeedMultiplier(state, unitId, bType) {
   if (team.has('gurjaras') && CAMEL_ELEPHANT_SPEED_IDS.has(unitId)) mult *= 1.25;
   if (slug === 'aztecs') mult *= 1.15;
   if (slug === 'khitans' && KHITAN_FAST_UNIT_IDS.has(unitId)) mult *= 1.15;
+  if (state.allTechs.has(493) && [86, 101, 153].includes(bType)) mult *= 1.40; // Código caballeresco (Francos)
+  if (state.allTechs.has(457) && [12, 20, 498].includes(bType)) mult *= 2.00;  // Movilización / Perfusion (Godos)
+  if (state.allTechs.has(689) && [39, 474, 441, 448, 546, 1370, 1372, 1707].includes(unitId)) mult *= 2.00; // Ganadería de la estepa (Cumanos)
+  if (state.allTechs.has(578) && bType === 82) mult *= 1.25;                   // Alcazabas / Kasbah (Bereberes)
   if (state.combatTechs.has(315) && [10, 12, 14, 20, 82, 86, 87, 101, 153, 498, 1251, 1665].includes(bType)) {
     mult *= 1.33;
   }
@@ -572,13 +577,16 @@ function createSlotState(slot, civ, ages = null, startingAge = 'dark', allyCivs 
   const normStart = String(startingAge || 'dark').toLowerCase();
   const civSlug = normalizeCivSlug(civ);
   const teamCivSlugs = new Set([civSlug, ...(Array.isArray(allyCivs) ? allyCivs.map(normalizeCivSlug) : [])].filter(Boolean));
-  const feudalReachedMs = Number.isFinite(ages?.feudal)
+  const authFeudal = Number.isFinite(ages?.feudal) && ages.feudal > 0;
+  const authCastle = Number.isFinite(ages?.castle) && ages.castle > 0;
+  const authImperial = Number.isFinite(ages?.imperial) && ages.imperial > 0;
+  const feudalReachedMs = authFeudal
     ? ages.feudal
     : (normStart === 'feudal' || normStart === 'castle' || normStart === 'imperial' ? 0 : null);
-  const castleReachedMs = Number.isFinite(ages?.castle)
+  const castleReachedMs = authCastle
     ? ages.castle
     : (normStart === 'castle' || normStart === 'imperial' ? 0 : null);
-  const imperialReachedMs = Number.isFinite(ages?.imperial)
+  const imperialReachedMs = authImperial
     ? ages.imperial
     : (normStart === 'imperial' ? 0 : null);
   return {
@@ -587,6 +595,7 @@ function createSlotState(slot, civ, ages = null, startingAge = 'dark', allyCivs 
     civSlug,
     teamCivSlugs,
     startingAge: normStart,
+    authoritativeAges: { feudal: authFeudal, castle: authCastle, imperial: authImperial },
     tcs: new Map(),           // buildingKey -> { busyUntil, intervals, villagers }
     seenTcTechs: new Set(),   // evita sumar doble un Research repetido en el replay
     feudalReachedMs,
@@ -657,7 +666,7 @@ function createSlotState(slot, civ, ages = null, startingAge = 'dark', allyCivs 
 function ensureTc(state, key) {
   let tc = state.tcs.get(key);
   if (!tc) {
-    tc = { id: key, busyUntil: null, intervals: [], villagers: 0 };
+    tc = { id: key, busyUntil: null, intervals: [], queueItems: [], villagers: 0, lastTapMs: -Infinity };
     state.tcs.set(key, tc);
   }
   return tc;
@@ -877,21 +886,60 @@ function finalizePlayer(state, durationMs, { isRival = false } = {}) {
   const darkStats = isEwStart
     ? { idleSeconds: null, utilization: null, busySeconds: 0, windowSeconds: 0, tcCount: 0 }
     : tcWindowStats(mergedTcs, 0, darkEndMs, { zeroPrimary: true, openingGraceMs: darkOpeningGraceMs });
-  const feudalStats = state.feudalReachedMs != null && feudalEndMs > darkEndMs
-    ? tcWindowStats(mergedTcs, darkEndMs, feudalEndMs, { zeroPrimary: isEwStart })
+  // Si la partida terminó en Feudal sin alcanzar Castillos, recortar los últimos 30 s previos a la rendición (igual que findBiggestTcGap)
+  const feudalWindowEndMs = state.castleReachedMs != null
+    ? feudalEndMs
+    : (feudalEndMs - darkEndMs > 60_000 ? Math.max(darkEndMs + 10_000, feudalEndMs - 30_000) : feudalEndMs);
+  const feudalStats = state.feudalReachedMs != null && feudalWindowEndMs > darkEndMs
+    ? tcWindowStats(mergedTcs, darkEndMs, feudalWindowEndMs, { zeroPrimary: isEwStart })
     : { idleSeconds: null, utilization: null, tcCount: 0 };
-  const earlyStats = tcWindowStats(mergedTcs, 0, feudalEndMs, { zeroPrimary: true, openingGraceMs: darkOpeningGraceMs });
+  const earlyStats = tcWindowStats(mergedTcs, 0, feudalWindowEndMs, { zeroPrimary: true, openingGraceMs: darkOpeningGraceMs });
   const totalStats = tcWindowStats(mergedTcs, 0, boomEndMs, { zeroPrimary: true, capEachToLast: true, openingGraceMs: darkOpeningGraceMs });
 
-  const tcIdleDarkSeconds = darkStats.idleSeconds;
-  const tcUtilizationDark = darkStats.utilization;
+  let tcIdleDarkSeconds = darkStats.idleSeconds;
+  let tcUtilizationDark = darkStats.utilization;
+  // Cota física exacta en Alta Edad cuando existe aviso oficial de servidor (`authoritativeAges.feudal`):
+  // Feudal nunca arranca a mitad de aldeano, por lo que antes de `feudalStartMs` solo cabe un número entero de aldeanos + tecnologías reales del TC.
+  if (!isEwStart && state.authoritativeAges?.feudal && state.feudalClickMs != null && darkEndMs > 0 && (darkStats.tcCount || 1) <= 1) {
+    const darkRate = persianTcRate(state.civ, 'dark');
+    const feudalRate = darkRate * (state.civSlug === 'malay' ? 1.66 : 1);
+    const feudalDurMs = Math.round(130_000 / feudalRate);
+    const feudalStartMs = Math.max(0, darkEndMs - feudalDurMs);
+    let darkTcTechDurMs = 0;
+    for (const tc of state.tcs.values()) {
+      for (const qi of (tc.queueItems || [])) {
+        if (qi.kind === 'tech' && qi.techId !== 101 && qi.techId !== 102 && qi.techId !== 103 && qi.start < feudalStartMs) {
+          darkTcTechDurMs += Math.max(0, Math.min(qi.end, feudalStartMs) - qi.start);
+        }
+      }
+    }
+    if (darkTcTechDurMs === 0 && state.loomMs != null && state.loomMs < feudalStartMs) {
+      const loomRate = darkRate * (state.teamCivSlugs?.has('portuguese') ? 1.25 : 1);
+      darkTcTechDurMs = state.civSlug === 'goths' ? 1000 : Math.round(25_000 / loomRate);
+    }
+    const availForVilsMs = Math.max(0, feudalStartMs - darkTcTechDurMs);
+    const vTrainMs = villagerTrainMs(state.civ, 'dark');
+    const maxPhysVils = Math.floor((availForVilsMs + 1500) / vTrainMs);
+    const physBusyMs = maxPhysVils * vTrainMs + darkTcTechDurMs + feudalDurMs;
+    const physWindowMs = Math.max(physBusyMs, darkEndMs - darkOpeningGraceMs);
+    const physDarkIdleSec = Math.max(0, Math.round(((physWindowMs - physBusyMs) / 1000) * 10) / 10);
+    if (tcIdleDarkSeconds == null || physDarkIdleSec > tcIdleDarkSeconds) {
+      tcIdleDarkSeconds = physDarkIdleSec;
+      tcUtilizationDark = physWindowMs > 0
+        ? Math.max(0, Math.min(100, Math.round((physBusyMs / physWindowMs) * 1000) / 10))
+        : tcUtilizationDark;
+    }
+  }
   const tcIdleFeudalSeconds = feudalStats.idleSeconds;
   const tcUtilizationFeudal = feudalStats.utilization;
   const feudalActiveTcs = feudalStats.tcCount || 0;
   const tcIdleFeudalPerTcSeconds = tcIdleFeudalSeconds != null && feudalActiveTcs > 0
     ? Math.round((tcIdleFeudalSeconds / feudalActiveTcs) * 10) / 10
     : tcIdleFeudalSeconds;
-  const tcIdleEarlySeconds = earlyStats.idleSeconds;
+  const rawEarlyIdle = earlyStats.idleSeconds;
+  const tcIdleEarlySeconds = (tcIdleDarkSeconds != null && tcIdleFeudalSeconds != null)
+    ? Math.max(rawEarlyIdle ?? 0, Math.round((tcIdleDarkSeconds + tcIdleFeudalSeconds) * 10) / 10)
+    : rawEarlyIdle;
   const tcUtilizationEarly = earlyStats.utilization;
   // Invariante: tcIdleTotalSeconds nunca puede ser menor que tcIdleEarlySeconds
   const tcIdleTotalSeconds = totalStats.idleSeconds != null
@@ -950,10 +998,8 @@ function finalizePlayer(state, durationMs, { isRival = false } = {}) {
         ? Math.min(w.count * 2 + 2, Math.max(w.count + 1, Math.ceil(w.count * (peakQueue / 3.5))))
         : null;
       const note = status === 'saturated'
-        ? (isRival
-          ? `Saturado (pico ${Math.round(peakQueue)}) · requería ~${recommendedCount} ${pluralWorkshopName(w.name)}`
-          : `Saturado (pico ${Math.round(peakQueue)}) · necesitabas ~${recommendedCount} ${pluralWorkshopName(w.name)}`)
-        : `Pico ${Math.round(peakQueue)} en cola · flujo parejo`;
+        ? `Pico estimado ${Math.round(peakQueue)} órdenes · ${w.count} ${w.count === 1 ? w.name.toLowerCase() : pluralWorkshopName(w.name)}`
+        : `${w.count} ${w.count === 1 ? w.name.toLowerCase() : pluralWorkshopName(w.name)} · flujo activo`;
       return {
         key: w.key,
         typeId: w.typeId,
@@ -2459,9 +2505,9 @@ function buildPostmatchInsights({
     }
   }
 
-  // 6. Recursos Atrapados (Saturación de colas + Impuesto de Mercado fuera de Sarracenos)
+  // 6. Recursos Atrapados (Impuesto real de Mercado fuera de Sarracenos; no acusar colas saturadas por clics DeQueue sin recursos)
   let trappedResources = null;
-  const satWs = (self?.topWorkshops || []).filter((w) => Number(w.peakQueue) >= 5);
+  const satWs = [];
   const marketOps = Number(self?.marketProfile?.totalOps ?? self?.habits?.market ?? 0);
   const isSaracen = civSlug === 'saracens';
   const estMarketTax = (!isSaracen && marketOps >= 4)
@@ -2681,7 +2727,7 @@ function analyzePostmatchEngine(operations, {
         state.ecoActions += 1;
         state.ecoActionTimes.push(info.ms);
       }
-      // Cancelación de cola (`Unqueue`): descuenta 1 ítem de la cola del TC o taller real
+      // Cancelación de cola (`Unqueue`): descuenta el último ítem real (tecnología o aldeano/unidad) de ese edificio
       if (oType === 'Unqueue') {
         const objIds = Array.isArray(info.payload.object_ids) && info.payload.object_ids.length
           ? info.payload.object_ids.map(String)
@@ -2689,6 +2735,32 @@ function analyzePostmatchEngine(operations, {
         for (const oid of objIds) {
           const tc = state.tcs.get(oid);
           if (tc && tc.busyUntil != null && tc.busyUntil > info.ms && tc.intervals.length) {
+            const lastItem = tc.queueItems && tc.queueItems.length ? tc.queueItems[tc.queueItems.length - 1] : null;
+            if (lastItem && lastItem.kind === 'tech' && lastItem.end > info.ms) {
+              tc.queueItems.pop();
+              const tId = lastItem.techId;
+              state.seenTcTechs.delete(tId);
+              if (!state.freeTechIds.has(tId)) {
+                state.allTechs.delete(tId);
+                state.ecoTechs.delete(tId);
+              }
+              if (tId === 22 && state.loomMs != null) state.loomMs = null;
+              if (tId === 101) {
+                state.feudalClickMs = null;
+                if (!state.authoritativeAges?.feudal) state.feudalReachedMs = null;
+              }
+              if (tId === 102 && !state.authoritativeAges?.castle) state.castleReachedMs = null;
+              if (tId === 103 && !state.authoritativeAges?.imperial) state.imperialReachedMs = null;
+              const lastIv = tc.intervals[tc.intervals.length - 1];
+              if (lastIv && lastIv[0] < info.ms) {
+                lastIv[1] = info.ms;
+              } else {
+                tc.intervals.pop();
+              }
+              tc.busyUntil = tc.intervals.length ? tc.intervals[tc.intervals.length - 1][1] : info.ms;
+              continue;
+            }
+            if (tc.queueItems && tc.queueItems.length) tc.queueItems.pop();
             const curAge = state.imperialReachedMs != null && info.ms >= state.imperialReachedMs ? 'imperial'
               : state.castleReachedMs != null && info.ms >= state.castleReachedMs ? 'castle'
                 : state.feudalReachedMs != null && info.ms >= state.feudalReachedMs ? 'feudal' : 'dark';
@@ -2816,6 +2888,7 @@ function analyzePostmatchEngine(operations, {
           : Math.min(info.ms + vTrain, Math.max(info.ms, tc.busyUntil));
         const end = start + tcSec * 1000;
         tc.intervals.push([start, end]);
+        if (tc.queueItems) tc.queueItems.push({ kind: 'tech', techId, start, end });
         tc.busyUntil = end;
         if (techId === 101) {
           if (state.feudalClickMs == null) state.feudalClickMs = info.ms;
@@ -2835,9 +2908,6 @@ function analyzePostmatchEngine(operations, {
       const unit = unitInfo(unitId);
 
       if (VILLAGERS.has(unitId)) {
-        state.villagersOrdered += amount;
-        state.villagerEvents.push({ ms: info.ms, amount });
-        state.tcOrderTimes.push(info.ms);
         const bIds = Array.isArray(info.payload.building_ids) && info.payload.building_ids.length
           ? info.payload.building_ids.map(String)
           : (state.tcs.size ? [[...state.tcs.keys()][0]] : [`tc_${info.playerId}`]);
@@ -2854,6 +2924,24 @@ function analyzePostmatchEngine(operations, {
           : state.castleReachedMs != null && info.ms >= state.castleReachedMs ? 'castle'
             : state.feudalReachedMs != null && info.ms >= state.feudalReachedMs ? 'feudal' : 'dark';
         const vTrain = villagerTrainMs(state.civ, curAge);
+        // Filtrar solo ráfagas sostenidas de tecla mantenida (>= 4 toques seguidos < 240 ms con >= 3 aldeanos ya en cola),
+        // o > maxStartVils antes de los 18 s en inicio estándar (límite físico de 200-300 comida inicial).
+        if (bIds.length === 1 && amount === 1) {
+          const singleTc = candidates[0];
+          const remMs = singleTc.busyUntil != null ? Math.max(0, singleTc.busyUntil - info.ms) : 0;
+          const maxStartVils = state.civSlug === 'lithuanians'
+            ? 6
+            : ['persians', 'hindustanis', 'tupi', 'incas', 'aztecs'].includes(state.civSlug) ? 5 : 4;
+          const overOpeningFoodCap = curAge === 'dark' && state.startingAge === 'dark' && info.ms < 18_000 && singleTc.villagers >= maxStartVils;
+          singleTc.tapStreak = (info.ms - singleTc.lastTapMs < 240) ? ((singleTc.tapStreak || 1) + 1) : 1;
+          singleTc.lastTapMs = info.ms;
+          if (overOpeningFoodCap || (singleTc.tapStreak >= 4 && remMs >= 3 * vTrain)) continue;
+        } else {
+          for (const c of candidates) { c.lastTapMs = info.ms; c.tapStreak = 1; }
+        }
+        state.villagersOrdered += amount;
+        state.villagerEvents.push({ ms: info.ms, amount });
+        state.tcOrderTimes.push(info.ms);
         const toQueue = Math.min(10, amount);
         // Distribuir 1 a 1 en el TC con cola más corta (comportamiento real de Shift+Q con múltiples TCs)
         for (let q = 0; q < toQueue; q += 1) {
@@ -2863,6 +2951,7 @@ function analyzePostmatchEngine(operations, {
           const end = Math.min(maxEnd, start + vTrain);
           if (end > start) {
             tc.intervals.push([start, end]);
+            if (tc.queueItems) tc.queueItems.push({ kind: 'vil', techId: null, start, end });
             tc.busyUntil = end;
           }
           tc.villagers += 1;
@@ -2878,24 +2967,6 @@ function analyzePostmatchEngine(operations, {
         state.unitCountsById.set(unitId, uRec);
         continue;
       } else {
-        state.militaryOrdered += amount;
-        state.militaryEvents.push({ ms: info.ms, amount });
-        if (state.firstMilitaryMs == null) state.firstMilitaryMs = info.ms;
-        const combatClass = classifyCombatClass(unitId, bType, unit);
-        state.armyClasses[combatClass] = (state.armyClasses[combatClass] || 0) + amount;
-        const isSpear = SPEAR_LINE_UNIT_IDS.has(unitId);
-        if (isSpear) state.armyClasses.spearLine += amount;
-        if (combatClass && combatClass !== 'none' && state.classMassMs[combatClass] == null && state.armyClasses[combatClass] >= 6) {
-          state.classMassMs[combatClass] = info.ms;
-        }
-        state.classEvents.push({ ms: info.ms, cls: combatClass, isSpear, amount });
-        const bucket = state.unitCounts.get(unit.key) || { key: unit.key, unitId, name: unit.name, count: 0 };
-        bucket.count += amount;
-        state.unitCounts.set(unit.key, bucket);
-        const uRec = state.unitCountsById.get(unitId) || { count: 0, firstMs: info.ms };
-        uRec.count += amount;
-        state.unitCountsById.set(unitId, uRec);
-
         if (MILITARY_BUILDING_TYPES.has(bType)) {
           const bIds = Array.isArray(info.payload.building_ids) && info.payload.building_ids.length
             ? info.payload.building_ids.map(String)
@@ -2903,7 +2974,7 @@ function analyzePostmatchEngine(operations, {
           const candidates = bIds.map((k) => {
             let ws = state.workshops.get(k);
             if (!ws) {
-              ws = { id: k, typeId: bType, busyUntil: null, intervals: [], units: 0, firstMs: info.ms, lastMs: info.ms, maxQueue: 0, orders: 0, overloadedOrders: 0, lastTrainMs: 25_000 };
+              ws = { id: k, typeId: bType, busyUntil: null, intervals: [], units: 0, firstMs: info.ms, lastMs: info.ms, maxQueue: 0, orders: 0, overloadedOrders: 0, lastTrainMs: 25_000, lastTapMs: -Infinity };
               state.workshops.set(k, ws);
             }
             return ws;
@@ -2911,6 +2982,16 @@ function analyzePostmatchEngine(operations, {
           const trainSec = unit.trainSeconds || 25;
           const speedMult = militaryTrainSpeedMultiplier(state, unitId, bType);
           const trainMs = Math.max(2000, Math.round((trainSec * 1000) / speedMult));
+          // Filtrar ráfagas de tecla mantenida (< 240 ms) en un solo edificio cuando ya tiene >= 2 unidades en cola
+          if (bIds.length === 1 && amount === 1) {
+            const singleWs = candidates[0];
+            const remMs = singleWs.busyUntil !== null ? Math.max(0, singleWs.busyUntil - info.ms) : 0;
+            const isMashSpam = info.ms - (singleWs.lastTapMs ?? -Infinity) < 240 && remMs >= 2 * trainMs;
+            singleWs.lastTapMs = info.ms;
+            if (isMashSpam) continue;
+          } else {
+            for (const c of candidates) c.lastTapMs = info.ms;
+          }
           const toQueue = Math.min(20, amount);
           for (let q = 0; q < toQueue; q += 1) {
             const ws = pickShortestQueue(candidates);
@@ -2932,6 +3013,23 @@ function analyzePostmatchEngine(operations, {
             ws.lastMs = Math.max(ws.lastMs, info.ms);
           }
         }
+        state.militaryOrdered += amount;
+        state.militaryEvents.push({ ms: info.ms, amount });
+        if (state.firstMilitaryMs == null) state.firstMilitaryMs = info.ms;
+        const combatClass = classifyCombatClass(unitId, bType, unit);
+        state.armyClasses[combatClass] = (state.armyClasses[combatClass] || 0) + amount;
+        const isSpear = SPEAR_LINE_UNIT_IDS.has(unitId);
+        if (isSpear) state.armyClasses.spearLine += amount;
+        if (combatClass && combatClass !== 'none' && state.classMassMs[combatClass] == null && state.armyClasses[combatClass] >= 6) {
+          state.classMassMs[combatClass] = info.ms;
+        }
+        state.classEvents.push({ ms: info.ms, cls: combatClass, isSpear, amount });
+        const bucket = state.unitCounts.get(unit.key) || { key: unit.key, unitId, name: unit.name, count: 0 };
+        bucket.count += amount;
+        state.unitCounts.set(unit.key, bucket);
+        const uRec = state.unitCountsById.get(unitId) || { count: 0, firstMs: info.ms };
+        uRec.count += amount;
+        state.unitCountsById.set(unitId, uRec);
       }
     }
   }
@@ -2988,6 +3086,7 @@ function analyzePostmatchEngine(operations, {
 
   return {
     version: VERSION,
+    engineRev: ENGINE_REV,
     isTeamGame: Boolean(isTeamGame),
     teamRole: teamRole || null,
     durationSeconds: Math.round((maxMs / 1000) * 10) / 10,

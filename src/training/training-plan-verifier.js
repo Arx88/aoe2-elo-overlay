@@ -83,6 +83,21 @@ function inferPlanRule(item = {}) {
       };
     }
   }
+  if (explicitType === 'apm_drill') {
+    const mode = ['snipe', 'counter', 'reflex'].includes(String(item.apmMode || '')) ? String(item.apmMode) : 'snipe';
+    const durationSec = Number(item.apmDuration) === 60 ? 60 : 30;
+    const targetEapm = Math.max(20, Math.round(Number(item.ruleTarget || item.targetEapm || 60)));
+    const targetAcc = Math.max(50, Math.min(98, Math.round(Number(item.targetAcc || 85))));
+    const modeName = mode === 'counter' ? 'Counter Relámpago' : (mode === 'reflex' ? 'Reflejos' : 'Caza de Unidad');
+    return {
+      type: 'apm_drill',
+      mode,
+      durationSec,
+      targetEapm,
+      targetAcc,
+      targetLabel: `Lograr ≥ ${targetEapm} eAPM y ≥ ${targetAcc}% en ${modeName} (${durationSec}s)`,
+    };
+  }
   if (explicitType === 'on_map') {
     const targetMap = String(item.mapName || '').trim();
     if (targetMap) {
@@ -280,6 +295,7 @@ function planRuleKey(rule, item = {}) {
   if (r.type === 'stage_grade') return `rule:stage_grade:${normalizeSlug(r.stageId || 'any')}`;
   if (r.type === 'vs_civ') return `rule:vs_civ:${normalizeSlug(r.targetCiv || r.targetCivName || 'any')}`;
   if (r.type === 'on_map') return `rule:on_map:${normalizeSlug(r.targetMap || r.targetMapName || 'any')}`;
+  if (r.type === 'apm_drill') return `rule:apm_drill:${r.mode || 'snipe'}:${r.durationSec || 30}`;
   if (r.type && r.type !== 'win_clean') return `rule:${r.type}`;
   const cleanTitle = normalizeSlug(
     String(item.title || '')
@@ -294,6 +310,7 @@ function defaultTabForPlanRule(rule) {
   if (['feudal_time', 'castle_time', 'tc_idle_dark', 'dba_delay'].includes(type)) return 'orders';
   if (['vs_civ', 'on_map'].includes(type)) return 'matchups';
   if (type === 'army_upgrades') return 'arena';
+  if (type === 'apm_drill') return 'apm';
   return 'perf';
 }
 
@@ -560,10 +577,56 @@ function evaluatePlanQueueAgainstRecord(queue = [], record) {
   return { updatedQueue, newlyCompletedPlanItems, changed };
 }
 
+function evaluatePlanQueueAgainstApmRun(queue = [], run = null) {
+  if (!Array.isArray(queue) || !queue.length || !run) {
+    return { updatedQueue: Array.isArray(queue) ? queue : [], newlyCompletedPlanItems: [], changed: false };
+  }
+  const runMode = String(run.mode || '');
+  const runDur = Math.round(Number(run.durationSec || 30));
+  const runEapm = Math.round(Number(run.eApm || 0));
+  const runAcc = Math.round(Number(run.accuracy || 0));
+  const runMs = Math.round(Number(run.avgReactionMs || 0));
+  const newlyCompletedPlanItems = [];
+  let changed = false;
+
+  const updatedQueue = queue.map((item) => {
+    if (!item || item.done) return item;
+    const rule = item.verifyRule || inferPlanRule(item);
+    if (!rule || rule.type !== 'apm_drill') return item;
+    if (rule.mode && rule.mode !== runMode) return item;
+    if (rule.durationSec && runDur !== rule.durationSec) return item;
+
+    changed = true;
+    const passed = runEapm >= (rule.targetEapm || 50) && runAcc >= (rule.targetAcc || 80);
+    const measuredDisplay = `${runEapm} eAPM · ${runAcc}%${runMs > 0 ? ` · ${runMs} ms` : ''}`;
+    if (passed) {
+      const completed = {
+        ...item,
+        done: true,
+        autoVerified: true,
+        doneAt: Date.now(),
+        verifiedEvidence: `¡Meta APM cumplida! ${measuredDisplay}`,
+        lastCheckedDisplay: measuredDisplay,
+        attemptsAfterPin: Number(item.attemptsAfterPin || 0) + 1,
+      };
+      newlyCompletedPlanItems.push(completed);
+      return completed;
+    }
+    return {
+      ...item,
+      attemptsAfterPin: Number(item.attemptsAfterPin || 0) + 1,
+      lastCheckedDisplay: measuredDisplay,
+    };
+  });
+
+  return { updatedQueue, newlyCompletedPlanItems, changed };
+}
+
 module.exports = {
   inferPlanRule,
   planRuleKey,
   defaultTabForPlanRule,
   evaluateSinglePlanItem,
   evaluatePlanQueueAgainstRecord,
+  evaluatePlanQueueAgainstApmRun,
 };

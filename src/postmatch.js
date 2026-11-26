@@ -275,6 +275,8 @@ function sanitizeEngineSide(side) {
     tcUtilizationTotal: num(side.tcUtilizationTotal, 0, 100) != null ? rounded(side.tcUtilizationTotal) : null,
     biggestTcGap: gap,
     militaryOrdered: Math.round(num(side.militaryOrdered, 0, 50000) || 0),
+    feudalMilitaryOrdered: Math.round(num(side.feudalMilitaryOrdered, 0, 10000) || 0),
+    controlSharePct: num(side.controlSharePct, 0, 100) != null ? rounded(side.controlSharePct, 1) : null,
     workshopsCount: Math.round(num(side.workshopsCount, 0, 500) || 0),
     workshopUtilization: num(side.workshopUtilization, 0, 100) != null ? Math.round(side.workshopUtilization) : null,
     topUnits,
@@ -415,6 +417,7 @@ function normalizeEngineSummary(raw) {
   } : null;
   return {
     version: raw.version,
+    engineRev: Math.round(finite(raw.engineRev, 1, 999) || 1),
     isTeamGame: Boolean(raw.isTeamGame),
     durationSeconds: finite(raw.durationSeconds, 0, 86400) != null ? rounded(raw.durationSeconds) : null,
     self,
@@ -439,10 +442,13 @@ function buildPersonalEvolution(telemetry, records, current) {
   if (Number.isFinite(curDur) && curDur > 0 && curDur < 180) return null;
   const minsOf = (eng, fallbackDur) => Math.max(1, ((eng.durationSeconds || fallbackDur || 600) / 60));
   const curAdapterVersion = telemetry?.source?.version || null;
+  const curEngineRev = engine?.engineRev || 1;
   const isCompatibleTcSchema = (row) => {
     const rowVer = row?.telemetry?.source?.version || null;
     if (curAdapterVersion && rowVer && rowVer !== curAdapterVersion) return false;
-    const s = row?.telemetry?.engineSummary?.self;
+    const rowEng = row?.telemetry?.engineSummary;
+    if (curEngineRev >= 2 && (rowEng?.engineRev || 1) < curEngineRev) return false;
+    const s = rowEng?.self;
     if (s && Number.isFinite(s.tcIdleTotalSeconds) && Number.isFinite(s.tcIdleEarlySeconds) &&
         s.tcIdleTotalSeconds < s.tcIdleEarlySeconds) {
       return false;

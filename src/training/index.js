@@ -40,7 +40,7 @@ const {
   computeMatchupWarRoom,
   extractBuildFromBestReplay,
 } = require('./training-high-elo');
-const { evaluatePlanQueueAgainstRecord } = require('./training-plan-verifier');
+const { evaluatePlanQueueAgainstRecord, evaluatePlanQueueAgainstApmRun } = require('./training-plan-verifier');
 
 const CIV_BONUSES_MAP = Object.fromEntries(
   Object.entries(CIV_GUIDE || {}).map(([slug, g]) => [
@@ -672,6 +672,18 @@ function createTrainingController({ storePath }) {
     },
     toggleQueueItem: ({ profileId, itemId }) => ({ ok: true, trainingQueue: store.toggleTrainingQueueItem(profileId, itemId) }),
     removeQueueItem: ({ profileId, itemId }) => ({ ok: true, trainingQueue: store.removeTrainingQueueItem(profileId, itemId) }),
+    recordApmDrillRun: ({ profileId, run }) => {
+      const p = store.getProfile(profileId);
+      const evalRes = evaluatePlanQueueAgainstApmRun(p.trainingQueue || [], run);
+      if (evalRes.changed) {
+        store.saveEvaluatedTrainingQueue(profileId, evalRes.updatedQueue);
+      }
+      return {
+        ok: true,
+        trainingQueue: evalRes.changed ? evalRes.updatedQueue : (p.trainingQueue || []),
+        newlyCompletedPlanItems: evalRes.newlyCompletedPlanItems || [],
+      };
+    },
     flush: () => store.flush(),
   };
 }

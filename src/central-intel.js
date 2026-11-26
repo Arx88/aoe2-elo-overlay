@@ -675,6 +675,9 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
     const self = extractEngineSummary(rec)?.self;
     if (!self) return null;
     if (Number.isFinite(self.tcIdleDarkSeconds) && Number.isFinite(self.tcIdleFeudalPerTcSeconds)) {
+      if (self.timings?.castleSeconds == null && rec?.won === false && self.tcIdleFeudalPerTcSeconds >= 90) {
+        return self.tcIdleDarkSeconds;
+      }
       return self.tcIdleDarkSeconds + self.tcIdleFeudalPerTcSeconds;
     }
     if (Number.isFinite(self.tcIdleEarlySeconds)) return self.tcIdleEarlySeconds;
@@ -692,8 +695,14 @@ function computePersonalAcademy({ storedRecords = [], profileId = null, isOwnPro
   const oldIdleAvg = oldIdles.length ? Math.round(avg(oldIdles, 0)) : null;
   const idleDelta = (oldIdleAvg != null && recIdles.length) ? (curIdleAvg - oldIdleAvg) : null;
 
-  // Hábito 2: Hacha de doble filo a tiempo (<= 75s de llegar a Edad Feudal)
-  const dbaEligible = valid.filter((r) => extractEngineSummary(r)?.self?.techProfile != null);
+  // Hábito 2: Hacha de doble filo a tiempo (<= 75s de llegar a Edad Feudal; excluye partidas sin Feudal y pasiva gratis de Birmanos)
+  const dbaEligible = valid.filter((r) => {
+    const self = extractEngineSummary(r)?.self;
+    const tp = self?.techProfile;
+    if (!tp || self?.timings?.feudalSeconds == null) return false;
+    if (Array.isArray(tp.freeTechIds) && tp.freeTechIds.includes(202)) return false;
+    return true;
+  });
   const dbaTimely = dbaEligible.filter((r) => {
     const tp = extractEngineSummary(r)?.self?.techProfile;
     return tp?.hasDoubleBitAxe && (tp.doubleBitAxeDelaySec == null || tp.doubleBitAxeDelaySec <= 75);

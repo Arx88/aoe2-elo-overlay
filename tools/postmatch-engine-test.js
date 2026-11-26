@@ -780,6 +780,34 @@ function op(playerId, ms, type, payload = {}) {
       engineSummary: eng,
     }, { matchId: '8888', profileId: '25399083' });
     assert.ok(norm.data.engineSummary.civMastery, 'normalizeTelemetry must preserve civMastery');
+    assert.equal(norm.data.engineSummary.engineRev, 2, 'normalizeTelemetry must preserve engineRev === 2');
+
+    // Burgundians Dark Age Wheelbarrow (tech 213 = 75s) must be subtracted in Dark Age physical bound
+    const burgOps = [];
+    for (let i = 0; i < 14; i += 1) burgOps.push(op(1, i * 25_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] }));
+    burgOps.push(op(1, 350_000, 'Research', { technology_type: 213, building_id: 100 })); // 75s Wheelbarrow in Dark Age (350s..425s)
+    burgOps.push(op(1, 425_000, 'Research', { technology_type: 22, building_id: 100 }));  // 25s Loom (425s..450s)
+    burgOps.push(op(1, 450_000, 'Research', { technology_type: 101, building_id: 100 })); // 130s Feudal (450s..580s)
+    const burgRes = analyzePostmatchEngine(burgOps, {
+      selfSlot: 1, selfCiv: 'Burgundians', durationMs: 20 * 60_000,
+      selfAges: { feudal: 580_000, castle: 1000_000 },
+    });
+    assert.ok(burgRes.self.tcIdleDarkSeconds <= 1, `Burgundians Dark Age Wheelbarrow must not count as idle, got ${burgRes.self.tcIdleDarkSeconds}`);
+
+    // Cumans 2nd TC built in Feudal (270s build time) must NOT count construction time before first vil order as idle
+    const cumOps = [];
+    for (let i = 0; i < 18; i += 1) cumOps.push(op(1, i * 25_000, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] }));
+    cumOps.push(op(1, 450_000, 'Research', { technology_type: 22, building_id: 100 }));
+    cumOps.push(op(1, 475_000, 'Research', { technology_type: 101, building_id: 100 })); // Feudal at 605s
+    cumOps.push(mkBuildOp(1, 610_000, 621)); // Place 2nd TC foundation at 610s (finishes ~880s)
+    for (let t = 605_000; t < 1055_000; t += 25_000) cumOps.push(op(1, t, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [100] }));
+    for (let t = 880_000; t < 1055_000; t += 25_000) cumOps.push(op(1, t, 'DeQueue', { unit_id: 83, amount: 1, building_ids: [200] }));
+    const cumRes = analyzePostmatchEngine(cumOps, {
+      selfSlot: 1, selfCiv: 'Cumans', durationMs: 22 * 60_000,
+      selfAges: { feudal: 605_000, castle: 1055_000 },
+    });
+    assert.equal(cumRes.self.feudalActiveTcs, 2, 'Cumans must register 2 active Feudal TCs');
+    assert.ok(cumRes.self.tcIdleFeudalPerTcSeconds <= 2, `Cumans 2nd TC build time must NOT inflate Feudal idle, got ${cumRes.self.tcIdleFeudalPerTcSeconds}`);
     const rep = buildPostMatchReport({
       match: {
         matchId: '8888', startedAt: Date.now() - 25 * 60_000, finishedAt: Date.now(),

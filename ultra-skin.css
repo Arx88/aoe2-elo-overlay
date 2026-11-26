@@ -1004,8 +1004,98 @@ body[data-theme='ultra'] .central-bar-track,
 body[data-theme='ultra'] .global-ladder-track,
 body[data-theme='ultra'] .cx-circ-track,
 body[data-theme='ultra'] .cx-pt-track,
+body[data-theme='ultra'] .cx-rm-bullet,
+body[data-theme='ultra'] .cx-elo-rail,
 body[data-theme='ultra'] .upd-track {
   background: #15151a !important;
+}
+body[data-theme='ultra'] .cx-rm-rows {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+body[data-theme='ultra'] .cx-rm-row {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.065) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-rm-row:last-child {
+  border-bottom: 0 !important;
+}
+body[data-theme='ultra'] .cx-rm-info strong,
+body[data-theme='ultra'] .cx-rm-stat.is-goal b {
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .cx-rm-dim {
+  background: #050507 !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+}
+body[data-theme='ultra'] .cx-rm-dim.is-solid { border-top-color: #22c55e !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-inconsistent { border-top-color: #e8c068 !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-bottleneck { border-top-color: #ef4444 !important; }
+body[data-theme='ultra'] .cx-rm-dim-ico,
+body[data-theme='ultra'] .cx-rm-crest {
+  background: #020203 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .cx-rm-dim.is-solid .cx-rm-dim-st,
+body[data-theme='ultra'] .cx-rm-empty-cta.is-solid { color: #4ade80 !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-solid .cx-rm-dot { background: #22c55e !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-inconsistent .cx-rm-dim-st { color: #e8c068 !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-inconsistent .cx-rm-dot { background: #e8c068 !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-bottleneck .cx-rm-dim-st { color: #f87171 !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-bottleneck .cx-rm-dot { background: #ef4444 !important; }
+body[data-theme='ultra'] .cx-rm-dim-tag {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #a1a1aa !important;
+}
+body[data-theme='ultra'] .cx-rm-ctx { color: #e8c068 !important; }
+body[data-theme='ultra'] .cx-rm-drill { color: #a1a1aa !important; }
+body[data-theme='ultra'] .cx-rm-bullet > i.bar-emerald { background: #22c55e !important; }
+body[data-theme='ultra'] .cx-rm-bullet > i.bar-gold { background: #e8c068 !important; }
+body[data-theme='ultra'] .cx-rm-bullet > i.bar-rose { background: #ef4444 !important; }
+body[data-theme='ultra'] .cx-rm-notch {
+  background: #ffffff !important;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.45) !important;
+}
+body[data-theme='ultra'] .cx-rm-stat b.loss { color: #f87171 !important; }
+body[data-theme='ultra'] .cx-rm-stat b.gold { color: #e8c068 !important; }
+body[data-theme='ultra'] .cx-rm-ready.is-win { color: #4ade80 !important; border-color: rgba(34, 197, 94, 0.3) !important; background: rgba(34, 197, 94, 0.08) !important; }
+body[data-theme='ultra'] .cx-rm-ready.is-gold { color: #e8c068 !important; border-color: rgba(232, 192, 104, 0.3) !important; background: rgba(232, 192, 104, 0.08) !important; }
+body[data-theme='ultra'] .cx-rm-ready.is-gap { color: #f87171 !important; border-color: rgba(239, 68, 68, 0.3) !important; background: rgba(239, 68, 68, 0.08) !important; }
+body[data-theme='ultra'] .cx-rm-jump {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #d4d4d8 !important;
+}
+body[data-theme='ultra'] .cx-rm-jump:hover {
+  background: #121217 !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .cx-elo-tick {
+  background: rgba(255, 255, 255, 0.11) !important;
+}
+body[data-theme='ultra'] .cx-elo-goal-rem {
+  color: #e8c068 !important;
+}
+body[data-theme='ultra'] .cx-elo-fill {
+  background: #e8c068 !important;
+}
+body[data-theme='ultra'] .cx-elo-fill::after {
+  background: #ffffff !important;
+  border-color: #09090c !important;
+  box-shadow: 0 0 0 1px rgba(232, 192, 104, 0.45) !important;
+}
+body[data-theme='ultra'] .cx-elo-fill.is-peak {
+  background: #22c55e !important;
+}
+body[data-theme='ultra'] .cx-elo-fill.is-peak::after {
+  background: #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.55) !important;
+}
+body[data-theme='ultra'] .cx-elo-axis .is-target {
+  color: #ffffff !important;
 }
 body[data-theme='ultra'] .central-bar-track > i.bar-gold,
 body[data-theme='ultra'] .global-bar-cur,
@@ -1436,6 +1526,11 @@ body[data-theme='ultra'] .tr-arena-stage,
 body[data-theme='ultra'] .tr-arena-lockout,
 body[data-theme='ultra'] .tr-arena-summary,
 body[data-theme='ultra'] .tr-unlock-celebration,
+body[data-theme='ultra'] .tr-apm-stage,
+body[data-theme='ultra'] .tr-apm-history-card,
+body[data-theme='ultra'] .tr-apm-plan-strip,
+body[data-theme='ultra'] .tr-perf-apm-bar,
+body[data-theme='ultra'] .tr-apm-lb-card,
 body[data-theme='ultra'] .tr-hud-mockup,
 body[data-theme='ultra'] .tr-welcome-modal,
 body[data-theme='ultra'] .tr-lock-stage,
@@ -1454,6 +1549,175 @@ body[data-theme='ultra'] .tr-pel-steps {
   border: 0 !important;
   border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
   box-shadow: none !important;
+}
+/* Entrenamiento APM en skin Ultra OLED */
+body[data-theme='ultra'] .tr-apm-hud {
+  background: #060608 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.095) !important;
+}
+body[data-theme='ultra'] .tr-apm-arena-wrap {
+  background: #040406 !important;
+}
+body[data-theme='ultra'] .tr-apm-overlay {
+  background: rgba(4, 4, 6, 0.86) !important;
+}
+body[data-theme='ultra'] .tr-apm-overlay.is-summary {
+  background: rgba(4, 4, 6, 0.94) !important;
+}
+body[data-theme='ultra'] .tr-apm-dir-ico,
+body[data-theme='ultra'] .tr-apm-idle-ring,
+body[data-theme='ultra'] .tr-apm-grade-col,
+body[data-theme='ultra'] .tr-apm-grade-badge,
+body[data-theme='ultra'] .tr-apm-metric-cell,
+body[data-theme='ultra'] .tr-apm-hist-chip {
+  background: #040406 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .tr-apm-grade-col {
+  background: #09090c !important;
+}
+body[data-theme='ultra'] .tr-apm-dir-kicker,
+body[data-theme='ultra'] .tr-apm-overlay-eyebrow,
+body[data-theme='ultra'] .tr-apm-history-kicker {
+  color: #a1a1aa !important;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .tr-apm-dir-copy strong,
+body[data-theme='ultra'] .tr-apm-overlay h3,
+body[data-theme='ultra'] .tr-apm-grade-head strong,
+body[data-theme='ultra'] .tr-apm-metric-cell b,
+body[data-theme='ultra'] .tr-apm-kpi b {
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .tr-apm-kpi b.is-urgent,
+body[data-theme='ultra'] .tr-apm-dir-copy small.is-warn,
+body[data-theme='ultra'] .tr-apm-grade-badge.is-warn {
+  color: #f87171 !important;
+}
+body[data-theme='ultra'] .tr-apm-grade-badge.is-gold,
+body[data-theme='ultra'] .tr-apm-hist-grade.is-gold {
+  border-color: rgba(232, 192, 104, 0.48) !important;
+  color: #e8c068 !important;
+}
+body[data-theme='ultra'] .tr-apm-grade-badge.is-em,
+body[data-theme='ultra'] .tr-apm-hist-grade.is-em,
+body[data-theme='ultra'] .tr-apm-record-tag {
+  border-color: rgba(34, 197, 94, 0.42) !important;
+  color: #4ade80 !important;
+}
+body[data-theme='ultra'] .tr-apm-record-tag {
+  background: rgba(34, 197, 94, 0.11) !important;
+}
+body[data-theme='ultra'] .tr-apm-plan-strip.is-active-goal {
+  border-left: 3px solid #22c55e !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+}
+body[data-theme='ultra'] .tr-apm-plan-kicker,
+body[data-theme='ultra'] .tr-apm-lb-kicker,
+body[data-theme='ultra'] .tr-apm-lb-me-tag {
+  color: #a1a1aa !important;
+  font-family: var(--mono-font);
+}
+body[data-theme='ultra'] .tr-apm-plan-strip.is-active-goal .tr-apm-plan-kicker,
+body[data-theme='ultra'] .tr-apm-plan-status,
+body[data-theme='ultra'] .tr-apm-plan-fb,
+body[data-theme='ultra'] .tr-apm-lb-me-gap,
+body[data-theme='ultra'] .tr-apm-lb-you {
+  color: #4ade80 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-card {
+  background: #060608 !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  box-shadow: none !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-head {
+  background: #09090c !important;
+  border-bottom-color: rgba(255, 255, 255, 0.085) !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-thead {
+  background: #040406 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  color: #71717a !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-title-row h4,
+body[data-theme='ultra'] .tr-apm-lb-nick,
+body[data-theme='ultra'] .tr-apm-lb-val,
+body[data-theme='ultra'] .tr-apm-lb-me-name,
+body[data-theme='ultra'] .tr-apm-lb-me-right b {
+  color: #ffffff !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row {
+  border-bottom-color: rgba(255, 255, 255, 0.055) !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.014) !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row:hover {
+  background: #101014 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row.is-r1 {
+  background: linear-gradient(90deg, rgba(232, 192, 104, 0.085) 0%, rgba(232, 192, 104, 0.015) 38%, transparent 72%) !important;
+  box-shadow: inset 3px 0 0 #e8c068 !important;
+  border-bottom-color: rgba(232, 192, 104, 0.16) !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row.is-r2 {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, transparent 45%) !important;
+  box-shadow: inset 2px 0 0 #d4d4d8 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row.is-r3 {
+  background: linear-gradient(90deg, rgba(196, 138, 90, 0.055) 0%, transparent 45%) !important;
+  box-shadow: inset 2px 0 0 #b88454 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row.is-me {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.075) 0%, rgba(34, 197, 94, 0.015) 44%, transparent 78%) !important;
+  box-shadow: inset 3px 0 0 #22c55e !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row.is-r1.is-me {
+  box-shadow: inset 3px 0 0 #e8c068 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-row.is-r1 .tr-apm-lb-val,
+body[data-theme='ultra'] .tr-apm-lb-pos.is-r1,
+body[data-theme='ultra'] .tr-apm-lb-grade-txt.is-splus,
+body[data-theme='ultra'] .tr-apm-lb-grade-txt.is-gold,
+body[data-theme='ultra'] .tr-apm-lb-elo-val.is-elo-gm,
+body[data-theme='ultra'] .tr-apm-lb-top-stat,
+body[data-theme='ultra'] .tr-apm-lb-me-rank,
+body[data-theme='ultra'] .tr-apm-lb-gap.is-leader,
+body[data-theme='ultra'] .tr-apm-rank-note {
+  color: #e8c068 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-grade-txt.is-em {
+  color: #4ade80 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-you {
+  border-color: rgba(34, 197, 94, 0.44) !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-me {
+  background: #040406 !important;
+  border-top-color: rgba(255, 255, 255, 0.095) !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-pace,
+body[data-theme='ultra'] .tr-apm-lb-pace::-webkit-progress-bar {
+  background: #141418 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-pace::-webkit-progress-value {
+  background: rgba(255, 255, 255, 0.34) !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-pace.is-r1::-webkit-progress-value {
+  background: #e8c068 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-pace.is-r2::-webkit-progress-value {
+  background: #d4d4d8 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-pace.is-r3::-webkit-progress-value {
+  background: #b88454 !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-pace.is-me::-webkit-progress-value {
+  background: #22c55e !important;
+}
+body[data-theme='ultra'] .tr-apm-lb-privacy {
+  color: #63636e !important;
 }
 body[data-theme='ultra'] .tr-age-stage,
 body[data-theme='ultra'] .tr-wk-daily-stage,

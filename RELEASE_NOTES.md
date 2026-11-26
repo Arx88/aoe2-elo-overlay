@@ -1,3 +1,11 @@
+## v3.3.11 · Motor determinista unificado (`engineRev: 2`), Hoja de Ruta ELO v3 con iconografía oficial y Ranking Esports de APM
+
+- **Motor de telemetría 100 % determinista y unificado en toda la app (`src/engine/postmatch-engine.js`, `engineRev: 2`):** alineado con el reloj oficial y avisos de servidor del `.aoe2record` (estándar AoE2Insights / `aoc-mgz`), con cota física exacta de tiempo muerto en Alta Edad Media, manejo real de cancelaciones (`Unqueue`) sin descontar aldeanos por tecnologías canceladas, filtrado de ráfagas sin recursos, recorte de ventana final previa a rendición en Feudal, soporte completo de bonificaciones de las **56 civilizaciones** (incluyendo 2.º Centro Urbano cumano en Feudal, Carretilla borgoñesa temprana y tecnologías únicas de velocidad militar) y rehidratación automática de caché local desde `savegame/` en `< 50 ms` sin llamadas de red.
+- **Nueva tarjeta protagonista «Hoja de Ruta al Próximo ELO» en Central (`src/elo-roadmap.js`, `ui/tactical-ui.js`):** diagnóstico causal 100 % puro de **RM 1v1** (cero contaminación con partidas de equipo ni Empire Wars) comparado contra benchmarks empíricos de cada franja de 100 ELO sincronizados con Cloudflare D1, escudos oficiales transparentes de las 4 edades, medallones con íconos oficiales de AoE2:DE, comparador directo con muesca de objetivo (sin porcentajes sintéticos), reglas accionables *SI → ENTONCES* y conexión en 1 clic con el botón oficial de **Mi Plan**.
+- **Nuevo Laboratorio de APM y Ranking Mundial Esports en Entrenamiento:** simulador interactivo de velocidad y precisión mecánica comparado contra rangos competitivos globales, integrado en los 4 idiomas (`es-MX`, `es-ES`, `en`, `zh-CN`) y compatible con el skin **Ultra** OLED y **CSP estricto** (`0` estilos inline).
+
+---
+
 ## v3.3.10 · Pulido de precisión del skin Ultra (tabs unificados y cajas con aire en toda la app)
 
 - **Tabs unificados y sin bordes dobles en skin Ultra (`ultra-skin.css`):** se corrigieron las barras de pestañas de **Central** (`RM 1v1 / Global` y `Resumen / Civs y Mapas / Mejora y ELO`), **Entrenamiento** (eliminando el solapamiento con el indicador deslizante `.tr-glide-indicator`), **barra lateral**, **Cuenta** y **Postmatch Deep Dive**, logrando subrayados activos blancos nítidos y cero colisión de bordes.

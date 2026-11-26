@@ -338,6 +338,24 @@
       : null;
     let techTreeLoadPromise = null;
 
+    // Entrenamiento de APM y Micro AoE2:DE (Caza de Unidad, Counter Relámpago y Reflejos)
+    const apmCtrl = root.RelicApmTrainer && typeof root.RelicApmTrainer.createApmTrainerController === 'function'
+      ? root.RelicApmTrainer.createApmTrainerController({
+          onNotifyRender: () => render(),
+          onQueueUpdated: (nextQueue) => {
+            if (state && Array.isArray(nextQueue)) state.trainingQueue = nextQueue;
+          },
+          onAddPlanGoal: async (item) => {
+            if (typeof root.settings?.trainingQueueAdd !== 'function') return { ok: false };
+            const res = await root.settings.trainingQueueAdd(item);
+            if (res?.ok && Array.isArray(res.trainingQueue) && state) {
+              state.trainingQueue = res.trainingQueue;
+            }
+            return res || { ok: false };
+          },
+        })
+      : null;
+
     async function ensureTechTreeLoaded() {
       if (!techTreeCtrl || techTreeCtrl.ui.data) return;
       if (techTreeLoadPromise) return techTreeLoadPromise;
@@ -648,6 +666,7 @@
       stopPacerClock();
       stopArenaTimer();
       stopLockoutTimer();
+      if (apmCtrl) apmCtrl.onLeave();
       activeSubtab = 'perf';
       studioEditMode = false;
       draftRecipe = null;
@@ -720,6 +739,7 @@
         orders: 'Build Orders →',
         matchups: 'Matchups →',
         arena: 'Arena →',
+        apm: trT('apm.goToApmBtn', 'Ir a APM →'),
         perf: 'Ver en Progreso →',
       };
 
@@ -728,17 +748,22 @@
         if (['feudal_time', 'castle_time', 'tc_idle_dark', 'dba_delay'].includes(ruleType)) return 'orders';
         if (['vs_civ', 'on_map'].includes(ruleType)) return 'matchups';
         if (ruleType === 'army_upgrades') return 'arena';
+        if (ruleType === 'apm_drill') return 'apm';
         if (['tc_idle_feudal', 'tc_gap', 'eapm', 'no_town_bell', 'stage_grade', 'bow_saw'].includes(ruleType)) return 'perf';
-        return ['orders', 'matchups', 'arena', 'perf'].includes(it?.targetTab) ? it.targetTab : 'perf';
+        return ['orders', 'matchups', 'arena', 'apm', 'perf'].includes(it?.targetTab) ? it.targetTab : 'perf';
       };
 
       const renderPendingRow = (it) => {
+        const isApmRule = it?.verifyRule?.type === 'apm_drill';
         const ruleLbl = it.verifyRule?.targetLabel || trT('trui.planAutoRule', 'Se evalúa en tu próxima partida (≥ 12 min)');
         const trackingTxt = Number(it.attemptsAfterPin || 0) > 0
-          ? `Evaluado en ${it.attemptsAfterPin} ${it.attemptsAfterPin === 1 ? 'partida' : 'partidas'}${it.lastCheckedDisplay ? ` · Último registro: ${it.lastCheckedDisplay}` : ''}`
-          : trT('trui.planWaitMatch', 'En espera de tu próxima partida');
+          ? `${isApmRule ? 'Intentado' : 'Evaluado'} en ${it.attemptsAfterPin} ${it.attemptsAfterPin === 1 ? (isApmRule ? 'ronda' : 'partida') : (isApmRule ? 'rondas' : 'partidas')}${it.lastCheckedDisplay ? ` · Último registro: ${it.lastCheckedDisplay}` : ''}`
+          : (isApmRule ? trT('apm.planWaitRound', 'Se verifica automáticamente al terminar una ronda de APM') : trT('trui.planWaitMatch', 'En espera de tu próxima partida'));
         const goTab = resolvePlanGoTab(it);
         const goLabel = PLAN_GO_LABELS[goTab] || 'Ver en Progreso →';
+        const apmPresetAttrs = isApmRule
+          ? ` data-apm-preset-mode="${esc(it.verifyRule?.mode || 'snipe')}" data-apm-preset-dur="${Number(it.verifyRule?.durationSec) === 60 ? 60 : 30}"`
+          : '';
         return `<div class="tr-q-item is-tracking">
           <div class="tr-q-status-ico is-pending" title="Se actualiza automáticamente al terminar tus próximas partidas">
             ${renderDumbbellSvg()}
@@ -755,7 +780,7 @@
             </div>
           </div>
           <div class="tr-q-actions">
-            <button type="button" class="tr-q-go" data-tr-q-go="${esc(goTab)}">${esc(goLabel)}</button>
+            <button type="button" class="tr-q-go" data-tr-q-go="${esc(goTab)}"${apmPresetAttrs}>${esc(goLabel)}</button>
             <button type="button" class="tr-q-del" data-tr-q-del="${esc(it.id)}" title="Quitar objetivo">×</button>
           </div>
         </div>`;
@@ -811,6 +836,7 @@
       orders: trT('trui.subHintOrders', 'Elegí o creá una build order visual para seguirla en vivo en el Overlay.'),
       matchups: trT('trui.subHintMatchups', 'Elegí dos civilizaciones para ver en qué edad tenés ventaja y qué jugar.'),
       arena: trT('trui.subHintArena', 'Desbloqueá las 7 unidades respondiendo desafíos de AoE2:DE (3 vidas por día).'),
+      apm: trT('trui.subHintApm', 'Entrená velocidad de clic, precisión y lectura de unidades de AoE2:DE con calificación de ronda.'),
       techtree: trT('trui.subHintTechtree', 'Explorá el árbol oficial de las 56 civilizaciones, compará brechas y revisá costos y estadísticas reales.'),
     };
 
@@ -845,6 +871,10 @@
               <img src="assets/brand/review-knight-v1.png" alt="" draggable="false" />
               <span>${esc(trT('training.tabArena', 'Arena'))}</span>
               <em class="tr-tab-pill${arena.locked ? ' is-warn' : ''}">${arenaTag}</em>
+            </button>
+            <button type="button" class="tr-tab${activeSubtab === 'apm' ? ' is-active' : ''}" data-tr-tab="apm" role="tab" aria-selected="${activeSubtab === 'apm'}">
+              <img src="assets/icons/target.png" alt="" draggable="false" />
+              <span>${esc(trT('training.tabApm', 'APM'))}</span>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'techtree' ? ' is-active' : ''}" data-tr-tab="techtree" role="tab" aria-selected="${activeSubtab === 'techtree'}">
               <img src="assets/icons/aoe2/b_7.png" alt="" draggable="false" />
@@ -2510,6 +2540,7 @@
               <div class="tr-pel-actions">
                 <button type="button" class="btn gold tr-cta-sheen" id="trGoPostmatchBtn">${esc(trT('trui.progEmptyCta', 'Analizar mi última partida en Postmatch →'))}</button>
                 <button type="button" class="btn" data-tr-tab="orders">Practicar Build Order →</button>
+                <button type="button" class="btn" data-tr-tab="apm">${esc(trT('apm.progWarmupCta', 'Entrenar APM · 30s →'))}</button>
               </div>
             </div>
             <ol class="tr-pel-steps">
@@ -2775,6 +2806,27 @@
 
           <!-- ZONE 5: SANTUARIO SEMANAL (DATOS MEJORADOS ESTA SEMANA + GRÁFICO DIARIO REAL) -->
           ${renderWeeklySanctuaryHtml(hi.weeklyProgress, activeTrendMetric?.key, isSamplePreview)}
+
+          <!-- ZONE 6: PRÁCTICA RECOMENDADA EN APM (CONECTADO CON TU TELEMETRÍA Y MI PLAN) -->
+          ${(() => {
+            const recApm = root.RelicApmTrainer?.computeRecommendedDrillFromPerf?.(hi);
+            if (!recApm) return '';
+            const recTitle = recApm.mode === 'counter'
+              ? trT('apm.modeCounter', 'Counter Relámpago')
+              : (recApm.mode === 'reflex' ? trT('apm.modeReflex', 'Reflejos') : trT('apm.modeSnipe', 'Caza de Unidad'));
+            const alreadyPinned = (state?.trainingQueue || []).some((it) => it && !it.done && it.verifyRule?.type === 'apm_drill' && it.verifyRule?.mode === recApm.mode);
+            return `<section class="tr-perf-apm-bar">
+              <div class="tr-perf-apm-copy">
+                <span class="eyebrow">${esc(trT('apm.progRecEyebrow', 'PRÁCTICA RECOMENDADA EN APM · 30s'))}</span>
+                <strong>${esc(recTitle)} · ≥ ${recApm.targetEapm} eAPM</strong>
+                <small>${esc(recApm.reason)}</small>
+              </div>
+              <div class="tr-perf-apm-actions">
+                <button type="button" class="btn gold" data-perf-go-apm="${esc(recApm.mode)}">${esc(trT('apm.progGoApmBtn', 'Entrenar en APM →'))}</button>
+                <button type="button" class="btn${alreadyPinned ? ' is-pinned' : ''}" data-perf-pin-apm="${esc(recApm.mode)}" data-perf-pin-eapm="${recApm.targetEapm}" data-perf-pin-acc="${recApm.targetAcc}">${alreadyPinned ? esc(trT('apm.alreadyInPlan', '✓ En Mi Plan')) : `+ ${esc(trT('apm.addToPlanBtn', 'Agregar a Mi Plan'))}`}</button>
+              </div>
+            </section>`;
+          })()}
         </div>
       </div>`;
     }
@@ -2973,7 +3025,49 @@
       });
       container.querySelectorAll('[data-tr-q-go]').forEach((btn) => {
         btn.addEventListener('click', () => {
+          if (btn.dataset.trQGo === 'apm' && apmCtrl && btn.dataset.apmPresetMode) {
+            apmCtrl.selectPreset({
+              mode: btn.dataset.apmPresetMode,
+              durationSec: Number(btn.dataset.apmPresetDur) === 60 ? 60 : 30,
+            });
+          }
           switchSubtab(btn.dataset.trQGo);
+        });
+      });
+
+      container.querySelectorAll('[data-perf-go-apm]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const m = btn.dataset.perfGoApm || 'snipe';
+          if (apmCtrl) apmCtrl.selectPreset({ mode: m, durationSec: 30 });
+          switchSubtab('apm');
+        });
+      });
+
+      container.querySelectorAll('[data-perf-pin-apm]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (typeof root.settings?.trainingQueueAdd !== 'function') return;
+          const m = btn.dataset.perfPinApm || 'snipe';
+          const targetEapm = Number(btn.dataset.perfPinEapm || 60);
+          const targetAcc = Number(btn.dataset.perfPinAcc || 85);
+          const mLabel = m === 'counter' ? 'Counter Relámpago' : (m === 'reflex' ? 'Reflejos' : 'Caza de Unidad');
+          const res = await root.settings.trainingQueueAdd({
+            source: 'Progreso · APM',
+            title: `${mLabel} (30s) · ≥ ${targetEapm} eAPM`,
+            detail: `Alcanzá ≥ ${targetEapm} eAPM con ≥ ${targetAcc}% de precisión en ${mLabel}.`,
+            metric: `${targetEapm} eAPM · ${targetAcc}%`,
+            ruleType: 'apm_drill',
+            apmMode: m,
+            apmDuration: 30,
+            ruleTarget: targetEapm,
+            targetEapm,
+            targetAcc,
+            targetTab: 'apm',
+          });
+          if (res?.ok && Array.isArray(res.trainingQueue)) {
+            state.trainingQueue = res.trainingQueue;
+            playSfx('confirm');
+            render();
+          }
         });
       });
 
@@ -3352,15 +3446,22 @@
       if (activeSubtab === 'techtree' && techTreeCtrl) {
         techTreeCtrl.bindEvents(container);
       }
+      if (activeSubtab === 'apm' && apmCtrl) {
+        apmCtrl.bindEvents(container);
+      }
     }
 
     async function switchSubtab(tabId) {
       if (!state?.unlocked) return;
-      if (!['perf', 'orders', 'matchups', 'arena', 'techtree', 'plan'].includes(tabId)) return;
+      if (!['perf', 'orders', 'matchups', 'arena', 'apm', 'techtree', 'plan'].includes(tabId)) return;
       const leavingArena = activeSubtab === 'arena' && tabId !== 'arena';
+      const leavingApm = activeSubtab === 'apm' && tabId !== 'apm';
       activeSubtab = tabId;
       if (leavingArena) {
         await handleLeaveArena();
+      }
+      if (leavingApm && apmCtrl) {
+        apmCtrl.onLeave();
       }
       if (tabId === 'techtree') {
         if (techTreeCtrl && !techTreeCtrl.ui.data) {
@@ -3400,6 +3501,12 @@
         bindLockVeilOnly();
         return;
       }
+      if (apmCtrl) {
+        apmCtrl.setTrainingContext({
+          trainingQueue: state.trainingQueue || [],
+          highElo: state.highElo || null,
+        });
+      }
       container.innerHTML = `<div class="tr-root">
         ${renderLockVeil()}
         ${renderWelcomeModal()}
@@ -3409,6 +3516,7 @@
           ${renderOrdersView()}
           ${renderMatchupsView()}
           ${renderArenaView()}
+          ${apmCtrl ? apmCtrl.renderView(activeSubtab === 'apm') : ''}
           ${techTreeCtrl ? techTreeCtrl.renderView(activeSubtab === 'techtree') : ''}
           ${renderPlanView()}
         </div>
@@ -3524,13 +3632,17 @@
         if (state && !state.unlocked) render();
       },
       switchSubtab,
-      onLeavePage: handleLeaveArena,
+      onLeavePage: async () => {
+        if (apmCtrl) apmCtrl.onLeave();
+        await handleLeaveArena();
+      },
       applyRealtimeUpdate,
       onRealtimeUpdate: applyRealtimeUpdate,
       stopAllTimers: () => {
         stopPacerClock();
         stopArenaTimer();
         stopLockoutTimer();
+        if (apmCtrl) apmCtrl.stop();
       },
     };
   }

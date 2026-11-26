@@ -1766,6 +1766,8 @@ function computeEloComfortAndPatch({ fullRatingSeries = [], unifiedMatches = [],
   return { comfort, patches, patchesSource: patches.length ? 'insights' : null };
 }
 
+const { computeNextEloRoadmap } = require('./elo-roadmap');
+
 function computeModeDiscoveries({
   modeId = 'rm_1v1',
   isTeam = false,
@@ -1782,6 +1784,8 @@ function computeModeDiscoveries({
   unifiedMatches = [],
   insightsMatches = null,
   storedRecords = [],
+  competitiveIntel = null,
+  mapDiagnostics = null,
 } = {}) {
   const insightsPool = Array.isArray(insightsMatches) && insightsMatches.length ? insightsMatches : unifiedMatches;
   const goldenHour = computeGoldenHour(eloSeries);
@@ -1808,6 +1812,18 @@ function computeModeDiscoveries({
     ladder,
     comfortModeLabel,
   });
+  if (eloComfortAndPatch && eloComfortAndPatch.comfort && modeId === 'rm_1v1' && isOwnProfile) {
+    const roadmap = computeNextEloRoadmap({
+      currentElo: eloComfortAndPatch.comfort.current,
+      nextBarrier: eloComfortAndPatch.comfort.nextBarrier,
+      profileId,
+      storedRecords,
+      unifiedMatches,
+      competitiveIntel,
+      mapDiagnostics,
+    });
+    if (roadmap) eloComfortAndPatch.roadmap = roadmap;
+  }
 
   return {
     dna,

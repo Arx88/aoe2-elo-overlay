@@ -713,6 +713,106 @@ async function activateReferral({ aoeProof = null, ...opts } = {}) {
   });
 }
 
+async function fetchApmLeaderboard({
+  apiUrl = DEFAULT_API_URL,
+  sessionToken = null,
+  mode = 'snipe',
+  limit = 20,
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const base = validateApiUrl(apiUrl);
+  if (!base || typeof fetchImpl !== 'function') {
+    return { ok: false, error: 'not-configured' };
+  }
+  const headers = { accept: 'application/json' };
+  if (sessionToken && typeof sessionToken === 'string') {
+    headers.authorization = `Bearer ${sessionToken.trim()}`;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+  try {
+    const qs = `?mode=${encodeURIComponent(String(mode || 'snipe'))}&limit=${encodeURIComponent(String(limit || 20))}`;
+    const res = await fetchImpl(`${base}/v1/apm/leaderboard${qs}`, {
+      method: 'GET',
+      headers,
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || `http-${res.status}` };
+    }
+    return { ok: true, ...data };
+  } catch (err) {
+    return { ok: false, error: err?.name === 'AbortError' ? 'timeout' : 'network-error' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function submitApmScore({ payload = {}, ...opts } = {}) {
+  return authedJsonRequest({
+    ...opts,
+    path: '/v1/apm/score',
+    method: 'POST',
+    body: payload,
+  });
+}
+
+async function fetchBracketBenchmarks({
+  apiUrl = DEFAULT_API_URL,
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const base = validateApiUrl(apiUrl);
+  if (!base || typeof fetchImpl !== 'function') {
+    return { ok: false, error: 'not-configured' };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+  try {
+    const res = await fetchImpl(`${base}/v1/telemetry/bracket-benchmarks`, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || `http-${res.status}` };
+    }
+    return { ok: true, ...data };
+  } catch (err) {
+    return { ok: false, error: err?.name === 'AbortError' ? 'timeout' : 'network-error' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function submitBracketSample({
+  apiUrl = DEFAULT_API_URL,
+  payload = {},
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const base = validateApiUrl(apiUrl);
+  if (!base || typeof fetchImpl !== 'function') {
+    return { ok: false, error: 'not-configured' };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+  try {
+    const res = await fetchImpl(`${base}/v1/telemetry/bracket-sample`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    return res.ok && data.ok ? { ok: true, ...data } : { ok: false, error: data.error || `http-${res.status}` };
+  } catch (err) {
+    return { ok: false, error: err?.name === 'AbortError' ? 'timeout' : 'network-error' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 module.exports = {
   DEFAULT_API_URL,
   RELEASE_PUBLIC_KEYS,
@@ -736,6 +836,10 @@ module.exports = {
   fetchMyReferrals,
   applyReferralCode,
   activateReferral,
+  fetchApmLeaderboard,
+  submitApmScore,
+  fetchBracketBenchmarks,
+  submitBracketSample,
   submitRemoteFeedback,
   submitRemoteDiagnostic,
 };

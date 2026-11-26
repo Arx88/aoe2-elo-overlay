@@ -43,10 +43,14 @@
   }
   const getI18n = () => activeI18n || (typeof root !== 'undefined' && root.AppI18n ? root.AppI18n : null);
   const tr = (key, fallback, vars = null) => {
+    const interp = (str) => {
+      if (typeof str !== 'string' || !vars || typeof vars !== 'object') return str;
+      return str.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m));
+    };
     const api = getI18n();
-    if (!api || !api.t) return fallback;
+    if (!api || !api.t) return interp(fallback);
     const val = api.t(key, vars);
-    return val && val !== key ? val : fallback;
+    return val && val !== key ? val : interp(fallback);
   };
   const locCiv = (name) => {
     const api = getI18n();
@@ -1451,7 +1455,7 @@
       }
     }
     if (!out.trappedResources && self.topWorkshops) {
-      const sat = (self.topWorkshops || []).filter((w) => Number(w.peakQueue) >= 5);
+      const sat = [];
       const mOps = Number(self.marketProfile?.totalOps ?? self.habits?.market ?? 0);
       const isSar = /saracen|sarracen/i.test(String(ctx?.civ || ''));
       const estTax = (!isSar && mOps >= 4) ? Math.round(((self.marketProfile?.totalVolume || mOps * 100) * 0.25) / 50) * 50 : 0;
@@ -3588,132 +3592,211 @@
       }
     }
 
-    // D. Estabilidad de Ladder & Rendimiento por Parche (editorial, zero nested boxes, zero overlapping SVG text)
-    const ecp = disc.eloComfortAndPatch;
-    if (ecp && (ecp.comfort || ecp.patches?.length)) {
-      const cf = ecp.comfort;
-      let rangeBlockHtml = '';
-      if (cf) {
-        const lo = Math.min(cf.minRating ?? cf.p20, cf.p20, cf.current) - 10;
-        const hi = Math.max(cf.peak ?? cf.p80, cf.p80, cf.current) + 10;
-        const span = Math.max(30, hi - lo);
-        const W = 600;
-        const xOf = (val) => +((Math.max(0, Math.min(1, (val - lo) / span)) * (W - 12)) + 6).toFixed(1);
-        const xP20 = xOf(cf.p20);
-        const xP80 = xOf(cf.p80);
-        const xCur = xOf(cf.current);
-        const xPeak = xOf(cf.peak);
-        const medVal = cf.median ?? Math.round((cf.p20 + cf.p80) / 2);
-        const xMed = xOf(medVal);
-        const bandW = Math.max(10, +(xP80 - xP20).toFixed(1));
-        const recentHtml = cf.recentDelta
-          ? `<span class="cx-elo-delta ${cf.recentDelta > 0 ? 'win' : 'loss'}">${cf.recentDelta > 0 ? '+' : ''}${cf.recentDelta} · ${esc(tr('cx.lastN', 'Últ. {n}', { n: cf.recentLookback || 10 }))}</span>`
-          : '';
-
-        rangeBlockHtml = `<div class="cx-elo-band">
-          <div class="cx-elo-hero">
-            <div class="cx-elo-now">
-              <strong class="mono">${number(cf.current)}</strong>
-              <span class="cx-elo-status">${esc(cf.zoneStatusI18n ? locRef(cf.zoneStatusI18n, cf.zoneStatus) : (cf.zoneStatus || tr('cx.inUsualZone', 'En tu zona habitual')))}</span>
-              ${recentHtml}
-            </div>
-            <div class="cx-elo-peak-meta">
-              <span>${esc(tr('cx.peakWord', 'Pico'))} <b class="mono">${number(cf.peak)}</b></span>
-              <span class="cx-elo-sep" aria-hidden="true">·</span>
-              <span>${number(cf.sample)} ${esc(cxPj())}</span>
-            </div>
-          </div>
-
-          <svg class="cx-elo-track-svg" viewBox="0 0 ${W} 18" preserveAspectRatio="none" aria-hidden="true">
-            <rect x="0" y="7" width="${W}" height="4" rx="2" fill="rgba(255,255,255,0.08)"></rect>
-            <rect x="${xP20}" y="5" width="${bandW}" height="8" rx="4" fill="rgba(223,190,120,0.34)"></rect>
-            <rect x="${xP20}" y="4" width="2" height="10" rx="1" fill="rgba(242,215,153,0.72)"></rect>
-            <rect x="${+(xP20 + bandW - 2).toFixed(1)}" y="4" width="2" height="10" rx="1" fill="rgba(242,215,153,0.72)"></rect>
-            <rect x="${+(xMed - 0.75).toFixed(1)}" y="3" width="1.5" height="12" fill="rgba(255,255,255,0.32)"></rect>
-            <rect x="${+(xPeak - 1.25).toFixed(1)}" y="2" width="2.5" height="14" rx="1.25" fill="#78d8a6"></rect>
-            <rect x="${+(xCur - 3.5).toFixed(1)}" y="1" width="7" height="16" rx="3.5" fill="#faf0d4" stroke="#0c1016" stroke-width="1.6"></rect>
-          </svg>
-
-          <div class="cx-elo-axis">
-            <span>${esc(tr('cx.floorLbl', 'Piso'))} <b class="mono">${number(cf.p20)}</b></span>
-            <span>${esc(tr('cx.medianLbl', 'Mediana'))} <b class="mono">${number(medVal)}</b></span>
-            <span>${esc(tr('cx.ceilingLbl', 'Techo'))} <b class="mono">${number(cf.p80)}</b></span>
-          </div>
-        </div>`;
-      }
-
-      const comfortStatsHtml = cf ? `<dl class="cx-comfort-metrics">
-        <div><dt>${esc(tr('cx.usualZoneLbl', 'Zona habitual'))}</dt><dd class="gold mono">${number(cf.p20)}–${number(cf.p80)}</dd><small>${number(cf.bandWidth ?? (cf.p80 - cf.p20))} ELO</small></div>
-        <div><dt>${esc(tr('cx.nextGoalLbl', 'Próxima meta'))}</dt><dd class="mono">${number(cf.nextBarrier)}</dd><small>${esc(tr('cx.toBarrier', 'a +{n}', { n: number(cf.distToBarrier) }))}</small></div>
-        <div><dt>${esc(tr('cx.biggestClimbLbl', 'Mayor subida'))}</dt><dd class="win mono">+${number(cf.maxComeback)}</dd><small>${esc(tr('cx.fromMinLbl', 'desde mínimo'))}</small></div>
-        <div><dt>${esc(tr('cx.biggestDropLbl', 'Mayor caída'))}</dt><dd class="loss mono">−${number(cf.maxDrawdown)}</dd><small>${esc(tr('cx.fromPeakLbl', 'desde pico'))}</small></div>
-      </dl>` : '';
-
-      const patchHtml = ecp.patches?.length ? `<div class="cx-patch-table">
-        <div class="cx-pt-head">
-          <span>${esc(tr('cx.patchTableTitle', 'Rendimiento por parche de AoE2:DE'))}</span>
-          <small>${esc(tr(ecp.patches.length === 1 ? 'cx.updateOne' : 'cx.updateMany', '{n} actualizaciones', { n: ecp.patches.length }))}</small>
-        </div>
-        <div class="cx-pt-cols" aria-hidden="true">
-          <span>${esc(tr('cx.colUpdate', 'Actualización'))}</span>
-          <span>${esc(tr('cx.colWinrate', 'Winrate'))}</span>
-          <span class="is-right">${esc(tr('cx.colRecord', 'Récord'))}</span>
-          <span class="is-right">${esc(tr('cx.colMostUsed', 'Más usada'))}</span>
-        </div>
-        <div class="cx-pt-rows">${ecp.patches.map((p, idx) => {
-          const wrTone = p.winRate >= 55 ? 'win' : p.winRate < 46 ? 'loss' : 'neutral';
-          const barCls = wrTone === 'win' ? 'bar-emerald' : wrTone === 'loss' ? 'bar-rose' : 'bar-gold';
-          const ageLabel = p.isLatest
-            ? tr('cx.currentPatch', 'Parche actual')
-            : (idx === 1 ? tr('cx.prevPatch', 'Parche anterior') : tr('cx.patchesAgo', 'Hace {n} parches', { n: idx }));
-          const bestTag = (!p.isLatest && p.isBest)
-            ? `<span class="cx-pt-mark is-best">${esc(tr('cx.bestMark', 'mejor'))}</span>`
-            : '';
-          const civLabel = p.topCiv ? (locCiv(p.topCiv) || p.topCiv) : '';
-          const civHtml = p.topCiv
-            ? `<span class="cx-pt-civ" title="${esc(civLabel)}">${civBadge(p.topCiv)}<span class="cx-pt-civ-name">${esc(civLabel)}</span></span>`
-            : '<span class="cx-pt-civ is-empty">—</span>';
-          const rowTip = `v${esc(p.patch)} · ${esc(cxRecSp(p.wins, p.losses))} (${p.winRate}% WR)`;
-          return `<div class="cx-pt-row" title="${rowTip}">
-            <div class="cx-pt-id">
-              <strong class="${p.isLatest ? 'is-now' : ''}">${esc(ageLabel)}</strong>
-              <span class="cx-pt-ver mono">v${esc(p.patch)}${bestTag}</span>
-            </div>
-            <div class="cx-pt-bar-col">
-              <div class="cx-pt-track" aria-hidden="true"><i class="${barCls}" data-w="${Math.max(6, Math.min(100, p.winRate))}"></i></div>
-              <b class="cx-pt-wr ${wrTone} mono">${p.winRate}%</b>
-            </div>
-            <div class="cx-pt-rec mono">${esc(cxRecSp(p.wins, p.losses))}</div>
-            ${civHtml}
-          </div>`;
-        }).join('')}</div>
-      </div>` : '';
-
-      const comfortEyebrow = cf?.modeLabel
-        ? tr('cx.stabilityEyebrowMode', 'ESTABILIDAD DE LADDER · {mode}', { mode: cf.modeLabel.toUpperCase() })
-        : tr('cx.stabilityEyebrow', 'ESTABILIDAD DE LADDER Y PARCHES');
-      const stabilityInline = cf?.stabilityLabel
-        ? `<span class="cx-stability-inline is-${esc(cf.stabilityTone || 'gold')}">${esc(cf.stabilityKey ? tr(cf.stabilityKey, cf.stabilityLabel) : cf.stabilityLabel)}${cf.avgSwing ? ` · ±${cf.avgSwing}/${esc(cxPj())}` : ''}</span>`
-        : '';
-
-      cards.push(`<section class="cx-card cx-curious-card cx-comfort-card">
-        <header class="cx-card-head">
-          <div>
-            <span class="cx-eyebrow">${esc(comfortEyebrow)}</span>
-            <h3>${esc(tr('cx.eloRangePatchesTitle', 'Rango de ELO y parches'))}</h3>
-          </div>
-          ${stabilityInline}
-        </header>
-        ${rangeBlockHtml}
-        ${comfortStatsHtml}
-        ${patchHtml}
-      </section>`);
-    }
-
     if (!cards.length) return '';
     return `<div class="cx-grid-2 cx-curious-grid${cards.length === 1 ? ' is-single-col' : ''}" id="cxSectionCuriousDiscoveries">
       ${cards.join('')}
     </div>`;
+  }
+
+  function renderEloRoadmapSection(ecp) {
+    if (!ecp || !ecp.comfort) return '';
+    const cf = ecp.comfort;
+    const nextBar = Number(cf.nextBarrier) || ((Math.floor((Number(cf.current) || 0) / 100) + 1) * 100);
+    const prevBar = Math.max(0, nextBar - 100);
+    const dist = Math.max(1, Number(cf.distToBarrier) || Math.round(nextBar - (Number(cf.current) || 0)));
+    const rawPct = Math.max(0, Math.min(100, Math.round((((Number(cf.current) || 0) - prevBar) / 100) * 100)));
+    const fillPct = Math.max(2, rawPct);
+    const isAtPeak = Number(cf.peak) > 0 && Number(cf.current) >= Number(cf.peak);
+    const recentHtml = cf.recentDelta
+      ? `<span class="cx-elo-delta ${cf.recentDelta > 0 ? 'win' : 'loss'}">${cf.recentDelta > 0 ? '+' : ''}${cf.recentDelta} · ${esc(tr('cx.lastN', 'Últ. {n}', { n: cf.recentLookback || 10 }))}</span>`
+      : '';
+
+    const peakChip = !isAtPeak && Number(cf.peak) > 0
+      ? `<span>${esc(tr('cx.peakWord', 'Pico'))} <b class="mono">${number(cf.peak)}</b></span><span class="cx-elo-sep" aria-hidden="true">·</span>`
+      : '';
+    const zoneChip = (Number.isFinite(Number(cf.p20)) && Number.isFinite(Number(cf.p80)))
+      ? `<span>${esc(tr('cx.usualZoneLbl', 'Zona habitual'))} <b class="gold mono">${number(cf.p20)}–${number(cf.p80)}</b></span><span class="cx-elo-sep" aria-hidden="true">·</span>`
+      : '';
+
+    const rangeBlockHtml = `<div class="cx-elo-band">
+      <div class="cx-elo-hero">
+        <div class="cx-elo-now">
+          <strong class="mono">${number(cf.current)}</strong>
+          <span class="cx-elo-status">${esc(cf.zoneStatusI18n ? locRef(cf.zoneStatusI18n, cf.zoneStatus) : (cf.zoneStatus || tr('cx.inUsualZone', 'En tu zona habitual')))}</span>
+          ${recentHtml}
+        </div>
+        <div class="cx-elo-peak-meta">
+          ${zoneChip}${peakChip}<span>${number(cf.sample)} ${esc(cxPj())}</span>
+        </div>
+      </div>
+
+      <div class="cx-elo-goal-block">
+        <div class="cx-elo-goal-head">
+          <span class="cx-elo-goal-lbl">${esc(tr('cx.bracketLabel', 'Tramo {from} → {to}', { from: number(prevBar), to: number(nextBar) }))}</span>
+          <span class="cx-elo-goal-rem mono">${esc(tr('cx.toNextMilestone', 'Faltan +{n} ELO para {target}', { n: number(dist), target: number(nextBar) }))}</span>
+        </div>
+        <div class="cx-elo-rail" aria-hidden="true">
+          <span class="cx-elo-tick is-t25"></span>
+          <span class="cx-elo-tick is-t50"></span>
+          <span class="cx-elo-tick is-t75"></span>
+          <i class="cx-elo-fill${isAtPeak ? ' is-peak' : ''}" data-w="${fillPct}"></i>
+        </div>
+        <div class="cx-elo-axis mono">
+          <span>${number(prevBar)}</span>
+          <span class="cx-elo-pct">${rawPct}%</span>
+          <span class="is-target">${number(nextBar)}</span>
+        </div>
+      </div>
+    </div>`;
+
+    const rm = ecp.roadmap || null;
+    let roadmapHtml = '';
+    if (rm && Array.isArray(rm.dimensions) && rm.dimensions.length) {
+      const tgtStr = number(rm.targetElo);
+      const scopeLbl = rm.mapClass === 'open'
+        ? tr('cx.rmScopeOpen', 'Mapas abiertos')
+        : (rm.mapClass === 'closed' ? tr('cx.rmScopeClosed', 'Mapas cerrados') : tr('cx.rmScopeAll', 'RM 1v1'));
+      const subVars = {
+        u: number(rm.userReplayCount), l: number(rm.lossReplayCount || 0), m: number(rm.officialMatchCount || 0), target: tgtStr, scope: scopeLbl,
+      };
+      const subLine = rm.hasFullReplaySample
+        ? tr('cx.rmV3SubFull', '{u} replays RM 1v1 + {m} partidas oficiales vs estándar real de {target} ELO · {scope}', subVars)
+        : tr('cx.rmV2SubPartial', '{m} partidas oficiales · Replays en calibración ({u}/5) · {scope}', {
+            m: number(rm.officialMatchCount || 0), u: number(rm.userReplayCount || 0), scope: scopeLbl,
+          });
+
+      const dimLabelMap = {
+        opening: tr('cx.rmDimOpening', 'Apertura'),
+        castleMacro: tr('cx.rmDimCastle', 'Macro Castillos'),
+        combatPace: tr('cx.rmDimCombat', 'Combate y ritmo'),
+        closingLadder: tr('cx.rmDimClosing', 'Cierre y ladder'),
+      };
+      const statusLabelOf = (st) => {
+        if (st === 'solid') return tr('cx.rmStSolid', 'Sólido');
+        if (st === 'inconsistent') return tr('cx.rmStInconsistent', 'A pulir');
+        if (st === 'bottleneck') return tr('cx.rmStBottleneck', 'Freno');
+        return tr('cx.rmStCalibrating', 'Calibrando');
+      };
+
+      const solidPillars = rm.dimensions.filter((d) => d.status === 'solid').length;
+      const readyCountBadge = `<span class="cx-rm-ready ${solidPillars >= 3 ? 'is-win' : (solidPillars >= 2 ? 'is-gold' : 'is-gap')} mono">${esc(tr('cx.rmPillarsReady', '{s}/{t} pilares en nivel {target}', { s: solidPillars, t: rm.dimensions.length, target: tgtStr }))}</span>`;
+
+      const dimsHtml = `<div class="cx-rm-dims">${rm.dimensions.map((d) => {
+        const icoSrc = d.icon || 'assets/icons/ages/feudal.png';
+        return `<div class="cx-rm-dim is-${esc(d.status)}">
+          <span class="cx-rm-dim-ico" aria-hidden="true"><img src="${esc(icoSrc)}" width="26" height="26" alt="" draggable="false"></span>
+          <div class="cx-rm-dim-copy">
+            <span class="cx-rm-dim-name">${esc(tr(d.titleKey, d.titleFallback))}</span>
+            <b class="cx-rm-dim-st"><i class="cx-rm-dot" aria-hidden="true"></i>${esc(statusLabelOf(d.status))}</b>
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+
+      const bottlenecks = Array.isArray(rm.bottlenecks) ? rm.bottlenecks : [];
+      const rowsHtml = bottlenecks.length
+        ? `<div class="cx-rm-rows">${bottlenecks.map((f) => {
+            const titleVars = f.titleVars ? { ...f.titleVars, target: f.titleVars.target != null ? number(f.titleVars.target) : tgtStr } : undefined;
+            const title = tr(f.titleKey, f.titleFallback, titleVars);
+            const barCls = f.severity === 'high' ? 'bar-rose' : 'bar-gold';
+            const valCls = f.severity === 'high' ? 'loss' : 'gold';
+            const pin = f.pinPayload || {};
+            const dimLbl = dimLabelMap[f.dim] || '';
+            const youLbl = f.youLabelKey ? tr(f.youLabelKey, f.youLabelFallback || 'TU MARCA', { u: number(rm.userReplayCount || 0) }) : tr('cx.rmLblYouMed', 'TU MEDIANA');
+            const goalLbl = f.goalLabelKey ? tr(f.goalLabelKey, f.goalLabelFallback || 'META {elo}', { elo: tgtStr }) : tr('cx.rmLblGoalElo', 'META {elo}', { elo: tgtStr });
+            const ctxText = f.contextNote ? tr(f.contextNote.key, f.contextNote.fallback, f.contextNote.vars) : '';
+            const drillText = f.drillKey ? tr(f.drillKey, f.drillFallback || '') : '';
+            const crestHtml = f.mapName
+              ? `<div class="cx-rm-crest is-map">${mapBadge(f.mapName, 'sm')}</div>`
+              : `<div class="cx-rm-crest"><img src="${esc(f.icon || 'assets/icons/aoe2/b_28.png')}" width="26" height="26" alt="" draggable="false"></div>`;
+            const fillW = Math.max(14, Math.min(92, Number(f.bulletFillPct ?? f.progressPct ?? 40)));
+            const dumbbellHtml = trainDumbbellBtn({
+              source: pin.source || 'Central',
+              title: pin.title || title,
+              detail: pin.detail || drillText,
+              metric: pin.metric || f.targetDisplay || '',
+              tab: pin.targetTab || f.trainTab || 'perf',
+              ruleType: pin.ruleType || '',
+              stageId: pin.stageId || '',
+              mapName: pin.mapName || '',
+            });
+            return `<div class="cx-rm-row">
+              ${crestHtml}
+              <div class="cx-rm-info">
+                <div class="cx-rm-title-line">
+                  <strong>${esc(title)}</strong>
+                  <span class="cx-rm-dim-tag mono">${esc(dimLbl)}</span>
+                </div>
+                ${ctxText ? `<span class="cx-rm-ctx">${esc(ctxText)}</span>` : ''}
+                ${drillText ? `<p class="cx-rm-drill">${esc(drillText)}</p>` : ''}
+              </div>
+              <div class="cx-rm-versus">
+                <div class="cx-rm-stat is-you">
+                  <small>${esc(youLbl)}</small>
+                  <b class="${valCls} mono">${esc(f.userDisplay || '—')}</b>
+                </div>
+                <div class="cx-rm-bullet" aria-hidden="true">
+                  <i class="${barCls}" data-w="${fillW}"></i>
+                  <span class="cx-rm-notch"></span>
+                </div>
+                <div class="cx-rm-stat is-goal">
+                  <small>${esc(goalLbl)}</small>
+                  <b class="mono">${esc(f.targetDisplay || '—')}</b>
+                </div>
+              </div>
+              <div class="cx-rm-act">
+                <button type="button" class="cx-rm-jump" data-open-training-tab="${esc(f.trainTab || 'perf')}"><span>${esc(tr(f.trainLabelKey, f.trainLabelFallback || 'Ir'))}</span><i aria-hidden="true">↗</i></button>
+                ${dumbbellHtml}
+              </div>
+            </div>`;
+          }).join('')}</div>`
+        : '';
+
+      let footHtml = '';
+      if (!rm.hasFullReplaySample) {
+        footHtml = `<div class="cx-rm-empty-cta">
+          <span>${esc(tr('cx.rmCalibratingNoteV3', 'Replays RM 1v1 en calibración ({u}/5): Relic hidrata automáticamente tus partidas locales de savegame o podés analizar nuevas partidas en Postmatch.', { u: number(rm.userReplayCount || 0) }))}</span>
+          <button type="button" class="cx-rm-jump is-primary" data-open-training-tab="postmatch"><span>${esc(tr('cx.rmGoPostmatch', 'Ir a Postmatch'))}</span><i aria-hidden="true">↗</i></button>
+        </div>`;
+      } else if (!bottlenecks.length) {
+        footHtml = `<div class="cx-rm-empty-cta is-solid">
+          <span>${esc(tr('cx.rmAllSolidNote', 'Tus 4 pilares están en rango de {target} ELO sin frenos marcados — sostené volumen de partidas para consolidar el ascenso.', { target: tgtStr }))}</span>
+        </div>`;
+      }
+
+      roadmapHtml = `<div class="cx-roadmap">
+        <div class="cx-rm-head">
+          <div class="cx-rm-head-copy">
+            <small>${esc(subLine)}</small>
+          </div>
+          ${readyCountBadge}
+        </div>
+        ${dimsHtml}
+        ${rowsHtml}
+        ${footHtml}
+      </div>`;
+    }
+
+    const comfortEyebrow = cf?.modeLabel
+      ? tr('cx.roadmapEyebrowMode', 'PROGRESO DE ASCENSO · {mode}', { mode: cf.modeLabel.toUpperCase() })
+      : tr('cx.roadmapEyebrow', 'PROGRESO DE ASCENSO');
+    const cardTitle = cf?.nextBarrier
+      ? tr('cx.roadToEloTitle', 'Camino a {target} ELO', { target: number(cf.nextBarrier) })
+      : tr('cx.eloRangePatchesTitle', 'Rango de ELO');
+    const stabilityInline = cf?.stabilityLabel
+      ? `<span class="cx-stability-inline is-${esc(cf.stabilityTone || 'gold')}">${esc(cf.stabilityKey ? tr(cf.stabilityKey, cf.stabilityLabel) : cf.stabilityLabel)}${cf.avgSwing ? ` · ±${cf.avgSwing}/${esc(cxPj())}` : ''}</span>`
+      : '';
+
+    return `<section class="cx-card cx-comfort-card cx-roadmap-card" id="cxEloRoadmapCard">
+      <header class="cx-card-head">
+        <div>
+          <span class="cx-eyebrow">${esc(comfortEyebrow)}</span>
+          <h3>${esc(cardTitle)}</h3>
+        </div>
+        ${stabilityInline}
+      </header>
+      ${rangeBlockHtml}
+      ${roadmapHtml}
+    </section>`;
   }
 
   function renderReplayClocksAndMasteryRow(disc = {}, isUltra = true) {
@@ -4315,6 +4398,7 @@
 
     const dnaBanner = renderPlayerDnaBanner(disc.dna, modeLabelLoc);
     const tridentStrip = renderTacticalTridentStrip(disc.trident, disc.giantSlayer, ladder);
+    const eloRoadmapSection = renderEloRoadmapSection(disc.eloComfortAndPatch);
     const goldenTrophiesRow = renderGoldenHourAndTrophies(disc.goldenHour, disc.trophies, disc.giantSlayer, isUltra);
     const curiousDiscoveriesRow = renderCuriousDiscoveriesRow(disc, isUltra);
 
@@ -4565,6 +4649,7 @@
         ${dnaBanner}
         ${tridentStrip}
         ${chartBlock}
+        ${eloRoadmapSection}
         ${lastMatchBlock}
         ${goldenTrophiesRow}
         ${curiousDiscoveriesRow}

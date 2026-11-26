@@ -86,7 +86,7 @@ const {
   completedMatchTransition,
   normalizeTelemetry,
 } = require('./src/postmatch');
-const { fetchReplayTelemetry } = require('./src/replay');
+const { fetchReplayTelemetry, tryLocalReplay } = require('./src/replay');
 const { COMMAND_ADAPTER_VERSION } = require('./src/replay-analysis');
 const { createProductStateCache, effectivePreferences, allowsFeature } = require('./src/product');
 const { buildSmartBuildOrder } = require('./src/build-orders');
@@ -114,6 +114,78 @@ const LOG_PATH = path.join(DATA_DIR, 'overlay.log');
 const CENTRAL_CACHE_PATH = path.join(DATA_DIR, 'central-cache.json');
 const GLOBAL_META_CACHE_PATH = path.join(DATA_DIR, 'global-meta-cache.json');
 const ANNOUNCEMENT_CACHE_PATH = path.join(DATA_DIR, 'relic-announcement-cache.json');
+const BRACKET_BENCHMARKS_CACHE_PATH = path.join(DATA_DIR, 'bracket-benchmarks-cache.json');
+const BRACKET_SUBMITTED_PATH = path.join(DATA_DIR, 'bracket-submitted-matches.json');
+const { setLiveBracketBenchmarks, extractBracketSampleFromRecord } = require('./src/elo-roadmap');
+
+const BRACKET_BENCHMARKS_TTL_MS = 24 * 60 * 60 * 1000;
+let bracketBenchmarksLoaded = false;
+let bracketBenchmarksFetchedAt = 0;
+let bracketRefreshInflight = false;
+let bracketLastAttemptMs = 0;
+let bracketSubmittedSet = null;
+
+function ensureBracketBenchmarksInitialized() {
+  if (!bracketBenchmarksLoaded) {
+    bracketBenchmarksLoaded = true;
+    try {
+      if (fs.existsSync(BRACKET_BENCHMARKS_CACHE_PATH)) {
+        const cached = JSON.parse(fs.readFileSync(BRACKET_BENCHMARKS_CACHE_PATH, 'utf8'));
+        if (cached && cached.data && cached.data.brackets) {
+          setLiveBracketBenchmarks(cached.data);
+          bracketBenchmarksFetchedAt = Number(cached.fetchedAt || 0);
+        }
+      }
+    } catch { /* ignore corrupted cache */ }
+  }
+  const now = Date.now();
+  const isStale = !bracketBenchmarksFetchedAt || (now - bracketBenchmarksFetchedAt) >= BRACKET_BENCHMARKS_TTL_MS;
+  if (!isStale || bracketRefreshInflight || (now - bracketLastAttemptMs) < 30 * 60 * 1000) return;
+  bracketRefreshInflight = true;
+  bracketLastAttemptMs = now;
+  const apiUrl = licenseClient.DEFAULT_API_URL;
+  licenseClient.fetchBracketBenchmarks({ apiUrl })
+    .then((res) => {
+      if (res && res.ok && res.brackets) {
+        setLiveBracketBenchmarks(res);
+        bracketBenchmarksFetchedAt = Date.now();
+        try {
+          fs.mkdirSync(path.dirname(BRACKET_BENCHMARKS_CACHE_PATH), { recursive: true });
+          fs.writeFileSync(BRACKET_BENCHMARKS_CACHE_PATH, JSON.stringify({
+            fetchedAt: bracketBenchmarksFetchedAt,
+            data: res,
+          }), 'utf8');
+        } catch { /* ignore */ }
+      }
+    })
+    .catch(() => {})
+    .finally(() => { bracketRefreshInflight = false; });
+}
+
+function maybeContributeBracketSample(savedRec) {
+  if (!savedRec || typeof savedRec !== 'object') return;
+  const matchId = String(savedRec?.match?.matchId || savedRec?.matchId || '').trim();
+  if (!matchId) return;
+  if (!bracketSubmittedSet) {
+    bracketSubmittedSet = new Set();
+    try {
+      if (fs.existsSync(BRACKET_SUBMITTED_PATH)) {
+        const arr = JSON.parse(fs.readFileSync(BRACKET_SUBMITTED_PATH, 'utf8'));
+        if (Array.isArray(arr)) arr.slice(-500).forEach((id) => bracketSubmittedSet.add(String(id)));
+      }
+    } catch { /* ignore */ }
+  }
+  if (bracketSubmittedSet.has(matchId)) return;
+  const payload = extractBracketSampleFromRecord(savedRec);
+  if (!payload) return;
+  bracketSubmittedSet.add(matchId);
+  try {
+    fs.mkdirSync(path.dirname(BRACKET_SUBMITTED_PATH), { recursive: true });
+    fs.writeFileSync(BRACKET_SUBMITTED_PATH, JSON.stringify([...bracketSubmittedSet].slice(-500)), 'utf8');
+  } catch { /* ignore */ }
+  const apiUrl = licenseClient.DEFAULT_API_URL;
+  licenseClient.submitBracketSample({ apiUrl, payload }).catch(() => {});
+}
 // Emblema dorado (recortado y normalizado por tools/make-icon.py) es el icono oficial:
 // ventanas, bandeja, configuración, exe y accesos directos usan el mismo arte.
 // En Windows empaquetado, LoadImageW no puede leer .ico dentro de app.asar: resolvemos
@@ -4423,29 +4495,83 @@ function registerIpc() {
   });
 
   let hydratingCentralPid = null;
+  const hydratedAttemptedIds = new Set();
   async function hydrateRecentReplaysForCentral(targetPid, candidates = []) {
     if (!allowsFeature(productState(), 'postMatchReplay')) return;
     const pid = Number(targetPid);
     if (!pid || hydratingCentralPid === pid) return;
-    const existingWithTelemetry = performanceStore.listReadOnly(pid).filter((r) => r && r.telemetry);
-    if (existingWithTelemetry.length >= 2) return;
-    const rm1v1Candidates = (Array.isArray(candidates) ? candidates : [])
-      .filter((m) => m && m.is1v1 && !m.hasTelemetry && m.rawMatch)
-      .slice(0, 2);
+    const allStored = performanceStore.listReadOnly(pid).filter((r) => r && r.telemetry);
+    const freshIds = new Set(
+      allStored
+        .filter((r) => (r.telemetry?.engineSummary?.engineRev || 1) >= 2)
+        .map((r) => String(r.matchId)),
+    );
+    const staleStored = allStored.filter((r) => (r.telemetry?.engineSummary?.engineRev || 1) < 2 && r.match && r.match.matchId != null);
+    const existingRm1v1 = allStored.filter((r) => {
+      if ((r.telemetry?.engineSummary?.engineRev || 1) < 2) return false;
+      const lb = Number(r.leaderboardId ?? r.telemetry?.context?.leaderboardId);
+      const isTeam = Boolean(r.telemetry?.engineSummary?.isTeamGame);
+      return lb === 3 || (!Number.isFinite(lb) && !isTeam);
+    });
+    if (existingRm1v1.length >= 12 && staleStored.length === 0) return;
+
+    const rawById = new Map();
+    for (const st of staleStored) {
+      rawById.set(String(st.match.matchId), st.match);
+    }
+    for (const item of (Array.isArray(candidates) ? candidates : [])) {
+      if (item && item.is1v1 && item.rawMatch && item.rawMatch.matchId != null) {
+        rawById.set(String(item.rawMatch.matchId), item.rawMatch);
+      }
+    }
+    if (rawById.size < 12 && CENTRAL_CACHE_PATH && fs.existsSync(CENTRAL_CACHE_PATH)) {
+      try {
+        const disk = JSON.parse(fs.readFileSync(CENTRAL_CACHE_PATH, 'utf8'));
+        const rawMatches1v1 = disk?.raw?.matches1v1 || disk?.matches1v1 || [];
+        for (const rm of rawMatches1v1) {
+          if (rm && rm.matchId != null && !rawById.has(String(rm.matchId))) {
+            rawById.set(String(rm.matchId), rm);
+          }
+        }
+      } catch { /* ignore cache read error */ }
+    }
+
+    const needed = Math.max(staleStored.length, 12 - existingRm1v1.length);
+    const rm1v1Candidates = [...rawById.values()]
+      .filter((m) => {
+        const mid = String(m.matchId);
+        return !freshIds.has(mid) && !hydratedAttemptedIds.has(`${pid}:${mid}`);
+      })
+      .slice(0, Math.min(20, needed));
     if (!rm1v1Candidates.length) return;
+
     hydratingCentralPid = pid;
     try {
       let added = 0;
-      for (const item of rm1v1Candidates) {
+      let cloudDownloads = 0;
+      const nowMs = Date.now();
+      for (const rawMatch of rm1v1Candidates) {
         if (Number(profileId) !== pid) break;
+        const mid = String(rawMatch.matchId);
+        hydratedAttemptedIds.add(`${pid}:${mid}`);
         try {
-          const telemetry = await fetchReplayTelemetry(item.rawMatch, pid, {});
+          // 1. Prioridad absoluta: archivo .aoe2record en savegame/ local (0 red, < 50 ms)
+          let telemetry = await tryLocalReplay(rawMatch, pid);
+          // 2. Solo intentar nube si es reciente (< 10 días) y como máximo 1 descarga por sesión
+          if (!telemetry && cloudDownloads < 1) {
+            const refTs = Date.parse(rawMatch.finishedAt || rawMatch.startedAt || '') || 0;
+            if (refTs > 0 && nowMs - refTs <= 10 * 24 * 3600_000) {
+              cloudDownloads += 1;
+              telemetry = await fetchReplayTelemetry(rawMatch, pid, {});
+            }
+          }
           if (telemetry) {
-            performanceStore.recordMatch(item.rawMatch, pid, telemetry);
+            const savedRec = performanceStore.recordMatch(rawMatch, pid, telemetry);
+            if (added === 0) maybeContributeBracketSample(savedRec);
             added += 1;
           }
         } catch (err) {
-          log(`central · replay #${item.matchId} no disponible: ${err.message}`);
+          log(`central · replay #${rawMatch.matchId} no disponible: ${err.message}`);
         }
       }
       if (added > 0 && settingsWin && !settingsWin.isDestroyed() && Number(profileId) === pid) {
@@ -4516,6 +4642,7 @@ function registerIpc() {
 
   let centralAbort = null;
   ipcMain.handle('central:get', async (_event, rawOptions) => {
+    ensureBracketBenchmarksInitialized();
     await ensureProfileReady();
     const opts = (rawOptions && typeof rawOptions === 'object')
       ? rawOptions
@@ -4551,8 +4678,8 @@ function registerIpc() {
     });
     const product = productState();
     const isUltra = product.plan === 'promax' || product.plan === 'beta';
-    if (isOwn && data && data.ok && !data.stale && Array.isArray(data.recentMatches)) {
-      hydrateRecentReplaysForCentral(profileId, data.recentMatches).catch(() => {});
+    if (isOwn && data && data.ok) {
+      hydrateRecentReplaysForCentral(profileId, data.recentMatches || []).catch(() => {});
     }
     return data ? { ...data, isUltra, plan: product.plan } : data;
   });
@@ -4934,6 +5061,90 @@ function registerIpc() {
     const { unlocked, pid } = trainingAccessContext();
     if (!unlocked) return { ok: false, error: 'ultra-required' };
     return trainingController.removeQueueItem({ profileId: pid, itemId: String(itemId || '') });
+  });
+
+  function resolveOwnAoeIdentityForApm() {
+    let centralCacheRaw = null;
+    try {
+      if (fs.existsSync(CENTRAL_CACHE_PATH)) {
+        centralCacheRaw = JSON.parse(fs.readFileSync(CENTRAL_CACHE_PATH, 'utf8'));
+      }
+    } catch { /* ignore */ }
+    const raw = centralCacheRaw?.raw || centralCacheRaw || null;
+    const pid = Number(profileId || centralCacheRaw?.profileId || raw?.profileId || 0) || null;
+    const aoeAlias = String(playerAlias || raw?.alias || raw?.profileData?.name || '').trim();
+    const lbs = Array.isArray(raw?.profileData?.leaderboards) ? raw.profileData.leaderboards : [];
+    const lb1v1 = lbs.find((l) => l && l.leaderboardId === 'rm_1v1');
+    const lbTeam = lbs.find((l) => l && l.leaderboardId === 'rm_team');
+    let elo = Number.isFinite(Number(lb1v1?.rating)) && Number(lb1v1.rating) > 0
+      ? Math.round(Number(lb1v1.rating))
+      : (Number.isFinite(Number(lbTeam?.rating)) && Number(lbTeam.rating) > 0 ? Math.round(Number(lbTeam.rating)) : null);
+    if (!elo && pid) {
+      try {
+        const recs = postMatchHistory.list(pid);
+        const latestElo = Number(recs?.[0]?.match?.elo || recs?.[0]?.report?.elo || 0);
+        if (Number.isFinite(latestElo) && latestElo >= 200) elo = Math.round(latestElo);
+      } catch { /* ignore */ }
+    }
+    return { profileId: pid, aoeAlias, elo };
+  }
+
+  ipcMain.handle('training:apm-leaderboard', async (_event, payload = {}) => {
+    const apiUrl = licenseApiUrl();
+    const sessionToken = loadSessionToken();
+    const mode = ['snipe', 'counter', 'reflex'].includes(String(payload?.mode || '')) ? String(payload.mode) : 'snipe';
+    const identity = resolveOwnAoeIdentityForApm();
+    const res = await licenseClient.fetchApmLeaderboard({ apiUrl, sessionToken, mode, limit: 20 });
+    return {
+      ...res,
+      signedIn: Boolean(sessionToken),
+      aoeLinked: Boolean(identity.profileId && identity.aoeAlias),
+      myAoeAlias: identity.aoeAlias || '',
+      myElo: identity.elo || null,
+    };
+  });
+
+  ipcMain.handle('training:apm-complete', async (_event, payload = {}) => {
+    const { unlocked, pid } = trainingAccessContext();
+    if (!unlocked) return { ok: false, error: 'ultra-required' };
+    const planRes = trainingController.recordApmDrillRun({ profileId: pid, run: payload });
+    let rankRes = { ok: false, skipped: true };
+    const apiUrl = licenseApiUrl();
+    const sessionToken = loadSessionToken();
+    const identity = resolveOwnAoeIdentityForApm();
+    if (Number(payload?.durationSec) === 30) {
+      if (!sessionToken) {
+        rankRes = { ok: false, reason: 'auth-required' };
+      } else if (!identity.profileId || !identity.aoeAlias) {
+        rankRes = { ok: false, reason: 'aoe-account-required' };
+      } else if (apiUrl) {
+        rankRes = await licenseClient.submitApmScore({
+          apiUrl,
+          sessionToken,
+          payload: {
+            mode: String(payload.mode || 'snipe'),
+            durationSec: 30,
+            hits: Number(payload.hits || 0),
+            misses: Number(payload.misses || 0),
+            maxStreak: Number(payload.maxStreak || 0),
+            avgReactionMs: Number(payload.avgReactionMs || 0),
+            minReactionMs: Number(payload.minReactionMs || 0),
+            reactionStdDevMs: payload.reactionStdDevMs != null ? Number(payload.reactionStdDevMs) : null,
+            profileId: identity.profileId,
+            aoeAlias: identity.aoeAlias,
+            elo: identity.elo,
+          },
+        });
+      }
+    }
+    return {
+      ok: true,
+      trainingQueue: planRes.trainingQueue || [],
+      newlyCompletedPlanItems: planRes.newlyCompletedPlanItems || [],
+      ranking: rankRes,
+      aoeLinked: Boolean(identity.profileId && identity.aoeAlias),
+      signedIn: Boolean(sessionToken),
+    };
   });
 
   ipcMain.handle('training:arena-status', () => {
@@ -5780,6 +5991,7 @@ async function publishPostMatch(match, options = {}) {
   if (!isCurrent()) return null;
   if (telemetry && persist && fetchingReplay && !error) {
     const savedRec = performanceStore.recordMatch(match, targetProfileId, telemetry);
+    maybeContributeBracketSample(savedRec);
     try {
       const prod = productState();
       if (allowsFeature(prod, 'trainingHub') && savedRec) {
