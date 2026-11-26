@@ -2163,7 +2163,7 @@ async function loadCurrent() {
   if (smurfDetectorInput) smurfDetectorInput.checked = Boolean(info.smurfDetector);
   if (hideWhenMinimizedInput) hideWhenMinimizedInput.checked = Boolean(info.hideWhenMinimized);
   if (onlyWhenGameRunningInput) onlyWhenGameRunningInput.checked = info.onlyWhenGameRunning !== false;
-  openAtLoginPref = Boolean(info.openAtLogin);
+  openAtLoginPref = info.openAtLogin !== false;
   if (openAtLoginInput) openAtLoginInput.checked = openAtLoginPref;
   paintAutoStartToggle();
   postMatchInput.checked = info.postMatch !== false;
@@ -2598,7 +2598,7 @@ const welcomeHomeUi = (typeof WelcomeHomeUI === 'object' && typeof WelcomeHomeUI
   : null;
 
 let showWelcomeHomePref = true;
-let openAtLoginPref = false;
+let openAtLoginPref = true;
 async function loadWelcome(force = false) {
   if (!welcomeHomeUi || typeof window.settings?.welcomeGet !== 'function') return;
   try {

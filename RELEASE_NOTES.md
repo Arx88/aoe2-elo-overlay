@@ -1,3 +1,9 @@
+## v3.3.13 · Inicio automático con Windows activado por defecto
+
+- **Inicio silencioso con Windows activado de fábrica (`openAtLogin: true`):** toda instalación nueva o actualización arranca Relic automáticamente en la bandeja del sistema al encender la PC (con el overlay oculto hasta que abrís Age of Empires II: DE). Puede desactivarse cuando quieras desde **Apariencia → Visibilidad automática** o desde el menú rápido de preferencias.
+
+---
+
 ## v3.3.12 · Semana fija Lunes–Domingo para el Tesoro de Oro, Inicio automático con Windows y Overlay inteligente solo con AoE2 abierto
 
 - **Tesoro de Oro y tira semanal en bloque fijo de Lunes a Domingo (`src/welcome-home.js`, `ui/welcome-ui.js`):** el oro recaudado y la tira de actividad `L M X J V S D` en **Inicio** ahora cuentan exclusivamente de **lunes 00:00 a domingo 23:59** y se reinician automáticamente a `0` cada lunes (en lugar de una ventana móvil de 7 días).

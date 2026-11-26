@@ -267,7 +267,7 @@ const DEFAULT_CONFIG = {
   // Mostrar el panel superior únicamente cuando Age of Empires II: DE está abierto (ocultar si se cierra).
   onlyWhenGameRunning: true,
   // Iniciar Relic automáticamente en segundo plano (bandeja) al prender Windows.
-  openAtLogin: false,
+  openAtLogin: true,
   // Mostrar el panel efímero de bienvenida (Inicio) al abrir Relic.
   showWelcomeHome: true,
   // Actualizaciones automáticas: consulta cada 30 min y, si hay una versión
@@ -3937,7 +3937,7 @@ function registerIpc() {
     smurfDetector: Boolean(config.smurfDetector),
     hideWhenMinimized: Boolean(config.hideWhenMinimized),
     onlyWhenGameRunning: config.onlyWhenGameRunning !== false,
-    openAtLogin: Boolean(config.openAtLogin),
+    openAtLogin: config.openAtLogin !== false,
     showWelcomeHome: config.showWelcomeHome !== false,
     autoUpdate: Boolean(config.autoUpdate),
     postMatch: config.postMatch !== false,
@@ -6668,7 +6668,7 @@ async function bootstrap() {
     applyAdaptiveZoom(settingsWin, 'settings');
     sendView(true);
   });
-  syncAutoStartWithWindows(Boolean(config.openAtLogin));
+  syncAutoStartWithWindows(config.openAtLogin !== false);
   if (profileId) {
     startPolling();
     startLive();
