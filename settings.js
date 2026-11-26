@@ -288,6 +288,7 @@ function formatTrialDuration(hours = currentTrialHours, { short = false } = {}) 
 
 const ULTRA_WELCOME_SEEN_KEY = 'relic_ultra_welcome_seen_v1';
 let lastRenderedPlan = null;
+let ultraWelcomeTimer = null;
 
 function ultraSubscriptionSig(product) {
   if (!product || product.plan !== 'promax') return '';
@@ -297,19 +298,17 @@ function ultraSubscriptionSig(product) {
 }
 
 function closeUltraWelcomePopup() {
+  if (ultraWelcomeTimer) {
+    clearTimeout(ultraWelcomeTimer);
+    ultraWelcomeTimer = null;
+  }
   const bd = el('ultraWelcomeBackdrop');
   if (bd) bd.hidden = true;
 }
 
-function openUltraWelcomePopup(product = currentProduct, { force = false } = {}) {
+function showUltraWelcomeNow(product, sig) {
   const bd = el('ultraWelcomeBackdrop');
   if (!bd) return false;
-  const sig = ultraSubscriptionSig(product || currentProduct);
-  if (!force && sig) {
-    try {
-      if (localStorage.getItem(ULTRA_WELCOME_SEEN_KEY) === sig) return false;
-    } catch (_) {}
-  }
   const primaryBtn = el('ultraWelcomePrimaryBtn');
   const dismissBtn = el('ultraWelcomeDismissBtn');
   const alreadyUltraSkin = currentTheme === 'ultra';
@@ -325,6 +324,29 @@ function openUltraWelcomePopup(product = currentProduct, { force = false } = {})
   }
   try { window.UiSfx?.play?.('chime'); } catch (_) {}
   return true;
+}
+
+function openUltraWelcomePopup(product = currentProduct, { force = false } = {}) {
+  const bd = el('ultraWelcomeBackdrop');
+  if (!bd) return false;
+  const sig = ultraSubscriptionSig(product || currentProduct);
+  if (!force && sig) {
+    try {
+      if (localStorage.getItem(ULTRA_WELCOME_SEEN_KEY) === sig) return false;
+    } catch (_) {}
+  }
+  // If boot splash loader is still covering the screen, wait briefly until it fades out
+  const bootLoader = el('appBootLoader');
+  const bootVisible = Boolean(bootLoader && !bootLoader.hidden && !bootLoader.classList.contains('is-done'));
+  if (bootVisible && !force) {
+    if (ultraWelcomeTimer) clearTimeout(ultraWelcomeTimer);
+    ultraWelcomeTimer = setTimeout(() => {
+      ultraWelcomeTimer = null;
+      showUltraWelcomeNow(product || currentProduct, sig);
+    }, 650);
+    return true;
+  }
+  return showUltraWelcomeNow(product || currentProduct, sig);
 }
 
 window.openUltraWelcomePopup = (opts) => openUltraWelcomePopup(currentProduct, { force: true, ...(opts || {}) });
@@ -353,8 +375,12 @@ function renderProduct(product) {
   const prevPlan = lastRenderedPlan;
   lastRenderedPlan = product.plan || null;
   currentProduct = product;
-  if (prevPlan && prevPlan !== 'promax' && product.plan === 'promax') {
-    openUltraWelcomePopup(product);
+  if (product.plan === 'promax') {
+    // Show once per Ultra subscription (covers first login, website/admin upgrade, trial, key & checkout)
+    openUltraWelcomePopup(product, { force: Boolean(prevPlan && prevPlan !== 'promax') });
+  } else if (product.plan === 'free' || product.plan === 'pro') {
+    // Reset seen flag when on Free/Pro so a future upgrade to Ultra always celebrates cleanly
+    try { localStorage.removeItem(ULTRA_WELCOME_SEEN_KEY); } catch (_) {}
   }
   syncTrialHoursFrom(product);
   const features = Array.isArray(product.features) ? product.features : [];
@@ -3519,7 +3545,10 @@ loadCurrent();
       if (res?.ok) {
         setAllAuthStatus('');
         if (res.auth) paintAuth(res.auth);
-        if (res.product) renderProduct(res.product);
+        if (res.product) {
+          if (res.product.plan === 'promax') closeCheckoutModal();
+          renderProduct(res.product);
+        }
         if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
           openUltraWelcomePopup(res.product || currentProduct, { force: true });
         }
@@ -3570,7 +3599,10 @@ loadCurrent();
         if (redeemInput) redeemInput.value = '';
         if (redeemStatusEl) redeemStatusEl.textContent = t('ui.planRedeemed', '¡Plan {plan} activado (+{days} días)!', { plan: String(res.plan || '').toUpperCase(), days: res.durationDays });
         if (res.auth) paintAuth(res.auth);
-        if (res.product) renderProduct(res.product);
+        if (res.product) {
+          if (res.product.plan === 'promax') closeCheckoutModal();
+          renderProduct(res.product);
+        }
         if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
           openUltraWelcomePopup(res.product || currentProduct, { force: true });
         }
@@ -3822,7 +3854,10 @@ function startCheckoutPolling(orderId) {
           confirmBtn.textContent = 'Plan activado ✓';
           confirmBtn.disabled = true;
         }
-        if (res.product) renderProduct(res.product);
+        if (res.product) {
+          if (res.product.plan === 'promax') closeCheckoutModal();
+          renderProduct(res.product);
+        }
       }
     } catch (_) {}
   }, 5000);

@@ -1,3 +1,9 @@
+## v3.3.20 · Disparo garantizado del popup de bienvenida Ultra al iniciar o cambiar de cuenta
+
+- **Activación garantizada del popup Ultra (`settings.js`):** corregido el caso donde cambiar a Ultra desde la web, panel de cuenta o al iniciar sesión por primera vez en una cuenta Ultra no mostraba el popup de bienvenida. Ahora se dispara automáticamente una sola vez por suscripción Ultra (incluyendo login inicial, recarga tras compra externa y cierre limpio del modal de checkout) y se resetea si la cuenta vuelve a Free/Pro.
+
+---
+
 ## v3.3.19 · Popup de bienvenida al activar Relic Ultra + Skin Ultra OLED en Violeta Eléctrico
 
 - **Nuevo popup de bienvenida al iniciar suscripción Ultra (`settings.html`, `settings.js`, `settings.css`, `assets/art/ultra-welcome-hero.jpg`):** cuando un usuario activa una suscripción o prueba de **Relic Ultra** (checkout, canje de clave, prueba gratuita o referidos), aparece el nuevo modal conmemorativo con el arte oficial Ultra y botón en 1 clic para activar el skin Ultra OLED Violeta (traducido en `es-MX`, `es-ES`, `en` y `zh-CN`).
