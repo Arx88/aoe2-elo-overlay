@@ -2448,5 +2448,16 @@
     "lbLeaderWord": "LEADER",
     "lbYouTag": "YOU",
     "lbRecordStat": "TOP {apm} eAPM"
+  },
+  "help": {
+    "whatLabel": "WHAT IT MEASURES",
+    "howLabel": "HOW IT IS CALCULATED",
+    "whyLabel": "WHY IT MATTERS",
+    "footerHint": "Right-click any card or metric to see how it works",
+    "closeAria": "Close explanation",
+    "badgeCentral": "CENTRAL",
+    "badgePostmatch": "POSTMATCH",
+    "badgeTraining": "TRAINING",
+    "badgeHome": "HOME"
   }
 }

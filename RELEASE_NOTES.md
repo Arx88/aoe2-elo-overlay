@@ -1,3 +1,9 @@
+## v3.3.17 · Explicador contextual por clic derecho en toda la app
+
+- **Explicación clara de cada cuadro y métrica con clic derecho (`ui/help-explainer.js`, `settings.css`, `ultra-skin.css`):** hacé clic derecho sobre cualquier tarjeta, gráfico o fila de **Inicio**, **Central**, **Postmatch** o **Entrenamiento** para abrir un panel flotante limpio (sin llenar la interfaz de íconos `?`) que explica en lenguaje sencillo **qué mide**, **cómo se calcula** y **en qué influye** ese dato. Respeta el menú nativo dentro de campos de texto y selecciones para copiar/pegar, soporta Clásico y Ultra OLED, cumple CSP estricto (`0` estilos inline) y está traducido a `es-MX`, `es-ES`, `en` y `zh-CN`.
+
+---
+
 ## v3.3.16 · Barra única refinada y centrada para el objetivo de APM
 
 - **HUD de Entrenamiento de APM en una sola fila simétrica (`ui/apm-trainer.js`, `training.css`, `ultra-skin.css`):** se eliminó el bloque apilado voluminoso y se integró el objetivo en una píldora limpia centrada en el medio exacto de la barra única (`Tiempo / eAPM` a la izquierda · retrato circular `48×48` con puntos de progreso al centro · `Precisión / Reacción / Reiniciar` a la derecha), verificado visualmente en Clásico y Ultra OLED.

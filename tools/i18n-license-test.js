@@ -334,8 +334,31 @@ async function run() {
   assert.match(skinsSec, /id="hideWhenMinimized"/, 'hideWhenMinimized debe estar en Apariencia');
   assert.match(settingsHtml, /id="prefsFeedbackBtn"/, 'Feedback debe estar en el popover de tuerca');
   assert.match(settingsHtml, /id="feedbackModal"/, 'Modal de feedback debe existir');
+  assert.match(settingsHtml, /src="ui\/help-explainer\.js"/, 'help-explainer.js debe estar cargado en settings.html');
 
-  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, Central 10/20, Feedback, Minimize 5s & build isolation)');
+  // Explicador contextual por clic derecho: 0 inline style=, guías completas en ES/EN/ZH y resolución de objetivos
+  const helpSrc = fs.readFileSync(path.join(__dirname, '..', 'ui', 'help-explainer.js'), 'utf8');
+  assert.doesNotMatch(helpSrc, /\sstyle=["']/, 'help-explainer.js no debe usar atributos style= inline (CSP)');
+  require('../ui/help-explainer.js');
+  const helpApi = globalThis.RelicHelpExplainer;
+  assert.ok(helpApi && helpApi.GUIDES && Object.keys(helpApi.GUIDES).length >= 30, 'Debe exponer ≥30 guías contextuales');
+  for (const [gid, g] of Object.entries(helpApi.GUIDES)) {
+    for (const lg of ['es', 'en', 'zh']) {
+      assert.ok(g[lg] && g[lg].title && g[lg].what && g[lg].how && g[lg].why, `Guía ${gid} incompleta en ${lg}`);
+    }
+  }
+  const fakeRow = {
+    textContent: 'Pausa del CU en Alta Edad 29 s',
+    closest: (sel) => (sel.includes('.cx-rm-row') ? { textContent: 'Pausa del CU en Alta Edad 29 s' } : null),
+  };
+  assert.equal(helpApi.resolveGuideForTarget(fakeRow), helpApi.GUIDES.metric_tc_dark, 'Debe resolver métrica exacta antes del cuadro padre');
+  const fakeCard = {
+    textContent: 'Tesoro semanal',
+    closest: (sel) => (sel === '.wh-treasury' ? {} : null),
+  };
+  assert.equal(helpApi.resolveGuideForTarget(fakeCard), helpApi.GUIDES.wh_treasury, 'Debe resolver contenedor Inicio → Tesoro');
+
+  console.log('i18n + licensing + NSIS security test: OK (4 AoE2 DE locales, Ed25519 remote verify/revoke, Central 10/20, Feedback, Minimize 5s, Help Explainer & build isolation)');
 }
 
 run().catch((err) => {

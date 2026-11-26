@@ -2448,5 +2448,16 @@
     "lbLeaderWord": "榜首",
     "lbYouTag": "你",
     "lbRecordStat": "榜首 {apm} eAPM"
+  },
+  "help": {
+    "whatLabel": "衡量什么",
+    "howLabel": "如何计算",
+    "whyLabel": "对上分的影响",
+    "footerHint": "右键点击任意卡片或数据即可查看详细说明",
+    "closeAria": "关闭说明",
+    "badgeCentral": "数据中心",
+    "badgePostmatch": "赛后报告",
+    "badgeTraining": "训练中心",
+    "badgeHome": "首页"
   }
 }

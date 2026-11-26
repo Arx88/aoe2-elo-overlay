@@ -2448,5 +2448,16 @@
     "lbLeaderWord": "LÍDER",
     "lbYouTag": "TÚ",
     "lbRecordStat": "LÍDER {apm} eAPM"
+  },
+  "help": {
+    "whatLabel": "QUÉ MIDE",
+    "howLabel": "CÓMO SE CALCULA",
+    "whyLabel": "EN QUÉ INFLUYE",
+    "footerHint": "Clic derecho en cualquier cuadro o dato para ver cómo funciona",
+    "closeAria": "Cerrar explicación",
+    "badgeCentral": "CENTRAL",
+    "badgePostmatch": "POSTMATCH",
+    "badgeTraining": "ENTRENAMIENTO",
+    "badgeHome": "INICIO"
   }
 }
