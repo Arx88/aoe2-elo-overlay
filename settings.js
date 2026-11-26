@@ -326,7 +326,7 @@ function showUltraWelcomeNow(product, sig) {
   return true;
 }
 
-function openUltraWelcomePopup(product = currentProduct, { force = false } = {}) {
+function triggerUltraWelcomePopup(product = currentProduct, { force = false } = {}) {
   const bd = el('ultraWelcomeBackdrop');
   if (!bd) return false;
   const sig = ultraSubscriptionSig(product || currentProduct);
@@ -349,7 +349,7 @@ function openUltraWelcomePopup(product = currentProduct, { force = false } = {})
   return showUltraWelcomeNow(product || currentProduct, sig);
 }
 
-window.openUltraWelcomePopup = (opts) => openUltraWelcomePopup(currentProduct, { force: true, ...(opts || {}) });
+window.openUltraWelcomePopup = (opts) => triggerUltraWelcomePopup(currentProduct, { force: true, ...(opts || {}) });
 
 el('ultraWelcomeCloseBtn')?.addEventListener('click', closeUltraWelcomePopup);
 el('ultraWelcomeDismissBtn')?.addEventListener('click', closeUltraWelcomePopup);
@@ -377,7 +377,7 @@ function renderProduct(product) {
   currentProduct = product;
   if (product.plan === 'promax') {
     // Show once per Ultra subscription (covers first login, website/admin upgrade, trial, key & checkout)
-    openUltraWelcomePopup(product, { force: Boolean(prevPlan && prevPlan !== 'promax') });
+    triggerUltraWelcomePopup(product, { force: Boolean(prevPlan && prevPlan !== 'promax') });
   } else if (product.plan === 'free' || product.plan === 'pro') {
     // Reset seen flag when on Free/Pro so a future upgrade to Ultra always celebrates cleanly
     try { localStorage.removeItem(ULTRA_WELCOME_SEEN_KEY); } catch (_) {}
@@ -3550,7 +3550,7 @@ loadCurrent();
           renderProduct(res.product);
         }
         if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
-          openUltraWelcomePopup(res.product || currentProduct, { force: true });
+          triggerUltraWelcomePopup(res.product || currentProduct, { force: true });
         }
         setStatus(t('ui.googleSignedIn', 'Sesión de Google iniciada.'));
       } else {
@@ -3604,7 +3604,7 @@ loadCurrent();
           renderProduct(res.product);
         }
         if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
-          openUltraWelcomePopup(res.product || currentProduct, { force: true });
+          triggerUltraWelcomePopup(res.product || currentProduct, { force: true });
         }
       } else if (redeemStatusEl) {
         redeemStatusEl.textContent = res?.error || t('ui.invalidKey', 'Clave inválida.');
@@ -4044,7 +4044,7 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
       return;
     }
     if (res.product) renderProduct(res.product);
-    if (res.product?.plan === 'promax') openUltraWelcomePopup(res.product, { force: true });
+    if (res.product?.plan === 'promax') triggerUltraWelcomePopup(res.product, { force: true });
     if (btn) btn.hidden = true;
     setStatus(t('ui.trialActOk', '¡Prueba Ultra de {dur} activada! Disfrutá la experiencia completa.', { dur: formatTrialDuration(res.trialHours || currentTrialHours, { short: true }) }), 'is-ok');
   } catch (_) {

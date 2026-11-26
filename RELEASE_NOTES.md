@@ -1,3 +1,10 @@
+## v3.3.21 · Hotfix crítico al activar o canjear Relic Ultra + punto violeta en vista previa Ultra
+
+- **Corrección de recursión en `openUltraWelcomePopup` (`settings.js`):** corregido un error de colisión de nombre global (`Maximum call stack size exceeded`) que impedía actualizar la interfaz al pasar a **Relic Ultra** tras canjear una clave, iniciar sesión o verificar licencia. Ahora la activación de Ultra actualiza el plan al instante y despliega el popup de bienvenida sin errores.
+- **Vista previa de Skin Ultra en Apariencia (`settings.css`):** actualizado el punto verde (`.sw-ultra-dot`) de la miniatura del skin Ultra a violeta eléctrico (`#a855f7`).
+
+---
+
 ## v3.3.20 · Disparo garantizado del popup de bienvenida Ultra al iniciar o cambiar de cuenta
 
 - **Activación garantizada del popup Ultra (`settings.js`):** corregido el caso donde cambiar a Ultra desde la web, panel de cuenta o al iniciar sesión por primera vez en una cuenta Ultra no mostraba el popup de bienvenida. Ahora se dispara automáticamente una sola vez por suscripción Ultra (incluyendo login inicial, recarga tras compra externa y cierre limpio del modal de checkout) y se resetea si la cuenta vuelve a Free/Pro.

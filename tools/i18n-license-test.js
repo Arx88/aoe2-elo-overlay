@@ -340,6 +340,9 @@ async function run() {
   const ultraCss = fs.readFileSync(path.join(__dirname, '..', 'ultra-skin.css'), 'utf8');
   assert.doesNotMatch(ultraCss, /#22c55e|#4ade80|rgba\(\s*34\s*,\s*197\s*,\s*94/i, 'ultra-skin.css debe usar violeta eléctrico en vez de verde');
   assert.match(ultraCss, /#a855f7/i, 'ultra-skin.css debe incluir acento violeta #a855f7');
+  const settingsJs = fs.readFileSync(path.join(__dirname, '..', 'settings.js'), 'utf8');
+  assert.doesNotMatch(settingsJs, /window\.openUltraWelcomePopup\s*=\s*\([^)]*\)\s*=>\s*openUltraWelcomePopup\(/, 'window.openUltraWelcomePopup no puede llamarse recursivamente a sí mismo');
+  assert.match(settingsJs, /function triggerUltraWelcomePopup\(/, 'Debe existir triggerUltraWelcomePopup sin colisión de nombre global');
   assert.match(settingsHtml, /src="ui\/help-explainer\.js"/, 'help-explainer.js debe estar cargado en settings.html');
 
   // Explicador contextual por clic derecho: 0 inline style=, 0 footer redundante, guías completas en ES/EN/ZH y resolución granular sin duplicados
