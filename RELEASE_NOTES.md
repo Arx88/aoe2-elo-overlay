@@ -1,3 +1,10 @@
+## v3.3.19 · Popup de bienvenida al activar Relic Ultra + Skin Ultra OLED en Violeta Eléctrico
+
+- **Nuevo popup de bienvenida al iniciar suscripción Ultra (`settings.html`, `settings.js`, `settings.css`, `assets/art/ultra-welcome-hero.jpg`):** cuando un usuario activa una suscripción o prueba de **Relic Ultra** (checkout, canje de clave, prueba gratuita o referidos), aparece el nuevo modal conmemorativo con el arte oficial Ultra y botón en 1 clic para activar el skin Ultra OLED Violeta (traducido en `es-MX`, `es-ES`, `en` y `zh-CN`).
+- **Skin Ultra OLED ahora con acento Violeta Eléctrico (`ultra-skin.css`, `ui/training-ui.js`, `ui/apm-trainer.js`):** reemplazados todos los acentos verdes del skin Ultra por violeta eléctrico luminoso (`#a855f7` / `#c084fc`) en tarjetas, badges, barras, anillos de winrate, gráficos SVG de Entrenamiento, canvas de APM y explicador contextual.
+
+---
+
 ## v3.3.18 · Explicador por clic derecho ultra-específico en cada sub-tarjeta, pestaña y curiosidad
 
 - **Cobertura granular en toda la app (`ui/help-explainer.js`, `ui/tactical-ui.js`, `ui/training-ui.js`, `ui/welcome-ui.js`):** ahora cada sub-elemento tiene su propia explicación dedicada y distinta (90+ guías verificadas automáticamente por test) en lugar de repetir el cuadro padre:

@@ -1120,6 +1120,30 @@
       </div>
     </div>
 
+    <div id="ultraWelcomeBackdrop" class="ultra-welcome-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="ultraWelcomeTitle">
+      <div class="ultra-welcome-modal" id="ultraWelcomeModal">
+        <div class="ultra-welcome-hero">
+          <img src="assets/art/ultra-welcome-hero.jpg" alt="" class="ultra-welcome-img" decoding="async" />
+          <div class="ultra-welcome-scrim" aria-hidden="true"></div>
+          <button type="button" id="ultraWelcomeCloseBtn" class="ultra-welcome-close" aria-label="Cerrar">×</button>
+        </div>
+        <div class="ultra-welcome-body">
+          <span class="ultra-welcome-badge" data-i18n="ultraWelcome.badge">✦ RELIC ULTRA ACTIVADO</span>
+          <h2 id="ultraWelcomeTitle" class="ultra-welcome-title" data-i18n="ultraWelcome.title">Bienvenido al nivel Ultra</h2>
+          <p class="ultra-welcome-lead" data-i18n="ultraWelcome.lead">Tu suscripción Ultra ya está activa. Tenés desbloqueado el skin OLED Violeta, el laboratorio completo de entrenamiento y el motor de telemetría profunda.</p>
+          <div class="ultra-welcome-perks">
+            <span class="ultra-welcome-perk" data-i18n="ultraWelcome.perkSkin">Skin Ultra OLED Violeta</span>
+            <span class="ultra-welcome-perk" data-i18n="ultraWelcome.perkLab">Entrenamiento, Matchups y APM</span>
+            <span class="ultra-welcome-perk" data-i18n="ultraWelcome.perkTelemetry">Replays, Hoja de Ruta y Central completo</span>
+          </div>
+          <div class="ultra-welcome-actions">
+            <button type="button" id="ultraWelcomePrimaryBtn" class="btn ultra-welcome-cta" data-i18n="ultraWelcome.ctaApplySkin">Activar skin Ultra y empezar</button>
+            <button type="button" id="ultraWelcomeDismissBtn" class="btn ultra-welcome-ghost" data-i18n="ultraWelcome.ctaKeepTheme">Mantener tema actual</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="ui/content-rules.js"></script>
     <script src="ui/i18n.js"></script>
     <script src="ui/sfx.js"></script>

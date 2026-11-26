@@ -13,6 +13,13 @@
 
   const WELCOME_STORAGE_KEY = 'relic_training_welcome_seen_v5';
 
+  function isUltraThemeActive() {
+    try { return root.document?.body?.dataset?.theme === 'ultra'; } catch (_) { return false; }
+  }
+  function accentGood() { return isUltraThemeActive() ? '#c084fc' : '#78d8a6'; }
+  function accentGoodLight() { return isUltraThemeActive() ? '#d8b4fe' : '#8be6b6'; }
+  function accentGoodAlpha(a) { return isUltraThemeActive() ? `rgba(192,132,252,${a})` : `rgba(120,216,166,${a})`; }
+
   function trT(key, fallback, vars = null) {
     const api = root.AppI18n;
     if (api && typeof api.t === 'function') {
@@ -1527,7 +1534,7 @@
           </span>
           <svg viewBox="0 0 300 14" width="100%" height="14" preserveAspectRatio="none" aria-hidden="true">
             <rect x="0" y="2" width="144" height="10" rx="5" fill="rgba(255,255,255,0.06)"></rect>
-            ${wOwn > 0 ? `<rect x="${144 - wOwn}" y="2" width="${wOwn}" height="10" rx="5" fill="${ownLead ? '#78d8a6' : 'rgba(120,216,166,0.58)'}"></rect>` : ''}
+            ${wOwn > 0 ? `<rect x="${144 - wOwn}" y="2" width="${wOwn}" height="10" rx="5" fill="${ownLead ? accentGood() : accentGoodAlpha(0.58)}"></rect>` : ''}
             <line x1="150" y1="0" x2="150" y2="14" stroke="rgba(242,215,153,0.34)" stroke-width="1.2"></line>
             <rect x="156" y="2" width="144" height="10" rx="5" fill="rgba(255,255,255,0.06)"></rect>
             ${wRiv > 0 ? `<rect x="156" y="2" width="${wRiv}" height="10" rx="5" fill="${rivLead ? '#ef8a81' : 'rgba(239,138,129,0.58)'}"></rect>` : ''}
@@ -1618,7 +1625,7 @@
       const c0 = rawNodes[0];
       const c1 = rawNodes[1];
       const c2 = rawNodes[2];
-      const dotFill = (cy) => (cy < 81 ? '#78d8a6' : (cy > 89 ? '#ef8a81' : '#f2d799'));
+      const dotFill = (cy) => (cy < 81 ? accentGood() : (cy > 89 ? '#ef8a81' : '#f2d799'));
       const labelY = (cy) => (cy <= 85 ? Math.max(22, cy - 14) : Math.min(142, cy + 21));
 
       const pts = [
@@ -1716,8 +1723,8 @@
             <svg class="tr-powerspike-svg" viewBox="0 0 880 194" preserveAspectRatio="none" aria-label="Curva real de victoria según duración de partida">
               <defs>
                 <linearGradient id="trSpikeAbove" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#78d8a6" stop-opacity="0.48"></stop>
-                  <stop offset="100%" stop-color="#78d8a6" stop-opacity="0.03"></stop>
+                  <stop offset="0%" stop-color="${accentGood()}" stop-opacity="0.48"></stop>
+                  <stop offset="100%" stop-color="${accentGood()}" stop-opacity="0.03"></stop>
                 </linearGradient>
                 <linearGradient id="trSpikeBelow" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stop-color="#ef8a81" stop-opacity="0.03"></stop>
@@ -1726,7 +1733,7 @@
                 <clipPath id="trClipAbove"><rect x="0" y="0" width="880" height="85"></rect></clipPath>
                 <clipPath id="trClipBelow"><rect x="0" y="85" width="880" height="109"></rect></clipPath>
               </defs>
-              <line x1="0" y1="36" x2="880" y2="36" stroke="rgba(120, 216, 166, 0.09)" stroke-dasharray="3 5"></line>
+              <line x1="0" y1="36" x2="880" y2="36" stroke="${accentGoodAlpha(0.11)}" stroke-dasharray="3 5"></line>
               <line x1="0" y1="134" x2="880" y2="134" stroke="rgba(239, 138, 129, 0.09)" stroke-dasharray="3 5"></line>
               <line x1="362" y1="16" x2="362" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
               <line x1="618" y1="16" x2="618" y2="152" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"></line>
@@ -1803,7 +1810,7 @@
           const frac = Math.max(0.14, Math.min(1, diff / goodSpan));
           barW = Math.round(frac * 46);
           barX = center;
-          fill = metric.isPersonalBest ? '#f2d799' : '#78d8a6';
+          fill = metric.isPersonalBest ? '#f2d799' : accentGood();
         } else if (diff < 0) {
           const frac = Math.max(0.14, Math.min(1, Math.abs(diff) / badSpan));
           barW = Math.round(frac * 46);
@@ -2028,8 +2035,8 @@
       return `<svg class="tr-studio-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-label="Evolución partida a partida">
         <defs>
           <linearGradient id="trAboveGrad_${clipKey}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#78d8a6" stop-opacity="0.24"></stop>
-            <stop offset="100%" stop-color="#78d8a6" stop-opacity="0.02"></stop>
+            <stop offset="0%" stop-color="${accentGood()}" stop-opacity="0.26"></stop>
+            <stop offset="100%" stop-color="${accentGood()}" stop-opacity="0.02"></stop>
           </linearGradient>
           <linearGradient id="trBelowGrad_${clipKey}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#ef8a81" stop-opacity="0.02"></stop>
@@ -2049,11 +2056,11 @@
         <line x1="${padL}" y1="${padT + innerH}" x2="${W - padR}" y2="${padT + innerH}" stroke="rgba(255,255,255,0.11)"></line>
 
         <!-- Etiquetas eje Y -->
-        <text x="${padL - 12}" y="${padT - 13}" text-anchor="end" fill="#78d8a6" font-size="9.5" font-weight="740">↑ MEJOR</text>
-        <text x="${padL - 12}" y="${padT + 4}" text-anchor="end" fill="#8be6b6" font-size="10.5" font-weight="720">${esc(String(metric.bestDisplay || '').replace(' eAPM', ''))}</text>
+        <text x="${padL - 12}" y="${padT - 13}" text-anchor="end" fill="${accentGood()}" font-size="9.5" font-weight="740">↑ MEJOR</text>
+        <text x="${padL - 12}" y="${padT + 4}" text-anchor="end" fill="${accentGoodLight()}" font-size="10.5" font-weight="720">${esc(String(metric.bestDisplay || '').replace(' eAPM', ''))}</text>
         <text x="${padL - 12}" y="${padT + innerH + 4}" text-anchor="end" fill="#7c8b99" font-size="10.5">${esc(String(worstDisp || '').replace(' eAPM', ''))}</text>
 
-        <!-- Áreas divididas arriba (esmeralda) y abajo (carmesí) de Tu Promedio -->
+        <!-- Áreas divididas arriba y abajo de Tu Promedio -->
         <path d="${areaToMed}" fill="url(#trAboveGrad_${clipKey})" clip-path="url(#trClipAbove_${clipKey})"></path>
         <path d="${areaToMed}" fill="url(#trBelowGrad_${clipKey})" clip-path="url(#trClipBelow_${clipKey})"></path>
 
@@ -2063,11 +2070,11 @@
         <text x="${W - padR + 8}" y="${(medY + 11).toFixed(1)}" fill="#d6b875" font-size="10.5" font-weight="700">${esc(String(metric.medianDisplay || '').replace(' eAPM', ''))}</text>
 
         <!-- Curva principal -->
-        <path class="tr-spike-stroke" d="${smoothLine}" fill="none" stroke="#f2d799" stroke-width="2.6" stroke-linecap="round"></path>
+        <path class="tr-spike-stroke" d="${smoothLine}" fill="none" stroke="${isUltraThemeActive() ? '#c084fc' : '#f2d799'}" stroke-width="2.6" stroke-linecap="round"></path>
 
         <!-- Nodos clicables por partida -->
         ${pts.map((p) => {
-          const dotColor = p.won === true ? '#78d8a6' : p.won === false ? '#ef8a81' : '#8f9dab';
+          const dotColor = p.won === true ? accentGood() : p.won === false ? '#ef8a81' : '#8f9dab';
           const shortMap = String(p.mapName || 'Partida').slice(0, 9);
           const cleanDisp = String(p.display || '').replace(' eAPM', '');
           const labelBelow = p.y < padT + 28;
@@ -2076,7 +2083,7 @@
           const labelY = Math.max(18, Math.min(padT + innerH - 8, labelBelow ? p.y + clearance : p.y - upClearance));
           return `<g class="tr-trend-node" data-tr-replay-id="${esc(p.matchId)}">
             ${p.isCurrent ? `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${padT + innerH}" stroke="rgba(242,215,153,0.36)" stroke-dasharray="3 3"></line>` : ''}
-            ${p.isBest ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="9" fill="none" stroke="#78d8a6" stroke-width="1.5" opacity="0.85"></circle>` : ''}
+            ${p.isBest ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="9" fill="none" stroke="${accentGood()}" stroke-width="1.5" opacity="0.85"></circle>` : ''}
             <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.isCurrent ? '5.6' : '4.4'}" fill="${p.isCurrent ? '#faf0d4' : '#111720'}" stroke="${p.isCurrent ? '#d6b875' : dotColor}" stroke-width="2.2"></circle>
             ${p.isCurrent
               ? `<rect x="${(p.x - 28).toFixed(1)}" y="${(labelY - 12).toFixed(1)}" width="56" height="17" rx="4" fill="#0b0f16" stroke="rgba(242,215,153,0.62)" stroke-width="1"></rect>

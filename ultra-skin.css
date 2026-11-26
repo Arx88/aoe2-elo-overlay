@@ -8,7 +8,7 @@
    - Tarjetas mate (#09090c) + pozos internos (#040406) con hairlines 1px zinc
    - Cero campos dorados, cero bordes dorados heredados, cero fondos con color
    - Acentos quirúrgicos estrictamente funcionales:
-       · Verde esmeralda (#22c55e / #4ade80) -> vivo, victoria, racha, activo
+       · Violeta eléctrico (#a855f7 / #c084fc) -> vivo, victoria, racha, activo
        · Rojo quirúrgico (#ef4444 / #f87171) -> derrota, alerta, agresivo
        · Oro sobrio (#e8c068) -> solo insignia ULTRA, CTA principal y dato pico
    ============================================================================ */
@@ -30,11 +30,15 @@ body[data-theme='ultra'] {
   --accent-dim: #71717a;
   --line: rgba(255, 255, 255, 0.095);
   --brass-soft: #a1a1aa;
-  --success: #4ade80;
+  --success: #c084fc;
   --error: #f87171;
   --ultra-gold: #e8c068;
-  --ultra-emerald: #22c55e;
-  --ultra-emerald-soft: #4ade80;
+  --ultra-emerald: #a855f7;
+  --ultra-emerald-soft: #c084fc;
+  --ultra-violet: #a855f7;
+  --ultra-violet-soft: #c084fc;
+  --tr-emerald: #c084fc;
+  --perf-emerald: #c084fc;
   --ultra-crimson: #f87171;
   --mono-font: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
   --radius-control: 7px;
@@ -280,12 +284,12 @@ body[data-theme='ultra'] .status-bar {
   color: #a1a1aa;
 }
 body[data-theme='ultra'] .status-light {
-  background: #22c55e;
+  background: #a855f7;
   border-radius: 50%;
   transform: none;
   width: 6px;
   height: 6px;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.7);
 }
 
 /* ==================== 3) CORE CARDS, CONTROLS, BUTTONS, INPUTS ==================== */
@@ -401,9 +405,9 @@ body[data-theme='ultra'] .wh-news-cta:hover:not(:disabled) {
   color: #ffffff !important;
 }
 body[data-theme='ultra'] .train-pin-btn.is-pinned {
-  background: rgba(34, 197, 94, 0.12) !important;
-  border-color: rgba(34, 197, 94, 0.45) !important;
-  color: #4ade80 !important;
+  background: rgba(168, 85, 247, 0.12) !important;
+  border-color: rgba(168, 85, 247, 0.45) !important;
+  color: #c084fc !important;
 }
 body[data-theme='ultra'] .btn.gold,
 body[data-theme='ultra'] .wh-btn-main,
@@ -475,8 +479,8 @@ body[data-theme='ultra'] .sw::after {
   background: #71717a;
 }
 body[data-theme='ultra'] .tog input:checked + .sw {
-  background: #22c55e;
-  border-color: #22c55e;
+  background: #a855f7;
+  border-color: #a855f7;
 }
 body[data-theme='ultra'] .tog input:checked + .sw::after {
   background: #040406;
@@ -586,9 +590,9 @@ body[data-theme='ultra'] .referral-status-pill.is-activated,
 body[data-theme='ultra'] .referral-banner.is-success,
 body[data-theme='ultra'] .wiz-auth-ok-chip,
 body[data-theme='ultra'] .plan-verified-toast .pvt-badge {
-  background: rgba(34, 197, 94, 0.11) !important;
-  border: 1px solid rgba(34, 197, 94, 0.38) !important;
-  color: #4ade80 !important;
+  background: rgba(168, 85, 247, 0.11) !important;
+  border: 1px solid rgba(168, 85, 247, 0.38) !important;
+  color: #c084fc !important;
 }
 body[data-theme='ultra'] .pm-badge.is-warn,
 body[data-theme='ultra'] .cx-sess-tilt-alert,
@@ -615,8 +619,8 @@ body[data-theme='ultra'] .cx-sync-pill::before,
 body[data-theme='ultra'] .tr-live-dot,
 body[data-theme='ultra'] .central-viewing-badge,
 body[data-theme='ultra'] .wh-action-dot {
-  background: #22c55e !important;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.7) !important;
+  background: #a855f7 !important;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.7) !important;
 }
 body[data-theme='ultra'] .cx-lm-outcome.neutral,
 body[data-theme='ultra'] .cx-delta.neutral {
@@ -657,14 +661,14 @@ body[data-theme='ultra'] .wh-tr-track {
   background: #141418 !important;
 }
 body[data-theme='ultra'] .wh-runner-track > i.is-emerald {
-  background: #22c55e !important;
+  background: #a855f7 !important;
 }
 body[data-theme='ultra'] .wh-gold-rank-track > i,
 body[data-theme='ultra'] .wh-tr-track > i {
   background: #e4e4e7 !important;
 }
 body[data-theme='ultra'] .wh-act-dot {
-  background: #22c55e !important;
+  background: #a855f7 !important;
 }
 body[data-theme='ultra'] .wh-act-day.is-even .wh-act-dot {
   background: #71717a !important;
@@ -692,7 +696,7 @@ body[data-theme='ultra'] .central-search-clear:hover {
 }
 body[data-theme='ultra'] .central-viewing-bar {
   background: #09090c !important;
-  border: 1px solid rgba(34, 197, 94, 0.36) !important;
+  border: 1px solid rgba(168, 85, 247, 0.36) !important;
 }
 
 /* Subnav de 3 pestañas de Central (estilo underline limpio, sin doble caja) */
@@ -820,7 +824,7 @@ body[data-theme='ultra'] .page[data-page='central'] .cx-diag-finding.is-loss {
   border-left-color: #f87171 !important;
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-diag-finding.is-win {
-  border-left-color: #4ade80 !important;
+  border-left-color: #c084fc !important;
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-mode-tab.is-active {
   background: rgba(255, 255, 255, 0.065) !important;
@@ -867,7 +871,7 @@ body[data-theme='ultra'] .cx-diag-panel {
   box-shadow: none !important;
 }
 body[data-theme='ultra'] .cx-hero.is-external {
-  border-color: rgba(34, 197, 94, 0.38) !important;
+  border-color: rgba(168, 85, 247, 0.38) !important;
 }
 body[data-theme='ultra'] .page[data-page='central'] .cx-hero-id {
   background: transparent !important;
@@ -1031,7 +1035,7 @@ body[data-theme='ultra'] .cx-rm-dim {
   background: #050507 !important;
   border-color: rgba(255, 255, 255, 0.09) !important;
 }
-body[data-theme='ultra'] .cx-rm-dim.is-solid { border-top-color: #22c55e !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-solid { border-top-color: #a855f7 !important; }
 body[data-theme='ultra'] .cx-rm-dim.is-inconsistent { border-top-color: #e8c068 !important; }
 body[data-theme='ultra'] .cx-rm-dim.is-bottleneck { border-top-color: #ef4444 !important; }
 body[data-theme='ultra'] .cx-rm-dim-ico,
@@ -1041,8 +1045,8 @@ body[data-theme='ultra'] .cx-rm-crest {
   box-shadow: none !important;
 }
 body[data-theme='ultra'] .cx-rm-dim.is-solid .cx-rm-dim-st,
-body[data-theme='ultra'] .cx-rm-empty-cta.is-solid { color: #4ade80 !important; }
-body[data-theme='ultra'] .cx-rm-dim.is-solid .cx-rm-dot { background: #22c55e !important; }
+body[data-theme='ultra'] .cx-rm-empty-cta.is-solid { color: #c084fc !important; }
+body[data-theme='ultra'] .cx-rm-dim.is-solid .cx-rm-dot { background: #a855f7 !important; }
 body[data-theme='ultra'] .cx-rm-dim.is-inconsistent .cx-rm-dim-st { color: #e8c068 !important; }
 body[data-theme='ultra'] .cx-rm-dim.is-inconsistent .cx-rm-dot { background: #e8c068 !important; }
 body[data-theme='ultra'] .cx-rm-dim.is-bottleneck .cx-rm-dim-st { color: #f87171 !important; }
@@ -1053,7 +1057,7 @@ body[data-theme='ultra'] .cx-rm-dim-tag {
 }
 body[data-theme='ultra'] .cx-rm-ctx { color: #e8c068 !important; }
 body[data-theme='ultra'] .cx-rm-drill { color: #a1a1aa !important; }
-body[data-theme='ultra'] .cx-rm-bullet > i.bar-emerald { background: #22c55e !important; }
+body[data-theme='ultra'] .cx-rm-bullet > i.bar-emerald { background: #a855f7 !important; }
 body[data-theme='ultra'] .cx-rm-bullet > i.bar-gold { background: #e8c068 !important; }
 body[data-theme='ultra'] .cx-rm-bullet > i.bar-rose { background: #ef4444 !important; }
 body[data-theme='ultra'] .cx-rm-notch {
@@ -1062,7 +1066,7 @@ body[data-theme='ultra'] .cx-rm-notch {
 }
 body[data-theme='ultra'] .cx-rm-stat b.loss { color: #f87171 !important; }
 body[data-theme='ultra'] .cx-rm-stat b.gold { color: #e8c068 !important; }
-body[data-theme='ultra'] .cx-rm-ready.is-win { color: #4ade80 !important; border-color: rgba(34, 197, 94, 0.3) !important; background: rgba(34, 197, 94, 0.08) !important; }
+body[data-theme='ultra'] .cx-rm-ready.is-win { color: #c084fc !important; border-color: rgba(168, 85, 247, 0.3) !important; background: rgba(168, 85, 247, 0.08) !important; }
 body[data-theme='ultra'] .cx-rm-ready.is-gold { color: #e8c068 !important; border-color: rgba(232, 192, 104, 0.3) !important; background: rgba(232, 192, 104, 0.08) !important; }
 body[data-theme='ultra'] .cx-rm-ready.is-gap { color: #f87171 !important; border-color: rgba(239, 68, 68, 0.3) !important; background: rgba(239, 68, 68, 0.08) !important; }
 body[data-theme='ultra'] .cx-rm-jump {
@@ -1090,11 +1094,11 @@ body[data-theme='ultra'] .cx-elo-fill::after {
   box-shadow: 0 0 0 1px rgba(232, 192, 104, 0.45) !important;
 }
 body[data-theme='ultra'] .cx-elo-fill.is-peak {
-  background: #22c55e !important;
+  background: #a855f7 !important;
 }
 body[data-theme='ultra'] .cx-elo-fill.is-peak::after {
   background: #ffffff !important;
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.55) !important;
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.55) !important;
 }
 body[data-theme='ultra'] .cx-elo-axis .is-target {
   color: #ffffff !important;
@@ -1108,7 +1112,7 @@ body[data-theme='ultra'] .global-bar-peak {
   background: rgba(255, 255, 255, 0.18) !important;
 }
 body[data-theme='ultra'] .central-bar-track > i.bar-emerald {
-  background: #22c55e !important;
+  background: #a855f7 !important;
 }
 body[data-theme='ultra'] .central-bar-track > i.bar-rose {
   background: #ef4444 !important;
@@ -1303,7 +1307,7 @@ body[data-theme='ultra'] .pm-v2 .pm-zone-head {
   border-bottom-color: rgba(255, 255, 255, 0.085) !important;
 }
 body[data-theme='ultra'] .pm-v2 .pm-zone.is-good .pm-zone-head {
-  border-bottom-color: rgba(34, 197, 94, 0.26) !important;
+  border-bottom-color: rgba(168, 85, 247, 0.26) !important;
 }
 body[data-theme='ultra'] .pm-v2 .pm-zone.is-bad .pm-zone-head {
   border-bottom-color: rgba(248, 113, 113, 0.26) !important;
@@ -1319,7 +1323,7 @@ body[data-theme='ultra'] .pm-kpi.is-win,
 body[data-theme='ultra'] .pm-race-row.is-win,
 body[data-theme='ultra'] .pm-coach-row.is-ok,
 body[data-theme='ultra'] .pm-medal-card.is-green {
-  border-color: rgba(34, 197, 94, 0.36) !important;
+  border-color: rgba(168, 85, 247, 0.36) !important;
 }
 body[data-theme='ultra'] .pm-kpi.is-loss,
 body[data-theme='ultra'] .pm-race-row.is-loss,
@@ -1340,7 +1344,7 @@ body[data-theme='ultra'] .pm-lp-grade {
 body[data-theme='ultra'] .pm-delta.win,
 body[data-theme='ultra'] .report-head .won,
 body[data-theme='ultra'] .win {
-  color: #4ade80 !important;
+  color: #c084fc !important;
 }
 body[data-theme='ultra'] .pm-delta.loss,
 body[data-theme='ultra'] .report-head .lost,
@@ -1348,9 +1352,9 @@ body[data-theme='ultra'] .loss {
   color: #f87171 !important;
 }
 body[data-theme='ultra'] .result-history span {
-  background: rgba(34, 197, 94, 0.1);
-  border-color: rgba(34, 197, 94, 0.36);
-  color: #4ade80;
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.36);
+  color: #c084fc;
   font-family: var(--mono-font);
 }
 body[data-theme='ultra'] .result-history span.loss {
@@ -1401,9 +1405,9 @@ body[data-theme='ultra'] .plans-cycle-btn.is-active {
   color: #ffffff !important;
 }
 body[data-theme='ultra'] .plans-save-pill {
-  background: rgba(34, 197, 94, 0.12) !important;
-  border: 1px solid rgba(34, 197, 94, 0.4) !important;
-  color: #4ade80 !important;
+  background: rgba(168, 85, 247, 0.12) !important;
+  border: 1px solid rgba(168, 85, 247, 0.4) !important;
+  color: #c084fc !important;
   font-family: var(--mono-font);
 }
 body[data-theme='ultra'] .plan-trial-btn {
@@ -1575,7 +1579,7 @@ body[data-theme='ultra'] .tr-apm-directive.is-counter-threat .tr-apm-dir-ico {
   border-color: rgba(248, 113, 113, 0.62) !important;
 }
 body[data-theme='ultra'] .tr-apm-pip.is-filled {
-  background: #4ade80 !important;
+  background: #c084fc !important;
 }
 body[data-theme='ultra'] .tr-apm-arena-wrap {
   background: #040406 !important;
@@ -1624,15 +1628,15 @@ body[data-theme='ultra'] .tr-apm-hist-grade.is-gold {
 body[data-theme='ultra'] .tr-apm-grade-badge.is-em,
 body[data-theme='ultra'] .tr-apm-hist-grade.is-em,
 body[data-theme='ultra'] .tr-apm-record-tag {
-  border-color: rgba(34, 197, 94, 0.42) !important;
-  color: #4ade80 !important;
+  border-color: rgba(168, 85, 247, 0.42) !important;
+  color: #c084fc !important;
 }
 body[data-theme='ultra'] .tr-apm-record-tag {
-  background: rgba(34, 197, 94, 0.11) !important;
+  background: rgba(168, 85, 247, 0.11) !important;
 }
 body[data-theme='ultra'] .tr-apm-plan-strip.is-active-goal {
-  border-left: 3px solid #22c55e !important;
-  border-color: rgba(34, 197, 94, 0.35) !important;
+  border-left: 3px solid #a855f7 !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
 }
 body[data-theme='ultra'] .tr-apm-plan-kicker,
 body[data-theme='ultra'] .tr-apm-lb-kicker,
@@ -1645,7 +1649,7 @@ body[data-theme='ultra'] .tr-apm-plan-status,
 body[data-theme='ultra'] .tr-apm-plan-fb,
 body[data-theme='ultra'] .tr-apm-lb-me-gap,
 body[data-theme='ultra'] .tr-apm-lb-you {
-  color: #4ade80 !important;
+  color: #c084fc !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-card {
   background: #060608 !important;
@@ -1691,8 +1695,8 @@ body[data-theme='ultra'] .tr-apm-lb-row.is-r3 {
   box-shadow: inset 2px 0 0 #b88454 !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-row.is-me {
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.075) 0%, rgba(34, 197, 94, 0.015) 44%, transparent 78%) !important;
-  box-shadow: inset 3px 0 0 #22c55e !important;
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.075) 0%, rgba(168, 85, 247, 0.015) 44%, transparent 78%) !important;
+  box-shadow: inset 3px 0 0 #a855f7 !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-row.is-r1.is-me {
   box-shadow: inset 3px 0 0 #e8c068 !important;
@@ -1709,10 +1713,10 @@ body[data-theme='ultra'] .tr-apm-rank-note {
   color: #e8c068 !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-grade-txt.is-em {
-  color: #4ade80 !important;
+  color: #c084fc !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-you {
-  border-color: rgba(34, 197, 94, 0.44) !important;
+  border-color: rgba(168, 85, 247, 0.44) !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-me {
   background: #040406 !important;
@@ -1735,7 +1739,7 @@ body[data-theme='ultra'] .tr-apm-lb-pace.is-r3::-webkit-progress-value {
   background: #b88454 !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-pace.is-me::-webkit-progress-value {
-  background: #22c55e !important;
+  background: #a855f7 !important;
 }
 body[data-theme='ultra'] .tr-apm-lb-privacy {
   color: #63636e !important;
@@ -1821,8 +1825,8 @@ body[data-theme='ultra'] .tr-q-item.is-verified,
 body[data-theme='ultra'] .tr-ans-card.is-correct,
 body[data-theme='ultra'] .tr-flow-pill.is-em,
 body[data-theme='ultra'] .tr-leg-chip.is-em {
-  border-color: rgba(34, 197, 94, 0.42) !important;
-  color: #4ade80 !important;
+  border-color: rgba(168, 85, 247, 0.42) !important;
+  color: #c084fc !important;
 }
 body[data-theme='ultra'] .tr-ans-card.is-wrong,
 body[data-theme='ultra'] .tr-perf-directive.is-crimson,
@@ -1832,7 +1836,7 @@ body[data-theme='ultra'] .tr-leg-chip.is-warn {
   color: #f87171 !important;
 }
 body[data-theme='ultra'] .tr-age-plan-card.is-em {
-  border-top: 2px solid #22c55e !important;
+  border-top: 2px solid #a855f7 !important;
 }
 body[data-theme='ultra'] .tr-age-plan-card.is-warn {
   border-top: 2px solid #ef4444 !important;
@@ -1921,7 +1925,7 @@ body[data-theme='ultra'] .ref-seg {
   background: #141418 !important;
 }
 body[data-theme='ultra'] .ref-seg.is-filled {
-  background: #22c55e !important;
+  background: #a855f7 !important;
 }
 body[data-theme='ultra'] .ref-seg.is-pending {
   background: #e8c068 !important;
@@ -2059,11 +2063,84 @@ body[data-theme='ultra'] .rx-help-sec p {
 }
 body[data-theme='ultra'] .rx-help-sec.is-impact {
   background: #040406 !important;
-  border-left: 2.5px solid #4ade80 !important;
+  border-left: 2.5px solid #c084fc !important;
 }
 body[data-theme='ultra'] .rx-help-sec.is-impact .rx-help-k {
-  color: #4ade80;
+  color: #c084fc;
 }
 body[data-theme='ultra'] .rx-help-sec.is-impact p {
   color: #f4f4f5;
+}
+
+/* ==================== ULTRA ELECTRIC VIOLET ACCENT UNIFICATION ==================== */
+body[data-theme='ultra'] .cx-ring-val.is-win {
+  stroke: #c084fc !important;
+}
+body[data-theme='ultra'] .cx-circ-fill.is-win,
+body[data-theme='ultra'] .wh-runner-track > i.is-emerald,
+body[data-theme='ultra'] .tr-live-dot {
+  background: #a855f7 !important;
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.55);
+}
+body[data-theme='ultra'] .wh-counter-wr.is-emerald,
+body[data-theme='ultra'] .tr-perf-num.is-good,
+body[data-theme='ultra'] .tr-perf-delta.is-good,
+body[data-theme='ultra'] .tr-perf-legend .is-best,
+body[data-theme='ultra'] .tr-apm-hist-grade.is-em,
+body[data-theme='ultra'] .tr-wk-arrow,
+body[data-theme='ultra'] .cx-acad-habit-row.is-win .cx-acad-h-val,
+body[data-theme='ultra'] .cx-elo-impact.is-win,
+body[data-theme='ultra'] .cx-eyebrow.is-win,
+body[data-theme='ultra'] .cx-spot-num.is-win,
+body[data-theme='ultra'] .cx-spot-pill.is-win,
+body[data-theme='ultra'] .pm-st-delta.win {
+  color: #c084fc !important;
+}
+body[data-theme='ultra'] .cx-elo-spot.is-win {
+  border-top-color: rgba(168, 85, 247, 0.65) !important;
+}
+body[data-theme='ultra'] .cx-matchup-pill.is-win,
+body[data-theme='ultra'] .tr-ans-card.is-correct {
+  border-color: rgba(168, 85, 247, 0.55) !important;
+  background: rgba(168, 85, 247, 0.11) !important;
+}
+body[data-theme='ultra'] .pm-icon-tile.is-emerald {
+  background: rgba(168, 85, 247, 0.14) !important;
+  border-color: rgba(192, 132, 252, 0.36) !important;
+  color: #c084fc !important;
+}
+body[data-theme='ultra'] .tr-age-stage.is-good,
+body[data-theme='ultra'] .tr-perf-directive.is-emerald {
+  border-color: rgba(168, 85, 247, 0.42) !important;
+}
+body[data-theme='ultra'] .tr-wk-bar-fill,
+body[data-theme='ultra'] .tr-studio-bm strong.is-good {
+  color: #c084fc !important;
+}
+body[data-theme='ultra'] .tr-perf-outcome.is-win {
+  color: #c084fc !important;
+}
+body[data-theme='ultra'] .tr-leg-chip.is-em {
+  background: rgba(168, 85, 247, 0.14) !important;
+  border-color: rgba(192, 132, 252, 0.38) !important;
+  color: #d8b4fe !important;
+}
+body[data-theme='ultra'] .referral-banner.is-success,
+body[data-theme='ultra'] .ref-seg.is-filled {
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  background: rgba(168, 85, 247, 0.18) !important;
+}
+body[data-theme='ultra'] .ref-seg.is-filled {
+  background: linear-gradient(90deg, #9333ea, #c084fc) !important;
+  box-shadow: 0 0 10px rgba(192, 132, 252, 0.45) !important;
+}
+body[data-theme='ultra'] .btn.ultra-welcome-cta {
+  background: linear-gradient(180deg, #a855f7 0%, #7e22ce 100%) !important;
+  border: 1px solid rgba(216, 180, 254, 0.65) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.38) !important;
+}
+body[data-theme='ultra'] .btn.ultra-welcome-cta:hover:not(:disabled) {
+  background: linear-gradient(180deg, #b975fa 0%, #9333ea 100%) !important;
+  border-color: rgba(233, 213, 255, 0.88) !important;
 }

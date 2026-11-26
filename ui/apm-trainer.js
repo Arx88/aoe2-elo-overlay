@@ -256,7 +256,7 @@
         ringTrack: 'rgba(255, 255, 255, 0.09)',
         ringActive: '#e4e4e7',
         ringUrgent: '#f87171',
-        hitGood: '#4ade80',
+        hitGood: '#c084fc',
         hitFast: '#e8c068',
         miss: '#f87171',
         timerTrack: 'rgba(255, 255, 255, 0.08)',

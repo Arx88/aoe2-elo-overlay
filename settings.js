@@ -286,9 +286,76 @@ function formatTrialDuration(hours = currentTrialHours, { short = false } = {}) 
   return short ? `${h} h` : (h === 1 ? '1 hora' : `${h} horas`);
 }
 
+const ULTRA_WELCOME_SEEN_KEY = 'relic_ultra_welcome_seen_v1';
+let lastRenderedPlan = null;
+
+function ultraSubscriptionSig(product) {
+  if (!product || product.plan !== 'promax') return '';
+  const acct = product.accountId || product.entitlement?.accountId || 'local';
+  const exp = product.entitlement?.expiresAt || product.expiresAt || 'active';
+  return `${acct}:${exp}`;
+}
+
+function closeUltraWelcomePopup() {
+  const bd = el('ultraWelcomeBackdrop');
+  if (bd) bd.hidden = true;
+}
+
+function openUltraWelcomePopup(product = currentProduct, { force = false } = {}) {
+  const bd = el('ultraWelcomeBackdrop');
+  if (!bd) return false;
+  const sig = ultraSubscriptionSig(product || currentProduct);
+  if (!force && sig) {
+    try {
+      if (localStorage.getItem(ULTRA_WELCOME_SEEN_KEY) === sig) return false;
+    } catch (_) {}
+  }
+  const primaryBtn = el('ultraWelcomePrimaryBtn');
+  const dismissBtn = el('ultraWelcomeDismissBtn');
+  const alreadyUltraSkin = currentTheme === 'ultra';
+  if (primaryBtn) {
+    primaryBtn.textContent = alreadyUltraSkin
+      ? t('ultraWelcome.ctaStart', 'Empezar ahora')
+      : t('ultraWelcome.ctaApplySkin', 'Activar skin Ultra y empezar');
+  }
+  if (dismissBtn) dismissBtn.hidden = alreadyUltraSkin;
+  bd.hidden = false;
+  if (sig) {
+    try { localStorage.setItem(ULTRA_WELCOME_SEEN_KEY, sig); } catch (_) {}
+  }
+  try { window.UiSfx?.play?.('chime'); } catch (_) {}
+  return true;
+}
+
+window.openUltraWelcomePopup = (opts) => openUltraWelcomePopup(currentProduct, { force: true, ...(opts || {}) });
+
+el('ultraWelcomeCloseBtn')?.addEventListener('click', closeUltraWelcomePopup);
+el('ultraWelcomeDismissBtn')?.addEventListener('click', closeUltraWelcomePopup);
+el('ultraWelcomeBackdrop')?.addEventListener('click', (ev) => {
+  if (ev.target === el('ultraWelcomeBackdrop')) closeUltraWelcomePopup();
+});
+el('ultraWelcomePrimaryBtn')?.addEventListener('click', async () => {
+  if (currentTheme !== 'ultra' && currentProduct?.featureAccess?.ultraSkin) {
+    const previousTheme = currentTheme;
+    applyTheme('ultra');
+    try {
+      const response = await window.settings.theme('ultra');
+      if (!response?.ok) applyTheme(previousTheme);
+    } catch (_) {
+      applyTheme(previousTheme);
+    }
+  }
+  closeUltraWelcomePopup();
+});
+
 function renderProduct(product) {
   if (!product) return;
+  const prevPlan = lastRenderedPlan;
+  lastRenderedPlan = product.plan || null;
   currentProduct = product;
+  if (prevPlan && prevPlan !== 'promax' && product.plan === 'promax') {
+    openUltraWelcomePopup(product);
+  }
   syncTrialHoursFrom(product);
   const features = Array.isArray(product.features) ? product.features : [];
   const proAccess = Boolean(product.featureAccess && product.featureAccess.postMatchComparison);
@@ -3453,6 +3520,9 @@ loadCurrent();
         setAllAuthStatus('');
         if (res.auth) paintAuth(res.auth);
         if (res.product) renderProduct(res.product);
+        if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
+          openUltraWelcomePopup(res.product || currentProduct, { force: true });
+        }
         setStatus(t('ui.googleSignedIn', 'Sesión de Google iniciada.'));
       } else {
         setAllAuthStatus(res?.error || t('ui.authSignInErr', 'No se pudo iniciar sesión.'));
@@ -3501,6 +3571,9 @@ loadCurrent();
         if (redeemStatusEl) redeemStatusEl.textContent = t('ui.planRedeemed', '¡Plan {plan} activado (+{days} días)!', { plan: String(res.plan || '').toUpperCase(), days: res.durationDays });
         if (res.auth) paintAuth(res.auth);
         if (res.product) renderProduct(res.product);
+        if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
+          openUltraWelcomePopup(res.product || currentProduct, { force: true });
+        }
       } else if (redeemStatusEl) {
         redeemStatusEl.textContent = res?.error || t('ui.invalidKey', 'Clave inválida.');
       }
@@ -3936,6 +4009,7 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
       return;
     }
     if (res.product) renderProduct(res.product);
+    if (res.product?.plan === 'promax') openUltraWelcomePopup(res.product, { force: true });
     if (btn) btn.hidden = true;
     setStatus(t('ui.trialActOk', '¡Prueba Ultra de {dur} activada! Disfrutá la experiencia completa.', { dur: formatTrialDuration(res.trialHours || currentTrialHours, { short: true }) }), 'is-ok');
   } catch (_) {
@@ -3946,6 +4020,7 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && checkoutBackdropEl && !checkoutBackdropEl.hidden) closeCheckoutModal();
+  if (e.key === 'Escape' && el('ultraWelcomeBackdrop') && !el('ultraWelcomeBackdrop').hidden) closeUltraWelcomePopup();
 });
 
 let latestTrainingQueue = [];

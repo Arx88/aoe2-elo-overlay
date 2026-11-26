@@ -334,6 +334,12 @@ async function run() {
   assert.match(skinsSec, /id="hideWhenMinimized"/, 'hideWhenMinimized debe estar en Apariencia');
   assert.match(settingsHtml, /id="prefsFeedbackBtn"/, 'Feedback debe estar en el popover de tuerca');
   assert.match(settingsHtml, /id="feedbackModal"/, 'Modal de feedback debe existir');
+  assert.match(settingsHtml, /id="ultraWelcomeBackdrop"/, 'Popup de bienvenida Ultra debe existir');
+  assert.match(settingsHtml, /assets\/art\/ultra-welcome-hero\.jpg/, 'Arte oficial del popup Ultra debe estar enlazado');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'art', 'ultra-welcome-hero.jpg')), 'Debe existir assets/art/ultra-welcome-hero.jpg');
+  const ultraCss = fs.readFileSync(path.join(__dirname, '..', 'ultra-skin.css'), 'utf8');
+  assert.doesNotMatch(ultraCss, /#22c55e|#4ade80|rgba\(\s*34\s*,\s*197\s*,\s*94/i, 'ultra-skin.css debe usar violeta eléctrico en vez de verde');
+  assert.match(ultraCss, /#a855f7/i, 'ultra-skin.css debe incluir acento violeta #a855f7');
   assert.match(settingsHtml, /src="ui\/help-explainer\.js"/, 'help-explainer.js debe estar cargado en settings.html');
 
   // Explicador contextual por clic derecho: 0 inline style=, 0 footer redundante, guías completas en ES/EN/ZH y resolución granular sin duplicados

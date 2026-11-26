@@ -12400,3 +12400,172 @@ body[data-page="welcome"] .pages {
 .rx-help-sec.is-impact p {
   color: #f0ebe0;
 }
+
+/* ── Relic Ultra Subscription Activation Welcome Popup ── */
+.ultra-welcome-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 3, 7, 0.82);
+  backdrop-filter: blur(10px);
+}
+.ultra-welcome-backdrop[hidden] {
+  display: none !important;
+}
+.ultra-welcome-modal {
+  position: relative;
+  width: 580px;
+  max-width: calc(100vw - 36px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #08080d;
+  font-family: var(--interface-font, 'Segoe UI', system-ui, -apple-system, sans-serif);
+  border: 1px solid rgba(192, 132, 252, 0.44);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.88),
+    0 0 46px rgba(168, 85, 247, 0.24),
+    inset 0 1px 0 rgba(216, 180, 254, 0.22);
+  animation: reveal 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ultra-welcome-hero {
+  position: relative;
+  width: 100%;
+  height: 290px;
+  overflow: hidden;
+  background: #05040a;
+}
+.ultra-welcome-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  display: block;
+}
+.ultra-welcome-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 8, 13, 0.08) 0%,
+    rgba(8, 8, 13, 0.18) 52%,
+    rgba(8, 8, 13, 0.88) 88%,
+    #08080d 100%
+  );
+  pointer-events: none;
+}
+.ultra-welcome-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 8, 13, 0.68);
+  color: #e4e4e7;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.ultra-welcome-close:hover {
+  background: rgba(168, 85, 247, 0.28);
+  border-color: rgba(216, 180, 254, 0.6);
+  color: #ffffff;
+}
+.ultra-welcome-body {
+  padding: 6px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+.ultra-welcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 760;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #e9d5ff;
+  background: rgba(168, 85, 247, 0.16);
+  border: 1px solid rgba(192, 132, 252, 0.45);
+}
+.ultra-welcome-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+  color: #ffffff;
+}
+.ultra-welcome-lead {
+  margin: 0;
+  max-width: 48ch;
+  font-size: 13.5px;
+  line-height: 1.52;
+  color: #c4c4cf;
+}
+.ultra-welcome-perks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.ultra-welcome-perk {
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #e9d5ff;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(192, 132, 252, 0.26);
+}
+.ultra-welcome-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+  width: 100%;
+}
+.btn.ultra-welcome-cta {
+  min-height: 40px;
+  padding: 9px 22px;
+  border-radius: 9px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(180deg, #a855f7 0%, #7e22ce 100%);
+  border: 1px solid rgba(216, 180, 254, 0.62);
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.36);
+}
+.btn.ultra-welcome-cta:hover:not(:disabled) {
+  background: linear-gradient(180deg, #b975fa 0%, #9333ea 100%);
+  border-color: rgba(233, 213, 255, 0.85);
+}
+.btn.ultra-welcome-ghost {
+  min-height: 40px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #d4d4d8;
+}
+.btn.ultra-welcome-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}

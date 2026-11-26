@@ -2453,11 +2453,21 @@
     "whatLabel": "QUÉ MIDE",
     "howLabel": "CÓMO SE CALCULA",
     "whyLabel": "EN QUÉ INFLUYE",
-    "footerHint": "Clic derecho en cualquier cuadro o dato para ver cómo funciona",
     "closeAria": "Cerrar explicación",
     "badgeCentral": "CENTRAL",
     "badgePostmatch": "POSTMATCH",
     "badgeTraining": "ENTRENAMIENTO",
     "badgeHome": "INICIO"
+  },
+  "ultraWelcome": {
+    "badge": "✦ RELIC ULTRA ACTIVADO",
+    "title": "Bienvenido al nivel Ultra",
+    "lead": "Tu suscripción Ultra ya está activa. Tenés desbloqueado el skin OLED Violeta, el laboratorio completo de entrenamiento y el motor de telemetría profunda.",
+    "perkSkin": "Skin Ultra OLED Violeta",
+    "perkLab": "Entrenamiento, Matchups y APM",
+    "perkTelemetry": "Replays, Hoja de Ruta y Central completo",
+    "ctaApplySkin": "Activar skin Ultra y empezar",
+    "ctaStart": "Empezar ahora",
+    "ctaKeepTheme": "Mantener tema actual"
   }
 }
