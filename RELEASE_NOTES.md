@@ -1,3 +1,9 @@
+## v3.3.22 · Arte minimalista en obsidiana mate y contorno violeta para el popup Relic Ultra
+
+- **Nuevo arte minimalista para el popup de bienvenida Ultra (`assets/art/ultra-welcome-hero.jpg`, `settings.css`):** reemplazado el arte recargado por un busto clásico minimalista en obsidiana mate sobre negro puro OLED (`#050508`) con luz de contorno violeta eléctrico sutil, integrado sin costuras al diseño sobrio del skin Ultra.
+
+---
+
 ## v3.3.21 · Hotfix crítico al activar o canjear Relic Ultra + punto violeta en vista previa Ultra
 
 - **Corrección de recursión en `openUltraWelcomePopup` (`settings.js`):** corregido un error de colisión de nombre global (`Maximum call stack size exceeded`) que impedía actualizar la interfaz al pasar a **Relic Ultra** tras canjear una clave, iniciar sesión o verificar licencia. Ahora la activación de Ultra actualiza el plan al instante y despliega el popup de bienvenida sin errores.
