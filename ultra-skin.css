@@ -1557,6 +1557,34 @@ body[data-theme='ultra'] .tr-apm-hud {
   background: #060608 !important;
   border-bottom-color: rgba(255, 255, 255, 0.095) !important;
 }
+body[data-theme='ultra'] .tr-apm-hud-top {
+  background: #030305 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.07) !important;
+}
+body[data-theme='ultra'] .tr-apm-directive-bar {
+  background: #060608 !important;
+}
+body[data-theme='ultra'] .tr-apm-directive {
+  background: #0c0c10 !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.06) !important;
+}
+body[data-theme='ultra'] .tr-apm-directive.is-counter-threat {
+  background: #14080a !important;
+  border-color: rgba(248, 113, 113, 0.55) !important;
+}
+body[data-theme='ultra'] .tr-apm-dir-ico {
+  background: #030305 !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.10) !important;
+}
+body[data-theme='ultra'] .tr-apm-directive.is-counter-threat .tr-apm-dir-ico {
+  border-color: rgba(248, 113, 113, 0.72) !important;
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.20) !important;
+}
+body[data-theme='ultra'] .tr-apm-pip.is-filled {
+  background: #4ade80 !important;
+}
 body[data-theme='ultra'] .tr-apm-arena-wrap {
   background: #040406 !important;
 }
@@ -1566,7 +1594,6 @@ body[data-theme='ultra'] .tr-apm-overlay {
 body[data-theme='ultra'] .tr-apm-overlay.is-summary {
   background: rgba(4, 4, 6, 0.94) !important;
 }
-body[data-theme='ultra'] .tr-apm-dir-ico,
 body[data-theme='ultra'] .tr-apm-idle-ring,
 body[data-theme='ultra'] .tr-apm-grade-col,
 body[data-theme='ultra'] .tr-apm-grade-badge,

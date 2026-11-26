@@ -245,6 +245,17 @@
       } else if (kind === 'quizMiss') {
         feltTap(210, 128, 0.048, 0.026, 0, 440);
         warmBell(246.94, 185.0, 0.17, 0.028, 0.004, 580, 'triangle');
+      } else if (kind === 'tap') {
+        // Impacto corto y limpio para rondas de APM (sin estridencia)
+        feltTap(330, 195, 0.022, 0.016, 0, 620);
+      } else if (kind === 'error') {
+        // Error o señuelo en APM: madera grave amortiguada
+        feltTap(185, 112, 0.040, 0.022, 0, 380);
+      } else if (kind === 'apmSwitch') {
+        // Cambio de unidad objetivo en APM: doble nota cálida ascendente (E4 -> B4) para dirigir la vista al centro
+        softBrush(620, 1.4, 0.018, 0.010, 0);
+        warmBell(329.63, 329.63, 0.095, 0.022, 0, 860);
+        warmBell(493.88, 493.88, 0.155, 0.024, 0.048, 980);
       }
     } catch (_) { /* audio opcional */ }
   }

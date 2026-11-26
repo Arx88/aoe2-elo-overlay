@@ -551,6 +551,7 @@
       if (mode === 'snipe') {
         const elapsed = Math.max(0, (nowMs - roundStartMs) / 1000);
         const drift = elapsed >= 8;
+        let switched = false;
         if (snipeHitsOnCurrent >= 5 || nowMs >= snipeSwitchAtMs) {
           snipeUnitId = pickRandom(SNIPE_TARGETS, snipeUnitId);
           snipeHitsOnCurrent = 0;
@@ -560,6 +561,8 @@
             if (tk.isTarget) tk.bornMs = nowMs;
           }
           syncDirectiveDom(true);
+          playSfx('apmSwitch');
+          switched = true;
         }
         let targetCount = tokens.filter((tk) => tk.isTarget).length;
         while (targetCount < 2) {
@@ -572,7 +575,7 @@
           usedDecoys.add(d);
           spawnToken(d, false, nowMs, { drift, lifeMs: 5200 });
         }
-        return;
+        return switched;
       }
       if (mode === 'counter') {
         const drill = COUNTER_DRILLS[counterDrillIdx % COUNTER_DRILLS.length];
@@ -585,7 +588,8 @@
             counterHitsOnCurrent = 0;
             seedBoardForMode(nowMs);
             syncDirectiveDom(true);
-            return;
+            playSfx('apmSwitch');
+            return true;
           }
           spawnToken(pickRandom(drill.counters), true, nowMs, { drift: false, lifeMs: 5800 });
         }
@@ -596,7 +600,9 @@
           used.add(dec);
           spawnToken(dec, false, nowMs, { drift: false, lifeMs: 6200 });
         }
+        return false;
       }
+      return false;
     }
 
     function syncDirectiveDom(pulse = false) {
@@ -606,13 +612,26 @@
       const imgEl = mountRoot.querySelector('#trApmDirIcon');
       const hintEl = mountRoot.querySelector('#trApmDirSub');
       const boxEl = mountRoot.querySelector('#trApmDirBox');
+      const pipsEl = mountRoot.querySelector('#trApmDirPips');
+
+      if (boxEl) {
+        boxEl.classList.toggle('is-counter-threat', mode === 'counter');
+        boxEl.classList.toggle('is-reflex-mode', mode === 'reflex');
+      }
 
       if (mode === 'snipe') {
         const u = UNITS[snipeUnitId] || UNITS.monk;
         if (kickerEl) kickerEl.textContent = t('apm.dirSnipeKicker', 'OBJETIVO A ELIMINAR');
         if (nameEl) nameEl.textContent = locUnit(u.es, u.en);
         if (imgEl) { imgEl.src = u.icon; imgEl.hidden = false; }
-        if (hintEl) hintEl.textContent = t('apm.dirSnipeHint', 'Cliqueá solo esta unidad · cambia cada 5 aciertos');
+        if (hintEl) {
+          hintEl.textContent = t('apm.dirSnipeHint', 'Cliqueá solo esta unidad · cambia cada 5 aciertos');
+          hintEl.classList.remove('is-warn');
+        }
+        if (pipsEl) {
+          pipsEl.hidden = false;
+          pipsEl.innerHTML = Array.from({ length: 5 }, (_, idx) => `<i class="tr-apm-pip${idx < snipeHitsOnCurrent ? ' is-filled' : ''}"></i>`).join('');
+        }
       } else if (mode === 'counter') {
         const drill = COUNTER_DRILLS[counterDrillIdx % COUNTER_DRILLS.length];
         const threat = UNITS[drill.threat] || UNITS.knight;
@@ -629,11 +648,22 @@
             hintEl.classList.remove('is-warn');
           }
         }
+        if (pipsEl) {
+          pipsEl.hidden = false;
+          pipsEl.innerHTML = Array.from({ length: 3 }, (_, idx) => `<i class="tr-apm-pip${idx < counterHitsOnCurrent ? ' is-filled' : ''}"></i>`).join('');
+        }
       } else {
         if (kickerEl) kickerEl.textContent = t('apm.dirReflexKicker', 'CALENTAMIENTO PURO');
         if (nameEl) nameEl.textContent = t('apm.dirReflexTitle', '3 objetivos activos');
         if (imgEl) { imgEl.src = UNITS.knight.icon; imgEl.hidden = false; }
-        if (hintEl) hintEl.textContent = t('apm.dirReflexHint', 'Sin señuelos · máxima velocidad y precisión');
+        if (hintEl) {
+          hintEl.textContent = t('apm.dirReflexHint', 'Sin señuelos · máxima velocidad y precisión');
+          hintEl.classList.remove('is-warn');
+        }
+        if (pipsEl) {
+          pipsEl.hidden = true;
+          pipsEl.innerHTML = '';
+        }
       }
 
       if (pulse && boxEl) {
@@ -814,13 +844,14 @@
             label: `${reactMs} ms`,
             isCross: false,
           });
-          playSfx('tap');
           if (mode === 'snipe') snipeHitsOnCurrent += 1;
           if (mode === 'counter') {
             counterHitsOnCurrent += 1;
             counterHintText = '';
           }
-          maintainBoard(nowMs);
+          const didSwitch = maintainBoard(nowMs);
+          if (!didSwitch) playSfx('tap');
+          if (!didSwitch && (mode === 'snipe' || mode === 'counter')) syncDirectiveDom(false);
         } else {
           misses += 1;
           decoyHits += 1;
@@ -1347,34 +1378,41 @@
 
         <section class="tr-apm-stage">
           <header class="tr-apm-hud">
-            <div class="tr-apm-directive" id="trApmDirBox">
-              <span class="tr-apm-dir-ico">
-                <img id="trApmDirIcon" src="${UNITS[snipeUnitId]?.icon || UNITS.monk.icon}" alt="" draggable="false" />
-              </span>
-              <div class="tr-apm-dir-copy">
-                <span class="tr-apm-dir-kicker" id="trApmDirKicker">${esc(t('apm.dirSnipeKicker', 'OBJETIVO A ELIMINAR'))}</span>
-                <strong id="trApmDirName">—</strong>
-                <small id="trApmDirSub">—</small>
-              </div>
-            </div>
-            <div class="tr-apm-hud-kpis">
-              <div class="tr-apm-kpi">
-                <span>${esc(t('apm.hudTime', 'TIEMPO'))}</span>
-                <b class="mono" id="trApmHudTime">${durationSec.toFixed(1)}s</b>
-              </div>
-              <div class="tr-apm-kpi">
-                <span>eAPM</span>
-                <b class="mono" id="trApmHudApm">0</b>
-              </div>
-              <div class="tr-apm-kpi">
-                <span>${esc(t('apm.hudAcc', 'PRECISIÓN'))}</span>
-                <b class="mono" id="trApmHudAcc">100%</b>
-              </div>
-              <div class="tr-apm-kpi">
-                <span>${esc(t('apm.hudMs', 'REACCIÓN'))}</span>
-                <b class="mono" id="trApmHudMs">—</b>
+            <div class="tr-apm-hud-top">
+              <div class="tr-apm-hud-kpis">
+                <div class="tr-apm-kpi">
+                  <span>${esc(t('apm.hudTime', 'TIEMPO'))}</span>
+                  <b class="mono" id="trApmHudTime">${durationSec.toFixed(1)}s</b>
+                </div>
+                <div class="tr-apm-kpi">
+                  <span>eAPM</span>
+                  <b class="mono" id="trApmHudApm">0</b>
+                </div>
+                <div class="tr-apm-kpi">
+                  <span>${esc(t('apm.hudAcc', 'PRECISIÓN'))}</span>
+                  <b class="mono" id="trApmHudAcc">100%</b>
+                </div>
+                <div class="tr-apm-kpi">
+                  <span>${esc(t('apm.hudMs', 'REACCIÓN'))}</span>
+                  <b class="mono" id="trApmHudMs">—</b>
+                </div>
               </div>
               ${phase === 'running' ? `<button type="button" class="btn tr-apm-abort-btn" id="trApmAbortBtn">${esc(t('apm.restartBtn', 'Reiniciar'))}</button>` : ''}
+            </div>
+            <div class="tr-apm-directive-bar">
+              <div class="tr-apm-directive${mode === 'counter' ? ' is-counter-threat' : (mode === 'reflex' ? ' is-reflex-mode' : '')}" id="trApmDirBox">
+                <span class="tr-apm-dir-ico">
+                  <img id="trApmDirIcon" src="${UNITS[snipeUnitId]?.icon || UNITS.monk.icon}" alt="" draggable="false" />
+                </span>
+                <div class="tr-apm-dir-copy">
+                  <div class="tr-apm-dir-head">
+                    <span class="tr-apm-dir-kicker" id="trApmDirKicker">${esc(t('apm.dirSnipeKicker', 'OBJETIVO A ELIMINAR'))}</span>
+                    <span class="tr-apm-dir-pips" id="trApmDirPips" aria-hidden="true"></span>
+                  </div>
+                  <strong id="trApmDirName">—</strong>
+                  <small id="trApmDirSub">—</small>
+                </div>
+              </div>
             </div>
           </header>
 

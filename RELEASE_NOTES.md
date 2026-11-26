@@ -1,3 +1,10 @@
+## v3.3.15 · Objetivo centrado, más grande y con señal sonora sutil en Entrenamiento de APM
+
+- **Tarjeta de objetivo centrada y de gran visibilidad en APM (`ui/apm-trainer.js`, `training.css`, `ultra-skin.css`):** la unidad objetivo (*Caza de Unidad*) y la amenaza rival (*Counter Relámpago*) ahora aparecen centradas justo sobre el centro de la arena con retrato ampliado (`68×68`), tipografía de `24 px`, puntos de progreso hasta el próximo cambio (`● ● ● ○ ○`) y pulso luminoso al rotar de unidad.
+- **Señal sonora cálida al cambiar de unidad (`ui/sfx.js`):** nuevo aviso sutil de doble nota ascendente (`apmSwitch`) cuando rota el objetivo para dirigir la vista al instante, junto con toques táctiles limpios al acertar o fallar (respetando el interruptor global de sonidos).
+
+---
+
 ## v3.3.14 · Botón «Limpiar completadas» en Entrenamiento → Mi Plan
 
 - **Limpieza en 1 clic de objetivos cumplidos en Mi Plan (`src/training/training-store.js`, `ui/training-ui.js`):** nuevo botón **«Limpiar completadas»** en **Entrenamiento → Mi Plan** que archiva de una sola vez todas las metas marcadas como `✓ CUMPLIDO` y conserva intactos tus objetivos activos en seguimiento (traducido en `es-MX`, `es-ES`, `en` y `zh-CN`).
