@@ -2460,14 +2460,9 @@
     "badgeHome": "HOME"
   },
   "ultraWelcome": {
-    "badge": "✦ RELIC ULTRA ACTIVATED",
-    "title": "Welcome to Relic Ultra",
-    "lead": "Your Ultra subscription is now live. The OLED Violet skin, full Training Lab, and deep replay telemetry engine are unlocked.",
-    "perkSkin": "Ultra OLED Violet Skin",
-    "perkLab": "Training Lab, Matchups & APM",
-    "perkTelemetry": "Deep Replays, Roadmap & Full Central",
-    "ctaApplySkin": "Enable Ultra skin & start",
-    "ctaStart": "Get started",
-    "ctaKeepTheme": "Keep current theme"
+    "title": "Relic Ultra",
+    "sub": "Subscription active.",
+    "ctaApplySkin": "Enable Ultra skin",
+    "ctaStart": "Continue"
   }
 }

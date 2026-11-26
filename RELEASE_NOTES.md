@@ -1,3 +1,9 @@
+## v3.3.23 · Popup Ultra full-bleed minimalista con tu arte protagonista
+
+- **Rediseño minimalista del popup Relic Ultra (`settings.html`, `settings.css`, `settings.js`, `assets/art/ultra-welcome-hero.jpg`):** restaurada la ilustración oficial Ultra a pantalla completa en formato 16:9, eliminando badges, párrafos largos y chips decorativos para dejar únicamente el título, estado y un solo botón limpio sobre la franja inferior.
+
+---
+
 ## v3.3.22 · Arte minimalista en obsidiana mate y contorno violeta para el popup Relic Ultra
 
 - **Nuevo arte minimalista para el popup de bienvenida Ultra (`assets/art/ultra-welcome-hero.jpg`, `settings.css`):** reemplazado el arte recargado por un busto clásico minimalista en obsidiana mate sobre negro puro OLED (`#050508`) con luz de contorno violeta eléctrico sutil, integrado sin costuras al diseño sobrio del skin Ultra.

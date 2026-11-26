@@ -2460,14 +2460,9 @@
     "badgeHome": "首页"
   },
   "ultraWelcome": {
-    "badge": "✦ RELIC ULTRA 已激活",
-    "title": "欢迎进入 Relic Ultra",
-    "lead": "你的 Ultra 订阅现已生效。OLED 暗紫皮肤、完整训练实验室与深度录像遥测引擎已全部解锁。",
-    "perkSkin": "Ultra OLED 暗紫皮肤",
-    "perkLab": "训练实验室、对位指南与 APM",
-    "perkTelemetry": "深度录像、冲分路线图与完整数据中心",
-    "ctaApplySkin": "启用 Ultra 皮肤并开始",
-    "ctaStart": "立即开始",
-    "ctaKeepTheme": "保持当前主题"
+    "title": "Relic Ultra",
+    "sub": "订阅已激活。",
+    "ctaApplySkin": "启用 Ultra 皮肤",
+    "ctaStart": "继续"
   }
 }

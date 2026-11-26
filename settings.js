@@ -310,14 +310,12 @@ function showUltraWelcomeNow(product, sig) {
   const bd = el('ultraWelcomeBackdrop');
   if (!bd) return false;
   const primaryBtn = el('ultraWelcomePrimaryBtn');
-  const dismissBtn = el('ultraWelcomeDismissBtn');
   const alreadyUltraSkin = currentTheme === 'ultra';
   if (primaryBtn) {
     primaryBtn.textContent = alreadyUltraSkin
-      ? t('ultraWelcome.ctaStart', 'Empezar ahora')
-      : t('ultraWelcome.ctaApplySkin', 'Activar skin Ultra y empezar');
+      ? t('ultraWelcome.ctaStart', 'Continuar')
+      : t('ultraWelcome.ctaApplySkin', 'Activar skin Ultra');
   }
-  if (dismissBtn) dismissBtn.hidden = alreadyUltraSkin;
   bd.hidden = false;
   if (sig) {
     try { localStorage.setItem(ULTRA_WELCOME_SEEN_KEY, sig); } catch (_) {}
