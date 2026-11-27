@@ -2317,7 +2317,9 @@ function renderBuildOrder(payload = buildOrderPayload) {
 }
 
 function applyTheme(theme) {
-  document.body.dataset.theme = theme || 'clasico';
+  const isGamma = theme === 'ultra-gamma';
+  document.body.dataset.theme = isGamma ? 'ultra' : (theme || 'clasico');
+  document.body.toggleAttribute('data-ultra-gamma', isGamma);
 }
 
 /** Modo mover: el panel entero es la manija de arrastre. */

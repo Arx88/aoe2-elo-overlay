@@ -377,8 +377,8 @@
       "dorado": "Gold",
       "carbono": "Carbon",
       "pergamino": "Parchment",
-      "sakura": "Sakura",
-      "ultra": "Ultra"
+      "ultra": "Ultra",
+      "ultraGamma": "Ultra Gamma"
     },
     "posCustom": "Custom position",
     "posCustomInfo": "Pinned at {x}, {y} on screen.",
@@ -396,6 +396,7 @@
     "ultraScopeTag": "Full App + Overlay",
     "ultraLockedTip": "Relic Ultra exclusive. Transforms the entire app and overlay into high-contrast pure black.",
     "ultraUnlockedTip": "Ultra Mode: transforms the entire app and overlay into high-contrast pure black.",
+    "ultraGammaTip": "Black marble and violet light across the app and overlay.",
     "ultraLockedStatus": "The Ultra skin is included with Relic Ultra.",
     "onlyWhenGameTitle": "Show overlay only while AoE2 is open",
     "onlyWhenGameDesc": "Automatically displays the top bar when Age of Empires II: DE launches and hides it when closed.",

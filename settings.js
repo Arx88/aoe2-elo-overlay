@@ -2,7 +2,16 @@
 
 // El diseño llega por query (?theme=) para aplicarlo antes del primer paint.
 const initialTheme = new URLSearchParams(location.search).get('theme') || 'clasico';
-document.body.dataset.theme = initialTheme;
+setVisualTheme(initialTheme);
+
+function isUltraTheme(theme) {
+  return theme === 'ultra' || theme === 'ultra-gamma';
+}
+
+function setVisualTheme(theme) {
+  document.body.dataset.theme = isUltraTheme(theme) ? 'ultra' : theme;
+  document.body.toggleAttribute('data-ultra-gamma', theme === 'ultra-gamma');
+}
 
 const el = (id) => document.getElementById(id);
 function t(key, fallback, vars = null) {
@@ -172,12 +181,14 @@ function escapeHtml(value) {
 function paintThemes() {
   const ultraAllowed = Boolean(currentProduct?.featureAccess?.ultraSkin);
   for (const button of themeButtons) {
-    const isUltraBtn = button.dataset.theme === 'ultra';
+    const isUltraBtn = isUltraTheme(button.dataset.theme);
     button.classList.toggle('active', button.dataset.theme === currentTheme);
     if (isUltraBtn) {
       button.classList.toggle('is-locked', !ultraAllowed);
       button.setAttribute('aria-disabled', String(!ultraAllowed));
-      button.title = ultraAllowed
+      button.title = ultraAllowed && button.dataset.theme === 'ultra-gamma'
+        ? t('skins.ultraGammaTip', 'Mármol negro y luz violeta en la app y el overlay.')
+        : ultraAllowed
         ? t('skins.ultraUnlockedTip', 'Modo Ultra: transforma toda la aplicación y el overlay en negro puro de alto contraste.')
         : t('skins.ultraLockedTip', 'Exclusivo de Relic Ultra. Transforma toda la aplicación y el overlay en negro puro de alto contraste.');
     }
@@ -186,7 +197,7 @@ function paintThemes() {
 
 function applyTheme(theme) {
   currentTheme = theme || 'clasico';
-  document.body.dataset.theme = currentTheme;
+  setVisualTheme(currentTheme);
   paintThemes();
 }
 
@@ -310,7 +321,7 @@ function showUltraWelcomeNow(product, sig) {
   const bd = el('ultraWelcomeBackdrop');
   if (!bd) return false;
   const primaryBtn = el('ultraWelcomePrimaryBtn');
-  const alreadyUltraSkin = currentTheme === 'ultra';
+  const alreadyUltraSkin = isUltraTheme(currentTheme);
   if (primaryBtn) {
     primaryBtn.textContent = alreadyUltraSkin
       ? t('ultraWelcome.ctaStart', 'Continuar')
@@ -355,7 +366,7 @@ el('ultraWelcomeBackdrop')?.addEventListener('click', (ev) => {
   if (ev.target === el('ultraWelcomeBackdrop')) closeUltraWelcomePopup();
 });
 el('ultraWelcomePrimaryBtn')?.addEventListener('click', async () => {
-  if (currentTheme !== 'ultra' && currentProduct?.featureAccess?.ultraSkin) {
+  if (!isUltraTheme(currentTheme) && currentProduct?.featureAccess?.ultraSkin) {
     const previousTheme = currentTheme;
     applyTheme('ultra');
     try {
@@ -547,7 +558,7 @@ function renderProduct(product) {
   const resolvedPlan = product?.plan || 'free';
   if (product?.effectiveTheme) {
     applyTheme(product.effectiveTheme);
-  } else if (!product?.featureAccess?.ultraSkin && currentTheme === 'ultra') {
+  } else if (!product?.featureAccess?.ultraSkin && isUltraTheme(currentTheme)) {
     applyTheme('clasico');
   } else {
     paintThemes();
@@ -1654,7 +1665,7 @@ goToCentralBtn?.addEventListener('click', () => goTo('central'));
 for (const button of themeButtons) {
   button.addEventListener('click', async () => {
     const targetTheme = button.dataset.theme;
-    if (targetTheme === 'ultra' && !currentProduct?.featureAccess?.ultraSkin) {
+    if (isUltraTheme(targetTheme) && !currentProduct?.featureAccess?.ultraSkin) {
       setStatus(t('skins.ultraLockedStatus', 'El skin Ultra está incluido en Relic Ultra.'), true);
       goTo('plans');
       return;

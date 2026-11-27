@@ -1,0 +1,262 @@
+/* Ultra Gamma. Uses the existing Ultra tokens and component styles. */
+body[data-theme="ultra"][data-ultra-gamma] {
+  --imperial-ink: #09080b;
+  --imperial-edge: #b68cef38;
+  --imperial-stone: url("assets/ultra-gamma/marble.webp");
+  --imperial-scene: var(--imperial-stone);
+}
+body[data-ultra-gamma][data-page="central"] { --imperial-scene: url("assets/ultra-gamma/central.webp"); }
+body[data-ultra-gamma][data-page="overlay"] { --imperial-scene: url("assets/ultra-gamma/scouting.webp"); }
+body[data-ultra-gamma][data-page="postmatch"] { --imperial-scene: url("assets/ultra-gamma/chronicle.webp"); }
+
+/* One atmosphere spans the actual title and dissolves into the content below. */
+body[data-theme="ultra"][data-ultra-gamma] main.content {
+  position: relative;
+  isolation: isolate;
+  background: var(--imperial-ink) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] main.content::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: clamp(270px, 42vh, 400px);
+  background:
+    linear-gradient(90deg, #09080b 0%, #09080bf2 19%, #09080ba6 41%, #09080b16 83%),
+    var(--imperial-scene) center 41% / cover no-repeat;
+  mask-image: linear-gradient(#000 0%, #000 40%, #0009 69%, transparent 100%);
+  pointer-events: none;
+}
+body[data-theme="ultra"][data-ultra-gamma] .content-head {
+  min-height: clamp(142px, 18vh, 176px);
+}
+body[data-theme="ultra"][data-ultra-gamma] .content-head .rule {
+  background: linear-gradient(90deg,#d6b9fb61,#ab85d517 71%,transparent) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .content-head :is(#pageTitle,#pageSub) {
+  text-shadow: 0 2px 10px #09070c;
+}
+body[data-theme="ultra"][data-ultra-gamma] .content-head #pageSub { color: #d4cbdc; }
+body[data-theme="ultra"][data-ultra-gamma] .page[data-page="central"] :is(.cx-hero,.cx-chart-card),
+body[data-theme="ultra"][data-ultra-gamma] .page[data-page="overlay"] .ux-panel,
+body[data-theme="ultra"][data-ultra-gamma] .page[data-page="postmatch"] .ux-panel {
+  background-color: #100d16f5 !important;
+  border-color: var(--imperial-edge) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .page[data-page="central"] .cx-hero,
+body[data-theme="ultra"][data-ultra-gamma] .page[data-page="postmatch"] .pm-hero-v6,
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-v6 {
+  background:
+    linear-gradient(100deg,#0f0c15 0%,#0e0b14e8 62%,#171022b5),
+    var(--imperial-stone) right 45% / cover !important;
+  border-color: var(--imperial-edge) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .cx-avatar {
+  background: #1a1125 !important;
+  border-color: #b58ae645 !important;
+}
+
+/* The existing rail art is a material under the navigation, with no image box. */
+body[data-theme="ultra"][data-ultra-gamma] .launcher-rail-art {
+  display: block !important;
+  height: min(65%, 540px);
+  opacity: .65 !important;
+  background:
+    linear-gradient(180deg,#040405 0%,#04040578 31%,transparent 53%,#04040500 72%,#040405 100%),
+    url("assets/ultra-gamma/rail.webp") center 56% / cover no-repeat !important;
+  mask-image: linear-gradient(180deg,transparent 25%,#000 61% 74%,transparent);
+}
+body[data-theme="ultra"][data-ultra-gamma] :is(.rail-glide-indicator,.rail-nav .nav-item.active) {
+  border-color: #b386ed51 !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .rail-glide-indicator {
+  background: linear-gradient(90deg,#2f1d42,#17121e 81%) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .rail-glide-indicator::before {
+  background: #d3acff !important;
+  box-shadow: 0 0 7px #b885ef8a !important;
+}
+
+/* A new raster family is applied to matching existing icons, including rendered reports. */
+body[data-theme="ultra"][data-ultra-gamma] img:is([src$="/trend.png"],[src$="/activity.webp"]) { content: url("assets/ultra-gamma/trend.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img[src$="/eye.png"] { content: url("assets/ultra-gamma/eye.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img:is([src$="/combat.png"],[src$="/combat.webp"],[src$="/sword.png"]) { content: url("assets/ultra-gamma/combat.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img[src$="/history.png"] { content: url("assets/ultra-gamma/history.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img[src$="/target.png"] { content: url("assets/ultra-gamma/target.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img[src$="/palette.png"] { content: url("assets/ultra-gamma/palette.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img[src$="/crown.png"] { content: url("assets/ultra-gamma/crown.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img[src$="/update.png"] { content: url("assets/ultra-gamma/update.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] img:is([src$="/medal.png"],[src$="/record.webp"],[src$="/trophy.png"]) { content: url("assets/ultra-gamma/medal.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] .rail-nav .product-icon {
+  object-fit: contain;
+  opacity: 1;
+  filter: none !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] :is(.block,.pm-v2) img:is(.product-icon,.pm-emblem) {
+  filter: saturate(.54) !important;
+}
+
+body[data-theme="ultra"][data-ultra-gamma] .ultra-welcome-modal {
+  border-color: #c79cff66;
+  box-shadow: 0 25px 80px #000b, 0 0 32px #a45ae728;
+}
+body[data-theme="ultra"][data-ultra-gamma] .ultra-welcome-bar {
+  background: linear-gradient(0deg,#0e0917,#0e0917e8 63%,#0e091773);
+}
+body[data-theme="ultra"][data-ultra-gamma] .ultra-welcome-scrim {
+  background: linear-gradient(0deg,#050307a6 0%,transparent 46%);
+}
+
+body[data-theme="ultra"][data-ultra-gamma] #postMatch {
+  background-color: #0d0912 !important;
+  border-color: #ac82e651 !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-v6 {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto auto;
+  gap: 18px;
+  padding: 16px 18px;
+}
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-clash,
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-side,
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-chips { flex-wrap: wrap; }
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-side-copy { display: grid; gap: 3px; }
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-clash img { width: 30px; height: 36px; object-fit: contain; }
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-vs-badge { color: #ad9bbf; font-size: 11px; }
+body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-chip {
+  padding: 3px 6px;
+  background: #211a29;
+  border-radius: 4px;
+}
+@media (max-width: 770px) {
+  body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-v6 { grid-template-columns: minmax(0,1fr) auto; }
+  body[data-theme="ultra"][data-ultra-gamma] #postMatch .pm-hero-clash { grid-area: 2 / 1 / auto / -1; }
+}
+
+.swatch[data-theme="ultra-gamma"] {
+  background: linear-gradient(90deg,#0c0915a1,#0c091524), url("assets/ultra-gamma/marble.webp") right center / cover;
+  border-color: #a078d65c;
+  --sw-bar: #d4adff;
+}
+
+body[data-theme="ultra"][data-ultra-gamma] .ultra-welcome-img {
+  content: url("assets/ultra-gamma/welcome.webp");
+}
+
+/* Home uses the real featured unit on top of a Gamma environment. */
+body[data-theme="ultra"][data-ultra-gamma][data-page="welcome"] {
+  --imperial-scene: url("assets/ultra-gamma/home.webp");
+}
+body[data-theme="ultra"][data-ultra-gamma][data-page="welcome"] main.content::before {
+  content: none;
+}
+body[data-theme="ultra"][data-ultra-gamma][data-page="welcome"] .content-head {
+  min-height: 0;
+}
+body[data-theme="ultra"][data-ultra-gamma] .wh-stage-hero {
+  background:
+    linear-gradient(90deg,#09080b 0%,#09080be8 23%,#10091c41 69%,#10091c20),
+    linear-gradient(0deg,#0b080f 0%,transparent 37%),
+    url("assets/ultra-gamma/home.webp") center 48% / cover no-repeat !important;
+  border-color: #b68cef30 !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .wh-hero-unit {
+  filter: drop-shadow(0 18px 22px #060308c4) drop-shadow(4px 0 14px #b061f131);
+}
+body[data-theme="ultra"][data-ultra-gamma] :is(.wh-hero-caption,.wh-tick,.wh-news-banner,.wh-treasury,.wh-spot) {
+  border-color: #ac83d93a !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .wh-hero-caption {
+  background: linear-gradient(90deg,#150e20f2,#110b1c4d) !important;
+  border-left-color: #c798f3 !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] .wh-display {
+  text-shadow: 0 2px 16px #08050a;
+}
+body[data-theme="ultra"][data-ultra-gamma] .wh-ledger-cell img {
+  filter: saturate(.76);
+}
+
+/* HUD. A bounded art strip sits behind titles, while figures stay on solid ink. */
+body[data-theme="ultra"][data-ultra-gamma] #stage {
+  --gamma-ink: #0d0913;
+  --gamma-tile: #130e1a;
+  --gamma-lip: #c092f455;
+  --gamma-hairline: #be8ce32b;
+  --gamma-muted: #c1b8cf;
+  --gamma-light: #dfbeff;
+  --gamma-scout-art: url("assets/ultra-gamma/scouting.webp");
+  --gamma-tactics-art: url("assets/ultra-gamma/central.webp");
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage > :is(#panel,#scouting,#civHelp,#smartBuildOrder,#rivalInfo,#scoutInfo,#updateToast) {
+  background: var(--gamma-ink) !important;
+  border-color: var(--gamma-lip) !important;
+  box-shadow: 0 5px 16px #07030da8, inset 0 1px #dcb7ff11 !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(#head,.scout-head,.rival-head,.civhelp-head,.smart-build > header) {
+  background:
+    linear-gradient(90deg,#171021 0%,#171021f7 40%,#17102180 71%,#0f0a1780),
+    var(--gamma-current-art,var(--gamma-scout-art)) right 49% / 72% auto no-repeat !important;
+  border-color: var(--gamma-hairline) !important;
+  color: #fcf7ff;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.civhelp-head,.smart-build > header) {
+  --gamma-current-art: var(--gamma-tactics-art);
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage #panel #head {
+  --gamma-current-art: var(--imperial-stone);
+  padding-inline: 8px;
+  border-radius: 5px 5px 0 0;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .smart-build > header {
+  padding: 8px 9px;
+  border-radius: 6px;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.scout-context,.scout-footnote,.intel-muted,.intel-scope,.tg-rival-civ,.civhelp-clock,.build-reference,.build-condition,.bo-step-next) {
+  color: var(--gamma-muted);
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.intel-block,.tg-block,.tg-team-col,.tg-kpi-tile,.civ-picks-list li,.intel-history-row,.bo-alloc-pill) {
+  background-color: var(--gamma-tile) !important;
+  border-color: var(--gamma-hairline) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.intel-identity,.tg-rival-head,.scout-unit-head,.civhelp-civ,.build-checkpoints li) {
+  border-color: var(--gamma-hairline);
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.scout-toggle,.scout-carousel-pill.is-active,.pred-lead,.bo-step-current,.bo-step-badge) {
+  background-color: #231530 !important;
+  border-color: #bc91ec75 !important;
+  color: var(--gamma-light);
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.intel-rating,.tg-rival-elo,.row .elo) {
+  color: #f8f1ff;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.scout-carousel-track > i,#civhelpBar,.analysis-track > i) {
+  background: linear-gradient(90deg,#9866ca,#dab4ff) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .tg-open-card.opening-art::before {
+  filter: grayscale(1) sepia(.45) hue-rotate(222deg);
+  opacity: .48;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.civhelp-title,.rival-title)::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  vertical-align: middle;
+  background: var(--gamma-section-icon) center / contain no-repeat;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .civhelp-title { --gamma-section-icon: url("assets/ultra-gamma/medal.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] #stage #rivalInfo .rival-title { --gamma-section-icon: url("assets/ultra-gamma/combat.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] #stage #scoutInfo .rival-title { --gamma-section-icon: url("assets/ultra-gamma/target.webp"); }
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.civhelp-title,.rival-title) > svg { display: none; }
+body[data-theme="ultra"][data-ultra-gamma] #stage .is-armed-bo > header > img[src$="/age.png"] {
+  content: url("assets/ultra-gamma/history.webp");
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .upd-dot { background-color: #bf91ed; }
+

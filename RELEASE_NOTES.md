@@ -1,3 +1,12 @@
+## v3.3.24 · Ultra Gamma
+
+- **Ultra Gamma** se suma como un skin independiente para suscriptores de Relic Ultra. Se activa desde Apariencia y convive con el skin Ultra original.
+- **Home, Central, Prematch y Postmatch** incorporan arte de inspiración romana, mármol negro, luz violeta e iconografía propia.
+- **Overlay Gamma** adapta la lectura del rival en 1v1 y equipos, la ayuda de civilizaciones, Smart Build Order y el resumen Postmatch.
+- **Sakura** se retira del selector. Los perfiles que lo tenían seleccionado pasan a Clásico.
+
+---
+
 ## v3.3.23 · Popup Ultra full-bleed minimalista con tu arte protagonista
 
 - **Rediseño minimalista del popup Relic Ultra (`settings.html`, `settings.css`, `settings.js`, `assets/art/ultra-welcome-hero.jpg`):** restaurada la ilustración oficial Ultra a pantalla completa en formato 16:9, eliminando badges, párrafos largos y chips decorativos para dejar únicamente el título, estado y un solo botón limpio sobre la franja inferior.

@@ -221,7 +221,6 @@ input[type='range']::-webkit-slider-thumb { appearance: none; width: 13px; heigh
 .swatch[data-theme='dorado'] { background: #18170f; --sw-bar: #d1b56e; }
 .swatch[data-theme='carbono'] { background: #202327; --sw-bar: #dc817b; }
 .swatch[data-theme='pergamino'] { background: #d4bd92; --sw-bar: #66502f; }
-.swatch[data-theme='sakura'] { background: #301f30; --sw-bar: #d3a0b6; }
 .swatch[data-theme='ultra'] {
   background: #000000;
   border-color: rgba(255, 255, 255, 0.18);

@@ -453,13 +453,14 @@ function loadConfig() {
   try {
     const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     const merged = { ...DEFAULT_CONFIG, ...raw };
+    if (merged.theme === 'sakura') merged.theme = DEFAULT_CONFIG.theme;
 
     // Migración: agrega opciones nuevas (p. ej. opacity) sin pisar las del usuario,
     // para que estén visibles y editables en el archivo.
-    if (Object.keys(raw).length !== Object.keys(merged).length) {
+    if (Object.keys(raw).length !== Object.keys(merged).length || (!DEV_SESSION && raw.theme === 'sakura')) {
       try {
         fs.writeFileSync(CONFIG_PATH, `${JSON.stringify(merged, null, 2)}\n`);
-        log(`config migrada: se agregaron opciones nuevas en ${CONFIG_PATH}`);
+        log(`config migrada en ${CONFIG_PATH}`);
       } catch {
         /* si no se puede escribir, igual se usan los valores fusionados */
       }
@@ -492,16 +493,20 @@ const THEME_IDS = [
   'dorado',
   'carbono',
   'pergamino',
-  'sakura',
   'ultra',
+  'ultra-gamma',
 ];
 const THEME_ARG = ARGV.find((arg) => arg.startsWith('--theme='));
 if (THEME_ARG) config.theme = THEME_ARG.split('=')[1];
 if (!THEME_IDS.includes(config.theme)) config.theme = 'clasico';
 
+function isUltraTheme(theme) {
+  return theme === 'ultra' || theme === 'ultra-gamma';
+}
+
 function effectiveTheme(product = null) {
   const raw = THEME_IDS.includes(config.theme) ? config.theme : 'clasico';
-  if (raw === 'ultra' && THEME_ARG !== '--theme=ultra') {
+  if (isUltraTheme(raw) && !(raw === 'ultra' && THEME_ARG === '--theme=ultra')) {
     const resolved = product || productState();
     if (!allowsFeature(resolved, 'ultraSkin')) return 'clasico';
   }
@@ -1027,7 +1032,7 @@ function refreshAccessPresentation(product = productState()) {
   broadcastPostMatch();
   if (settingsWin && !settingsWin.isDestroyed()) {
     const resolvedTheme = effectiveTheme(product);
-    try { settingsWin.setBackgroundColor(resolvedTheme === 'ultra' ? '#000000' : '#0c1014'); } catch {}
+    try { settingsWin.setBackgroundColor(isUltraTheme(resolvedTheme) ? '#000000' : '#0c1014'); } catch {}
     settingsWin.webContents.send('product:update', { ...product, remoteLicense: remoteLicenseState, trialHours: cachedTrialHours, effectiveTheme: resolvedTheme });
     settingsWin.webContents.send('tactics:update', tacticalPayload());
     if (!allowsFeature(product, 'trainingHub')) {
@@ -2776,7 +2781,7 @@ function openSettings() {
     minHeight: minH,
     title: 'Relic',
     icon: WINDOW_ICON,
-    backgroundColor: initTheme === 'ultra' ? '#000000' : '#0c1014',
+    backgroundColor: isUltraTheme(initTheme) ? '#000000' : '#0c1014',
     autoHideMenuBar: true,
     show: false,
     // Sin barra nativa de Windows: la ventana dibuja su propia barra oscura
@@ -4037,13 +4042,13 @@ function registerIpc() {
   ipcMain.handle('settings:theme', (_event, raw) => {
     const theme = String(raw || '');
     if (!THEME_IDS.includes(theme)) return { ok: false, error: 'Ese diseño no existe.' };
-    if (theme === 'ultra' && !allowsFeature(productState(), 'ultraSkin')) {
+    if (isUltraTheme(theme) && !allowsFeature(productState(), 'ultraSkin')) {
       return { ok: false, ultraRequired: true, error: 'El skin Ultra está incluido en Relic Ultra.' };
     }
 
     persistConfig({ theme });
     if (settingsWin && !settingsWin.isDestroyed()) {
-      try { settingsWin.setBackgroundColor(theme === 'ultra' ? '#000000' : '#0c1014'); } catch {}
+      try { settingsWin.setBackgroundColor(isUltraTheme(theme) ? '#000000' : '#0c1014'); } catch {}
     }
     send('overlay:config', overlayConfig());
     log(`diseño del overlay: ${theme}`);

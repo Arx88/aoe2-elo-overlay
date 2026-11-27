@@ -377,8 +377,8 @@
       "dorado": "鎏金",
       "carbono": "碳黑",
       "pergamino": "羊皮纸",
-      "sakura": "樱花",
-      "ultra": "Ultra"
+      "ultra": "Ultra",
+      "ultraGamma": "Ultra Gamma"
     },
     "posCustom": "自定义位置",
     "posCustomInfo": "固定在屏幕 {x}, {y} 处。",
@@ -396,6 +396,7 @@
     "ultraScopeTag": "全应用 + 浮窗",
     "ultraLockedTip": "Relic Ultra 专属。将整个应用与浮窗切换为高对比度纯黑极简视觉模式。",
     "ultraUnlockedTip": "Ultra 模式：将整个应用与浮窗切换为高对比度纯黑极简风格。",
+    "ultraGammaTip": "在应用和游戏浮层中使用黑色大理石与紫色光效。",
     "ultraLockedStatus": "Ultra 纯黑皮肤包含在 Relic Ultra 方案中。",
     "onlyWhenGameTitle": "仅在帝国时代 II 运行时显示悬浮窗",
     "onlyWhenGameDesc": "启动《帝国时代 II：决定版》时自动显示顶部悬浮栏，关闭游戏后自动隐藏。",
