@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('settings', {
   openCommerce: (kind) => ipcRenderer.invoke('settings:open-commerce', kind),
   setLanguage: (lang) => ipcRenderer.invoke('settings:language', lang),
   completeWizard: (payload) => ipcRenderer.invoke('settings:wizard-complete', payload),
+  markUltraWelcomeSeen: (accountKey) => ipcRenderer.invoke('settings:markUltraWelcomeSeen', accountKey),
   autoUpdate: (on) => ipcRenderer.invoke('settings:autoUpdate', on),
   exampleStart: (query, clock) => ipcRenderer.invoke('settings:exampleStart', query, clock),
   exampleClock: (mode) => ipcRenderer.invoke('settings:exampleClock', mode),

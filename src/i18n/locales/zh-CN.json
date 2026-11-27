@@ -2461,9 +2461,23 @@
     "badgeHome": "首页"
   },
   "ultraWelcome": {
-    "title": "Relic Ultra",
-    "sub": "订阅已激活。",
+    "badge": "RELIC ULTRA 已激活",
+    "title": "欢迎加入 Relic Ultra",
+    "sub": "完整权限已就绪，以下升级功能现已为你的账号解锁：",
+    "perk1Title": "赛后复盘与本地录像",
+    "perk1Desc": "城镇中心闲置追踪、最多 8 人 eAPM 与 56 文明专精分析。",
+    "perk2Title": "实时建造顺序引导",
+    "perk2Desc": "与游戏时钟同步的局内分步提示，支持自定义流程创作。",
+    "perk3Title": "赛前炸鱼小号检测",
+    "perk3Desc": "结合关联账号、极端胜率与异常 eAPM 即时预警小号。",
+    "perk4Title": "专项训练与 1900+ 高手对位",
+    "perk4Desc": "165,000+ 局职业数据、我的计划、竞技场、APM 排行与科技树。",
+    "perk5Title": "扩展战绩中心（200 场）",
+    "perk5Desc": "文明与地图深度诊断、黄金手感时段与连败疲劳预警。",
+    "perk6Title": "Ultra 专属皮肤",
+    "perk6Desc": "全应用与悬浮窗尊享纯黑 OLED 及 Ultra Gamma 主题。",
     "ctaApplySkin": "启用 Ultra 皮肤",
-    "ctaStart": "继续"
+    "ctaStart": "开始使用 Ultra",
+    "ctaLater": "暂不启用"
   }
 }

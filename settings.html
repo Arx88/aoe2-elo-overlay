@@ -1123,16 +1123,72 @@
 
     <div id="ultraWelcomeBackdrop" class="ultra-welcome-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="ultraWelcomeTitle">
       <div class="ultra-welcome-modal" id="ultraWelcomeModal">
-        <img src="assets/art/ultra-welcome-hero.jpg" alt="" class="ultra-welcome-img" decoding="async" />
-        <div class="ultra-welcome-scrim" aria-hidden="true"></div>
-        <button type="button" id="ultraWelcomeCloseBtn" class="ultra-welcome-close" aria-label="Cerrar">×</button>
-        <div class="ultra-welcome-bar">
-          <div class="ultra-welcome-copy">
-            <h2 id="ultraWelcomeTitle" class="ultra-welcome-title" data-i18n="ultraWelcome.title">Relic Ultra</h2>
-            <p class="ultra-welcome-sub" data-i18n="ultraWelcome.sub">Suscripción activa.</p>
+        <div class="ultra-welcome-hero">
+          <img src="assets/art/ultra-welcome-hero.jpg" alt="" class="ultra-welcome-img" decoding="async" />
+          <div class="ultra-welcome-scrim" aria-hidden="true"></div>
+          <button type="button" id="ultraWelcomeCloseBtn" class="ultra-welcome-close" aria-label="Cerrar">×</button>
+        </div>
+
+        <div class="ultra-welcome-body">
+          <div class="ultra-welcome-head">
+            <span class="ultra-welcome-kicker">
+              <span class="ultra-welcome-badge-dot" aria-hidden="true"></span>
+              <span data-i18n="ultraWelcome.badge">RELIC ULTRA ACTIVO</span>
+            </span>
+            <h2 id="ultraWelcomeTitle" class="ultra-welcome-title" data-i18n="ultraWelcome.title">Bienvenido a Relic Ultra</h2>
+            <p class="ultra-welcome-sub" data-i18n="ultraWelcome.sub">Tu acceso completo ya está activo. Estas son las mejoras desbloqueadas en tu cuenta:</p>
           </div>
-          <div class="ultra-welcome-actions">
-            <button type="button" id="ultraWelcomePrimaryBtn" class="btn ultra-welcome-cta" data-i18n="ultraWelcome.ctaApplySkin">Activar skin Ultra</button>
+
+          <ul class="ultra-welcome-perks" aria-label="Mejoras disponibles en Relic Ultra">
+            <li class="ultra-welcome-perk">
+              <span class="ultra-perk-dot" aria-hidden="true"></span>
+              <div class="ultra-perk-copy">
+                <strong data-i18n="ultraWelcome.perk1Title">Postmatch y Replays locales</strong>
+                <span data-i18n="ultraWelcome.perk1Desc">TC parado, eAPM de hasta 8 jugadores y Maestría de 56 civs.</span>
+              </div>
+            </li>
+            <li class="ultra-welcome-perk">
+              <span class="ultra-perk-dot" aria-hidden="true"></span>
+              <div class="ultra-perk-copy">
+                <strong data-i18n="ultraWelcome.perk2Title">Build Orders en vivo</strong>
+                <span data-i18n="ultraWelcome.perk2Desc">Guía sincronizada paso a paso sobre el juego y estudio propio.</span>
+              </div>
+            </li>
+            <li class="ultra-welcome-perk">
+              <span class="ultra-perk-dot" aria-hidden="true"></span>
+              <div class="ultra-perk-copy">
+                <strong data-i18n="ultraWelcome.perk3Title">Smurf Detector en Prematch</strong>
+                <span data-i18n="ultraWelcome.perk3Desc">Detecta cuentas vinculadas, alts y anomalías de eAPM al instante.</span>
+              </div>
+            </li>
+            <li class="ultra-welcome-perk">
+              <span class="ultra-perk-dot" aria-hidden="true"></span>
+              <div class="ultra-perk-copy">
+                <strong data-i18n="ultraWelcome.perk4Title">Entrenamiento y Matchups Pro</strong>
+                <span data-i18n="ultraWelcome.perk4Desc">+165.000 partidas Pro (+1900), Mi Plan, Arena, APM y Tech Tree.</span>
+              </div>
+            </li>
+            <li class="ultra-welcome-perk">
+              <span class="ultra-perk-dot" aria-hidden="true"></span>
+              <div class="ultra-perk-copy">
+                <strong data-i18n="ultraWelcome.perk5Title">Central ampliado (200 partidas)</strong>
+                <span data-i18n="ultraWelcome.perk5Desc">Diagnóstico profundo de civs y mapas, Hora Dorada y fatiga.</span>
+              </div>
+            </li>
+            <li class="ultra-welcome-perk">
+              <span class="ultra-perk-dot" aria-hidden="true"></span>
+              <div class="ultra-perk-copy">
+                <strong data-i18n="ultraWelcome.perk6Title">Skins exclusivos Ultra</strong>
+                <span data-i18n="ultraWelcome.perk6Desc">Diseño OLED Negro Puro y Ultra Gamma en toda la app y overlay.</span>
+              </div>
+            </li>
+          </ul>
+
+          <div class="ultra-welcome-bar">
+            <button type="button" id="ultraWelcomeDismissBtn" class="ultra-welcome-dismiss" data-i18n="ultraWelcome.ctaLater">Ahora no</button>
+            <div class="ultra-welcome-actions">
+              <button type="button" id="ultraWelcomePrimaryBtn" class="btn ultra-welcome-cta" data-i18n="ultraWelcome.ctaApplySkin">Activar skin Ultra</button>
+            </div>
           </div>
         </div>
       </div>

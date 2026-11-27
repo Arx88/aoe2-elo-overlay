@@ -2461,9 +2461,23 @@
     "badgeHome": "INICIO"
   },
   "ultraWelcome": {
-    "title": "Relic Ultra",
-    "sub": "Suscripción activa.",
+    "badge": "RELIC ULTRA ACTIVO",
+    "title": "Bienvenido a Relic Ultra",
+    "sub": "Tu acceso completo ya está activo. Estas son las mejoras desbloqueadas en tu cuenta:",
+    "perk1Title": "Postmatch y Replays locales",
+    "perk1Desc": "TC parado, eAPM de hasta 8 jugadores y Maestría de 56 civs.",
+    "perk2Title": "Build Orders en vivo",
+    "perk2Desc": "Guía sincronizada paso a paso sobre el juego y estudio propio.",
+    "perk3Title": "Smurf Detector en Prematch",
+    "perk3Desc": "Detecta cuentas vinculadas, alts y anomalías de eAPM al instante.",
+    "perk4Title": "Entrenamiento y Matchups Pro",
+    "perk4Desc": "+165.000 partidas Pro (+1900), Mi Plan, Arena, APM y Tech Tree.",
+    "perk5Title": "Central ampliado (200 partidas)",
+    "perk5Desc": "Diagnóstico profundo de civs y mapas, Hora Dorada y fatiga.",
+    "perk6Title": "Skins exclusivos Ultra",
+    "perk6Desc": "Diseño OLED Negro Puro y Ultra Gamma en toda la app y overlay.",
     "ctaApplySkin": "Activar skin Ultra",
-    "ctaStart": "Continuar"
+    "ctaStart": "Empezar con Ultra",
+    "ctaLater": "Ahora no"
   }
 }

@@ -73,7 +73,7 @@ const {
   introView,
   nextIntroTick,
 } = require('./src/intro');
-const { LobbyWatcher, QueueWatcher, FastLane } = require('./src/live');
+const { LobbyWatcher, QueueWatcher, FastLane, readSnapshot } = require('./src/live');
 const { buildRivalInsights, opponentsOf, needsRivalHistory, mergeRivalReport, resolveMode, mapKey } = require('./src/rival');
 const { progressiveScout } = require('./src/scout');
 const { isPriorReplay } = require('./src/insights');
@@ -286,9 +286,22 @@ const DEFAULT_CONFIG = {
   // Idioma elegido en el wizard inicial o en Ajustes → Cuenta (en, es-ES, es-MX, zh-CN).
   language: null,
   wizardCompleted: false,
+  ultraWelcomeSeen: {},
   autoDiagnostics: true,
   debug: false,
 };
+
+function normalizeUltraWelcomeSeen(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const key = String(k || '').trim().slice(0, 160);
+    const ts = Number(v);
+    if (key && Number.isFinite(ts) && ts > 0) out[key] = ts;
+  }
+  const entries = Object.entries(out).sort((a, b) => b[1] - a[1]).slice(0, 25);
+  return Object.fromEntries(entries);
+}
 
 // Las opciones entran al whitelist del IPC de configuración. rivalH2H arma el
 // informe DURANTE la partida (viaja en el mismo payload que el informe);
@@ -998,6 +1011,11 @@ function productState() {
         if (next.plan === 'free' && productSession.entitlementToken) {
           productSession = { accountId: null, entitlementToken: null };
         }
+        // Evitar que el renderer interprete una expiración breve del JWT en vuelo
+        // como un downgrade confirmado a Free mientras ya estamos renovando.
+        if (next.plan === 'free' && remoteLicenseState && remoteLicenseState.status === 'verified') {
+          remoteLicenseState = { ...remoteLicenseState, status: 'refreshing', reason: 'jwt-expired' };
+        }
         refreshAccessPresentation(next);
         syncRemoteLicense('expiry').catch(() => {});
         fetchCurrentAuthState().then((auth) => { if (auth) broadcastAuthState(auth); }).catch(() => {});
@@ -1033,7 +1051,13 @@ function refreshAccessPresentation(product = productState()) {
   if (settingsWin && !settingsWin.isDestroyed()) {
     const resolvedTheme = effectiveTheme(product);
     try { settingsWin.setBackgroundColor(isUltraTheme(resolvedTheme) ? '#000000' : '#0c1014'); } catch {}
-    settingsWin.webContents.send('product:update', { ...product, remoteLicense: remoteLicenseState, trialHours: cachedTrialHours, effectiveTheme: resolvedTheme });
+    settingsWin.webContents.send('product:update', {
+      ...product,
+      remoteLicense: remoteLicenseState,
+      trialHours: cachedTrialHours,
+      effectiveTheme: resolvedTheme,
+      ultraWelcomeSeen: normalizeUltraWelcomeSeen(config.ultraWelcomeSeen),
+    });
     settingsWin.webContents.send('tactics:update', tacticalPayload());
     if (!allowsFeature(product, 'trainingHub')) {
       settingsWin.webContents.send('training:update', { unlocked: false, plan: product.plan || 'free' });
@@ -3116,8 +3140,25 @@ function startLive() {
         pending: true,
         checkedAt: at,
       });
+      // Si el servidor mandó `reason:'matched'` huérfano (sin `queueingAdded` en el mismo lote),
+      // pedimos un snapshot global coalescido a los 2,5 s para rescatar el roster sin esperar 15 s.
+      clearTimeout(pendingRosterTimer);
+      pendingRosterTimer = setTimeout(async () => {
+        pendingRosterTimer = null;
+        if (!queueWatcher || !queueWatcher.awaitingRoster || queueWatcher.matched) return;
+        const snap = await readSnapshot({ handler: 'queueing', language: 'en' }).catch(() => null);
+        if (queueWatcher && snap && snap.length) {
+          queueWatcher.mergeFastLaneEvents(snap, { filtered: false });
+        }
+        if (queueWatcher && queueWatcher.awaitingRoster && !queueWatcher.matched) {
+          poll().then((next) => scheduleNext(next)).catch(() => {});
+        }
+      }, 2500);
     },
     onMatched: (item) => {
+      clearTimeout(pendingRosterTimer);
+      pendingRosterTimer = null;
+      queueEndedBurstUntil = 0;
       if (exampleActive) {
         clearPreviewAutoHide();
         deactivateExample();
@@ -3129,10 +3170,40 @@ function startLive() {
         win.setAlwaysOnTop(true, 'screen-saver');
         if (!win.isVisible()) win.showInactive();
       }
-      if (fastLane) fastLane.pause(item && item.matchId);
+      if (fastLane) {
+        fastLane.pause(item && (item.matchId ?? item.id), {
+          inLobby: true,
+          matchedAt: item && item.matchedAt,
+          preQueueIds: queueWatcher ? queueWatcher.preMatchQueueIds : null,
+        });
+      }
       showMatchFound(item);
     },
-    onGone: (id) => {
+    onGone: (id, meta = {}) => {
+      clearTimeout(pendingRosterTimer);
+      pendingRosterTimer = null;
+      const isRequeued = Boolean(meta && meta.reason === 'requeued');
+      if (isRequeued) {
+        log(`partida apareada ${id} caída/cancelada (vuelta a cola): limpio el panel y busco partida nueva`);
+        liveMatchAt = 0;
+        lobbyGoneAt = 0;
+        preMatchGraceUntil = 0;
+        lastOngoingAt = 0;
+        clearTimeout(eloRetryTimer);
+        eloRetryTimer = null;
+        searching = true;
+        // Si el panel seguía mostrando a los jugadores de la sala caída, limpiarlo al instante.
+        if (lastGood && lastGood.status === 'ongoing' && lastGood.phase === 'lobby') {
+          emit({
+            status: 'idle',
+            lastMatch: lastGood.lastMatch || null,
+            checkedAt: Date.now(),
+          });
+        }
+        if (fastLane) fastLane.resume();
+        scheduleNext('idle');
+        return;
+      }
       log(`partida apareada ${id} terminó/canceló: toma el control el REST`);
       liveMatchAt = 0;
       lobbyGoneAt = Date.now();
@@ -3155,23 +3226,37 @@ function startLive() {
         fetchMyHistory({ profileId, leaderboardId: mode.id, cache: statsCache,
           cacheTtlMs: 30 * 60 * 1000, log }).catch((err) => log(`precarga de historial: ${err.message}`));
       }
-      if (active) scheduleNext('idle');
+      if (active) {
+        queueEndedBurstUntil = 0;
+        scheduleNext('idle');
+      } else if (!lobbyActive()) {
+        // La cola desapareció sin sala apareada: puede haber arrancado una partida cuyo
+        // evento `matched` no llegó al feed WS. Aceleramos REST 20 s para capturarla rápido.
+        queueEndedBurstUntil = Date.now() + 20000;
+        scheduleNext('idle');
+      }
     },
   });
   queueWatcher.start();
 
-  // Carril rápido: el feed empujado manda lotes cada ~15 s, así que la partida
-  // apareada podía verse recién 15 s después (y con la partida ya empezando).
-  // Mientras estás en cola se pide un snapshot fresco cada 1,5 s; al aparearse
-  // se pausa. El snapshot entra por handleEvents(..., true): misma detección,
-  // mismo dedupe y mismos avisos que el socket empujado.
+  // Carril rápido: pide snapshots coalescidos (Frame 1 + Frame 2) cada 1,5 s mientras
+  // estás en cola y los mezcla de forma NO destructiva sobre QueueWatcher (sin borrar
+  // el mapa global ni `ownQueueIds` del socket persistente).
   fastLane = new FastLane({
     profileId,
     log,
-    onSnapshot: (events) => {
-      if (queueWatcher) queueWatcher.handleEvents(events, true, { quiet: true });
+    isDismissedMatch: (id) => Boolean(queueWatcher && queueWatcher.isMatchDismissed(id)),
+    isGlobalHealthy: () => Boolean(queueWatcher && queueWatcher.isHealthy),
+    onRequeued: (queueItem, droppedMatchId) => {
+      if (queueWatcher) queueWatcher.handleRequeueFromFastLane(queueItem, droppedMatchId);
+    },
+    onSnapshot: (events, meta) => {
+      if (queueWatcher) queueWatcher.mergeFastLaneEvents(events, meta);
     },
     onQueue: (active, queueItem) => {
+      if (active && queueItem && queueWatcher) {
+        queueWatcher.recordQueueIdFromFastLane(queueItem);
+      }
       if (active === searching) return;
       searching = active;
       log(
@@ -3180,12 +3265,16 @@ function startLive() {
           : 'cola finalizada (carril rápido)',
       );
       if (active) {
+        queueEndedBurstUntil = 0;
         const mode = queueItem ? resolveMode(queueItem.leaderboard ?? queueItem.leaderboardId) : null;
         if (mode && ['rm_1v1', 'rm_team', 'ew_1v1', 'ew_team', 'dm_1v1', 'dm_team'].includes(mode.key) &&
             (viewConfig().rivalH2H || viewConfig().civRecommender || viewConfig().civCounterPick)) {
           fetchMyHistory({ profileId, leaderboardId: mode.id, cache: statsCache,
             cacheTtlMs: 30 * 60 * 1000, log }).catch((err) => log(`precarga de historial: ${err.message}`));
         }
+        scheduleNext('idle');
+      } else if (!lobbyActive()) {
+        queueEndedBurstUntil = Date.now() + 20000;
         scheduleNext('idle');
       }
     },
@@ -3219,6 +3308,10 @@ function startLive() {
 let savegameWatchers = [];
 let savegamePollTimer = null;
 let lastSavegameTriggerAt = 0;
+let pendingRosterTimer = null;
+let savegameBurstUntil = 0;
+let queueEndedBurstUntil = 0;
+let pendingSavegamePoll = false;
 
 function stopSavegameWatchers() {
   if (savegamePollTimer) {
@@ -3251,11 +3344,18 @@ function startSavegameWatchers() {
         if (!filename || !/\.aoe2record$/i.test(String(filename))) return;
         if (exampleActive || DEMO || !profileId) return;
         const now = Date.now();
+        // Al escribirse un .aoe2record el juego acaba de iniciar o cerrar partida:
+        // mantenemos ráfaga REST cada 2 s durante 35 s para no esperar 10 s si Companion tarda en indexar.
+        savegameBurstUntil = now + 35000;
         if (now - lastSavegameTriggerAt < 4000) return;
         clearTimeout(savegamePollTimer);
         savegamePollTimer = setTimeout(() => {
           savegamePollTimer = null;
-          if (exampleActive || DEMO || !profileId || polling) return;
+          if (exampleActive || DEMO || !profileId) return;
+          if (polling) {
+            pendingSavegamePoll = true;
+            return;
+          }
           lastSavegameTriggerAt = Date.now();
           log(`savegame detectado (${filename}): adelantando poll en vivo`);
           poll().then((next) => scheduleNext(next)).catch(() => {});
@@ -3272,6 +3372,11 @@ function startSavegameWatchers() {
 }
 
 function stopLive() {
+  clearTimeout(pendingRosterTimer);
+  pendingRosterTimer = null;
+  savegameBurstUntil = 0;
+  queueEndedBurstUntil = 0;
+  pendingSavegamePoll = false;
   stopSavegameWatchers();
   if (liveWatcher) liveWatcher.stop();
   if (queueWatcher) queueWatcher.stop();
@@ -3341,12 +3446,26 @@ function scheduleEloRetry(matchId, item) {
 async function showMatchFound(item) {
   const startedAt = Date.now();
   const serverLag = serverMatchedLag(item);
+  const itemMatchId = item && (item.matchId ?? item.id);
+  const isStaleMatch = () =>
+    Boolean(
+      queueWatcher &&
+        itemMatchId != null &&
+        (queueWatcher.isMatchDismissed(itemMatchId) ||
+          (queueWatcher.matched &&
+            queueWatcher.matched.matchId != null &&
+            item &&
+            item.matchId != null &&
+            String(queueWatcher.matched.matchId) !== String(item.matchId))),
+    );
+  if (isStaleMatch()) return;
   try {
     const snapshot = await buildSnapshotFromMatch(item, {
       profileId,
       cache: statsCache,
       cacheTtlMs: Number(config.statsCacheMinutes || 15) * 60 * 1000,
       onPartial: (partial) => {
+        if (isStaleMatch()) return;
         if (emit(partial)) {
           log(
             `PARTIDA ENCONTRADA · roster en pantalla en ${Date.now() - startedAt}ms ` +
@@ -3356,6 +3475,7 @@ async function showMatchFound(item) {
         }
       },
     });
+    if (isStaleMatch()) return;
     if (emit(snapshot)) {
       const roster = snapshot.players
         .map((p) => `${p.name}${p.isYou ? '*' : ''} ${p.rating ?? '—'}/${p.peak ?? '—'}`)
@@ -3368,7 +3488,7 @@ async function showMatchFound(item) {
       );
     }
     // Si el backend de ELO falló, se reintenta sin esperar al próximo poll.
-    if (snapshot.statsError) {
+    if (snapshot.statsError && !isStaleMatch()) {
       log(`ELO RM 1v1 no llegó (${snapshot.statsError}): reintento en ${ELO_RETRY_MS}ms`);
       scheduleEloRetry(snapshot.match.matchId, item);
     }
@@ -3957,6 +4077,7 @@ function registerIpc() {
     language: config.language ? i18n.getLocale(config.language) : null,
     activeLanguage: i18n.getLocale(config.language),
     wizardCompleted: Boolean(config.wizardCompleted),
+    ultraWelcomeSeen: normalizeUltraWelcomeSeen(config.ultraWelcomeSeen),
     i18nBundles: i18n.getAllBundles(),
     remoteLicense: remoteLicenseState,
     trialHours: cachedTrialHours,
@@ -5372,6 +5493,23 @@ function registerIpc() {
     return { ok: true, language: i18n.getLocale(config.language), wizardCompleted: true };
   });
 
+  ipcMain.handle('settings:markUltraWelcomeSeen', (_event, rawKey) => {
+    const keys = Array.isArray(rawKey) ? rawKey : [rawKey];
+    const next = { ...normalizeUltraWelcomeSeen(config.ultraWelcomeSeen) };
+    const now = Date.now();
+    let changed = false;
+    for (const k of keys) {
+      const clean = String(k || '').trim().slice(0, 160);
+      if (clean) {
+        if (!next[clean]) changed = true;
+        next[clean] = next[clean] || now;
+      }
+    }
+    const bounded = normalizeUltraWelcomeSeen(next);
+    if (changed) persistConfig({ ultraWelcomeSeen: bounded });
+    return { ok: true, ultraWelcomeSeen: bounded };
+  });
+
   ipcMain.handle('settings:license-refresh', async () => {
     const remote = await syncRemoteLicense('manual');
     const auth = await fetchCurrentAuthState();
@@ -6140,7 +6278,21 @@ function emit(state) {
   // se cierra incondicionalmente el popup anterior (aunque aún esté cargando).
   if (state && state.status === 'ongoing') {
     dismissPostMatch('partida en curso', { force: true });
-    if (state.phase !== 'lobby') lobbyGoneAt = 0;
+    if (state.phase !== 'lobby') {
+      lobbyGoneAt = 0;
+      savegameBurstUntil = 0;
+      queueEndedBurstUntil = 0;
+      const liveId = state.match && state.match.matchId;
+      // La partida ya arrancó en vivo (confirmada por REST): descartamos su pre-partida
+      // para que ninguna réplica atrasada la resucite como PRE-PARTIDA minutos después,
+      // y pasamos la sonda del carril rápido a modo en-partida (10 s).
+      if (!state.example && liveId != null) {
+        if (queueWatcher) queueWatcher.dismissMatch(liveId);
+        if (fastLane && (!fastLane.paused || fastLane.pausedInLobby)) {
+          fastLane.pause(liveId, { inLobby: false });
+        }
+      }
+    }
   }
 
   // Partida nueva ⇒ el informe del rival y el consejo son los de la ANTERIOR.
@@ -6556,6 +6708,12 @@ async function poll() {
     return 'error';
   } finally {
     polling = false;
+    if (pendingSavegamePoll && !exampleActive && !DEMO && profileId) {
+      pendingSavegamePoll = false;
+      setTimeout(() => {
+        poll().then((next) => scheduleNext(next)).catch(() => {});
+      }, 250);
+    }
   }
 }
 
@@ -6583,12 +6741,23 @@ function scheduleNext(status) {
   const ongoingMs = hidden ? Math.min(slowMs(), 6000) : slowMs();
   // Si el WebSocket de matchmaking está sano y recibiendo eventos en vivo, no
   // martillamos /api/matches cada 3 s (evita bloqueos HTTP 429 de Companion).
-  // Pero justo al cerrar el lobby (transición a partida en vivo) consultamos
-  // cada 2,5 s durante 30 s para levantar civs y reloj sin demora.
+  // Pero justo al cerrar el lobby, terminar la cola sin sala apareada o detectarse
+  // un savegame nuevo en disco, aceleramos a 2–2,5 s para capturar la partida al instante.
   const wsHealthy = Boolean(queueWatcher && queueWatcher.isHealthy);
   const inLobbyTransition = Boolean(lobbyGoneAt && now - lobbyGoneAt < 30000);
-  const idleDelay = inLobbyTransition ? 2500 : (wsHealthy ? Math.max(fastMs(), 10000) : Math.max(fastMs(), 4000));
-  const queueDelay = inLobbyTransition ? 2500 : (wsHealthy ? Math.max(fastMs(), 4000) : Math.max(fastMs(), 2500));
+  const inSavegameBurst = Boolean(savegameBurstUntil && now < savegameBurstUntil);
+  const inQueueEndBurst = Boolean(queueEndedBurstUntil && now < queueEndedBurstUntil);
+  const fastRestBurst = inLobbyTransition || inQueueEndBurst;
+  const idleDelay = inSavegameBurst
+    ? 2000
+    : fastRestBurst
+      ? 2500
+      : (wsHealthy ? Math.max(fastMs(), 10000) : Math.max(fastMs(), 4000));
+  const queueDelay = inSavegameBurst
+    ? 2000
+    : fastRestBurst
+      ? 2500
+      : (wsHealthy ? Math.max(fastMs(), 4000) : Math.max(fastMs(), 2500));
   const delay = status === 'ongoing' ? ongoingMs : searching ? queueDelay : idleDelay;
   timer = setTimeout(async () => {
     const next = await poll();
@@ -6843,7 +7012,13 @@ if (!gotLock) {
     if (powerMonitor && typeof powerMonitor.on === 'function') {
       const recoverLive = (reason) => {
         if (!DEV_SESSION) {
-          refreshAccessPresentation(productState());
+          const cur = productState();
+          // Al despertar de suspensión/bloqueo, un JWT corto pudo vencer en sueño:
+          // marcar 'refreshing' evita un falso downgrade Free→Ultra antes de revalidar.
+          if (cur.plan === 'free' && remoteLicenseState && remoteLicenseState.status === 'verified') {
+            remoteLicenseState = { ...remoteLicenseState, status: 'refreshing', reason: 'resume' };
+          }
+          refreshAccessPresentation(cur);
           syncRemoteLicense('resume').catch(() => {});
         }
         if (!profileId || DEMO || NO_PROFILE) return;

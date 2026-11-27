@@ -297,15 +297,138 @@ function formatTrialDuration(hours = currentTrialHours, { short = false } = {}) 
   return short ? `${h} h` : (h === 1 ? '1 hora' : `${h} horas`);
 }
 
-const ULTRA_WELCOME_SEEN_KEY = 'relic_ultra_welcome_seen_v1';
+const ULTRA_WELCOME_SEEN_KEY = 'relic_ultra_welcome_seen_v2';
+const LEGACY_ULTRA_WELCOME_SEEN_KEY = 'relic_ultra_welcome_seen_v1';
 let lastRenderedPlan = null;
 let ultraWelcomeTimer = null;
+let ultraWelcomeScheduledKey = null;
+let persistedUltraWelcomeSeen = {};
 
-function ultraSubscriptionSig(product) {
-  if (!product || product.plan !== 'promax') return '';
-  const acct = product.accountId || product.entitlement?.accountId || 'local';
-  const exp = product.entitlement?.expiresAt || product.expiresAt || 'active';
-  return `${acct}:${exp}`;
+function mergePersistedUltraWelcomeSeen(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+  for (const [k, v] of Object.entries(raw)) {
+    const clean = String(k || '').trim();
+    if (clean && v) persistedUltraWelcomeSeen[clean] = Number(v) || Date.now();
+  }
+}
+
+function readUltraWelcomeSeenMap() {
+  const merged = { ...persistedUltraWelcomeSeen };
+  try {
+    const raw = localStorage.getItem(ULTRA_WELCOME_SEEN_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        for (const [k, v] of Object.entries(parsed)) {
+          const clean = String(k || '').trim();
+          if (clean && v) merged[clean] = Number(v) || Date.now();
+        }
+      }
+    }
+  } catch (_) {}
+  return merged;
+}
+
+function ultraAccountKeys(product) {
+  const keys = [];
+  const push = (val) => {
+    const s = String(val || '').trim();
+    if (s && !keys.includes(s)) keys.push(s);
+  };
+  if (product) {
+    push(product.accountId);
+    push(product.entitlement?.accountId);
+    push(product.remoteLicense?.accountId);
+  }
+  try {
+    if (typeof lastAuthState === 'object' && lastAuthState?.user?.id) {
+      push(lastAuthState.user.id);
+    }
+    if (typeof currentProfileId === 'number' && currentProfileId > 0) {
+      push(`aoe2:${currentProfileId}`);
+    }
+  } catch (_) {}
+  if (!keys.length) keys.push('local');
+  return keys;
+}
+
+function ultraAccountKey(product) {
+  if (!product) return '';
+  return ultraAccountKeys(product)[0] || 'local';
+}
+
+function migrateLegacyUltraWelcomeSeen(candidateKeys) {
+  try {
+    const legacy = String(localStorage.getItem(LEGACY_ULTRA_WELCOME_SEEN_KEY) || '').trim();
+    if (!legacy) return false;
+    const stripped = legacy.replace(/:\d{10,}$/, '').trim();
+    const keys = Array.isArray(candidateKeys) ? candidateKeys : [candidateKeys].filter(Boolean);
+    const matched = Boolean(
+      stripped && (
+        keys.includes(stripped)
+        || keys.some((k) => legacy === k || legacy.startsWith(`${k}:`))
+        || (keys.length === 1 && keys[0] === 'local')
+      ),
+    );
+    const keysToMark = [...new Set([...(matched ? keys : []), ...(stripped ? [stripped] : [])])];
+    if (keysToMark.length) {
+      markUltraWelcomeSeen(keysToMark);
+    }
+    localStorage.removeItem(LEGACY_ULTRA_WELCOME_SEEN_KEY);
+    return matched;
+  } catch (_) {
+    return false;
+  }
+}
+
+function hasSeenUltraWelcome(acctKeyOrKeys) {
+  const keys = (Array.isArray(acctKeyOrKeys) ? acctKeyOrKeys : [acctKeyOrKeys]).filter(Boolean);
+  if (!keys.length) return false;
+  migrateLegacyUltraWelcomeSeen(keys);
+  const map = readUltraWelcomeSeenMap();
+  const seen = keys.some((k) => Boolean(map[k]));
+  if (seen) {
+    // Sincronizar hacia config.json si solo existía en localStorage o bajo una clave alias.
+    const missingInMain = keys.filter((k) => !persistedUltraWelcomeSeen[k]);
+    if (missingInMain.length) {
+      for (const k of missingInMain) persistedUltraWelcomeSeen[k] = map[k] || Date.now();
+      try {
+        window.settings?.markUltraWelcomeSeen?.(keys)?.catch?.(() => {});
+      } catch (_) {}
+    }
+  }
+  return seen;
+}
+
+function markUltraWelcomeSeen(acctKeyOrKeys) {
+  const keys = (Array.isArray(acctKeyOrKeys) ? acctKeyOrKeys : [acctKeyOrKeys])
+    .map((k) => String(k || '').trim())
+    .filter(Boolean);
+  if (!keys.length) return;
+  const now = Date.now();
+  for (const k of keys) {
+    persistedUltraWelcomeSeen[k] = persistedUltraWelcomeSeen[k] || now;
+  }
+  try {
+    const map = readUltraWelcomeSeenMap();
+    for (const k of keys) map[k] = map[k] || now;
+    localStorage.setItem(ULTRA_WELCOME_SEEN_KEY, JSON.stringify(map));
+    localStorage.removeItem(LEGACY_ULTRA_WELCOME_SEEN_KEY);
+  } catch (_) {}
+  try {
+    window.settings?.markUltraWelcomeSeen?.(keys)?.catch?.(() => {});
+  } catch (_) {}
+}
+
+function isLicenseSettled(product) {
+  if (!product) return false;
+  if (product.plan === 'promax' || product.plan === 'beta') return true;
+  const rs = product.remoteLicense?.status;
+  if (product.plan === 'pro') return rs === 'verified' || rs === 'pro';
+  // Para plan === 'free', SOLO es definitivo si el servidor confirmó 'free' o 'revoked'.
+  // Nunca tratar un JWT expirado en renovación ('refreshing' / 'verified' rezagado),
+  // el arranque ('unconfigured') o errores de red como un downgrade confirmado a Free.
+  return rs === 'free' || rs === 'revoked';
 }
 
 function closeUltraWelcomePopup() {
@@ -313,49 +436,68 @@ function closeUltraWelcomePopup() {
     clearTimeout(ultraWelcomeTimer);
     ultraWelcomeTimer = null;
   }
+  if (ultraWelcomeScheduledKey) {
+    markUltraWelcomeSeen(ultraWelcomeScheduledKey);
+    ultraWelcomeScheduledKey = null;
+  }
+  if (currentProduct) {
+    markUltraWelcomeSeen(ultraAccountKeys(currentProduct));
+  }
   const bd = el('ultraWelcomeBackdrop');
   if (bd) bd.hidden = true;
 }
 
-function showUltraWelcomeNow(product, sig) {
+function showUltraWelcomeNow(product, acctKeys) {
   const bd = el('ultraWelcomeBackdrop');
   if (!bd) return false;
+  ultraWelcomeScheduledKey = null;
   const primaryBtn = el('ultraWelcomePrimaryBtn');
+  const dismissBtn = el('ultraWelcomeDismissBtn');
   const alreadyUltraSkin = isUltraTheme(currentTheme);
   if (primaryBtn) {
     primaryBtn.textContent = alreadyUltraSkin
-      ? t('ultraWelcome.ctaStart', 'Continuar')
+      ? t('ultraWelcome.ctaStart', 'Empezar con Ultra')
       : t('ultraWelcome.ctaApplySkin', 'Activar skin Ultra');
   }
-  bd.hidden = false;
-  if (sig) {
-    try { localStorage.setItem(ULTRA_WELCOME_SEEN_KEY, sig); } catch (_) {}
+  if (dismissBtn) {
+    dismissBtn.hidden = alreadyUltraSkin;
   }
-  try { window.UiSfx?.play?.('chime'); } catch (_) {}
+  bd.hidden = false;
+  if (acctKeys && acctKeys.length) markUltraWelcomeSeen(acctKeys);
+  try { window.UiSfx?.play?.('bootReady'); } catch (_) {}
   return true;
 }
 
 function triggerUltraWelcomePopup(product = currentProduct, { force = false } = {}) {
   const bd = el('ultraWelcomeBackdrop');
   if (!bd) return false;
-  const sig = ultraSubscriptionSig(product || currentProduct);
-  if (!force && sig) {
-    try {
-      if (localStorage.getItem(ULTRA_WELCOME_SEEN_KEY) === sig) return false;
-    } catch (_) {}
+  const targetProduct = product || currentProduct;
+  if (targetProduct?.ultraWelcomeSeen) {
+    mergePersistedUltraWelcomeSeen(targetProduct.ultraWelcomeSeen);
+  }
+  const acctKeys = ultraAccountKeys(targetProduct);
+  const primaryKey = acctKeys[0] || 'local';
+  if (!force) {
+    if (!bd.hidden) return false;
+    if (hasSeenUltraWelcome(acctKeys) || ultraWelcomeScheduledKey === primaryKey) return false;
   }
   // If boot splash loader is still covering the screen, wait briefly until it fades out
   const bootLoader = el('appBootLoader');
   const bootVisible = Boolean(bootLoader && !bootLoader.hidden && !bootLoader.classList.contains('is-done'));
   if (bootVisible && !force) {
     if (ultraWelcomeTimer) clearTimeout(ultraWelcomeTimer);
+    ultraWelcomeScheduledKey = primaryKey;
     ultraWelcomeTimer = setTimeout(() => {
       ultraWelcomeTimer = null;
-      showUltraWelcomeNow(product || currentProduct, sig);
+      if (!force && hasSeenUltraWelcome(acctKeys)) {
+        ultraWelcomeScheduledKey = null;
+        return;
+      }
+      showUltraWelcomeNow(targetProduct, acctKeys);
     }, 650);
     return true;
   }
-  return showUltraWelcomeNow(product || currentProduct, sig);
+  return showUltraWelcomeNow(targetProduct, acctKeys);
 }
 
 window.openUltraWelcomePopup = (opts) => triggerUltraWelcomePopup(currentProduct, { force: true, ...(opts || {}) });
@@ -381,15 +523,16 @@ el('ultraWelcomePrimaryBtn')?.addEventListener('click', async () => {
 
 function renderProduct(product) {
   if (!product) return;
-  const prevPlan = lastRenderedPlan;
-  lastRenderedPlan = product.plan || null;
+  if (product.ultraWelcomeSeen) {
+    mergePersistedUltraWelcomeSeen(product.ultraWelcomeSeen);
+  }
+  const settled = isLicenseSettled(product);
+  if (settled) lastRenderedPlan = product.plan || null;
   currentProduct = product;
   if (product.plan === 'promax') {
-    // Show once per Ultra subscription (covers first login, website/admin upgrade, trial, key & checkout)
-    triggerUltraWelcomePopup(product, { force: Boolean(prevPlan && prevPlan !== 'promax') });
-  } else if (product.plan === 'free' || product.plan === 'pro') {
-    // Reset seen flag when on Free/Pro so a future upgrade to Ultra always celebrates cleanly
-    try { localStorage.removeItem(ULTRA_WELCOME_SEEN_KEY); } catch (_) {}
+    // Mostrar UNA sola vez por cuenta Ultra (persistido en config.json + localStorage).
+    // Nunca forzar re-apertura en ticks periódicos, cambios de idioma, sueño/desbloqueo ni renovación de JWT.
+    triggerUltraWelcomePopup(product, { force: false });
   }
   syncTrialHoursFrom(product);
   const features = Array.isArray(product.features) ? product.features : [];
@@ -2279,8 +2422,9 @@ async function loadCurrent() {
   }
   postMatchReplayInput.checked = Boolean(info.postMatchReplay);
   smartBuildOrderInput.checked = Boolean(info.smartBuildOrder);
+  if (info.ultraWelcomeSeen) mergePersistedUltraWelcomeSeen(info.ultraWelcomeSeen);
   if (info.trialHours != null) syncTrialHoursFrom(info);
-  if (info.product) renderProduct({ ...info.product, remoteLicense: info.remoteLicense || info.product.remoteLicense, trialHours: info.trialHours ?? info.product.trialHours });
+  if (info.product) renderProduct({ ...info.product, remoteLicense: info.remoteLicense || info.product.remoteLicense, trialHours: info.trialHours ?? info.product.trialHours, ultraWelcomeSeen: info.ultraWelcomeSeen || info.product.ultraWelcomeSeen });
   if (!initialBootDone && !info.profileId && window.settings?.auto) {
     try {
       const autoRes = await window.settings.auto();
@@ -3559,7 +3703,7 @@ loadCurrent();
           renderProduct(res.product);
         }
         if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
-          triggerUltraWelcomePopup(res.product || currentProduct, { force: true });
+          triggerUltraWelcomePopup(res.product || currentProduct, { force: false });
         }
         setStatus(t('ui.googleSignedIn', 'Sesión de Google iniciada.'));
       } else {
@@ -3603,6 +3747,7 @@ loadCurrent();
     if (redeemBtn) redeemBtn.disabled = true;
     if (redeemStatusEl) redeemStatusEl.textContent = 'Verificando clave…';
     try {
+      const wasAlreadyUltra = currentProduct?.plan === 'promax';
       const res = await window.settings.authRedeemKey(code);
       if (res?.ok) {
         if (redeemInput) redeemInput.value = '';
@@ -3613,7 +3758,7 @@ loadCurrent();
           renderProduct(res.product);
         }
         if (res.product?.plan === 'promax' || String(res.plan || '').toLowerCase() === 'promax') {
-          triggerUltraWelcomePopup(res.product || currentProduct, { force: true });
+          triggerUltraWelcomePopup(res.product || currentProduct, { force: !wasAlreadyUltra });
         }
       } else if (redeemStatusEl) {
         redeemStatusEl.textContent = res?.error || t('ui.invalidKey', 'Clave inválida.');
@@ -4038,6 +4183,7 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
   }
   setStatus('');
   try {
+    const wasAlreadyUltra = currentProduct?.plan === 'promax';
     const res = await window.settings.claimUltraTrial();
     if (res?.trialHours != null) syncTrialHoursFrom(res);
     if (!res?.ok) {
@@ -4053,7 +4199,7 @@ el('claimUltraTrialBtn')?.addEventListener('click', async () => {
       return;
     }
     if (res.product) renderProduct(res.product);
-    if (res.product?.plan === 'promax') triggerUltraWelcomePopup(res.product, { force: true });
+    if (res.product?.plan === 'promax') triggerUltraWelcomePopup(res.product, { force: !wasAlreadyUltra });
     if (btn) btn.hidden = true;
     setStatus(t('ui.trialActOk', '¡Prueba Ultra de {dur} activada! Disfrutá la experiencia completa.', { dur: formatTrialDuration(res.trialHours || currentTrialHours, { short: true }) }), 'is-ok');
   } catch (_) {

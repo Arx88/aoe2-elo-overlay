@@ -1,3 +1,11 @@
+## v3.3.25 · Detección blindada tras dodge/re-cola, WebSocket sin atraso y fix definitivo del popup Ultra
+
+- **Detección automática tras caída de sala / dodge:** si un jugador abandona la pre-partida y el juego vuelve a buscar, Relic detecta la nueva cola en ~3 s, limpia al instante los jugadores de la sala caída, bloquea la resurrección de partidas zombis de nodos atrasados y muestra la siguiente partida en pre-partida sin quedar congelado.
+- **Detección de partidas mucho más confiable:** el carril rápido y el socket principal ahora combinan el Frame 1 + Frame 2 de AoE2 Companion (eliminando el desfase de 15 s), preservan el mapa global y las colas activas, rescatan rosters huérfanos, cruzan contra el feed global si el filtro `profile_ids` se atrasa y aceleran el polling REST tras detectar un savegame nuevo o cierre de cola.
+- **Popup de bienvenida Relic Ultra corregido definitivamente:** ahora se muestra una sola vez por cuenta (persistido en `config.json` y `localStorage`, con migración automática desde versiones anteriores) y ya no reaparece en verificaciones periódicas cada 15 minutos ni al reanudar o desbloquear Windows.
+
+---
+
 ## v3.3.24 · Ultra Gamma
 
 - **Ultra Gamma** se suma como un skin independiente para suscriptores de Relic Ultra. Se activa desde Apariencia y convive con el skin Ultra original.
