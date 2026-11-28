@@ -2505,7 +2505,7 @@ function renderResults() {
 
     const check = document.createElement('span');
     check.className = 'result-check';
-    check.textContent = String(profile.profileId) === String(currentProfileId) ? '✓' : '';
+    if (String(profile.profileId) === String(currentProfileId)) RelicIcons.setStatusLabel(check, 'check');
 
     row.append(avatar, copy, check);
     row.addEventListener('click', () => choose(profile.profileId));
@@ -3095,7 +3095,7 @@ function renderLanguageSelectors() {
       return `<button type="button" class="prefs-lang-item${active ? ' active' : ''}" role="radio" aria-checked="${active}" data-lang="${item.code}">
         ${flag}
         <span>${escapeHtml(item.label)}</span>
-        <em>${active ? '✓' : ''}</em>
+        <em>${active ? RelicIcons.status('check') : ''}</em>
       </button>`;
     }).join('');
     accountGrid.querySelectorAll('.prefs-lang-item').forEach((btn) => {
@@ -3606,7 +3606,7 @@ loadCurrent();
       if (railUserBtn) railUserBtn.classList.remove('is-signed');
       if (railUserAvatar) {
         railUserAvatar.classList.add('is-guest');
-        railUserAvatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 19.2c1.2-3 3.7-4.5 6.5-4.5s5.3 1.5 6.5 4.5"/></svg>';
+        railUserAvatar.innerHTML = RelicIcons.icon('account', 'product-icon', 15);
       }
       if (railUserName) railUserName.textContent = lastAccountInfo.alias || t('account.signInRail', 'Iniciar sesión');
       if (railUserSub) railUserSub.textContent = lastAccountInfo.alias ? t('ui.unsynced', 'Sin sincronizar') : t('ui.accountShort', 'Cuenta');
@@ -4005,7 +4005,7 @@ function startCheckoutPolling(orderId) {
         if (noteEl) noteEl.textContent = t('ui.paymentActiveNote', '¡Listo! Tu plan ya quedó activado en tu cuenta Relic.');
         const confirmBtn = el('checkoutConfirmBtn');
         if (confirmBtn) {
-          confirmBtn.textContent = 'Plan activado ✓';
+          RelicIcons.setStatusLabel(confirmBtn, 'check', 'Plan activado');
           confirmBtn.disabled = true;
         }
         if (res.product) {
@@ -4085,7 +4085,7 @@ el('checkoutCopyAddrBtn')?.addEventListener('click', async () => {
     await navigator.clipboard.writeText(addr);
     const btn = el('checkoutCopyAddrBtn');
     if (btn) {
-      btn.textContent = 'Copiada ✓';
+      RelicIcons.setStatusLabel(btn, 'check', 'Copiada');
       setTimeout(() => { btn.textContent = 'Copiar'; }, 1800);
     }
   } catch (_) {}
@@ -4268,7 +4268,7 @@ function syncAllTrainPinButtons(queue = latestTrainingQueue) {
       btn.dataset.tpQueueId = hit.id;
       btn.setAttribute('aria-pressed', 'true');
       btn.title = t('ui.inMyPlanTip', 'En Mi Plan · Se verificará automáticamente en tus próximas partidas (tocá para quitar)');
-      if (labelSpan) labelSpan.textContent = '✓ En Mi Plan';
+      if (labelSpan) labelSpan.textContent = 'En Mi Plan';
     } else {
       btn.classList.remove('is-pinned');
       delete btn.dataset.tpQueueId;
@@ -4376,7 +4376,7 @@ function showPlanVerifiedToast(completedItems = []) {
   toast.id = 'planVerifiedToast';
   toast.className = 'plan-verified-toast';
   toast.setAttribute('role', 'status');
-  toast.innerHTML = `<div class="pvt-badge">✓</div>
+  toast.innerHTML = `<div class="pvt-badge">${RelicIcons.icon('check', 'product-icon', 19)}</div>
     <div class="pvt-copy">
       <span>${escapeHtml(t('ui.planCompletedBanner', '¡CUMPLISTE TU PLAN EN PARTIDA REAL!'))}</span>
       <strong>${escapeHtml(first.title)}${escapeHtml(more)}</strong>
@@ -4443,11 +4443,11 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
       ? t('ui.upProSub', 'Forma parte de Relic Pro. Lectura completa de rivales e historial desde el minuto cero.')
       : t('ui.upUltraSub', 'Forma parte de Relic Ultra. Probalo gratis durante {dur} y decidí con tus partidas.', { dur: durLong }));
 
-  const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const icoShield = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const icoEye = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
-  const icoStar = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.4 6.7 19.1l1-5.8-4.2-4.1 5.9-.9L12 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoTrend = RelicIcons.icon('trend', 'product-icon');
+  const icoList = RelicIcons.icon('orders', 'product-icon');
+  const icoShield = RelicIcons.icon('shield', 'product-icon');
+  const icoEye = RelicIcons.icon('eye', 'product-icon');
+  const icoStar = RelicIcons.icon('arena', 'product-icon');
 
   const perks = isPro
     ? [
@@ -4472,7 +4472,7 @@ function openFriendlyUpgradeModal({ tier = 'ultra', featureName = '', featureDes
     <button type="button" class="rum-close" id="rumCloseBtn" aria-label="${escapeHtml(t('common.close', 'Cerrar'))}">×</button>
     <div class="rum-copy">
       <span class="rum-eyebrow">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
+        ${RelicIcons.icon('crown', 'product-icon')}
         ${escapeHtml(tierLabel)}
       </span>
       <h3>${escapeHtml(headline)}</h3>
@@ -4550,7 +4550,7 @@ function openExpiredOfferModal(remoteLic) {
     <button type="button" class="rum-close" id="rumCloseBtn" aria-label="${escapeHtml(t('common.close', 'Cerrar'))}">×</button>
     <div class="rum-copy">
       <span class="rum-eyebrow">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
+        ${RelicIcons.icon('crown', 'product-icon')}
         ${escapeHtml(t('expiredModal.eyebrow', 'RELIC ULTRA · ACCESO FINALIZADO'))}
       </span>
       <h3>${escapeHtml(t('expiredModal.title', 'Tu prueba de Relic Ultra terminó'))}</h3>
@@ -4610,7 +4610,7 @@ function setPageChildrenInert(pageEl, locked) {
 
 function buildPageLockStageHtml({ tier = 'ultra', art = 'assets/art/postmatch-v3-cabecera.webp', artRight = true, eyebrow = 'Relic Ultra', title = '', lead = '', perks = [], primaryLabel = 'Probar 24 h gratis', secondaryLabel = 'Ver planes', isTrial = true, compact = false } = {}) {
   const isPro = tier === 'pro';
-  const crownSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>';
+  const crownSvg = RelicIcons.icon('crown', 'product-icon');
   const cls = `relic-upgrade-stage${isPro ? ' is-pro' : ''}${artRight ? ' is-art-right' : ''}${compact ? ' is-compact-stage' : ''}`;
   return `<div class="page-lock-veil">
     <div class="${cls}">
@@ -4652,11 +4652,11 @@ function syncLockedPageShowcases(product) {
   const trialAvail = isUltraTrialAvailable(product);
   const durLong = formatTrialDuration(currentTrialHours, { short: false });
   const durShort = formatTrialDuration(currentTrialHours, { short: true });
-  const icoTrend = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const icoList = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const icoShield = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const icoEye = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
-  const icoStar = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.4 6.7 19.1l1-5.8-4.2-4.1 5.9-.9L12 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const icoTrend = RelicIcons.icon('trend', 'product-icon');
+  const icoList = RelicIcons.icon('orders', 'product-icon');
+  const icoShield = RelicIcons.icon('shield', 'product-icon');
+  const icoEye = RelicIcons.icon('eye', 'product-icon');
+  const icoStar = RelicIcons.icon('arena', 'product-icon');
 
   // 1. Postmatch (Ultra)
   const pmPage = document.querySelector('section.page[data-page="postmatch"]');
@@ -4871,7 +4871,7 @@ function paintReferralsSummary(data) {
   const blocked = Boolean(data.rewardMachineBlocked);
 
   if (railBtn) railBtn.classList.toggle('is-claimed', claimed);
-  if (railBadge) railBadge.textContent = claimed ? '✓ Ultra' : `${Math.min(activated, goal)}/${goal}`;
+  RelicIcons.setStatusLabel(railBadge, claimed ? 'check' : null, claimed ? 'Ultra' : `${Math.min(activated, goal)}/${goal}`);
   if (railSub) {
     railSub.textContent = claimed
       ? t('referrals.monthCredited', 'Mes gratis acreditado')
@@ -4882,7 +4882,7 @@ function paintReferralsSummary(data) {
           : t('referrals.railSub', 'Trae 10 amigos'));
   }
 
-  if (accCount) accCount.textContent = claimed ? t('referrals.completed', '✓ Completado') : `${Math.min(activated, goal)} / ${goal}`;
+  RelicIcons.setStatusLabel(accCount, claimed ? 'check' : null, claimed ? t('referrals.completed', 'Completado') : `${Math.min(activated, goal)} / ${goal}`);
   setRefSegments(accSegs, claimed ? goal : activated, claimed ? 0 : pending, goal);
   if (accStatus) {
     if (claimed) {
@@ -4978,13 +4978,14 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
     if (cannotApplyEl) cannotApplyEl.hidden = true;
     if (myStatusBox) myStatusBox.hidden = false;
     if (myStatusTitle) {
-      myStatusTitle.textContent = myRef.status === 'activated'
-        ? t('referrals.invActivated', '✓ Invitación de {name} activada', { name: myRef.inviterLabel })
+      const title = myRef.status === 'activated'
+        ? t('referrals.invActivated', 'Invitación de {name} activada', { name: myRef.inviterLabel })
         : myRef.status === 'pending_review'
           ? t('referrals.invReview', 'Invitación de {name} en revisión', { name: myRef.inviterLabel })
           : myRef.status === 'pending'
             ? t('referrals.invApplied', 'Código {code} aplicado', { code: myRef.code })
             : t('referrals.invRejected', 'Código {code} no validado', { code: myRef.code });
+      RelicIcons.setStatusLabel(myStatusTitle, myRef.status === 'activated' ? 'check' : null, title);
     }
     if (myStatusDesc) {
       myStatusDesc.textContent = myRef.status === 'activated'
@@ -5023,7 +5024,7 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
               ? 'is-pending'
               : 'is-rejected';
         const pillTxt = f.status === 'activated'
-          ? 'Activado ✓'
+          ? 'Activado'
           : f.status === 'pending_review'
             ? t('ui.refInReview', 'En revisión')
             : f.status === 'pending'
@@ -5039,7 +5040,7 @@ function paintReferralModal(data, { signedOut = false, loading = false, errorMsg
             <strong>${escapeHtml(f.label || t('ui.refPlayerFallback', 'Jugador'))}</strong>
             ${sub ? `<small>${escapeHtml(sub)}</small>` : ''}
           </div>
-          <span class="referral-status-pill ${pillCls}">${escapeHtml(pillTxt)}</span>
+          <span class="referral-status-pill ${pillCls}">${f.status === 'activated' ? RelicIcons.status('check', 12) : ''}${escapeHtml(pillTxt)}</span>
         </div>`;
       }).join('');
     }

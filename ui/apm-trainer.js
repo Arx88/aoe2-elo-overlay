@@ -104,6 +104,7 @@
   ];
 
   const imgCache = new Map();
+  const portraitFrame = new Image();
   function getUnitImage(unitId) {
     const def = UNITS[unitId];
     if (!def) return null;
@@ -115,6 +116,7 @@
   }
 
   function preloadIcons() {
+    portraitFrame.src = 'assets/icons/relic/frame-portrait.webp';
     for (const id of UNIT_IDS) getUnitImage(id);
   }
 
@@ -420,7 +422,7 @@
         if (res?.ok) {
           planPinFeedback = res.duplicate
             ? t('apm.planAlreadyAdded', 'Esta meta ya está activa en Mi Plan.')
-            : t('apm.planAddedOk', '✓ Meta agregada a Mi Plan (se verifica automáticamente).');
+            : t('apm.planAddedOk', 'Meta agregada a Mi Plan (se verifica automáticamente).');
           playSfx('confirm');
           if (typeof onNotifyRender === 'function') onNotifyRender();
         }
@@ -969,9 +971,13 @@
         ctx.strokeStyle = pal.bezelBorder;
         ctx.stroke();
 
+        if (portraitFrame.complete && portraitFrame.naturalWidth > 0) {
+          ctx.drawImage(portraitFrame, tk.x - r, tk.y - r, r * 2, r * 2);
+        }
+
         ctx.save();
         ctx.beginPath();
-        ctx.arc(tk.x, tk.y, r - 2, 0, Math.PI * 2);
+        ctx.arc(tk.x, tk.y, r - 3, 0, Math.PI * 2);
         ctx.clip();
         const img = getUnitImage(tk.unitId);
         if (img && img.complete && img.naturalWidth > 0) {
@@ -1161,7 +1167,7 @@
               <div class="tr-apm-grade-head">
                 <strong>${esc(r.tier)}</strong>
                 ${r.isNewRecord ? `<span class="tr-apm-record-tag">${esc(t('apm.newRecord', 'Nuevo récord'))}</span>` : ''}
-                ${completedGoal ? `<span class="tr-apm-record-tag">${esc(t('apm.planGoalMetTag', '✓ Meta de Mi Plan cumplida'))}</span>` : ''}
+                ${completedGoal ? `<span class="tr-apm-record-tag">${root.RelicIcons.status('check', 12)}${esc(t('apm.planGoalMetTag', 'Meta de Mi Plan cumplida'))}</span>` : ''}
               </div>
               <p>${esc(r.coaching)}</p>
               ${r.rankNote ? `<small class="tr-apm-rank-note mono">${esc(r.rankNote)}</small>` : ''}
@@ -1224,7 +1230,7 @@
         if (n >= 1200) return 'is-elo-mid';
         return 'is-elo-std';
       };
-      const crownSvg = `<svg class="tr-apm-lb-crown" viewBox="0 0 16 12" width="13" height="10" aria-hidden="true"><path d="M1.2 10.5L2.4 2.8L5.7 6.2L8 1.4L10.3 6.2L13.6 2.8L14.8 10.5H1.2Z" fill="currentColor"/></svg>`;
+      const crownIcon = root.RelicIcons.icon('crown', 'tr-apm-lb-crown', 13, 12);
 
       let bodyHtml = '';
       if (slot.loading && !top.length) {
@@ -1257,7 +1263,7 @@
               ? `<span class="tr-apm-lb-gap is-leader mono">${esc(t('apm.lbLeaderWord', 'LÍDER'))}</span>`
               : `<span class="tr-apm-lb-gap mono">${diff === 0 ? '0' : `-${diff}`}</span>`;
             const posHtml = rankNum === 1
-              ? `<span class="tr-apm-lb-pos is-r1 mono"><span>${padRank(rankNum)}</span>${crownSvg}</span>`
+              ? `<span class="tr-apm-lb-pos is-r1 mono"><span>${padRank(rankNum)}</span>${crownIcon}</span>`
               : `<span class="tr-apm-lb-pos${tierRowCls} mono">${padRank(rankNum)}</span>`;
             return `<div class="tr-apm-lb-row${tierRowCls}${p.isMe ? ' is-me' : ''}" role="row">
               ${posHtml}

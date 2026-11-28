@@ -27,6 +27,7 @@ const VALID_STEP_ICONS = new Set([
   'villager', 'food', 'sheep', 'boar', 'wood', 'berries', 'gold', 'stone',
   'building', 'age', 'barracks', 'stable', 'scout', 'sword', 'archer',
   'blacksmith', 'castle', 'market', 'gunpowder', 'shield', 'relic',
+  'age-dark', 'age-feudal', 'age-castle', 'age-imperial',
 ]);
 
 function todayIso() {

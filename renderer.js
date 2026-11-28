@@ -152,35 +152,23 @@ function tr(key, fallback, vars = null) {
   return fallback;
 }
 
-/* -------------------------------------------------------------------------
- * ICONOS DE LÍNEA
- * Set mínimo en SVG inline: la CSP del panel no permite recursos externos y
- * así los iconos heredan el color del texto, sirven en los 11 temas y no
- * agregan ni un archivo ni una petición.
- * ---------------------------------------------------------------------- */
-const ICONS = {
-  escudo: '<path d="M12 3 4.8 5.9v5.3c0 4.1 3 7.4 7.2 9.8 4.2-2.4 7.2-5.7 7.2-9.8V5.9L12 3Z"/>',
-  espadas: '<path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/>',
-  balanza: '<path d="M12 4v14"/><path d="M6.2 6.2h11.6"/><path d="m6.2 6.2-2.3 5.4a2.7 2.7 0 0 0 4.6 0L6.2 6.2Z"/><path d="m17.8 6.2-2.3 5.4a2.7 2.7 0 0 0 4.6 0L17.8 6.2Z"/><path d="M8.4 20h7.2"/>',
-  mapa: '<path d="M9 4.5 3.5 6.4v13.1L9 17.6l6 1.9 5.5-1.9V4.5L15 6.4 9 4.5Z"/><path d="M9 4.5v13.1"/><path d="M15 6.4v13.1"/>',
-  reloj: '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.3V12l3.1 1.9"/>',
-  estrella: '<path d="m12 4.2 2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.5-4.6 2.5.9-5.1L4.5 9.7l5.2-.8L12 4.2Z"/>',
-  bandera: '<path d="M6.2 20V4.4"/><path d="M6.2 5.2h10.6l-1.8 3.3 1.8 3.3H6.2"/>',
-  alerta: '<path d="M12 4.4 20.8 19.6H3.2L12 4.4Z"/><path d="M12 9.8v4.1"/><path d="M12 17.1h.01"/>',
-  foco: '<path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/>',
-  sube: '<path d="M12 19.2V4.8"/><path d="m6.3 10.5 5.7-5.7 5.7 5.7"/>',
-  copa: '<path d="M8.2 4.2h7.6v4.6a3.8 3.8 0 0 1-7.6 0V4.2Z"/><path d="M8.2 5.8H5.4v1.8a2.8 2.8 0 0 0 2.8 2.8"/><path d="M15.8 5.8h2.8v1.8a2.8 2.8 0 0 1-2.8 2.8"/><path d="M12 12.6v4"/><path d="M9.2 20h5.6"/>',
-  lista: '<path d="M8.5 6.2h11.2"/><path d="M8.5 12h11.2"/><path d="M8.5 17.8h11.2"/><path d="M4.6 6.2h.01"/><path d="M4.6 12h.01"/><path d="M4.6 17.8h.01"/>',
+const OVERLAY_ICON_ROLES = {
+  escudo: 'shield',
+  espadas: 'combat',
+  balanza: 'scales',
+  mapa: 'map',
+  reloj: 'clock',
+  estrella: 'star',
+  bandera: 'flag',
+  alerta: 'alert',
+  foco: 'postmatch-advice',
+  sube: 'up',
+  copa: 'trophy',
+  lista: 'list',
 };
 
 function icon(name) {
-  const paths = ICONS[name];
-  if (!paths) return '';
-  return (
-    '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-    `stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" ` +
-    `aria-hidden="true">${paths}</svg>`
-  );
+  return RelicIcons.icon(OVERLAY_ICON_ROLES[name], 'ic', 16);
 }
 
 /* ============================================================

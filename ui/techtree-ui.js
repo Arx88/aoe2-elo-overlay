@@ -112,7 +112,7 @@
       return root.TrainingUI.resolveCivCrest(slug);
     }
     const clean = String(slug || 'franks').toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    return `assets/shields/${clean}.png`;
+    return `assets/civs/${clean}.png`;
   }
 
   function nodeIcon(node) {
@@ -258,10 +258,10 @@
   function renderCostMedallions(cost) {
     if (!cost) return `<span class="tt-cost-free">${esc(tt('tt.costFree', 'Gratis / Sin costo directo'))}</span>`;
     const items = [];
-    if (cost.f) items.push(`<span class="tt-res-chip is-food" title="${esc(tt('tt.food', 'Comida'))}"><img src="assets/icons/food.png" alt="" draggable="false" /><b class="mono">${cost.f}</b></span>`);
-    if (cost.w) items.push(`<span class="tt-res-chip is-wood" title="${esc(tt('tt.wood', 'Madera'))}"><img src="assets/icons/wood.png" alt="" draggable="false" /><b class="mono">${cost.w}</b></span>`);
-    if (cost.g) items.push(`<span class="tt-res-chip is-gold" title="${esc(tt('tt.gold', 'Oro'))}"><img src="assets/icons/gold.png" alt="" draggable="false" /><b class="mono">${cost.g}</b></span>`);
-    if (cost.s) items.push(`<span class="tt-res-chip is-stone" title="${esc(tt('tt.stone', 'Piedra'))}"><img src="assets/icons/stone.png" alt="" draggable="false" /><b class="mono">${cost.s}</b></span>`);
+    if (cost.f) items.push(`<span class="tt-res-chip is-food" title="${esc(tt('tt.food', 'Comida'))}"><img data-relic-icon="food" src="assets/icons/food.png" alt="" draggable="false" /><b class="mono">${cost.f}</b></span>`);
+    if (cost.w) items.push(`<span class="tt-res-chip is-wood" title="${esc(tt('tt.wood', 'Madera'))}"><img data-relic-icon="wood" src="assets/icons/wood.png" alt="" draggable="false" /><b class="mono">${cost.w}</b></span>`);
+    if (cost.g) items.push(`<span class="tt-res-chip is-gold" title="${esc(tt('tt.gold', 'Oro'))}"><img data-relic-icon="gold" src="assets/icons/relic/gold.png" alt="" draggable="false" /><b class="mono">${cost.g}</b></span>`);
+    if (cost.s) items.push(`<span class="tt-res-chip is-stone" title="${esc(tt('tt.stone', 'Piedra'))}"><img data-relic-icon="stone" src="assets/icons/stone.png" alt="" draggable="false" /><b class="mono">${cost.s}</b></span>`);
     return items.join('');
   }
 
@@ -399,13 +399,13 @@
             <span class="tt-cmp-side ${aHas ? 'is-yes' : 'is-no'}">
               <img src="${esc(civCrest(civ.slug))}" alt="" draggable="false" />
               <b>${esc(civLocName)}</b>
-              <i>${aHas ? '✓' : '×'}</i>
+              <i>${root.RelicIcons.status(aHas ? 'check' : 'lock', 12)}</i>
             </span>
             <span class="tt-cmp-vs">VS</span>
             <span class="tt-cmp-side ${bHas ? 'is-yes' : 'is-no'}">
               <img src="${esc(civCrest(compareCiv.slug))}" alt="" draggable="false" />
               <b>${esc(cmpLocName)}</b>
-              <i>${bHas ? '✓' : '×'}</i>
+              <i>${root.RelicIcons.status(bHas ? 'check' : 'lock', 12)}</i>
             </span>
           </div>
           <small>${esc(verdict)}</small>
@@ -469,14 +469,14 @@
           <div class="tt-insp-identity">
             <div class="tt-insp-portrait ${typeCls}${ui.selectedNodeAv ? '' : ' is-unavail'}">
               <img src="${esc(nodeIcon(node))}" alt="" draggable="false" />
-              ${!ui.selectedNodeAv ? '<span class="tt-insp-lock-x" aria-hidden="true">×</span>' : ''}
+              ${!ui.selectedNodeAv ? `<span class="tt-insp-lock-x" aria-hidden="true">${root.RelicIcons.status('lock', 14)}</span>` : ''}
             </div>
             <div class="tt-insp-titles">
               <h4>${esc(nodeLabel)}</h4>
               ${node.nameEn && norm(node.nameEn) !== norm(nodeLabel) ? `<small class="tt-insp-en">${esc(node.nameEn)}</small>` : ''}
               <div class="tt-insp-status-row">
                 <span class="tt-insp-avail ${ui.selectedNodeAv ? 'is-ok' : 'is-no'}">
-                  ${esc(ui.selectedNodeAv ? tt('tt.availIn', '✓ Disponible en {civ}', { civ: civLocName }) : tt('tt.missingIn', '× Falta en {civ}', { civ: civLocName }))}
+                  ${root.RelicIcons.status(ui.selectedNodeAv ? 'check' : 'lock', 12)}${esc(ui.selectedNodeAv ? tt('tt.availIn', 'Disponible en {civ}', { civ: civLocName }) : tt('tt.missingIn', 'Falta en {civ}', { civ: civLocName }))}
                 </span>
               </div>
             </div>
@@ -513,7 +513,7 @@
                   title="${esc(snLbl)} · ${esc(step.av ? tt('tt.availWord', 'Disponible') : tt('tt.unavailWord', 'No disponible'))}">
                   <span class="tt-evo-ico">
                     <img src="${esc(nodeIcon(sn))}" alt="" draggable="false" />
-                    ${!step.av ? '<i>×</i>' : ''}
+                    ${!step.av ? `<i>${root.RelicIcons.status('lock', 12)}</i>` : ''}
                   </span>
                   <small>${esc(snLbl)}</small>
                 </button>`;
@@ -746,7 +746,7 @@
                   title="${esc(nLbl)} · ${esc(cell.av ? tt('tt.availWord', 'Disponible') : tt('tt.unavailWord', 'No disponible'))}">
                   <span class="tt-node-frame">
                     <img src="${esc(nodeIcon(n))}" alt="" loading="lazy" draggable="false" />
-                    ${!cell.av ? '<span class="tt-node-x" aria-hidden="true">×</span>' : ''}
+                    ${!cell.av ? `<span class="tt-node-x" aria-hidden="true">${root.RelicIcons.status('lock', 12)}</span>` : ''}
                     ${badge && cell.av ? `<span class="tt-node-tag ${badge.cls}">${esc(badge.short)}</span>` : ''}
                     ${cmpBadge}
                   </span>
@@ -769,7 +769,7 @@
             title="${esc(lane.title)}">
             <span class="tt-lane-ico">
               <img src="${esc(lane.icon)}" alt="" draggable="false" />
-              ${!bAv ? '<span class="tt-node-x" aria-hidden="true">×</span>' : ''}
+              ${!bAv ? `<span class="tt-node-x" aria-hidden="true">${root.RelicIcons.status('lock', 12)}</span>` : ''}
             </span>
             <span class="tt-lane-meta">
               <strong>${esc(nodesMap[lane.building.k] ? locNodeName(nodesMap[lane.building.k]) : lane.title)}</strong>

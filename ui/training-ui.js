@@ -1,6 +1,7 @@
 'use strict';
 
 (function initTrainingUi(root) {
+  const relicIcons = root.RelicIcons;
   /**
    * Relic · Entrenamiento v5 (Beta · Exclusivo Ultra)
    * - Pestaña inicial = Arena (Campaña de 7 Unidades · +400 preguntas verificadas · 3 vidas / bloqueo 24 h).
@@ -68,9 +69,9 @@
         { id: 'g_boar2', label: '2.º Jabalí', chipImg: 'assets/icons/boar.png', icons: ['boar', 'food'], age: 1, allocDelta: { food: 1 }, title: 'Atraé el 2.º Jabalí (al 40 % del 1.º)', note: 'Evitá que se pudra la caza.' },
         { id: 'g_deer', label: 'Empujar Ciervos', chipImg: 'assets/icons/food.png', icons: ['food', 'scout'], age: 1, allocDelta: { food: 1 }, title: 'Empujá Ciervos al CU con el Explorador', note: 'Ahorra madera antes de granjas.' },
         { id: 'g_berries', label: '4 a Bayas', chipImg: 'assets/icons/berries.png', icons: ['berries', 'food'], age: 1, allocDelta: { food: 4 }, title: 'Molino en bayas con 4 Aldeanos', note: 'Recolección estable de arbustos.' },
-        { id: 'g_farms', label: 'Sembrar Granjas', chipImg: 'assets/icons/postmatch/farms.webp', icons: ['food', 'wood'], age: null, allocDelta: { food: 2 }, title: 'Sembrá Granjas junto al CU o Molino', note: 'Cada 60 de madera libre → granja.' },
+        { id: 'g_farms', label: 'Sembrar Granjas', chipImg: 'assets/icons/aoe2/b_35.png', icons: ['food', 'wood'], age: null, allocDelta: { food: 2 }, title: 'Sembrá Granjas junto al CU o Molino', note: 'Cada 60 de madera libre → granja.' },
         { id: 'g_wood', label: 'Talar Madera', chipImg: 'assets/icons/wood.png', icons: ['wood', 'villager'], age: null, allocDelta: { wood: 3 }, title: 'Aldeanos a madera en Campamento maderero', note: 'Renová campamento si caminan >3 casillas.' },
-        { id: 'g_gold', label: 'Extraer Oro', chipImg: 'assets/icons/gold.png', icons: ['gold', 'villager'], age: null, allocDelta: { gold: 3 }, title: 'Aldeanos a Oro en Campamento minero', note: 'Para mejoras y avance de edad.' },
+        { id: 'g_gold', label: 'Extraer Oro', chipImg: 'assets/icons/relic/gold.png', icons: ['gold', 'villager'], age: null, allocDelta: { gold: 3 }, title: 'Aldeanos a Oro en Campamento minero', note: 'Para mejoras y avance de edad.' },
         { id: 'g_stone', label: 'Extraer Piedra', chipImg: 'assets/icons/stone.png', icons: ['stone', 'villager'], age: null, allocDelta: { stone: 3 }, title: 'Aldeanos a Piedra para Castillo o CU', note: 'Asegurá piedra antes de Castillos.' },
       ],
     },
@@ -79,19 +80,19 @@
       label: 'Edificios',
       icon: 'assets/icons/building.png',
       items: [
-        { id: 'b_houses', label: '2 Casas', chipImg: 'assets/icons/building.png', icons: ['building', 'villager'], age: 1, title: 'Construí 2 Casas iniciales (2+1 Aldeanos)', note: 'Evitá bloqueo de población.' },
-        { id: 'b_lumber', label: 'Camp. maderero', chipImg: 'assets/icons/wood.png', icons: ['wood', 'building'], age: 1, title: 'Campamento maderero en bosque seguro', note: 'Pegado a los árboles.' },
-        { id: 'b_mill', label: 'Molino', chipImg: 'assets/icons/berries.png', icons: ['berries', 'building'], age: 1, title: 'Molino pegado a las bayas', note: 'Habilita granjas y Collera.' },
-        { id: 'b_mining', label: 'Camp. minero', chipImg: 'assets/icons/gold.png', icons: ['gold', 'building'], age: 1, title: 'Campamento minero a 1 casilla del oro', note: 'Dejá espacio para evitar bloqueos.' },
-        { id: 'b_barracks', label: 'Cuarteles', chipImg: 'assets/icons/barracks.png', icons: ['barracks', 'building'], age: 1, title: 'Cuarteles durante la subida a Feudal', note: 'Requisito para Establo y Galería.' },
-        { id: 'b_stable', label: 'Establo', chipImg: 'assets/icons/stable.png', icons: ['stable', 'scout'], age: 2, title: 'Establo al entrar en Edad Feudal', note: 'Caballería de exploración / Caballeros.' },
-        { id: 'b_archery', label: 'Galería', chipImg: 'assets/icons/archer.png', icons: ['archer', 'building'], age: 2, title: 'Galería de tiro con arco', note: 'Producción constante de Arqueros.' },
-        { id: 'b_blacksmith', label: 'Herrería', chipImg: 'assets/icons/blacksmith.png', icons: ['blacksmith', 'shield'], age: 2, title: 'Herrería para ataque y armadura', note: 'Requisito para Edad de los Castillos.' },
-        { id: 'b_market', label: 'Mercado', chipImg: 'assets/icons/market.png', icons: ['market', 'gold'], age: 2, title: 'Mercado para equilibrar recursos', note: 'Vender excedente o habilitar Castillos.' },
-        { id: 'b_siege', label: 'Taller de asedio', chipImg: 'assets/icons/gunpowder.png', icons: ['gunpowder', 'building'], age: 3, title: 'Taller de maquinaria de asedio', note: 'Manganas, Escorpiones o Arietes.' },
-        { id: 'b_monastery', label: 'Monasterio', chipImg: 'assets/icons/relic.png', icons: ['relic', 'building'], age: 3, title: 'Monasterio para Monjes y Reliquias', note: 'Defensa anti-Caballeros y oro pasivo.' },
-        { id: 'b_tc', label: 'Centro Urbano', chipImg: 'assets/brand/review-town-center-v1.png', icons: ['building', 'villager'], age: 3, title: 'Centro Urbano extra en madera y oro', note: '275 madera + 100 piedra.' },
-        { id: 'b_castle', label: 'Castillo', chipImg: 'assets/icons/castle.png', icons: ['castle', 'stone'], age: 3, title: 'Castillo en colina o recurso clave', note: 'Control de mapa y Unidad Única.' },
+        { id: 'b_houses', label: '2 Casas', chipImg: 'assets/icons/aoe2/b_34.png', icons: ['building', 'villager'], age: 1, title: 'Construí 2 Casas iniciales (2+1 Aldeanos)', note: 'Evitá bloqueo de población.' },
+        { id: 'b_lumber', label: 'Camp. maderero', chipImg: 'assets/icons/aoe2/b_40.png', icons: ['wood', 'building'], age: 1, title: 'Campamento maderero en bosque seguro', note: 'Pegado a los árboles.' },
+        { id: 'b_mill', label: 'Molino', chipImg: 'assets/icons/aoe2/b_19.png', icons: ['berries', 'building'], age: 1, title: 'Molino pegado a las bayas', note: 'Habilita granjas y Collera.' },
+        { id: 'b_mining', label: 'Camp. minero', chipImg: 'assets/icons/aoe2/b_39.png', icons: ['gold', 'building'], age: 1, title: 'Campamento minero a 1 casilla del oro', note: 'Dejá espacio para evitar bloqueos.' },
+        { id: 'b_barracks', label: 'Cuarteles', chipImg: 'assets/icons/aoe2/b_2.png', icons: ['barracks', 'building'], age: 1, title: 'Cuarteles durante la subida a Feudal', note: 'Requisito para Establo y Galería.' },
+        { id: 'b_stable', label: 'Establo', chipImg: 'assets/icons/aoe2/b_23.png', icons: ['stable', 'scout'], age: 2, title: 'Establo al entrar en Edad Feudal', note: 'Caballería de exploración / Caballeros.' },
+        { id: 'b_archery', label: 'Galería', chipImg: 'assets/icons/aoe2/b_0.png', icons: ['archer', 'building'], age: 2, title: 'Galería de tiro con arco', note: 'Producción constante de Arqueros.' },
+        { id: 'b_blacksmith', label: 'Herrería', chipImg: 'assets/icons/aoe2/b_4.png', icons: ['blacksmith', 'shield'], age: 2, title: 'Herrería para ataque y armadura', note: 'Requisito para Edad de los Castillos.' },
+        { id: 'b_market', label: 'Mercado', chipImg: 'assets/icons/aoe2/b_16.png', icons: ['market', 'gold'], age: 2, title: 'Mercado para equilibrar recursos', note: 'Vender excedente o habilitar Castillos.' },
+        { id: 'b_siege', label: 'Taller de asedio', chipImg: 'assets/icons/aoe2/b_22.png', icons: ['gunpowder', 'building'], age: 3, title: 'Taller de maquinaria de asedio', note: 'Manganas, Escorpiones o Arietes.' },
+        { id: 'b_monastery', label: 'Monasterio', chipImg: 'assets/icons/aoe2/b_10.png', icons: ['relic', 'building'], age: 3, title: 'Monasterio para Monjes y Reliquias', note: 'Defensa anti-Caballeros y oro pasivo.' },
+        { id: 'b_tc', label: 'Centro Urbano', chipImg: 'assets/icons/aoe2/b_28.png', icons: ['building', 'villager'], age: 3, title: 'Centro Urbano extra en madera y oro', note: '275 madera + 100 piedra.' },
+        { id: 'b_castle', label: 'Castillo', chipImg: 'assets/icons/aoe2/b_7.png', icons: ['castle', 'stone'], age: 3, title: 'Castillo en colina o recurso clave', note: 'Control de mapa y Unidad Única.' },
       ],
     },
     {
@@ -99,22 +100,22 @@
       label: 'Tecnologías',
       icon: 'assets/icons/blacksmith.png',
       items: [
-        { id: 't_loom', label: 'Telar', chipImg: 'assets/icons/shield.png', icons: ['shield', 'villager'], age: 1, title: 'Investigar Telar (+15 PS y armadura)', note: 'Antes de hacer clic a Edad Feudal.' },
-        { id: 't_feudal', label: 'Edad Feudal', chipImg: 'assets/icons/ages/feudal.png', icons: ['age', 'food'], age: 1, title: 'Clic a Edad Feudal (500 comida)', note: 'Reasigná aldeanos durante la subida.' },
-        { id: 't_bitaxe', label: 'Hacha doble filo', chipImg: 'assets/icons/wood.png', icons: ['wood', 'age'], age: 2, title: 'Investigar Hacha de doble filo (+20 % tala)', note: 'Prioridad #1 al llegar a Feudal.' },
-        { id: 't_horsecollar', label: 'Collera', chipImg: 'assets/icons/postmatch/farms.webp', icons: ['food', 'wood'], age: 2, title: 'Investigar Collera (+75 comida/granja)', note: 'Antes de sembrar granjas en Feudal.' },
-        { id: 't_wheelbarrow', label: 'Carretilla', chipImg: 'assets/icons/villager.png', icons: ['villager', 'food'], age: 2, title: 'Investigar Carretilla (~15 granjas)', note: '+10 % velocidad y +25 % carga.' },
-        { id: 't_fletching', label: 'Emplumado', chipImg: 'assets/icons/blacksmith.png', icons: ['blacksmith', 'archer'], age: 2, title: 'Emplumado de flechas (+1 ataque y rango)', note: 'Antes del primer combate a distancia.' },
-        { id: 't_forging', label: 'Forja / Armadura', chipImg: 'assets/icons/sword.png', icons: ['blacksmith', 'sword'], age: 2, title: 'Forja y Armadura en Herrería', note: 'Priorizá armadura para caballería.' },
-        { id: 't_bloodlines', label: 'Pureza de sangre', chipImg: 'assets/icons/stable.png', icons: ['stable', 'shield'], age: 2, title: 'Pureza de sangre (+20 PS caballería)', note: 'Clave para escalar Establos.' },
-        { id: 't_castle', label: 'Edad Castillos', chipImg: 'assets/icons/ages/castle.png', icons: ['age', 'gold'], age: 2, title: 'Clic a Castillos (800 comida, 200 oro)', note: 'Prepará mejoras en la subida.' },
-        { id: 't_bowsaw', label: 'Sierra de arco', chipImg: 'assets/icons/wood.png', icons: ['wood', 'age'], age: 3, title: 'Sierra de arco (+20 % extra de tala)', note: 'Inmediata al pisar Castillos.' },
-        { id: 't_bodkin', label: 'Flecha de punzón', chipImg: 'assets/icons/blacksmith.png', icons: ['blacksmith', 'archer'], age: 3, title: 'Flecha de punzón (+1 ataque y alcance)', note: 'Pico de poder de Ballesteros.' },
-        { id: 't_ballistics', label: 'Balística', chipImg: 'assets/icons/postmatch/upgrades.webp', icons: ['archer', 'building'], age: 3, title: 'Universidad + Balística', note: 'Anticipa movimiento enemigo.' },
-        { id: 't_handcart', label: 'Carro de mano', chipImg: 'assets/icons/villager.png', icons: ['villager', 'food'], age: 3, title: 'Carro de mano (~35 granjas)', note: 'Impulsa economía a Imperial.' },
-        { id: 't_imperial', label: 'Edad Imperial', chipImg: 'assets/icons/ages/imperial.png', icons: ['age', 'castle'], age: 3, title: 'Clic a Edad Imperial (1000 C / 800 O)', note: 'Alistá producción y mejoras finales.' },
-        { id: 't_bracer', label: 'Brazal', chipImg: 'assets/icons/blacksmith.png', icons: ['blacksmith', 'archer'], age: 4, title: 'Brazal en Herrería (+1 ataque y rango)', note: 'Prioridad en Edad Imperial.' },
-        { id: 't_chemistry', label: 'Química', chipImg: 'assets/icons/gunpowder.png', icons: ['gunpowder', 'archer'], age: 4, title: 'Química en Universidad (+1 ataque / pólvora)', note: 'Habilita Cañón y Artillero manual.' },
+        { id: 't_loom', label: 'Telar', chipImg: 'assets/icons/aoe2/t_6.png', icons: ['shield', 'villager'], age: 1, title: 'Investigar Telar (+15 PS y armadura)', note: 'Antes de hacer clic a Edad Feudal.' },
+        { id: 't_feudal', label: 'Edad Feudal', chipImg: 'assets/icons/ages/feudal.png', icons: ['age-feudal', 'food'], age: 1, title: 'Clic a Edad Feudal (500 comida)', note: 'Reasigná aldeanos durante la subida.' },
+        { id: 't_bitaxe', label: 'Hacha doble filo', chipImg: 'assets/icons/aoe2/t_70.png', icons: ['wood', 'age'], age: 2, title: 'Investigar Hacha de doble filo (+20 % tala)', note: 'Prioridad #1 al llegar a Feudal.' },
+        { id: 't_horsecollar', label: 'Collera', chipImg: 'assets/icons/aoe2/t_2.png', icons: ['food', 'wood'], age: 2, title: 'Investigar Collera (+75 comida/granja)', note: 'Antes de sembrar granjas en Feudal.' },
+        { id: 't_wheelbarrow', label: 'Carretilla', chipImg: 'assets/icons/aoe2/t_79.png', icons: ['villager', 'food'], age: 2, title: 'Investigar Carretilla (~15 granjas)', note: '+10 % velocidad y +25 % carga.' },
+        { id: 't_fletching', label: 'Emplumado', chipImg: 'assets/icons/aoe2/t_34.png', icons: ['blacksmith', 'archer'], age: 2, title: 'Emplumado de flechas (+1 ataque y rango)', note: 'Antes del primer combate a distancia.' },
+        { id: 't_forging', label: 'Forja / Armadura', chipImg: 'assets/icons/aoe2/t_17.png', icons: ['blacksmith', 'sword'], age: 2, title: 'Forja y Armadura en Herrería', note: 'Priorizá armadura para caballería.' },
+        { id: 't_bloodlines', label: 'Pureza de sangre', chipImg: 'assets/icons/aoe2/t_110.png', icons: ['stable', 'shield'], age: 2, title: 'Pureza de sangre (+20 PS caballería)', note: 'Clave para escalar Establos.' },
+        { id: 't_castle', label: 'Edad Castillos', chipImg: 'assets/icons/ages/castle.png', icons: ['age-castle', 'gold'], age: 2, title: 'Clic a Castillos (800 comida, 200 oro)', note: 'Prepará mejoras en la subida.' },
+        { id: 't_bowsaw', label: 'Sierra de arco', chipImg: 'assets/icons/aoe2/t_71.png', icons: ['wood', 'age'], age: 3, title: 'Sierra de arco (+20 % extra de tala)', note: 'Inmediata al pisar Castillos.' },
+        { id: 't_bodkin', label: 'Flecha de punzón', chipImg: 'assets/icons/aoe2/t_35.png', icons: ['blacksmith', 'archer'], age: 3, title: 'Flecha de punzón (+1 ataque y alcance)', note: 'Pico de poder de Ballesteros.' },
+        { id: 't_ballistics', label: 'Balística', chipImg: 'assets/icons/aoe2/t_25.png', icons: ['archer', 'building'], age: 3, title: 'Universidad + Balística', note: 'Anticipa movimiento enemigo.' },
+        { id: 't_handcart', label: 'Carro de mano', chipImg: 'assets/icons/aoe2/t_42.png', icons: ['villager', 'food'], age: 3, title: 'Carro de mano (~35 granjas)', note: 'Impulsa economía a Imperial.' },
+        { id: 't_imperial', label: 'Edad Imperial', chipImg: 'assets/icons/ages/imperial.png', icons: ['age-imperial', 'castle'], age: 3, title: 'Clic a Edad Imperial (1000 C / 800 O)', note: 'Alistá producción y mejoras finales.' },
+        { id: 't_bracer', label: 'Brazal', chipImg: 'assets/icons/aoe2/t_37.png', icons: ['blacksmith', 'archer'], age: 4, title: 'Brazal en Herrería (+1 ataque y rango)', note: 'Prioridad en Edad Imperial.' },
+        { id: 't_chemistry', label: 'Química', chipImg: 'assets/icons/aoe2/t_12.png', icons: ['gunpowder', 'archer'], age: 4, title: 'Química en Universidad (+1 ataque / pólvora)', note: 'Habilita Cañón y Artillero manual.' },
       ],
     },
     {
@@ -122,16 +123,16 @@
       label: 'Unidades',
       icon: 'assets/icons/sword.png',
       items: [
-        { id: 'u_militia', label: '3 Milicias', chipImg: 'assets/icons/sword.png', icons: ['sword', 'barracks'], age: 1, title: '3 Milicias en Cuarteles para presión temprana', note: 'Hostigá madera o bayas rivales.' },
-        { id: 'u_maa', label: 'Hombres de armas', chipImg: 'assets/icons/sword.png', icons: ['sword', 'barracks'], age: 2, title: 'Mejorar a Hombres de armas en Feudal', note: 'Rompé empalizadas y frená economía.' },
-        { id: 'u_scouts', label: 'Cab. exploración', chipImg: 'assets/brand/review-scout-v1.png', icons: ['scout', 'stable'], age: 2, title: '3–4 Caballería de exploración en Establo', note: 'Incursioná sin dejar de sembrar granjas.' },
-        { id: 'u_archers', label: 'Arqueros', chipImg: 'assets/brand/review-archer-v1.png', icons: ['archer', 'gold'], age: 2, title: 'Arqueros continuos en Galería', note: 'Conservá la masa para Ballesteros.' },
-        { id: 'u_skirms', label: 'Guerrilleros', chipImg: 'assets/icons/shield.png', icons: ['shield', 'archer'], age: 2, title: 'Guerrilleros contra Arqueros rivales', note: 'Sumá armadura en Herrería.' },
-        { id: 'u_spears', label: 'Lanceros', chipImg: 'assets/icons/barracks.png', icons: ['barracks', 'shield'], age: 2, title: 'Lanceros en Feudal contra caballería', note: 'Protegé oro, madera y arqueros.' },
-        { id: 'u_knights', label: 'Caballeros', chipImg: 'assets/brand/review-knight-v1.png', icons: ['stable', 'shield'], age: 3, title: 'Caballeros constantes en doble Establo', note: 'Con +2 armadura incursioná bajo fuego.' },
-        { id: 'u_camels', label: 'Camellos', chipImg: 'assets/icons/postmatch/cavalry.webp', icons: ['stable', 'sword'], age: 3, title: 'Jinetes de camello anti-caballería', note: 'Cazan Caballeros y Exploradores.' },
-        { id: 'u_ca', label: 'Arq. a caballo', chipImg: 'assets/icons/archer.png', icons: ['archer', 'scout'], age: 3, title: 'Arqueros a caballo en múltiples Galerías', note: 'Pureza de sangre + Dactilera.' },
-        { id: 'u_monks', label: 'Monjes', chipImg: 'assets/brand/review-relic-monk-v1.png', icons: ['relic', 'gold'], age: 3, title: 'Monjes para conversiones y Reliquias', note: 'Cada reliquia aporta oro continuo.' },
+        { id: 'u_militia', label: '3 Milicias', chipImg: 'assets/icons/aoe2/u_8.png', icons: ['sword', 'barracks'], age: 1, title: '3 Milicias en Cuarteles para presión temprana', note: 'Hostigá madera o bayas rivales.' },
+        { id: 'u_maa', label: 'Hombres de armas', chipImg: 'assets/icons/aoe2/u_10.png', icons: ['sword', 'barracks'], age: 2, title: 'Mejorar a Hombres de armas en Feudal', note: 'Rompé empalizadas y frená economía.' },
+        { id: 'u_scouts', label: 'Cab. exploración', chipImg: 'assets/icons/aoe2/u_64.png', icons: ['scout', 'stable'], age: 2, title: '3–4 Caballería de exploración en Establo', note: 'Incursioná sin dejar de sembrar granjas.' },
+        { id: 'u_archers', label: 'Arqueros', chipImg: 'assets/icons/aoe2/u_17.png', icons: ['archer', 'gold'], age: 2, title: 'Arqueros continuos en Galería', note: 'Conservá la masa para Ballesteros.' },
+        { id: 'u_skirms', label: 'Guerrilleros', chipImg: 'assets/icons/aoe2/u_20.png', icons: ['shield', 'archer'], age: 2, title: 'Guerrilleros contra Arqueros rivales', note: 'Sumá armadura en Herrería.' },
+        { id: 'u_spears', label: 'Lanceros', chipImg: 'assets/icons/aoe2/u_31.png', icons: ['barracks', 'shield'], age: 2, title: 'Lanceros en Feudal contra caballería', note: 'Protegé oro, madera y arqueros.' },
+        { id: 'u_knights', label: 'Caballeros', chipImg: 'assets/icons/aoe2/u_1.png', icons: ['stable', 'shield'], age: 3, title: 'Caballeros constantes en doble Establo', note: 'Con +2 armadura incursioná bajo fuego.' },
+        { id: 'u_camels', label: 'Camellos', chipImg: 'assets/icons/aoe2/u_78.png', icons: ['stable', 'sword'], age: 3, title: 'Jinetes de camello anti-caballería', note: 'Cazan Caballeros y Exploradores.' },
+        { id: 'u_ca', label: 'Arq. a caballo', chipImg: 'assets/icons/aoe2/u_19.png', icons: ['archer', 'scout'], age: 3, title: 'Arqueros a caballo en múltiples Galerías', note: 'Pureza de sangre + Dactilera.' },
+        { id: 'u_monks', label: 'Monjes', chipImg: 'assets/icons/aoe2/u_218.png', icons: ['relic', 'gold'], age: 3, title: 'Monjes para conversiones y Reliquias', note: 'Cada reliquia aporta oro continuo.' },
       ],
     },
   ];
@@ -200,6 +201,8 @@
     const raw = String(val || '').trim();
     if (!raw) return fallback;
     if (raw.startsWith('assets/')) return raw;
+    const catalogAsset = relicIcons.asset(raw.replace(/\.png$/i, ''));
+    if (catalogAsset) return catalogAsset;
     if (/\.(png|webp|jpg|svg)$/i.test(raw)) return `assets/icons/${raw}`;
     return `assets/icons/${raw}.png`;
   }
@@ -605,7 +608,7 @@
             <button type="button" class="tr-welcome-card is-featured" data-tr-welcome-go="perf">
               <div class="tr-wc-art">
                 <img src="assets/art/postmatch-v3-cabecera.webp" alt="" draggable="false" />
-                <img class="tr-wc-icon" src="assets/icons/postmatch/tempo.webp" alt="" draggable="false" />
+                ${relicIcons.icon('trend', 'tr-wc-icon')}
                 <span class="tr-wc-pill is-gold">PROGRESO</span>
               </div>
               <div class="tr-wc-body">
@@ -617,7 +620,7 @@
             <button type="button" class="tr-welcome-card" data-tr-welcome-go="orders">
               <div class="tr-wc-art">
                 <img src="assets/art/apertura-scouts.webp" alt="" draggable="false" />
-                <img class="tr-wc-icon" src="assets/brand/opening-v1.png" alt="" draggable="false" />
+                ${relicIcons.icon('orders', 'tr-wc-icon')}
                 <span class="tr-wc-pill">EN VIVO</span>
               </div>
               <div class="tr-wc-body">
@@ -629,7 +632,7 @@
             <button type="button" class="tr-welcome-card" data-tr-welcome-go="arena">
               <div class="tr-wc-art">
                 <img src="assets/art/prematch-estandartes.webp" alt="" draggable="false" />
-                <img class="tr-wc-icon" src="assets/brand/review-knight-v1.png" alt="" draggable="false" />
+                ${relicIcons.icon('arena', 'tr-wc-icon')}
                 <span class="tr-wc-pill">7 NIVELES</span>
               </div>
               <div class="tr-wc-body">
@@ -700,7 +703,7 @@
           <div class="tr-lock-scrim" aria-hidden="true"></div>
           <div class="tr-lock-copy">
             <span class="tr-lock-eyebrow">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
+              ${relicIcons.icon('crown')}
               Relic Ultra
             </span>
             <h2>${esc(trT('trui.lockHeroTitle', 'Entrená con tus propias partidas'))}</h2>
@@ -708,19 +711,19 @@
             <div class="tr-lock-rule" aria-hidden="true"></div>
             <ul class="tr-lock-list">
               <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${relicIcons.icon('trend')}
                 <span>Progreso por indicador y metas que se actualizan al jugar</span>
               </li>
               <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h7M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${relicIcons.icon('orders')}
                 <span>${esc(trT('trui.lockBulletOrders', 'Build orders en vivo con bonos de civilización'))}</span>
               </li>
               <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${relicIcons.icon('shield')}
                 <span>Matchups y counters de las 56 civilizaciones</span>
               </li>
               <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.4 6.7 19.1l1-5.8-4.2-4.1 5.9-.9L12 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${relicIcons.icon('arena')}
                 <span>Arena diaria con 7 unidades desbloqueables</span>
               </li>
             </ul>
@@ -734,7 +737,7 @@
 
     /* ==================== TAB 2: "MI PLAN" (AUTO-VERIFIED ON SUBSEQUENT REAL MATCHES) ==================== */
     function renderDumbbellSvg() {
-      return '<svg class="train-pin-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7.5v9M17.5 7.5v9M4 9.5v5M20 9.5v5M6.5 12h11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      return relicIcons.dumbbell();
     }
 
     function renderPlanView() {
@@ -794,10 +797,10 @@
       };
 
       const renderCompletedRow = (it) => `<div class="tr-q-item is-verified">
-        <div class="tr-q-status-ico is-verified" title="Objetivo cumplido en partida">✓</div>
+        <div class="tr-q-status-ico is-verified" title="Objetivo cumplido en partida">${relicIcons.icon('check', 'product-icon', 16)}</div>
         <div class="tr-q-copy">
           <div class="tr-q-head-row">
-            <span class="tr-q-verified-tag">✓ CUMPLIDO</span>
+            <span class="tr-q-verified-tag">CUMPLIDO</span>
             <strong>${esc(it.title)}</strong>
           </div>
           <small class="tr-q-evidence">${esc(it.verifiedEvidence || 'Cumpliste este objetivo en una partida posterior.')}</small>
@@ -829,7 +832,7 @@
                 <h4>Objetivos de Mi Plan (${pending.length} activos · ${completed.length} cumplidos)</h4>
                 <small class="tr-plan-sub">${esc(trT('trui.planSub', 'Cada objetivo se verifica solo al terminar tus próximas partidas reales.'))}</small>
               </div>
-              ${completed.length ? `<div class="tr-qc-head-actions"><span class="tr-subtab-badge is-em">✓ ${completed.length} ${completed.length === 1 ? 'cumplido' : 'cumplidos'}</span><button type="button" class="tr-q-clear-done" data-tr-q-clear-done="1">${esc(clearDoneLabel)}</button></div>` : ''}
+              ${completed.length ? `<div class="tr-qc-head-actions"><span class="tr-subtab-badge is-em">${relicIcons.status('check', 12)}${completed.length} ${completed.length === 1 ? 'cumplido' : 'cumplidos'}</span><button type="button" class="tr-q-clear-done" data-tr-q-clear-done="1">${esc(clearDoneLabel)}</button></div>` : ''}
             </div>
           </div>
           ${listBody}
@@ -858,7 +861,7 @@
         <div class="tr-nav-bar">
           <nav class="tr-tabs-row" role="tablist" aria-label="${esc(trT('nav.training', 'Entrenamiento'))}">
             <button type="button" class="tr-tab${activeSubtab === 'perf' ? ' is-active' : ''}" data-tr-tab="perf" role="tab" aria-selected="${activeSubtab === 'perf'}">
-              <img src="assets/icons/postmatch/tempo.webp" alt="" draggable="false" />
+              ${relicIcons.icon('trend', 'product-icon', 18)}
               <span>${esc(trT('training.tabProgress', 'Progreso'))}</span>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'plan' ? ' is-active' : ''}" data-tr-tab="plan" role="tab" aria-selected="${activeSubtab === 'plan'}">
@@ -867,40 +870,37 @@
               ${pendingQueue > 0 ? `<b class="tr-tab-count mono">${pendingQueue}</b>` : ''}
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'orders' ? ' is-active' : ''}" data-tr-tab="orders" role="tab" aria-selected="${activeSubtab === 'orders'}">
-              <img src="assets/brand/opening-v1.png" alt="" draggable="false" />
+              ${relicIcons.icon('orders', 'product-icon', 18)}
               <span>${esc(trT('training.tabOrders', 'Build Orders'))}</span>
               ${activeId ? '<i class="tr-tab-dot" aria-hidden="true"></i>' : ''}
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'matchups' ? ' is-active' : ''}" data-tr-tab="matchups" role="tab" aria-selected="${activeSubtab === 'matchups'}">
-              <img src="assets/icons/postmatch/combat.webp" alt="" draggable="false" />
+              ${relicIcons.icon('matchup', 'product-icon', 18)}
               <span>${esc(trT('training.tabMatchups', 'Matchups'))}</span>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'arena' ? ' is-active' : ''}" data-tr-tab="arena" role="tab" aria-selected="${activeSubtab === 'arena'}">
-              <img src="assets/brand/review-knight-v1.png" alt="" draggable="false" />
+              ${relicIcons.icon('arena', 'product-icon', 18)}
               <span>${esc(trT('training.tabArena', 'Arena'))}</span>
               <em class="tr-tab-pill${arena.locked ? ' is-warn' : ''}">${arenaTag}</em>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'apm' ? ' is-active' : ''}" data-tr-tab="apm" role="tab" aria-selected="${activeSubtab === 'apm'}">
-              <img src="assets/icons/target.png" alt="" draggable="false" />
+              ${relicIcons.icon('activity', 'product-icon', 18)}
               <span>${esc(trT('training.tabApm', 'APM'))}</span>
             </button>
             <button type="button" class="tr-tab${activeSubtab === 'techtree' ? ' is-active' : ''}" data-tr-tab="techtree" role="tab" aria-selected="${activeSubtab === 'techtree'}">
-              <img src="assets/icons/aoe2/b_7.png" alt="" draggable="false" />
+              ${relicIcons.icon('tech-tree', 'product-icon', 18)}
               <span>${esc(trT('training.tabTechTree', 'Árbol de tecnología'))}</span>
             </button>
           </nav>
-          <button type="button" class="tr-guide-icon-btn" id="trOpenGuideBtn" title="${esc(trT('training.guideTip', 'Abrir guía rápida'))}">?</button>
+          <button type="button" class="tr-guide-icon-btn" id="trOpenGuideBtn" title="${esc(trT('training.guideTip', 'Abrir guía rápida'))}">${relicIcons.icon('help', 'product-icon', 15)}</button>
         </div>
         <p class="tr-tab-hint">${esc(TAB_HINTS[activeSubtab] || TAB_HINTS.perf)}</p>
       </div>`;
     }
 
     /* ==================== TAB 1 (DEFAULT): ARENA CAMPAIGN GAME ==================== */
-    function renderHeartSvg(alive) {
-      return `<svg class="tr-life-shield${alive ? ' is-alive' : ' is-lost'}" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 2L4 5.5v5.8c0 5.1 3.4 9.6 8 10.7 4.6-1.1 8-5.6 8-10.7V5.5L12 2z" fill="${alive ? '#c94f48' : 'rgba(255,255,255,0.06)'}" stroke="${alive ? '#f2d799' : 'rgba(255,255,255,0.22)'}" stroke-width="1.6"/>
-        ${alive ? '<path d="M12 6.8l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4z" fill="#faf0d4"/>' : '<path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="rgba(255,255,255,0.28)" stroke-width="1.6" stroke-linecap="round"/>'}
-      </svg>`;
+    function renderArenaLife(alive) {
+      return `<span class="tr-life-shield${alive ? ' is-alive' : ' is-lost'}" aria-hidden="true">${relicIcons.icon('shield', 'tr-life-icon', 24)}${alive ? '' : `<i class="tr-life-cross">${relicIcons.status('alert', 12)}</i>`}</span>`;
     }
 
     function renderArenaView() {
@@ -925,13 +925,13 @@
         return `<button type="button" class="tr-unit-node${cls}${isSel}" ${clickable ? `data-tr-arena-level="${lv.level}"` : 'disabled'} title="Nivel ${lv.level} · ${esc(lv.unitName)} (${esc(lv.eloBand)})">
           <span class="tr-un-circle">
             <img src="${resolveAsset(lv.portrait, 'assets/brand/opening-v1.png')}" alt="" draggable="false" />
-            ${lv.unitUnlocked ? '<i class="tr-un-check">✓</i>' : (!lv.unlocked ? '<img class="tr-un-lock" src="assets/icons/lock.png" alt="" draggable="false" />' : '')}
+            ${lv.unitUnlocked ? `<i class="tr-un-check">${relicIcons.icon('check', '', 10)}</i>` : (!lv.unlocked ? relicIcons.icon('lock', 'tr-un-lock') : '')}
           </span>
           <small>${esc(lv.unitName)}</small>
         </button>`;
       }).join('');
 
-      const livesHtml = [0, 1, 2].map((i) => renderHeartSvg(i < (a.remainingLives ?? 3))).join('');
+      const livesHtml = [0, 1, 2].map((i) => renderArenaLife(i < (a.remainingLives ?? 3))).join('');
       const livesStatus = a.locked
         ? 'Bloqueado 24 h'
         : a.remainingLives === 1 ? trT('trui.arenaLastLife', '¡Última vida hoy!') : trT('trui.arenaLivesLeft', '{n}/3 vidas hoy', { n: a.remainingLives });
@@ -953,7 +953,7 @@
         stageContent = `<section class="tr-arena-lockout">
           <img class="tr-lo-bg" src="assets/art/apertura-castle.webp" alt="" draggable="false" />
           <div class="tr-lo-inner">
-            <div class="tr-lo-crest"><img src="assets/icons/lock.png" alt="" draggable="false" /></div>
+            <div class="tr-lo-crest"><img data-relic-icon="lock" src="assets/icons/lock.png" alt="" draggable="false" /></div>
             <span class="eyebrow">${esc(trT('training.arenaLockEyebrow', '3 ERRORES EN EL DÍA · DESCANSO OBLIGATORIO DE 24 HORAS'))}</span>
             <h3>${esc(trT('training.arenaLockTitle', 'Las puertas de la Arena descansan por hoy'))}</h3>
             <div class="tr-lockout-clock mono" id="trLockoutClock">${fmtCountdownMs(a.remainingMs)}</div>
@@ -1048,7 +1048,7 @@
               </div>
               <div class="tr-cb-right-tools">
                 <span class="tr-cb-elo-tag">${esc(activeCfg.eloBand || '')}</span>
-                <span class="tr-arena-kpi"><img src="assets/icons/medal.png" alt="" draggable="false" />${a.accuracyPct != null ? `${a.accuracyPct} %` : '—'}</span>
+                <span class="tr-arena-kpi"><img data-relic-icon="medal" src="assets/icons/medal.png" alt="" draggable="false" />${a.accuracyPct != null ? `${a.accuracyPct} %` : '—'}</span>
               </div>
             </div>
             <svg class="tr-cb-bar-svg" viewBox="0 0 600 5" preserveAspectRatio="none" aria-hidden="true">
@@ -1091,8 +1091,8 @@
 
       const recipeOpts = (pacer.recipes || []).map((r) => {
         const rId = r.id || r.key;
-        const prefix = r.isCustom ? '★ ' : '';
-        return `<option value="${esc(rId)}"${rId === (pacer.selectedRecipe?.id || pacer.selectedRecipe?.key) ? ' selected' : ''}>${prefix}${esc(r.name)}</option>`;
+        const suffix = r.isCustom ? ' · Personalizada' : '';
+        return `<option value="${esc(rId)}"${rId === (pacer.selectedRecipe?.id || pacer.selectedRecipe?.key) ? ' selected' : ''}>${esc(r.name)}${esc(suffix)}</option>`;
       }).join('');
 
       const civOpts = [`<option value="">${esc(trT('trui.anyCivOpt', 'Cualquier civilización'))}</option>`]
@@ -1100,10 +1100,7 @@
           `<option value="${esc(slug)}"${slug === selectedCivSlug ? ' selected' : ''}>${esc(label)}</option>`
         )).join('');
 
-      const ageImg = st.age === 4 ? 'assets/brand/imperial-v1.png'
-        : st.age === 3 ? 'assets/brand/castle-v1.png'
-        : st.age === 2 ? 'assets/brand/feudal-v1.png'
-        : 'assets/icons/ages/dark.png';
+      const ageImg = relicIcons.asset(relicIcons.ageRole(st.age || 1));
 
       const hudStepIcons = (st.icons || ['villager']).map((ic) => `<img src="${resolveAsset(ic, 'assets/icons/villager.png')}" alt="" draggable="false" />`).join('');
       const artClass = rec.artClass || 'is-art-scouts';
@@ -1137,10 +1134,10 @@
             <div class="tr-step-row-badges">
               <span class="tr-badge-time">${fmtClock(s.gameSec)}</span>
               <span class="tr-badge-pop">${esc(s.pop)}</span>
-              <span class="tr-badge-res"><img src="assets/icons/food.png" alt="" />${a.food || 0}</span>
-              <span class="tr-badge-res"><img src="assets/icons/wood.png" alt="" />${a.wood || 0}</span>
-              <span class="tr-badge-res"><img src="assets/icons/gold.png" alt="" />${a.gold || 0}</span>
-              ${a.stone ? `<span class="tr-badge-res"><img src="assets/icons/stone.png" alt="" />${a.stone}</span>` : ''}
+              <span class="tr-badge-res"><img data-relic-icon="food" src="assets/icons/food.png" alt="" />${a.food || 0}</span>
+              <span class="tr-badge-res"><img data-relic-icon="wood" src="assets/icons/wood.png" alt="" />${a.wood || 0}</span>
+              <span class="tr-badge-res"><img data-relic-icon="gold" src="assets/icons/relic/gold.png" alt="" />${a.gold || 0}</span>
+              ${a.stone ? `<span class="tr-badge-res"><img data-relic-icon="stone" src="assets/icons/stone.png" alt="" />${a.stone}</span>` : ''}
             </div>
           </div>
         </button>`;
@@ -1175,7 +1172,7 @@
           </div>`
         : `<div class="tr-civ-bonuses-card">
             <div class="tr-cbc-head">
-              <img class="tr-cbc-shield" src="assets/icons/shield.png" alt="" draggable="false" />
+              <img data-relic-icon="shield" class="tr-cbc-shield" src="assets/icons/shield.png" alt="" draggable="false" />
               <div class="tr-cbc-meta">
                 <span class="eyebrow">${esc(trT('trui.boCivEyebrow', 'CIVILIZACIÓN DE LA BUILD ORDER'))}</span>
                 <h4>${esc(trT('trui.boPickCivTitle', 'Elegí una civilización para ver sus bonos económicos'))}</h4>
@@ -1190,9 +1187,9 @@
         const isThisArmed = Boolean(activeId && String(activeId) === String(rId));
         const rCiv = String(r.civSlug || 'franks').toLowerCase();
         return `<button type="button" class="tr-bo-card${isSel ? ' is-selected' : ''}" data-tr-select-recipe="${esc(rId)}">
-          <img class="tr-bo-card-ico" src="${r.civSlug ? resolveCivCrest(rCiv) : 'assets/brand/opening-v1.png'}" alt="" draggable="false" />
+          <img class="tr-bo-card-ico" src="${r.civSlug ? resolveCivCrest(rCiv) : relicIcons.asset('orders')}" alt="" draggable="false" />
           <div class="tr-bo-card-copy">
-            <strong>${r.isCustom ? '★ ' : ''}${esc(r.name)}</strong>
+            <strong>${r.isCustom ? relicIcons.status('star') : ''}${esc(r.name)}</strong>
             <small>${r.stepsCount || (r.steps || []).length || 6} pasos${r.mapName ? ` · ${esc(r.mapName)}` : ''}</small>
           </div>
           ${isThisArmed ? '<span class="tr-subtab-badge is-em">Activa</span>' : ''}
@@ -1262,12 +1259,12 @@
               <div class="tr-inspector-box">
                 <div class="tr-inspector-head">
                   <h4>Paso #${idx + 1}</h4>
-                  <span class="tr-vills-total-pill"><img src="assets/icons/villager.png" alt="" />${totalVills} aldeanos</span>
+                  <span class="tr-vills-total-pill"><img data-relic-icon="villager" src="assets/icons/villager.png" alt="" />${totalVills} aldeanos</span>
                 </div>
 
                 <div class="tr-alloc-sculptor" role="group" aria-label="Aldeanos por recurso">
                   <div class="tr-alloc-card is-food">
-                    <div class="tr-alloc-top"><img src="assets/icons/food.png" alt="" /><span>Comida</span></div>
+                    <div class="tr-alloc-top"><img data-relic-icon="food" src="assets/icons/food.png" alt="" /><span>Comida</span></div>
                     <div class="tr-alloc-ctrl">
                       <button type="button" class="tr-step-adj" data-tr-adj-res="food" data-tr-adj-delta="-1">−</button>
                       <strong class="mono" id="trCntFood">${alloc.food}</strong>
@@ -1275,7 +1272,7 @@
                     </div>
                   </div>
                   <div class="tr-alloc-card is-wood">
-                    <div class="tr-alloc-top"><img src="assets/icons/wood.png" alt="" /><span>Madera</span></div>
+                    <div class="tr-alloc-top"><img data-relic-icon="wood" src="assets/icons/wood.png" alt="" /><span>Madera</span></div>
                     <div class="tr-alloc-ctrl">
                       <button type="button" class="tr-step-adj" data-tr-adj-res="wood" data-tr-adj-delta="-1">−</button>
                       <strong class="mono" id="trCntWood">${alloc.wood}</strong>
@@ -1283,7 +1280,7 @@
                     </div>
                   </div>
                   <div class="tr-alloc-card is-gold">
-                    <div class="tr-alloc-top"><img src="assets/icons/gold.png" alt="" /><span>Oro</span></div>
+                    <div class="tr-alloc-top"><img data-relic-icon="gold" src="assets/icons/relic/gold.png" alt="" /><span>Oro</span></div>
                     <div class="tr-alloc-ctrl">
                       <button type="button" class="tr-step-adj" data-tr-adj-res="gold" data-tr-adj-delta="-1">−</button>
                       <strong class="mono" id="trCntGold">${alloc.gold}</strong>
@@ -1291,7 +1288,7 @@
                     </div>
                   </div>
                   <div class="tr-alloc-card is-stone">
-                    <div class="tr-alloc-top"><img src="assets/icons/stone.png" alt="" /><span>Piedra</span></div>
+                    <div class="tr-alloc-top"><img data-relic-icon="stone" src="assets/icons/stone.png" alt="" /><span>Piedra</span></div>
                     <div class="tr-alloc-ctrl">
                       <button type="button" class="tr-step-adj" data-tr-adj-res="stone" data-tr-adj-delta="-1">−</button>
                       <strong class="mono" id="trCntStone">${alloc.stone}</strong>
@@ -1348,7 +1345,7 @@
                 ${isLiveTesting ? 'Detener prueba' : 'Probar arriba'}
               </button>
               <button type="button" id="trArmOverlayBtn" class="btn ${isArmed ? 'tr-armed-btn' : 'gold tr-cta-sheen'}" aria-pressed="${isArmed}">
-                ${isArmed ? '✓ Armada en Overlay' : 'Armar en Overlay'}
+                ${isArmed ? `${relicIcons.status('check')}Armada en Overlay` : 'Armar en Overlay'}
               </button>
             </div>
           </div>
@@ -1369,10 +1366,10 @@
               </div>
             </div>
             <div class="tr-hud-res-strip">
-              <span class="tr-hud-res is-food"><img src="assets/icons/food.png" alt="" /><b id="trHudFood">${alloc.food}</b></span>
-              <span class="tr-hud-res is-wood"><img src="assets/icons/wood.png" alt="" /><b id="trHudWood">${alloc.wood}</b></span>
-              <span class="tr-hud-res is-gold"><img src="assets/icons/gold.png" alt="" /><b id="trHudGold">${alloc.gold}</b></span>
-              <span class="tr-hud-res is-stone"><img src="assets/icons/stone.png" alt="" /><b id="trHudStone">${alloc.stone}</b></span>
+              <span class="tr-hud-res is-food"><img data-relic-icon="food" src="assets/icons/food.png" alt="" /><b id="trHudFood">${alloc.food}</b></span>
+              <span class="tr-hud-res is-wood"><img data-relic-icon="wood" src="assets/icons/wood.png" alt="" /><b id="trHudWood">${alloc.wood}</b></span>
+              <span class="tr-hud-res is-gold"><img data-relic-icon="gold" src="assets/icons/relic/gold.png" alt="" /><b id="trHudGold">${alloc.gold}</b></span>
+              <span class="tr-hud-res is-stone"><img data-relic-icon="stone" src="assets/icons/stone.png" alt="" /><b id="trHudStone">${alloc.stone}</b></span>
             </div>
           </div>
         </section>
@@ -1437,8 +1434,8 @@
                 <p class="tr-plan-flow-lead">${esc(lab.planSummary?.headline || lab.clockDirective || 'Seguí los 3 pasos conectados desde la apertura hasta el cierre en Imperial.')}</p>
               </div>
               <div class="tr-plan-flow-legend">
-                <span class="tr-leg-chip is-em">✓ Verde = tu ventaja</span>
-                <span class="tr-leg-chip is-warn">⚠ Rojo = peligro rival</span>
+                <span class="tr-leg-chip is-em">${relicIcons.icon('check', 'tr-leg-ico', 12)} Verde = tu ventaja</span>
+                <span class="tr-leg-chip is-warn">${relicIcons.icon('alert', 'tr-leg-ico', 12)} Rojo = peligro rival</span>
               </div>
             </div>
             <div class="tr-plan-flow-chain">
@@ -1459,7 +1456,8 @@
       const gameplanHtml = (lab.gameplanByAge || []).map((g, idx) => {
         const edgeVal = Number(g.edge) || 0;
         const edgeCls = edgeVal >= 4 ? 'is-em' : (edgeVal <= -4 ? 'is-warn' : 'is-even');
-        const badgeLabel = g.badgeTxt || (edgeVal >= 4 ? '✓ Tu ventaja' : (edgeVal <= -4 ? '⚠ Momento peligroso' : '● Tramo parejo'));
+        const statusIcon = edgeVal >= 4 ? 'check' : edgeVal <= -4 ? 'alert' : 'scales';
+        const badgeLabel = String(g.badgeTxt || (edgeVal >= 4 ? 'Tu ventaja' : edgeVal <= -4 ? 'Momento peligroso' : 'Tramo parejo')).replace(/^[✓⚠●]\s*/, '');
         const rawLine = String(g.bestLine || 'Economía y control');
         const tokens = iconRegistry
           ? iconRegistry.tokenizePlanLine(rawLine, mySlugNorm)
@@ -1508,7 +1506,7 @@
         return `${arrowHtml}<article class="tr-age-plan-card ${edgeCls} tr-stagger-${idx + 1}">
         <div class="tr-age-plan-top">
           <span class="tr-age-plan-age"><img src="${resolveAsset(g.icon, 'assets/icons/ages/feudal.png')}" alt="" draggable="false" />PASO ${stepNum} · ${esc(compactAge)}</span>
-          <span class="tr-age-edge-badge ${edgeCls}">${esc(badgeLabel)}</span>
+          <span class="tr-age-edge-badge ${edgeCls}">${relicIcons.icon(statusIcon, 'tr-leg-ico', 12)} ${esc(badgeLabel)}</span>
         </div>
         ${bridgeHtml}
         <div class="tr-unit-showcase">${showcaseHtml}</div>
@@ -1561,7 +1559,7 @@
           const holeIco = getTechIcon(h.es);
           const shortDesc = String(h.desc || '').split('.')[0].trim();
           return `<div class="tr-trap-row is-exploit">
-            <span class="tr-trap-medallion is-hole"><img src="${holeIco}" alt="" draggable="false" /><i class="tr-hole-x" aria-hidden="true">✕</i></span>
+            <span class="tr-trap-medallion is-hole"><img src="${holeIco}" alt="" draggable="false" /><i class="tr-hole-x" aria-hidden="true">${relicIcons.status('alert', 12)}</i></span>
             <div class="tr-trap-copy">
               <div class="tr-trap-head"><span class="tr-trap-kicker is-exploit">SIN MEJORA</span><strong>${esc(rivalCiv.name)} sin ${esc(h.es)}</strong></div>
               <small>${esc(shortDesc ? `${shortDesc}.` : h.desc)}</small>
@@ -1589,7 +1587,7 @@
             <div class="tr-pro-refs-grid">
               ${proExamples.map((ex) => {
                 const resTone = ex.myWon ? 'is-win' : 'is-loss';
-                const resTxt = ex.myWon ? `✓ ${myCiv.name}` : `✕ ${rivalCiv.name}`;
+                const resTxt = ex.myWon ? myCiv.name : rivalCiv.name;
                 const routeTokens = iconRegistry
                   ? iconRegistry.tokenizePlanLine(ex.myRoute, mySlugNorm).slice(0, 2)
                   : [{ short: ex.myRoute, icon: 'assets/icons/ages/feudal.png', sepBefore: null }];
@@ -1598,7 +1596,7 @@
                 ).join('');
                 return `<div class="tr-pro-ref-item ${resTone}">
                   <div class="tr-pro-ref-top">
-                    <span class="tr-pro-ref-res ${resTone}">${esc(resTxt)}</span>
+                    <span class="tr-pro-ref-res ${resTone}">${relicIcons.status(ex.myWon ? 'check' : 'alert')}${esc(resTxt)}</span>
                     <span class="tr-pro-ref-meta mono">${ex.maxElo ? `${ex.maxElo} ELO · ` : ''}${esc(ex.mapName)} · ${ex.durMin}m</span>
                   </div>
                   <strong class="tr-pro-ref-players">${esc(ex.myPlayer)} <em>vs</em> ${esc(ex.rivPlayer)}</strong>
@@ -1851,7 +1849,7 @@
       const fmtAld = (v) => (v != null ? `${String(v).replace('.', ',')} ald.` : '');
       const deltaTag = (m) => {
         if (!m?.hasSample) return '';
-        if (m.isPersonalBest) return `<span class="tr-age-delta is-gold">★ Récord</span>`;
+        if (m.isPersonalBest) return `<span class="tr-age-delta is-gold">${relicIcons.icon('record', 'tr-leg-ico', 12)} Récord</span>`;
         if (!m.signedDeltaShort || m.signedDeltaShort === 'Base inicial' || m.signedDeltaShort === '—') return '';
         const cls = m.improved === true ? 'is-good' : m.improved === false ? 'is-warn' : 'is-flat';
         return `<span class="tr-age-delta ${cls}">${esc(m.signedDeltaShort)}</span>`;
@@ -2196,7 +2194,7 @@
         const isHighlight = Boolean(d.isBestDay || d.hasPersonalBest);
         const fillUrl = isHighlight ? 'url(#trWkPeakGrad)' : 'url(#trWkBarGrad)';
         const capFill = isHighlight ? '#faf0d4' : '#c6f8dc';
-        const valText = isHighlight ? `★ ${fmtAvgScore(avg)}` : fmtAvgScore(avg);
+        const valText = fmtAvgScore(avg);
         const valColor = isHighlight ? '#f5dfa8' : '#8ceab8';
 
         return `<g class="tr-wk-day-col is-active${isHighlight ? ' is-peak' : ''}${clickableCls}"${clickAttr}>
@@ -2260,9 +2258,7 @@
       const milestones = Array.isArray(wp.milestones) ? wp.milestones : [];
       const facts = Array.isArray(wp.encouragingFacts) ? wp.encouragingFacts : [];
 
-      const medallionSrc = wp.hasGains
-        ? 'assets/brand/imperial-v1.png'
-        : 'assets/brand/review-relic-monk-v1.png';
+      const medallionSrc = relicIcons.asset(wp.hasGains ? 'record' : 'trend');
       const eyebrowText = isSamplePreview
         ? 'MUESTRA ULTRA · BALANCE SEMANAL'
         : trT('trui.wkEyebrow', 'BALANCE SEMANAL · ÚLTIMOS 7 DÍAS');
@@ -2279,7 +2275,7 @@
           ? trT('trui.wkBestDay', 'MEJOR DÍA')
           : 'BASE PREVIA';
       const thirdStatVal = wp.weeklyPbsCount > 0
-        ? `★ ${wp.weeklyPbsCount}`
+        ? String(wp.weeklyPbsCount)
         : wp.bestDay
           ? `${wp.bestDay.dayLabel} · ${fmtScore(wp.bestDay.improvedFundamentalsAvg)}/6`
           : `${wp.priorMatchCount || 0} part.`;
@@ -2301,12 +2297,12 @@
           const cleanDelta = String(g.deltaDisplay || '').replace(/(\d)\.(\d)/g, '$1,$2');
           return `<button type="button" class="tr-wk-gain-row ${artCls}${g.isPersonalBest ? ' is-record' : ''}${isInsp ? ' is-inspected' : ''}" data-tr-trend-key="${esc(g.metricKey)}" title="${esc(g.proofNote || '')}">
             <span class="tr-wk-ico-frame">
-              <img src="${resolveAsset(g.icon, 'assets/icons/postmatch/tempo.webp')}" alt="" draggable="false" />
+              <img src="${relicIcons.metricAsset(g.metricKey, relicIcons.asset('trend'))}" alt="" draggable="false" />
             </span>
             <span class="tr-wk-gain-copy">
               <span class="tr-wk-gain-head">
                 <strong>${esc(g.label)}</strong>
-                ${g.isPersonalBest ? '<span class="tr-wk-pb-tag">★ Récord</span>' : ''}
+                ${g.isPersonalBest ? `<span class="tr-wk-pb-tag">${relicIcons.icon('record', 'tr-leg-ico', 12)} Récord</span>` : ''}
               </span>
               <small>${esc(g.humanImpact || g.proofNote || '')}</small>
             </span>
@@ -2366,7 +2362,7 @@
 
       const footItems = [];
       for (const ms of milestones.slice(0, 2)) {
-        const ico = ms.kind === 'personal_best' ? 'assets/icons/postmatch/record.webp' : 'assets/icons/medal.png';
+        const ico = relicIcons.asset(ms.kind === 'personal_best' ? 'record' : 'medal');
         footItems.push(`<span class="tr-wk-foot-item">
           <img src="${ico}" alt="" draggable="false" />
           <span><strong>${esc(ms.title)}</strong> · ${esc(ms.valueDisplay)}</span>
@@ -2374,7 +2370,7 @@
       }
       if (!footItems.length && wp.bestDay?.peakHighlight) {
         footItems.push(`<span class="tr-wk-foot-item">
-          <img src="assets/icons/medal.png" alt="" draggable="false" />
+          <img data-relic-icon="medal" src="assets/icons/medal.png" alt="" draggable="false" />
           <span><strong>Día destacado (${esc(wp.bestDay.dayLabel)})</strong> · ${esc(wp.bestDay.peakHighlight)}</span>
         </span>`);
       }
@@ -2540,7 +2536,7 @@
             <img class="tr-panel-art-bg" src="assets/art/postmatch-v3-cabecera.webp" alt="" aria-hidden="true" draggable="false" />
             <div class="tr-pel-left">
               <div class="tr-perf-crest-frame">
-                <img src="assets/brand/review-town-center-v1.png" alt="" draggable="false" />
+                ${relicIcons.icon('town-center')}
               </div>
               <span class="eyebrow">LABORATORIO DE RENDIMIENTO REAL</span>
               <h3>${esc(trT('trui.progEmptyTitle', 'Tu sala de telemetría está lista'))}</h3>
@@ -2634,7 +2630,7 @@
         const deltaText = !m.hasSample
           ? 'Sin dato'
           : m.isPersonalBest
-            ? trT('trui.recordStar', '★ Récord')
+            ? trT('trui.recordStar', 'Récord')
             : (m.signedDeltaShort || 'En media');
         const deltaTone = !m.hasSample
           ? ''
@@ -2650,14 +2646,14 @@
           : hm.sub;
 
         return `<button type="button" class="tr-ledger-row${isSel ? ' is-selected' : ''}" data-tr-trend-key="${esc(m.key)}">
-          <img class="tr-ledger-ico" src="${resolveAsset(m.icon, 'assets/icons/postmatch/tempo.webp')}" alt="" draggable="false" />
+          <img class="tr-ledger-ico" src="${relicIcons.metricAsset(m.key, relicIcons.asset('trend'))}" alt="" draggable="false" />
           <span class="tr-ledger-copy">
             <strong>${esc(hm.title)}</strong>
             <small>${esc(villSub)}</small>
           </span>
           <span class="tr-ledger-val">
             <strong class="tr-perf-num">${esc(cleanVal)}</strong>
-            <small class="tr-perf-delta${deltaTone}">${esc(deltaText)}</small>
+            <small class="tr-perf-delta${deltaTone}">${m.hasSample && m.isPersonalBest ? relicIcons.icon('record', 'tr-leg-ico', 12) : ''}${esc(deltaText)}</small>
           </span>
           ${buildDivergingDeltaSvg(m)}
         </button>`;
@@ -2719,7 +2715,7 @@
                 </div>
                 <div class="tr-perf-kpi" data-help-id="tr_perf_kpi_best">
                   <span>${esc(trT('trui.progBestExec', 'MEJOR EJECUCIÓN'))}</span>
-                  <strong class="is-gold">${bestExecMetric ? `${esc(bestExecMeta.shortRadar)} (${esc(bestExecMetric.isPersonalBest ? trT('trui.recordStar', '★ Récord') : bestExecMetric.signedDeltaShort)})` : 'Base inicial'}</strong>
+                  <strong class="is-gold">${bestExecMetric ? `${esc(bestExecMeta.shortRadar)} (${esc(bestExecMetric.isPersonalBest ? trT('trui.recordStar', 'Récord') : bestExecMetric.signedDeltaShort)})` : 'Base inicial'}</strong>
                 </div>
               </div>
             </div>
@@ -2737,7 +2733,7 @@
                 data-tp-rule="${esc(diagRuleType)}"
                 data-tp-in-plan="${diagAlreadyInPlan ? '1' : '0'}">
                 ${renderDumbbellSvg()}
-                <span>${diagAlreadyInPlan ? '✓ Ya en Mi Plan · Ver Mi Plan →' : 'Fijar en Mi Plan →'}</span>
+                <span>${diagAlreadyInPlan ? 'Ya en Mi Plan · Ver Mi Plan →' : 'Fijar en Mi Plan →'}</span>
               </button>
             </aside>
           </section>
@@ -2760,7 +2756,7 @@
                   <h3>${esc(activeTrendMeta.title || activeTrendMetric?.title || 'Evolución')}</h3>
                   <small class="tr-studio-hint">${esc(activeTrendMeta.betterHint || '')}</small>
                 </div>
-                ${activeTrendMetric ? `<button type="button" class="tr-perf-pin-cta is-subtle${activeTrendPlanMatch ? ' is-pinned' : ''}" data-train-pin="1" data-tp-source="Progreso" data-tp-title="${esc(activeTrendMeta.title || activeTrendMetric.title)}" data-tp-detail="${esc(activeTrendMeta.sub || '')}" data-tp-metric="${esc(activeCleanVal)}" data-tp-rule="${esc(activeTrendRuleType)}"${activeTrendPlanMatch ? ` data-tp-queue-id="${esc(activeTrendPlanMatch.id)}" aria-pressed="true"` : ' aria-pressed="false"'}>${renderDumbbellSvg()}<span>${activeTrendPlanMatch ? '✓ En Mi Plan' : 'Fijar en Mi Plan'}</span></button>` : ''}
+                ${activeTrendMetric ? `<button type="button" class="tr-perf-pin-cta is-subtle${activeTrendPlanMatch ? ' is-pinned' : ''}" data-train-pin="1" data-tp-source="Progreso" data-tp-title="${esc(activeTrendMeta.title || activeTrendMetric.title)}" data-tp-detail="${esc(activeTrendMeta.sub || '')}" data-tp-metric="${esc(activeCleanVal)}" data-tp-rule="${esc(activeTrendRuleType)}"${activeTrendPlanMatch ? ` data-tp-queue-id="${esc(activeTrendPlanMatch.id)}" aria-pressed="true"` : ' aria-pressed="false"'}>${renderDumbbellSvg()}<span>${activeTrendPlanMatch ? 'En Mi Plan' : 'Fijar en Mi Plan'}</span></button>` : ''}
               </div>
 
               <div class="tr-studio-benchmarks">
@@ -2831,7 +2827,7 @@
               </div>
               <div class="tr-perf-apm-actions">
                 <button type="button" class="btn gold" data-perf-go-apm="${esc(recApm.mode)}">${esc(trT('apm.progGoApmBtn', 'Entrenar en APM →'))}</button>
-                <button type="button" class="btn${alreadyPinned ? ' is-pinned' : ''}" data-perf-pin-apm="${esc(recApm.mode)}" data-perf-pin-eapm="${recApm.targetEapm}" data-perf-pin-acc="${recApm.targetAcc}">${alreadyPinned ? esc(trT('apm.alreadyInPlan', '✓ En Mi Plan')) : `+ ${esc(trT('apm.addToPlanBtn', 'Agregar a Mi Plan'))}`}</button>
+                <button type="button" class="btn${alreadyPinned ? ' is-pinned' : ''}" data-perf-pin-apm="${esc(recApm.mode)}" data-perf-pin-eapm="${recApm.targetEapm}" data-perf-pin-acc="${recApm.targetAcc}">${alreadyPinned ? `${relicIcons.status('check')}${esc(trT('apm.alreadyInPlan', 'En Mi Plan'))}` : `+ ${esc(trT('apm.addToPlanBtn', 'Agregar a Mi Plan'))}`}</button>
               </div>
             </section>`;
           })()}

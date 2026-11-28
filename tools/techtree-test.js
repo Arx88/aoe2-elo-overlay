@@ -41,6 +41,7 @@ test('TechTreeUI renderiza árbol completo, comparador 2 civs e inspector con 0 
   const sandbox = { window: {}, globalThis: {} };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
+  sandbox.RelicIcons = require('../ui/relic-icons');
   vm.runInNewContext(src, sandbox);
   assert.ok(sandbox.TechTreeUI && typeof sandbox.TechTreeUI.createTechTreeController === 'function');
 
@@ -54,6 +55,7 @@ test('TechTreeUI renderiza árbol completo, comparador 2 civs e inspector con 0 
   assert.ok(html.includes('vs Britanos'), 'debe incluir comparador');
   assert.ok(html.includes('tt-inspector'), 'debe renderizar inspector lateral');
   assert.ok(html.includes('is-unavail'), 'debe marcar brechas del árbol');
+  assert.match(html, /tt-node-x[^>]*><img[^>]+data-relic-icon="lock"/);
   assert.ok(!/\sstyle\s*=/i.test(html), 'CSP estricto: cero atributos style inline');
 });
 

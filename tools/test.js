@@ -3,7 +3,7 @@
 // Deterministic suites only. The network/Windows selftest remains separate.
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
-for (const file of ['product-test.js', 'postmatch-test.js', 'postmatch-engine-test.js', 'engine-test.js', 'combat-test.js', 'execution-ratings-test.js',
+for (const file of ['iconography-test.js', 'product-test.js', 'postmatch-test.js', 'postmatch-engine-test.js', 'engine-test.js', 'combat-test.js', 'execution-ratings-test.js',
   'replay-metrics-test.js', 'opening-review-test.js', 'contextual-advice-test.js', 'prematch-regression.js',
   'prematch-predict-test.js', 'opportunities-test.js', 'presentation-test.js', 'build-orders-test.js', 'product-ux-test.js',
   'i18n-license-test.js', 'i18n-guard-test.js', 'civ-diagnostic-test.js', 'api-and-central-intel-test.js', 'training-test.js', 'diagnostics-test.js', 'techtree-test.js', 'welcome-home-test.js', 'dodge-requeue-sim-test.js', 'ultra-popup-and-detection-test.js', 'security-audit-test.js']) {

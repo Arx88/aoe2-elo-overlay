@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const relicIcons = typeof module === 'object' && module.exports ? require('./relic-icons') : root.RelicIcons;
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const number = (value) => {
     if (!Number.isFinite(Number(value)) || value == null) return '—';
@@ -132,23 +133,16 @@
     if (!Number.isSafeInteger(ownTeam) || ownTeam <= 0 || !Number.isSafeInteger(otherTeam) || otherTeam <= 0) return 'unknown';
     return ownTeam === otherTeam ? 'ally' : 'opponent';
   }
-  const ICONS = {
-    compass: 'eye', target: 'eye', map: 'map', history: 'history', trophy: 'trophy', crown: 'crown', objective: 'target',
-    sword: 'sword', combat: 'combat', matchup: 'matchup',
-    castle: 'castle', resources: 'gold', medal: 'medal', shield: 'shield',
-    bow: 'archer', clock: 'clock', chart: 'trend', users: 'players', trend: 'trend',
-    villager: 'villager', food: 'food', wood: 'wood', sheep: 'sheep', boar: 'boar',
-    berries: 'berries', gold: 'gold', stone: 'stone', building: 'building',
-    age: 'age', barracks: 'barracks', stable: 'stable', scout: 'scout',
-    archer: 'archer', blacksmith: 'blacksmith', market: 'market', replay: 'replay',
-    gunpowder: 'gunpowder', relic: 'relic',
-    reviewFocus: 'postmatch-focus', reviewAdvice: 'postmatch-advice',
+  const ICON_ROLES = {
+    compass: 'postmatch-focus', objective: 'target', chart: 'trend', users: 'players', bow: 'archer',
+    reviewFocus: 'postmatch-focus', reviewAdvice: 'postmatch-advice', focus: 'postmatch-focus',
+    opening: 'orders', navy: 'flag', civ: 'shield', swords: 'combat',
   };
   function icon(name) {
-    const asset = ICONS[name];
-    return asset ? `<img class="product-icon" src="assets/icons/${asset}.png" alt="" draggable="false">` : '';
+    const role = Object.hasOwn(ICON_ROLES, name) ? ICON_ROLES[name] : name;
+    return relicIcons.icon(role);
   }
-  function note(title, message, state = 'empty', feature = '') { return `<div class="intel-note ${esc(state)}"${feature ? ` data-feature="${esc(feature)}"` : ''}><span>${icon(state === 'loading' ? 'history' : 'target')}</span><div><b>${esc(title)}</b><p>${esc(message)}</p></div></div>`; }
+  function note(title, message, state = 'empty', feature = '') { return `<div class="intel-note ${esc(state)}"${feature ? ` data-feature="${esc(feature)}"` : ''}><span>${icon(state === 'loading' ? 'update' : state === 'error' ? 'alert' : 'search')}</span><div><b>${esc(title)}</b><p>${esc(message)}</p></div></div>`; }
   function section(title, content, ico = 'map', extra = '', feature = '') { return `<section class="intel-block ${extra}"${feature ? ` data-feature="${esc(feature)}"` : ''}><h4>${icon(ico)}${esc(title)}</h4>${content}</section>`; }
   function dataState(report, label, feature = '') {
     if (!report || report.loading) return note(label, 'Consultando datos…', 'loading', feature);
@@ -529,7 +523,7 @@
       const best = plan.candidates[0];
       if (!best) return '';
       const age = locAge(plan.age, { feudal: 'Feudal', castle: 'Castillos', imperial: 'Imperial' }[plan.age]);
-      return `<article class="opportunity-card"><header>${icon(best.icon)}<div><small>${esc(tr('tactics.optionOf', `Opción de ${age}`, { age }))}</small><b>${esc(best.label)}</b></div></header><p>${esc(best.condition)}</p>${detail ? `<p>${best.history.games >= 3 ? `${plan.data.teamResults ? 'Su equipo perdió' : 'Perdió'} ${best.history.losses}/${best.history.games} ante esta apertura en el contexto consultado.` : 'Orientación del árbol tecnológico con muestra insuficiente.'}</p>` : ''}</article>`;
+      return `<article class="opportunity-card"><header>${icon(best.icon) || icon('target')}<div><small>${esc(tr('tactics.optionOf', `Opción de ${age}`, { age }))}</small><b>${esc(best.label)}</b></div></header><p>${esc(best.condition)}</p>${detail ? `<p>${best.history.games >= 3 ? `${plan.data.teamResults ? 'Su equipo perdió' : 'Perdió'} ${best.history.losses}/${best.history.games} ante esta apertura en el contexto consultado.` : 'Orientación del árbol tecnológico con muestra insuficiente.'}</p>` : ''}</article>`;
     }).join('')}<p class="opportunity-note">${esc(tr('tactics.routesNote', 'Referencia de civilizaciones. El ejército y la edad actuales no están medidos.'))}</p></section>`;
   }
   const RESOURCE_LABELS = { villager: 'Aldeanos', food: 'Comida', sheep: 'Ovejas', boar: 'Jabalí',
@@ -556,7 +550,7 @@
 
     return `<section class="smart-build is-armed-bo">
       <header>
-        ${icon('age')}
+        ${icon(relicIcons.ageRole(st.age))}
         <div>
           <span>${payload.liveTestActive ? 'ORDEN EN PRUEBA · OVERLAY EN VIVO' : 'ORDEN ARMADA EN PARTIDA'} · ${civLabel(payload.ownCiv)}</span>
           <h3>${esc(payload.name || 'Orden personalizada')}</h3>
@@ -954,7 +948,7 @@
     const highlights = comparison && (ratings.personalHighlights || []).length
       ? `<div class="review-personal-highlights">${ratings.personalHighlights.map((item) => `<p>${icon('trend')}<span><b>${esc(item.title)}</b>${esc(item.detail)}</span></p>`).join('')}</div>` : '';
     if (!cards && !highlights) return '';
-    return `<section class="review-execution"><h3>${icon('medal')}${esc(tr('pm.yourExecution', 'Tu ejecución'))}</h3><div class="review-skills">${cards}</div><p class="review-execution-note">${esc(economic.detail)}${economic.grade ? ` Escala personal S–D · ${number(economic.minimumStageSampleSize)} referencias mínimas por etapa.` : ''}</p>${highlights}</section>`;
+    return `<section class="review-execution"><h3>${icon('trend')}${esc(tr('pm.yourExecution', 'Tu ejecución'))}</h3><div class="review-skills">${cards}</div><p class="review-execution-note">${esc(economic.detail)}${economic.grade ? ` Escala personal S–D · ${number(economic.minimumStageSampleSize)} referencias mínimas por etapa.` : ''}</p>${highlights}</section>`;
   }
   function matchHistoryContext(benchmark) {
     if (!benchmark.games || !['limited', 'ready', 'partial'].includes(benchmark.status)) return '';
@@ -984,7 +978,7 @@
     if (!stages.length) return '';
     const grades = stages.map((stage) => `<div><strong>${esc(stage.grade)}</strong><span>${esc(stage.label)}</span><small>${number(stage.sampleSize)} comparables</small></div>`).join('');
     const highlight = ratings.personalHighlights?.[0];
-    return `<section class="review-impact"><h3>${icon('medal')}${esc(tr('pm.yourEcoExec', 'Tu ejecución económica'))}</h3><p>Frente a tus propias partidas comparables.</p>
+    return `<section class="review-impact"><h3>${icon('resources')}${esc(tr('pm.yourEcoExec', 'Tu ejecución económica'))}</h3><p>Frente a tus propias partidas comparables.</p>
       <div class="review-personal-grades">${grades}</div>
       ${highlight ? `<p><b>${esc(highlight.title)}</b> · ${esc(highlight.detail)}</p>` : ''}</section>`;
   }
@@ -1347,40 +1341,51 @@
         : `${abs < 10 ? dec(abs, 1) : number(Math.round(abs * 10) / 10)}${suffix}`;
     const good = invertGood ? d < 0 : d > 0;
     const arrow = good ? '▲' : '▼';
-    const tag = item.isBest ? ` ${tr('postmatch.recordTag', '★ RÉCORD')}` : '';
+    const tag = item.isBest ? ` ${relicIcons.status('record', 12)}${esc(tr('postmatch.recordTag', 'RÉCORD'))}` : '';
     return `<span class="pm-delta ${good ? 'win' : 'loss'}${item.isBest ? ' is-record' : ''}">${arrow} ${sign}${val}${tag}</span>`;
   }
-  const REPORT_ICON_ALIASES = { opening: 'history', dark: 'building', feudal: 'barracks',
-    imperial: 'crown', target: 'reviewAdvice', focus: 'reviewFocus' };
+  const AGE_ROLES = { dark: 'age-dark', feudal: 'age-feudal', castle: 'age-castle', imperial: 'age-imperial' };
+  const REPORT_ICON_ALIASES = { opening: 'orders', dark: 'age-dark', feudal: 'age-feudal', imperial: 'age-imperial',
+    target: 'reviewAdvice', focus: 'reviewFocus' };
   function reportIcon(name) {
-    return icon(REPORT_ICON_ALIASES[name] || name) || icon('medal');
+    const role = Object.hasOwn(REPORT_ICON_ALIASES, name) ? REPORT_ICON_ALIASES[name] : name;
+    return icon(role);
   }
-  const POSTMATCH_EMBLEMS = {
-    combat: 'combat', sword: 'combat', shield: 'defense', matchup: 'army',
-    castle: 'castle', building: 'castle', food: 'farms', wood: 'upgrades',
-    blacksmith: 'upgrades', resources: 'economy', villager: 'economy', market: 'market',
-    clock: 'tempo', age: 'tempo', trophy: 'record', crown: 'record', medal: 'record',
-    opening: 'opening', map: 'map', relic: 'relics', scout: 'cavalry',
-    trend: 'activity', focus: 'map', target: 'activity', navy: 'navy',
-  };
   function postmatchEmblem(name) {
-    const file = Object.hasOwn(POSTMATCH_EMBLEMS, name) ? POSTMATCH_EMBLEMS[name] : null;
-    return file
-      ? `<img class="pm-emblem" src="assets/icons/postmatch/${file}.webp" width="24" height="24" alt="" draggable="false"/>`
-      : reportIcon(name);
+    const role = Object.hasOwn(ICON_ROLES, name) ? ICON_ROLES[name] : name;
+    return relicIcons.icon(role, 'pm-emblem', 24) || reportIcon(name);
   }
-  const AGE_BRAND_ART = {
-    dark: 'assets/icons/ages/dark.png',
-    opening: 'assets/icons/ages/dark.png',
-    feudal: 'assets/icons/ages/feudal.png',
-    castle: 'assets/icons/ages/castle.png',
-    imperial: 'assets/icons/ages/imperial.png',
+  const NARRATIVE_ICON_ROLES = {
+    'evo-eapm-record': 'record',
+    'evo-eapm-up': 'activity',
+    'evo-eapm-drop': 'activity',
+    'medal-stamina': 'activity',
+    'medal-peak-adrenaline': 'activity',
+    'neg-stamina-drop': 'activity',
+    'medal-tc-cycle': 'town-center',
+    'medal-tc-lead': 'town-center',
+    'neg-1tc-behind': 'town-center',
+    'medal-feudal-first': 'age-feudal',
+    'medal-castle-first': 'age-castle',
+    'medal-stage-s-feudal': 'age-feudal',
+    'medal-stage-s-castle': 'age-castle',
+    'medal-stage-s-imperial': 'age-imperial',
+    'neg-late-feudal': 'age-feudal',
+    'neg-late-castle': 'age-castle',
+    'neg-no-dba': 'double-bit-axe',
+    'neg-late-dba': 'double-bit-axe',
+    'neg-no-bowsaw': 'bow-saw',
   };
+  function narrativeIcon(item, fallback) {
+    if (item.isRecord || item.tag === 'RÉCORD PERSONAL') return 'record';
+    if (Object.hasOwn(NARRATIVE_ICON_ROLES, item.id)) return NARRATIVE_ICON_ROLES[item.id];
+    if (item.domain === 'macro_tc') return 'town-center';
+    const role = Object.hasOwn(ICON_ROLES, item.icon) ? ICON_ROLES[item.icon] : item.icon;
+    return relicIcons.asset(role) ? role : fallback;
+  }
   function ageBrandEmblem(ageId, size = 34) {
-    const src = AGE_BRAND_ART[ageId];
-    return src
-      ? `<img class="pm-age-brand" src="${src}" width="${size}" height="${size}" alt="" draggable="false"/>`
-      : reportIcon(ageId);
+    const role = ageId === 'opening' ? 'age-dark' : AGE_ROLES[ageId];
+    return relicIcons.icon(role, 'pm-age-brand', size) || reportIcon(ageId);
   }
   function buildFallbackPostmatchInsights(eng, ctx, result) {
     const existing = eng?.postmatchInsights || null;
@@ -1481,7 +1486,7 @@
   }
   function trainDumbbellBtn({ source = 'Relic', title = '', detail = '', metric = '', tab = '', ruleType = '', stageId = '', civSlug = '', civName = '', mapName = '', compact = false } = {}) {
     if (!title) return '';
-    return `<button type="button" class="train-pin-btn${compact ? ' is-compact' : ''}" data-train-pin="1" data-tp-source="${esc(source)}" data-tp-title="${esc(title)}" data-tp-detail="${esc(detail)}" data-tp-metric="${esc(metric)}" data-tp-tab="${esc(tab)}"${ruleType ? ` data-tp-rule="${esc(ruleType)}"` : ''}${stageId ? ` data-tp-stage="${esc(stageId)}"` : ''}${civSlug ? ` data-tp-civ="${esc(civSlug)}"` : ''}${civName ? ` data-tp-civ-name="${esc(civName)}"` : ''}${mapName ? ` data-tp-map="${esc(mapName)}"` : ''} title="Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)" aria-label="Agregar a Mi Plan: ${esc(title)}"><svg class="train-pin-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7.5v9M17.5 7.5v9M4 9.5v5M20 9.5v5M6.5 12h11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+    return `<button type="button" class="train-pin-btn${compact ? ' is-compact' : ''}" data-train-pin="1" data-tp-source="${esc(source)}" data-tp-title="${esc(title)}" data-tp-detail="${esc(detail)}" data-tp-metric="${esc(metric)}" data-tp-tab="${esc(tab)}"${ruleType ? ` data-tp-rule="${esc(ruleType)}"` : ''}${stageId ? ` data-tp-stage="${esc(stageId)}"` : ''}${civSlug ? ` data-tp-civ="${esc(civSlug)}"` : ''}${civName ? ` data-tp-civ-name="${esc(civName)}"` : ''}${mapName ? ` data-tp-map="${esc(mapName)}"` : ''} title="Agregar a Mi Plan (se verifica automáticamente en tus próximas partidas)" aria-label="Agregar a Mi Plan: ${esc(title)}">${relicIcons.dumbbell()}</button>`;
   }
 
   function renderEnginePostMatch(report, access) {
@@ -1551,16 +1556,16 @@
       ? `<section class="pm-trophy-banner is-win" aria-label="Reto cumplido">
           <span class="pm-icon-tile is-emerald">${postmatchEmblem('trophy')}</span>
           <div class="pm-trophy-copy">
-            <span class="pm-trophy-pill">${esc(tr('postmatch.challengeDone', '★ RETO CUMPLIDO'))}</span>
+            <span class="pm-trophy-pill">${esc(tr('postmatch.challengeDone', 'RETO CUMPLIDO'))}</span>
             <b>${esc(chal.detail)}</b>
           </div>
-          <span class="pm-trophy-tag">${esc(tr('postmatch.improveTag', '▲ MEJORA'))}</span>
+          <span class="pm-trophy-tag">${relicIcons.status('up', 12)}${esc(tr('postmatch.improveTag', 'MEJORA'))}</span>
         </section>`
       : heroLine
         ? `<section class="pm-trophy-banner is-record" aria-label="${esc(tr('pm.personalRecordAria', 'Récord personal'))}">
-            <span class="pm-icon-tile is-gold">${postmatchEmblem('trophy')}</span>
+            <span class="pm-icon-tile is-gold">${postmatchEmblem('record')}</span>
             <div class="pm-trophy-copy">
-              <span class="pm-trophy-pill">${esc(tr('postmatch.personalBest', '★ DESTACADO PERSONAL'))}</span>
+              <span class="pm-trophy-pill">${esc(tr('postmatch.personalBest', 'DESTACADO PERSONAL'))}</span>
               <b>${esc(heroLine)}</b>
             </div>
           </section>`
@@ -1604,7 +1609,7 @@
       if (s.status !== 'ready') return m || '—';
       if (/%\s*TC|mil\s*·|talleres/i.test(m)) {
         if (s.id === 'dark') return self.timings?.feudalSeconds ? `${locAge('feudal', 'Feudal')} ${clock(self.timings.feudalSeconds)}` : '—';
-        if (s.id === 'feudal') return self.techProfile?.hasDoubleBitAxe ? 'Hacha de doble filo ✓' : (self.townCenters ? `${self.townCenters} TC` : '—');
+        if (s.id === 'feudal') return self.techProfile?.hasDoubleBitAxe ? 'Hacha de doble filo investigada' : (self.townCenters ? `${self.townCenters} TC` : '—');
         if (s.id === 'castle') return `${number(self.townCenters || 1)} TC · ${number(self.workshopsCount || 0)} edificios militares`;
         if (s.id === 'imperial') return `${self.eapm != null ? dec(self.eapm, 1) : '—'} eAPM · ${number(self.workshopsCount || 0)} edificios militares`;
       }
@@ -1692,7 +1697,7 @@
         const deltaChip = m.delta ? `<small class="pm-medal-delta">${esc(m.delta)}</small>` : '';
         const jmp = jumpInfoForNarrative(m);
         return `<article class="pm-medal-card is-jumpable ${isGold ? 'is-gold' : 'is-green'}" data-pm-jump-tab="${jmp.tab}" data-scroll-target="${jmp.sel}">
-          <span class="pm-icon-tile ${isGold ? 'is-gold' : 'is-emerald'} sm">${postmatchEmblem(m.domain === 'macro_tc' ? 'clock' : (m.icon || 'medal'))}</span>
+          <span class="pm-icon-tile ${isGold ? 'is-gold' : 'is-emerald'} sm">${postmatchEmblem(narrativeIcon(m, 'medal'))}</span>
           <div class="pm-medal-body">
             ${tagText || badgeName ? `<div class="pm-medal-kicker">${tagText ? `<span class="pm-medal-tag">${esc(tagText)}</span>` : ''}${badgeName}</div>` : ''}
             <b>${esc(m.title)}</b>
@@ -1708,7 +1713,7 @@
         const metricChip = n.metric ? `<strong class="pm-issue-metric">${esc(n.metric)}</strong>` : '';
         const jmp = jumpInfoForNarrative(n);
         return `<article class="pm-issue-card is-jumpable" data-pm-jump-tab="${jmp.tab}" data-scroll-target="${jmp.sel}">
-          <span class="pm-icon-tile is-rose sm">${postmatchEmblem(n.icon || 'target')}</span>
+          <span class="pm-icon-tile is-rose sm">${postmatchEmblem(narrativeIcon(n, 'target'))}</span>
           <div class="pm-issue-body">
             <div class="pm-issue-top"><b>${esc(n.title)}</b></div>
             ${n.detail ? `<p>${esc(n.detail)}</p>` : ''}
@@ -2008,7 +2013,7 @@
       const crest = civBadge(civM.civSlug || civM.civName || c.civ);
       const civTitle = locCiv(civM.civSlug || civM.civName || c.civ) || civM.civName || '';
       const levRows = (civM.leveraged || []).map((item) => `<div class="pm-cm-row is-win">
-        <span class="pm-cm-mark" aria-hidden="true">✓</span>
+        <span class="pm-cm-mark" aria-hidden="true">${relicIcons.icon('check', 'product-icon', 16)}</span>
         <div class="pm-cm-copy">
           <strong>${esc(item.title)}</strong>
           ${item.detail ? `<small>${esc(item.detail)}</small>` : ''}
@@ -2016,7 +2021,7 @@
         ${item.metric ? `<span class="pm-cm-metric">${esc(item.metric)}</span>` : ''}
       </div>`).join('');
       const missRows = (civM.missed || []).map((item) => `<div class="pm-cm-row is-loss">
-        <span class="pm-cm-mark" aria-hidden="true">△</span>
+        <span class="pm-cm-mark" aria-hidden="true">${relicIcons.icon('alert', 'product-icon', 16)}</span>
         <div class="pm-cm-copy">
           <strong>${esc(item.title)}</strong>
           ${item.detail ? `<small>${esc(item.detail)}</small>` : ''}
@@ -2162,7 +2167,8 @@
               : s.status === 'incomplete' ? 'Sin dato en el replay'
                 : 'Falta replay';
       const textValue = Boolean(s.valueLabel && !grade && s.valueSeconds == null);
-      return `<article class="review-stage ${s.status === 'ready' ? 'graded' : ''}${s.status === 'measured' ? 'measured' : ''}${textValue ? ' text' : ''}">${reportIcon(s.id)}<div><span>${esc(s.label)}</span><b class="review-grade">${esc(value)}</b><small>${esc(text)}</small></div></article>`;
+      const emblem = Object.hasOwn(AGE_ROLES, s.id) ? icon(AGE_ROLES[s.id]) : reportIcon(s.id);
+      return `<article class="review-stage ${s.status === 'ready' ? 'graded' : ''}${s.status === 'measured' ? 'measured' : ''}${textValue ? ' text' : ''}">${emblem}<div><span>${esc(s.label)}</span><b class="review-grade">${esc(value)}</b><small>${esc(text)}</small></div></article>`;
     }).join('');
     const metrics = report.metrics || {};
     const metric = (key, label, time = false) => {
@@ -2170,7 +2176,7 @@
       if (m.value == null) return '';
       return `<div><span>${label}</span><b>${time ? clock(m.value) : number(Math.round(m.value * 10) / 10)}</b><small>${esc(m.unit || '')}</small></div>`;
     };
-    const scan = scanning ? `<div class="review-scan" data-phase="${esc(analysis.status)}" role="status" aria-live="polite"><span class="review-scan-icon"><img src="assets/icons/history.png" width="27" height="27" alt=""/></span><div class="review-scan-copy"><b>${esc(analysis.label || 'Preparando el análisis')}</b><small>${esc(analysis.detail || '')}</small></div><span class="review-scan-track" aria-hidden="true"><i></i><i></i></span></div>` : '';
+    const scan = scanning ? `<div class="review-scan" data-phase="${esc(analysis.status)}" role="status" aria-live="polite"><span class="review-scan-icon"><img data-relic-icon="update" src="assets/icons/update.png" width="27" height="27" alt=""/></span><div class="review-scan-copy"><b>${esc(analysis.label || 'Preparando el análisis')}</b><small>${esc(analysis.detail || '')}</small></div><span class="review-scan-track" aria-hidden="true"><i></i><i></i></span></div>` : '';
     const warning = analysis.status === 'error' ? `<p class="review-warning">${esc(analysis.detail || 'No se pudo analizar el replay.')}</p>` : '';
     const arrivals = access.replay !== false && !scanning ? measuredAges(metrics) : '';
     const episode = access.replay !== false && !scanning ? replayEpisode(report.castlesWindow, c.mapName) : '';
@@ -2190,7 +2196,7 @@
       ? `<section class="review-history-highlights" aria-label="Tu evolución en el mapa">${report.historyHighlights.slice(0, 2).map((item) => `<article>${icon(item.icon || 'map')}<div><b>${esc(item.title)}</b><p>${esc(item.detail)}</p></div></article>`).join('')}</section>` : '';
     const mapBody = access.comparison !== false && report.data?.historyStatus !== 'loading' ? matchHistoryContext(b) : '';
     const mode = c.mode?.label;
-    const header = `<header class="review-header"><img src="assets/icons/history.png" width="32" height="32" alt=""/><div><h2>${esc(result.label || 'Resultado pendiente')}</h2><p>${esc(c.mapName)} · ${civLabel(c.civ)}${mode ? ` · ${esc(mode)}` : ''}</p>${c.openingLabel ? `<small>Apertura probable · ${esc(c.openingLabel)}</small>` : ''}</div>${result.ratingDiff == null ? '' : `<strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}<small>ELO del modo</small></strong>`}</header>`;
+    const header = `<header class="review-header"><img data-relic-icon="history" src="assets/icons/history.png" width="32" height="32" alt=""/><div><h2>${esc(result.label || 'Resultado pendiente')}</h2><p>${esc(c.mapName)} · ${civLabel(c.civ)}${mode ? ` · ${esc(mode)}` : ''}</p>${c.openingLabel ? `<small>Apertura probable · ${esc(c.openingLabel)}</small>` : ''}</div>${result.ratingDiff == null ? '' : `<strong class="review-result ${result.status === 'won' ? 'win' : result.status === 'lost' ? 'loss' : ''}">${result.ratingDiff >= 0 ? '+' : ''}${result.ratingDiff}<small>ELO del modo</small></strong>`}</header>`;
     if (access.compact) {
       const impact = access.replay !== false && !scanning ? compactCombat(report.combat) : '';
       const execution = access.replay !== false && access.comparison !== false && !scanning
@@ -2256,7 +2262,7 @@
       const replayBadge = isSelected
         ? `<span class="rm-telemetry is-active-view">${esc(tr('cx.rmViewing', 'VIENDO'))}</span>`
         : (m.hasTelemetry
-          ? `<span class="rm-telemetry is-ready" title="${esc(tr('central.replayReady', 'Replay analizado'))}">${esc(tr('cx.rmReplayBadge', '★ Replay'))}</span>`
+          ? `<span class="rm-telemetry is-ready" title="${esc(tr('central.replayReady', 'Replay analizado'))}">${relicIcons.status('replay', 12)}${esc(tr('cx.rmReplayBadge', 'Replay'))}</span>`
           : `<span class="rm-telemetry">${esc(tr('central.viewReport', 'Informe'))}</span>`);
       const mapSrc = typeof mapArtPath === 'function' ? mapArtPath(m.mapName) : null;
       const mapWash = mapSrc ? `<img class="rm-map-wash" src="${esc(mapSrc)}" alt="" aria-hidden="true" draggable="false"/>` : '';
@@ -2632,7 +2638,7 @@
       <div class="cx-ultra-blur" aria-hidden="true" inert>${innerHtml}</div>
       <button type="button" class="cx-ultra-veil" data-goto-plan="1" data-upgrade-tier="ultra" data-upgrade-context="${esc(softLabel)}">
         <span class="cx-ultra-pill">
-          <svg class="cx-ultra-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l-1.5-9L8 12l4-6 4 6 5.5-4L20 17H4zm1 2h14v2H5v-2z" fill="currentColor"/></svg>
+          ${relicIcons.icon('crown', 'cx-ultra-crown', 16)}
           <span>${esc(tr('cx.includedUltra', 'Incluido en Ultra'))}</span>
         </span>
         <strong>${esc(softLabel)}</strong>
@@ -3109,7 +3115,7 @@
     if (!dna) return '';
     const mainCivHtml = dna.mainCiv && dna.mainCiv.civ
       ? svgWrRing(dna.mainCiv.winRate, civBadge(dna.mainCiv.civ), 74)
-      : `<span class="cx-dna-fallback-ico">${icon('crown')}</span>`;
+      : `<span class="cx-dna-fallback-ico">${icon('shield')}</span>`;
     const signalsHtml = (dna.signals || []).map((s) => {
       const sLbl = s.labelI18n ? locRef(s.labelI18n, s.label) : s.label;
       const sVal = s.valuePhase
@@ -3687,10 +3693,11 @@
       const solidPillars = rm.dimensions.filter((d) => d.status === 'solid').length;
       const readyCountBadge = `<span class="cx-rm-ready ${solidPillars >= 3 ? 'is-win' : (solidPillars >= 2 ? 'is-gold' : 'is-gap')} mono">${esc(tr('cx.rmPillarsReady', '{s}/{t} pilares en nivel {target}', { s: solidPillars, t: rm.dimensions.length, target: tgtStr }))}</span>`;
 
+      const dimensionRoles = { opening: 'age-feudal', castleMacro: 'age-castle', combatPace: 'combat', closingLadder: 'age-imperial' };
       const dimsHtml = `<div class="cx-rm-dims">${rm.dimensions.map((d) => {
-        const icoSrc = d.icon || 'assets/icons/ages/feudal.png';
+        const role = Object.hasOwn(dimensionRoles, d.id) ? dimensionRoles[d.id] : 'trend';
         return `<div class="cx-rm-dim is-${esc(d.status)}">
-          <span class="cx-rm-dim-ico" aria-hidden="true"><img src="${esc(icoSrc)}" width="26" height="26" alt="" draggable="false"></span>
+          <span class="cx-rm-dim-ico" aria-hidden="true">${relicIcons.icon(role, 'product-icon', 26)}</span>
           <div class="cx-rm-dim-copy">
             <span class="cx-rm-dim-name">${esc(tr(d.titleKey, d.titleFallback))}</span>
             <b class="cx-rm-dim-st"><i class="cx-rm-dot" aria-hidden="true"></i>${esc(statusLabelOf(d.status))}</b>
@@ -3713,7 +3720,7 @@
             const drillText = f.drillKey ? tr(f.drillKey, f.drillFallback || '') : '';
             const crestHtml = f.mapName
               ? `<div class="cx-rm-crest is-map">${mapBadge(f.mapName, 'sm')}</div>`
-              : `<div class="cx-rm-crest"><img src="${esc(f.icon || 'assets/icons/aoe2/b_28.png')}" width="26" height="26" alt="" draggable="false"></div>`;
+              : `<div class="cx-rm-crest"><img src="${relicIcons.metricAsset(f.id, relicIcons.asset('trend'))}" width="26" height="26" alt="" draggable="false"></div>`;
             const fillW = Math.max(14, Math.min(92, Number(f.bulletFillPct ?? f.progressPct ?? 40)));
             const dumbbellHtml = trainDumbbellBtn({
               source: pin.source || 'Central',
@@ -3839,7 +3846,7 @@
     if (cmh) {
       const ringHtml = cmh.utilizationPct != null
         ? svgWrRing(cmh.utilizationPct, icon('crown'), 68)
-        : `<span class="cx-spot-medal-frame">${icon('crown')}</span>`;
+        : `<span class="cx-spot-medal-frame">${icon('shield')}</span>`;
       const missedList = (cmh.topMissed || []).map((x) =>
         `<li><b>${esc(x.title)}</b><small>${x.civ ? `${esc(locCiv(x.civ) || x.civ)} · ` : ''}${esc(tr('cx.timesMissed', '{n}× sin explotar', { n: x.count }))}</small></li>`
       ).join('');
@@ -3974,7 +3981,7 @@
       }
       if (String(f.id || '').startsWith('vs-op-')) return `<span class="cx-elo-ico">${icon('combat')}</span>`;
       if (String(f.id || '').startsWith('phase-')) return `<span class="cx-elo-ico">${icon('clock')}</span>`;
-      return `<span class="cx-elo-ico">${icon('crown')}</span>`;
+      return `<span class="cx-elo-ico">${icon('shield')}</span>`;
     };
 
     const localizeFactorTitle = (f) => {
@@ -4149,7 +4156,7 @@
   function renderCentralDashboard(data, options = {}) {
     if (!data || !data.ok) {
       return `<div class="empty-report">
-        <img class="product-icon" src="assets/icons/account.png" alt="" draggable="false">
+        <img data-relic-icon="account" class="product-icon" src="assets/icons/account.png" alt="" draggable="false">
         <h3>${esc(data?.error || tr('central.emptyTitle', 'Conectá tu cuenta para ver tu Central'))}</h3>
         <p>${esc(tr('central.emptyDesc', 'Tu evolución de ELO, civilizaciones históricas, mapas y scouting de jugadores aparecerán acá.'))}</p>
       </div>`;

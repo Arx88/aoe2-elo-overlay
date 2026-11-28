@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="arte-aperturas.css" />
     <link rel="stylesheet" href="ultra-skin.css" />
     <link rel="stylesheet" href="ultra-gamma.css" />
+    <link rel="stylesheet" href="ui/relic-icon-style.css" />
   </head>
   <body>
     <div id="stage">
@@ -55,7 +56,7 @@
       -->
       <section id="civHelp" hidden aria-live="polite">
         <div class="civhelp-head">
-          <span class="civhelp-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.8 5.9v5.3c0 4.1 3 7.4 7.2 9.8 4.2-2.4 7.2-5.7 7.2-9.8V5.9L12 3Z"/></svg><span data-i18n="hud.civHelp">Ayuda de civ</span></span>
+          <span class="civhelp-title"><img class="ic" data-relic-icon="shield" src="assets/icons/shield.png" width="18" height="18" alt="" draggable="false"><span data-i18n="hud.civHelp">Ayuda de civ</span></span>
           <span class="civhelp-clock" id="civhelpClock">0:01 / 0:20</span>
         </div>
         <div class="civhelp-grid" id="civhelpGrid"></div>
@@ -73,7 +74,7 @@
       -->
       <section id="scouting" hidden aria-live="polite">
         <div class="scout-head">
-          <span class="scout-title"><img class="product-icon" src="assets/icons/eye.png" width="20" height="20" alt=""/><span data-i18n="hud.scouting">Lectura del rival</span></span>
+          <span class="scout-title"><img data-relic-icon="eye" class="product-icon" src="assets/icons/eye.png" width="20" height="20" alt=""/><span data-i18n="hud.scouting">Lectura del rival</span></span>
           <span class="scout-context" id="scoutContext"></span>
           <div class="scout-carousel-pills" id="scoutCarouselPills" hidden aria-hidden="true"></div>
           <!-- El overlay es click-through: el chip es SOLO la pista del atajo. -->
@@ -95,7 +96,7 @@
       -->
       <section id="rivalInfo" hidden aria-live="polite">
         <div class="rival-head">
-          <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 4.5h3.6l9 9"/><path d="m13.6 17.4 3.8-3.8 1.9 1.9-3.8 3.8-1.9-1.9Z"/><path d="M19.5 4.5h-3.6l-9 9"/><path d="m10.4 17.4-3.8-3.8-1.9 1.9 3.8 3.8 1.9-1.9Z"/></svg><span data-i18n="hud.rivalInfo">Informe del rival</span></span>
+          <span class="rival-title"><img class="ic" data-relic-icon="eye" src="assets/icons/eye.png" width="18" height="18" alt="" draggable="false"><span data-i18n="hud.rivalInfo">Informe del rival</span></span>
           <span class="scout-toggle" data-i18n="hud.f2Summary">F2 · Resumen</span>
         </div>
         <div class="rival-grid" id="rivalGrid"></div>
@@ -111,7 +112,7 @@
       -->
       <section id="scoutInfo" hidden aria-live="polite">
         <div class="rival-head">
-          <span class="rival-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 17.2h5"/><path d="M10.2 20h3.6"/><path d="M12 3.2a5.8 5.8 0 0 0-3.4 10.5c.6.4 1 1.1 1 1.8v.3h4.8v-.3c0-.7.4-1.4 1-1.8A5.8 5.8 0 0 0 12 3.2Z"/></svg><span data-i18n="hud.recommendations">Recomendaciones</span></span>
+          <span class="rival-title"><img class="ic" data-relic-icon="postmatch-advice" src="assets/icons/postmatch-advice.png" width="18" height="18" alt="" draggable="false"><span data-i18n="hud.recommendations">Recomendaciones</span></span>
           <span class="scout-toggle" data-i18n="hud.f2Summary">F2 · Resumen</span>
         </div>
         <div class="rival-grid" id="scoutGrid"></div>
@@ -120,6 +121,7 @@
     <script src="ui/content-rules.js"></script>
     <script src="ui/i18n.js"></script>
     <script src="ui/blacksmith-terms.js"></script>
+    <script src="ui/relic-icons.js"></script>
     <script src="ui/tactical-ui.js"></script>
     <script src="renderer.js"></script>
   </body>

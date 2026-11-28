@@ -18,6 +18,7 @@ const CIV_TECH = require('../civ-tech.json').civilizations || {};
 const { CIV_GUIDE } = require('../civ-guide');
 const { CIV_MATCHUP_PROFILES } = require('./civ-matchup-profiles');
 const { buildProMatchupReport } = require('./pro-matchup-engine');
+const { asset, metricAsset } = require('../../ui/relic-icons');
 
 const ARCHER_TECHS = [['Fletching', 2], ['Bodkin Arrow', 3], ['Bracer', 4], ['Padded Archer Armor', 2], ['Leather Archer Armor', 3], ['Ring Archer Armor', 4], ['Thumb Ring', 3], ['Ballistics', 3]];
 const CAV_TECHS = [['Forging', 2], ['Iron Casting', 3], ['Blast Furnace', 4], ['Scale Barding Armor', 2], ['Chain Barding Armor', 3], ['Plate Barding Armor', 4], ['Bloodlines', 2], ['Husbandry', 3]];
@@ -526,7 +527,8 @@ function extractRealReplayEntry(r, nowMs = Date.now()) {
   };
 }
 
-function buildMetricSummary({ entries, currentEntry, key, title, category, explanation, icon, direction, formatVal, useClockDelta = false, deadband = 3 }) {
+function buildMetricSummary({ entries, currentEntry, key, title, category, explanation, direction, formatVal, useClockDelta = false, deadband = 3 }) {
+  const icon = metricAsset(key, asset('trend'));
   const withVal = entries.filter((e) => Number.isFinite(e[key]));
   if (!withVal.length) {
     return {
@@ -872,7 +874,7 @@ const WEEKLY_METRIC_SPECS = [
     key: 'tcIdleDarkSec',
     label: 'Centro Urbano · Alta Edad',
     shortLabel: 'CU Alta Edad',
-    icon: 'assets/brand/review-town-center-v1.png',
+    icon: metricAsset('tcIdleDarkSec'),
     direction: 'lower',
     weeklyDeadband: 4,
     matchFloor: 2,
@@ -886,7 +888,7 @@ const WEEKLY_METRIC_SPECS = [
     key: 'tcIdleFeudalPerTcSec',
     label: 'Centro Urbano · Edad Feudal',
     shortLabel: 'CU Feudal',
-    icon: 'assets/icons/postmatch/economy.webp',
+    icon: metricAsset('tcIdleFeudalPerTcSec'),
     direction: 'lower',
     weeklyDeadband: 5,
     matchFloor: 3,
@@ -900,7 +902,7 @@ const WEEKLY_METRIC_SPECS = [
     key: 'feudalSec',
     label: 'Pase a Edad Feudal',
     shortLabel: 'Pase Feudal',
-    icon: 'assets/brand/feudal-v1.png',
+    icon: metricAsset('feudalSec'),
     direction: 'lower',
     weeklyDeadband: 10,
     matchFloor: 5,
@@ -914,7 +916,7 @@ const WEEKLY_METRIC_SPECS = [
     key: 'castleSec',
     label: 'Pase a Edad de los Castillos',
     shortLabel: 'Pase Castillos',
-    icon: 'assets/brand/castle-v1.png',
+    icon: metricAsset('castleSec'),
     direction: 'lower',
     weeklyDeadband: 20,
     matchFloor: 10,
@@ -928,7 +930,7 @@ const WEEKLY_METRIC_SPECS = [
     key: 'dbaDelaySec',
     label: 'Hacha de doble filo',
     shortLabel: 'Hacha doble filo',
-    icon: 'assets/icons/wood.png',
+    icon: metricAsset('dbaDelaySec'),
     direction: 'lower',
     weeklyDeadband: 10,
     matchFloor: 5,
@@ -942,7 +944,7 @@ const WEEKLY_METRIC_SPECS = [
     key: 'eapm',
     label: 'Ritmo efectivo (eAPM)',
     shortLabel: 'Ritmo efectivo',
-    icon: 'assets/icons/postmatch/tempo.webp',
+    icon: metricAsset('eapm'),
     direction: 'higher',
     weeklyDeadband: 2.5,
     matchFloor: 1.0,
@@ -1582,7 +1584,6 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
       category: 'ECONOMÍA · ALTA EDAD MEDIA',
       title: 'Inactividad del Centro Urbano (Alta Edad)',
       explanation: 'Segundos exactos medidos en que el Centro Urbano no produjo aldeanos ni investigó Telar o Edad Feudal.',
-      icon: 'assets/brand/review-town-center-v1.png',
       direction: 'lower',
       formatVal: (v) => `${v} s`,
       useClockDelta: false,
@@ -1595,7 +1596,6 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
       category: 'ECONOMÍA · EDAD FEUDAL',
       title: 'Inactividad por Centro Urbano (Feudal)',
       explanation: 'Segundos de pausa por Centro Urbano activo durante Edad Feudal, descontando Carretilla y Castillos.',
-      icon: 'assets/icons/postmatch/economy.webp',
       direction: 'lower',
       formatVal: (v) => `${v} s`,
       useClockDelta: false,
@@ -1608,7 +1608,6 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
       category: 'TIEMPO DE AVANCE · EDAD FEUDAL',
       title: 'Pase a Edad Feudal',
       explanation: 'Minuto y segundo exacto de partida en que se completó la investigación de Edad Feudal.',
-      icon: 'assets/brand/feudal-v1.png',
       direction: 'lower',
       formatVal: (v) => (v < 120 ? `${v} s` : (fmtMmSs(v) || `${v} s`)),
       useClockDelta: true,
@@ -1621,7 +1620,6 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
       category: 'TIEMPO DE AVANCE · EDAD DE LOS CASTILLOS',
       title: 'Pase a Edad de los Castillos',
       explanation: 'Minuto y segundo exacto de partida en que alcanzaste la Edad de los Castillos.',
-      icon: 'assets/brand/castle-v1.png',
       direction: 'lower',
       formatVal: (v) => (v < 120 ? `${v} s` : (fmtMmSs(v) || `${v} s`)),
       useClockDelta: true,
@@ -1634,7 +1632,6 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
       category: 'TECNOLOGÍAS · MADERA',
       title: 'Hacha de doble filo',
       explanation: 'Segundos transcurridos desde que pisaste Edad Feudal hasta investigar Hacha de doble filo en el Campamento maderero.',
-      icon: 'assets/icons/wood.png',
       direction: 'lower',
       formatVal: (v) => `${v} s`,
       useClockDelta: false,
@@ -1647,7 +1644,6 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
       category: 'RITMO MECÁNICO · COMANDOS REALES',
       title: 'Ritmo efectivo (eAPM)',
       explanation: 'Promedio de acciones efectivas por minuto registradas en la partida (sin contar clics repetidos en <150 ms).',
-      icon: 'assets/icons/postmatch/tempo.webp',
       direction: 'higher',
       formatVal: (v) => `${v} eAPM`,
       useClockDelta: false,
@@ -1673,7 +1669,7 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
       : `en ${g.age}`;
     bottlenecks.push({
       severity: 'crimson',
-      icon: 'assets/brand/review-town-center-v1.png',
+      icon: metricAsset('biggestTcGapSec'),
       eyebrow: `MAYOR PAUSA REAL MEDIDA EN #${currentEntry.matchId} · ${currentEntry.mapName.toUpperCase()}`,
       title: `Tu Centro Urbano estuvo detenido ${g.durationSec} s seguidos ${minWindow}`,
       detail: g.militaryOrdersInGap > 0
@@ -1685,7 +1681,7 @@ function computeHighEloTelemetry(records = [], selectedMatchId = null, options =
   } else if (currentEntry.focus && currentEntry.focus.title) {
     bottlenecks.push({
       severity: 'gold',
-      icon: 'assets/icons/postmatch/tempo.webp',
+      icon: asset('postmatch-advice'),
       eyebrow: `DIAGNÓSTICO DEL MOTOR EN #${currentEntry.matchId} · ${currentEntry.mapName.toUpperCase()}`,
       title: currentEntry.focus.title,
       detail: currentEntry.focus.action || currentEntry.focus.detail || '',

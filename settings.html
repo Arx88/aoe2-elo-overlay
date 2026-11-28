@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="training.css" />
     <link rel="stylesheet" href="ultra-skin.css" />
     <link rel="stylesheet" href="ultra-gamma.css" />
+    <link rel="stylesheet" href="ui/relic-icon-style.css" />
   </head>
   <body>
     <div id="appBootLoader" class="app-boot-loader" role="status" aria-live="polite">
@@ -55,29 +56,29 @@
 
         <nav class="rail-nav" aria-label="Secciones">
           <button class="nav-item active" aria-current="page" data-page="central" type="button">
-            <img class="product-icon" src="assets/icons/trend.png" alt="" draggable="false">
+            <img data-relic-icon="trend" class="product-icon" src="assets/icons/trend.png" alt="" draggable="false">
             <span data-i18n="nav.central">Central</span>
           </button>
           <button class="nav-item" data-page="overlay" type="button">
-            <img class="product-icon" src="assets/icons/eye.png" alt="">
+            <img data-relic-icon="eye" class="product-icon" src="assets/icons/eye.png" alt="">
             <span data-i18n="nav.overlay">Prematch</span>
           </button>
-          <button class="nav-item" data-page="tactics" type="button"><img class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Batalla</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
-          <button class="nav-item" data-page="postmatch" type="button"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span data-i18n="nav.postmatch">Postmatch</span></button>
+          <button class="nav-item" data-page="tactics" type="button"><img data-relic-icon="combat" class="product-icon" src="assets/icons/combat.png" alt=""><span data-i18n="nav.tactics">Batalla</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
+          <button class="nav-item" data-page="postmatch" type="button"><img data-relic-icon="history" class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><span data-i18n="nav.postmatch">Postmatch</span></button>
           <span class="rail-nav-sep" aria-hidden="true"></span>
-          <button class="nav-item" data-page="training" type="button"><img class="product-icon" src="assets/icons/target.png" alt="" draggable="false"><span data-i18n="nav.training">Entrenamiento</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
+          <button class="nav-item" data-page="training" type="button"><img data-relic-icon="target" class="product-icon" src="assets/icons/target.png" alt="" draggable="false"><span data-i18n="nav.training">Entrenamiento</span><span class="nav-beta-pill" aria-label="En construcción">Beta</span></button>
           <span class="rail-nav-sep" aria-hidden="true"></span>
           <button class="nav-item" data-page="skins" type="button">
-            <img class="product-icon" src="assets/icons/palette.png" alt="" draggable="false">
+            <img data-relic-icon="palette" class="product-icon" src="assets/icons/palette.png" alt="" draggable="false">
             <span data-i18n="nav.skins">Apariencia</span>
           </button>
           <button id="navPlans" class="nav-item nav-item-plans" data-page="plans" type="button">
-            <img class="product-icon" src="assets/icons/crown.png" alt="" draggable="false">
+            <img data-relic-icon="crown" class="product-icon" src="assets/icons/crown.png" alt="" draggable="false">
             <span data-i18n="nav.plans">Planes</span>
             <span id="navPlansPill" class="nav-plan-pill" data-tier="free" data-i18n="plans.upgradePill">Mejorar</span>
           </button>
           <button class="nav-item" data-page="updater" type="button">
-            <img class="product-icon" src="assets/icons/update.png" alt="" draggable="false">
+            <img data-relic-icon="update" class="product-icon" src="assets/icons/update.png" alt="" draggable="false">
             <span data-i18n="nav.updater">Actualizaciones</span>
           </button>
         </nav>
@@ -87,13 +88,7 @@
           <div class="rail-ref-wrap">
             <button id="railReferralBtn" class="rail-ref-btn" type="button" title="Invitá 10 amigos y ganá 1 mes gratis de Relic Ultra" data-i18n-title="referrals.railTip">
               <span class="rail-ref-ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="20 12 20 22 4 22 4 12"/>
-                  <rect x="2" y="7" width="20" height="5" rx="1"/>
-                  <line x1="12" y1="22" x2="12" y2="7"/>
-                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
-                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-                </svg>
+                <img class="product-icon" data-relic-icon="gift" src="assets/icons/relic/gift.png" width="15" height="15" alt="" draggable="false">
               </span>
               <span class="rail-ref-copy">
                 <strong class="rail-ref-title" data-i18n="referrals.railTitle">Ganá 1 mes Ultra</strong>
@@ -105,10 +100,7 @@
           <div class="rail-profile-shell">
             <button id="railUser" class="rail-profile-row" data-goto="player" data-tier="free" type="button" title="Cuenta y perfil">
               <span id="railUserAvatar" class="rail-user-avatar is-guest" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="8.5" r="3.5"/>
-                  <path d="M5.5 19.2c1.2-3 3.7-4.5 6.5-4.5s5.3 1.5 6.5 4.5"/>
-                </svg>
+                <img class="product-icon" data-relic-icon="account" src="assets/icons/account.png" width="15" height="15" alt="" draggable="false">
               </span>
               <span class="rail-user-copy">
                 <strong id="railUserName" class="rail-user-name" data-i18n="account.signInRail">Iniciar sesión</strong>
@@ -120,10 +112,7 @@
               </span>
             </button>
             <button id="appPrefsBtn" class="rail-gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Ajustes de la app e idioma" title="Idioma, sonido y feedback">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="3.2"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
+              <img class="product-icon" data-relic-icon="settings" src="assets/icons/relic/settings.png" width="15" height="15" alt="" draggable="false">
             </button>
           </div>
           <div class="rail-build">
@@ -258,7 +247,7 @@
             <div class="group-head"><span data-i18n="account.changeGroup">Cambiar de cuenta</span><i></i></div>
             <div class="block">
               <div class="search-box" id="accountSearchBox">
-                <img class="product-icon" src="assets/icons/search.png" alt="" draggable="false">
+                <img data-relic-icon="search" class="product-icon" src="assets/icons/search.png" alt="" draggable="false">
                 <label class="sr-only" for="search" data-i18n="account.searchPlaceholder">Nombre en el juego o profile ID</label><input id="search" class="field" type="text" placeholder="Nombre en el juego o profile ID" data-i18n-placeholder="account.searchPlaceholder" autocomplete="off" spellcheck="false" />
                 <span class="search-spinner" aria-hidden="true"></span>
                 <span id="searchState" class="search-state"></span>
@@ -300,7 +289,7 @@
             <div class="central-topbar">
               <div class="central-search-wrap">
                 <div class="central-search-shell" id="centralSearchShell">
-                  <span class="central-search-ic" aria-hidden="true"><img class="product-icon" src="assets/icons/search.png" alt="" draggable="false"></span>
+                  <span class="central-search-ic" aria-hidden="true"><img data-relic-icon="search" class="product-icon" src="assets/icons/search.png" alt="" draggable="false"></span>
                   <label class="sr-only" for="centralSearch" data-i18n="central.searchPlaceholder">Buscar jugador en Central</label>
                   <input id="centralSearch" class="central-search-input" type="text" placeholder="Buscar jugador de AoE2 (ej. Hera, TheViper o #ID)…" data-i18n-placeholder="central.searchPlaceholder" autocomplete="off" spellcheck="false" />
                   <span class="search-spinner" aria-hidden="true"></span>
@@ -334,7 +323,7 @@
                 <div class="ux-panel-head"><span id="enterWindowLabel" data-i18n="ui.enterWindowDefault">Al entrar · 0:01 – 0:20</span><em class="ux-panel-count">1</em></div>
                 <div class="block pm-config-block">
                   <label class="row tog" for="hideEloAt20">
-                    <span class="ric"><img class="product-icon" src="assets/icons/clock.png" alt="" draggable="false"></span>
+                    <span class="ric"><img data-relic-icon="clock" class="product-icon" src="assets/icons/clock.png" alt="" draggable="false"></span>
                     <span class="tcopy">
                       <span class="rname" id="hideEloName" data-i18n="ui.hideOverlayDefault">Ocultar Overlay 20 segundos</span>
                       <span class="rdesc" id="hideEloDesc" data-i18n="ui.hideOverlayDescDefault">Se oculta a 0:20 para no molestar · vuelve al terminar</span>
@@ -360,7 +349,7 @@
                 <div class="ux-panel-head"><span data-i18n="overlay.balanceGroup">Balance y detección</span><em class="ux-panel-count">2</em></div>
                 <div class="block pm-config-block">
                   <label class="row tog" for="tgBalance">
-                    <span class="ric"><img class="product-icon" src="assets/icons/players.png" alt=""></span>
+                    <span class="ric"><img data-relic-icon="players" class="product-icon" src="assets/icons/players.png" alt=""></span>
                     <span class="tcopy">
                       <span class="rname" data-i18n="overlay.tgBalanceTitle">Balance de equipos</span>
                       <span class="rdesc" data-i18n="overlay.tgBalanceDesc">Mediana de ELO 1v1 por equipo en TG</span>
@@ -370,7 +359,7 @@
                   </label>
 
                   <label class="row tog" for="smurfDetector">
-                    <span class="ric"><img class="product-icon" src="assets/icons/target.png" alt="" draggable="false"></span>
+                    <span class="ric"><img data-relic-icon="target" class="product-icon" src="assets/icons/target.png" alt="" draggable="false"></span>
                     <span class="tcopy">
                       <span class="rname" data-i18n="overlay.smurfTitle">Smurf Detector</span>
                       <span class="rdesc" data-i18n="overlay.smurfDesc">Sugiere posibles smurfs junto al ELO cruzando cuentas vinculadas RM 1v1, winrate extremo, caída de pico y eAPM · Ultra</span>
@@ -386,7 +375,7 @@
               <summary><span data-i18n="overlay.rivalGroup">Datos del rival</span><em class="ux-panel-count">7</em></summary>
               <div class="block pm-config-block ux-rows-2col">
                 <label class="row tog" for="rivalCivs">
-                  <span class="ric"><img class="product-icon" src="assets/icons/history.png" alt=""></span>
+                  <span class="ric"><img data-relic-icon="history" class="product-icon" src="assets/icons/history.png" alt=""></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.rivalCivsTitle">Últimas 5 civs del rival</span>
                     <span class="rdesc" data-i18n="overlay.rivalCivsDesc">Historial real del mismo modo de juego</span>
@@ -396,7 +385,7 @@
                 </label>
 
                 <label class="row tog" for="rivalFavorites">
-                  <span class="ric"><img class="product-icon" src="assets/icons/map.png" alt=""></span>
+                  <span class="ric"><img data-relic-icon="map" class="product-icon" src="assets/icons/map.png" alt=""></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.rivalFavTitle">Civ más usada en el mapa</span>
                     <span class="rdesc" data-i18n="overlay.rivalFavDesc">Winrate del mapa y civ más usada en el historial analizado</span>
@@ -406,7 +395,7 @@
                 </label>
 
                 <label class="row tog" for="rivalOpenings">
-                  <span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span>
+                  <span class="ric"><img data-relic-icon="replay" class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.rivalOpeningsTitle">Aperturas reales del rival</span>
                     <span class="rdesc" data-i18n="overlay.rivalOpeningsDesc">Replays del mapa con su civilización actual</span>
@@ -416,7 +405,7 @@
                 </label>
 
                 <label class="row tog" for="smartTips">
-                  <span class="ric"><img class="product-icon" src="assets/icons/scout.png" alt="" draggable="false"></span>
+                  <span class="ric"><img data-relic-icon="scout" class="product-icon" src="assets/icons/scout.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.smartTipsTitle">Lectura de apertura</span>
                     <span class="rdesc" data-i18n="overlay.smartTipsDesc">Apertura observada, muestra y una señal para confirmar al explorar</span>
@@ -426,7 +415,7 @@
                 </label>
 
                 <label class="row tog" for="rivalH2H">
-                  <span class="ric"><img class="product-icon" src="assets/icons/combat.png" alt=""></span>
+                  <span class="ric"><img data-relic-icon="combat" class="product-icon" src="assets/icons/combat.png" alt=""></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.rivalH2HTitle">Enfrentamientos previos</span>
                     <span class="rdesc" data-i18n="overlay.rivalH2HDesc">Tu V-D contra este rival · del mismo modo de juego</span>
@@ -436,7 +425,7 @@
                 </label>
 
                 <label class="row tog" for="civRecommender">
-                  <span class="ric"><img class="product-icon" src="assets/icons/matchup.png" alt=""></span>
+                  <span class="ric"><img data-relic-icon="matchup" class="product-icon" src="assets/icons/matchup.png" alt=""></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.civRecTitle">Historial y cruce de civilizaciones</span>
                     <span class="rdesc" data-i18n="overlay.civRecDesc">Elecciones observadas y resultados del cruce exacto</span>
@@ -446,7 +435,7 @@
                 </label>
 
                 <label class="row tog" for="civCounterPick">
-                  <span class="ric"><img class="product-icon" src="assets/icons/crown.png" alt=""></span>
+                  <span class="ric"><img data-relic-icon="crown" class="product-icon" src="assets/icons/crown.png" alt=""></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.civCounterPickTitle">Recomendador de civilización</span>
                     <span class="rdesc" data-i18n="overlay.civCounterPickDesc">Te sugiere qué civ elegir contra el rival cruzando mapa, tu winrate, sus peores cruces y aperturas que le duelen</span>
@@ -456,7 +445,7 @@
                 </label>
 
                 <label class="row tog" for="scoutF2">
-                  <span class="ric"><img class="product-icon" src="assets/icons/layout.png" alt="" draggable="false"></span>
+                  <span class="ric"><img data-relic-icon="layout" class="product-icon" src="assets/icons/layout.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.scoutF2Title">Resumen con F2</span>
                     <span class="rdesc" data-i18n="overlay.scoutF2Desc">Alterná resumen y detalle con F2 · al activarlo se reserva la tecla global</span>
@@ -473,7 +462,7 @@
               <div class="ux-panel-head"><span data-i18n="tactics.guideGroup">Guía de apertura</span><em class="ux-panel-count">2</em></div>
               <div class="block pm-config-block ux-rows-2col">
                 <label class="row tog" for="civHelp">
-                  <span class="ric"><img class="product-icon" src="assets/icons/shield.png" alt="" draggable="false"></span>
+                  <span class="ric"><img data-relic-icon="shield" class="product-icon" src="assets/icons/shield.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="overlay.civHelpTitle">Ayuda de civ</span>
                     <span class="rdesc" id="civHelpDesc" data-i18n="ui.civHelpDescDefault">Escudos de ambas civs y resumen de bonos, unidades y debilidades · 0:01 – 0:20</span>
@@ -481,7 +470,7 @@
                   <input id="civHelp" type="checkbox" />
                   <span class="sw" aria-hidden="true"></span>
                 </label>
-                <label class="row tog" for="smartBuildOrder"><span class="ric"><img class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · Ultra</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+                <label class="row tog" for="smartBuildOrder"><span class="ric"><img data-relic-icon="age" class="product-icon" src="assets/icons/age.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="tactics.sboTitle">Smart Build Order</span><span class="rdesc" data-i18n="tactics.sboDesc">Guía por civ y mapa · en Ajustes o durante la partida · Ultra</span></span><input id="smartBuildOrder" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
               </div>
             </section>
           </section>
@@ -492,8 +481,8 @@
               <summary><span data-i18n="postmatchPage.configSummary">Configurar Postmatch</span><em class="ux-panel-count">5</em></summary>
               <div class="block pm-config-block pm-config-cols">
                 <div class="pm-config-col">
-                  <label class="row tog" for="postMatch"><span class="ric"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.summaryTitle">Resumen postmatch</span><span class="rdesc" data-i18n="postmatchPage.summaryDesc">Genera el resultado confirmado y el informe al terminar la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-                  <label class="row tog" for="postMatchPopup"><span class="ric"><img class="product-icon" src="assets/icons/layout.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.popupTitle">Mostrar popup sobre el juego</span><span class="rdesc" data-i18n="postmatchPage.popupDesc">Muestra el resumen flotante al terminar; desactivado solo queda en Relic</span></span><input id="postMatchPopup" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+                  <label class="row tog" for="postMatch"><span class="ric"><img data-relic-icon="history" class="product-icon" src="assets/icons/history.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.summaryTitle">Resumen postmatch</span><span class="rdesc" data-i18n="postmatchPage.summaryDesc">Genera el resultado confirmado y el informe al terminar la partida</span></span><input id="postMatch" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+                  <label class="row tog" for="postMatchPopup"><span class="ric"><img data-relic-icon="layout" class="product-icon" src="assets/icons/layout.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.popupTitle">Mostrar popup sobre el juego</span><span class="rdesc" data-i18n="postmatchPage.popupDesc">Muestra el resumen flotante al terminar; desactivado solo queda en Relic</span></span><input id="postMatchPopup" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
                   <div class="slider-row" id="postMatchHideRow">
                     <label for="postMatchHideSeconds" data-i18n="postmatchPage.hideAtLabel">Ocultar popup a los</label>
                     <input id="postMatchHideSeconds" type="range" min="0" max="180" step="10" value="60" />
@@ -501,9 +490,9 @@
                   </div>
                 </div>
                 <div class="pm-config-col">
-                  <label class="row tog" for="postMatchComparison"><span class="ric"><img class="product-icon" src="assets/icons/trend.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.compareTitle">Comparar mi evolución</span><span class="rdesc" data-i18n="postmatchPage.compareDesc">Habilita comparativas históricas y referencias por banda de ELO</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
-                  <label class="row select-row" for="postMatchCompareMode"><span class="ric"><img class="product-icon" src="assets/icons/medal.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.modeTitle">Referencia del Postmatch</span><span id="postMatchCompareHelp" class="rdesc" data-i18n="postmatchPage.modeHelpOff">Activá «Comparar mi evolución» para elegir la referencia</span></span><select id="postMatchCompareMode" class="field" disabled aria-describedby="postMatchCompareHelp"><option value="both" selected data-i18n="postmatchPage.modeBoth">Mi historial + estándar Elo</option><option value="personal" data-i18n="postmatchPage.modePersonal">Solo mi historial</option><option value="community" data-i18n="postmatchPage.modeCommunity">Solo estándar Elo</option></select></label>
-                  <label class="row tog" for="postMatchReplay"><span class="ric"><img class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.replayTitle">Análisis del replay</span><span class="rdesc" data-i18n="postmatchPage.replayDesc">Hitos de apertura cuando hay evidencia, órdenes de avance y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+                  <label class="row tog" for="postMatchComparison"><span class="ric"><img data-relic-icon="trend" class="product-icon" src="assets/icons/trend.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.compareTitle">Comparar mi evolución</span><span class="rdesc" data-i18n="postmatchPage.compareDesc">Habilita comparativas históricas y referencias por banda de ELO</span></span><input id="postMatchComparison" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
+                  <label class="row select-row" for="postMatchCompareMode"><span class="ric"><img data-relic-icon="medal" class="product-icon" src="assets/icons/medal.png" alt=""></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.modeTitle">Referencia del Postmatch</span><span id="postMatchCompareHelp" class="rdesc" data-i18n="postmatchPage.modeHelpOff">Activá «Comparar mi evolución» para elegir la referencia</span></span><select id="postMatchCompareMode" class="field" disabled aria-describedby="postMatchCompareHelp"><option value="both" selected data-i18n="postmatchPage.modeBoth">Mi historial + estándar Elo</option><option value="personal" data-i18n="postmatchPage.modePersonal">Solo mi historial</option><option value="community" data-i18n="postmatchPage.modeCommunity">Solo estándar Elo</option></select></label>
+                  <label class="row tog" for="postMatchReplay"><span class="ric"><img data-relic-icon="replay" class="product-icon" src="assets/icons/replay.png" alt="" draggable="false"></span><span class="tcopy"><span class="rname" data-i18n="postmatchPage.replayTitle">Análisis del replay</span><span class="rdesc" data-i18n="postmatchPage.replayDesc">Hitos de apertura cuando hay evidencia, órdenes de avance y APM</span></span><input id="postMatchReplay" type="checkbox" /><span class="sw" aria-hidden="true"></span></label>
                 </div>
               </div>
             </details>
@@ -514,7 +503,7 @@
             </div>
             <div id="postMatchRecentStrip" class="postmatch-recent-strip" aria-live="polite"></div>
             <div class="group-head"><span data-i18n="postmatchPage.latestGroup">Informe de la partida seleccionada</span><i></i></div>
-            <div id="postMatchReport" class="postmatch-report" aria-live="polite"></div><template id="emptyPostmatchState"><div class="empty-report"><img class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><h3 data-i18n="postmatchPage.emptyTitle">Tu próxima partida marca el comienzo.</h3><p data-i18n="postmatchPage.emptyDesc">Al terminar, el informe aparecerá acá y en el overlay.</p></div></template>
+            <div id="postMatchReport" class="postmatch-report" aria-live="polite"></div><template id="emptyPostmatchState"><div class="empty-report"><img data-relic-icon="history" class="product-icon" src="assets/icons/history.png" alt="" draggable="false"><h3 data-i18n="postmatchPage.emptyTitle">Tu próxima partida marca el comienzo.</h3><p data-i18n="postmatchPage.emptyDesc">Al terminar, el informe aparecerá acá y en el overlay.</p></div></template>
           </section>
 
           <!-- ============ ENTRENAMIENTO (BETA · EXCLUSIVO ULTRA) ============ -->
@@ -584,7 +573,7 @@
               </article>
 
               <article class="plan-card pro ultra-featured" data-plan-card="promax">
-                <div class="plan-ribbon" data-i18n="plansPage.ultraRibbon">★ EXPERIENCIA COMPLETA · MÁS ELEGIDO</div>
+                <div class="plan-ribbon"><img class="relic-status-icon" src="assets/icons/relic/star.png" data-relic-icon="star" width="14" height="14" alt=""><span data-i18n="plansPage.ultraRibbon">EXPERIENCIA COMPLETA · MÁS ELEGIDO</span></div>
                 <div class="plan-card-top">
                   <span class="eyebrow" data-i18n="plansPage.promaxEyebrow">PREMATCH · BATALLA · POSTMATCH</span>
                   <div class="plan-title-row">
@@ -685,7 +674,7 @@
                 <div class="ux-panel-head"><span data-i18n="skins.positionGroup">Posición</span></div>
                 <div class="block pm-config-block">
                   <div class="position-row">
-                    <span class="ric"><img class="product-icon" src="assets/icons/move.png" alt="" draggable="false"></span>
+                    <span class="ric"><img data-relic-icon="move" class="product-icon" src="assets/icons/move.png" alt="" draggable="false"></span>
                     <div class="tcopy">
                       <div class="rname" id="positionLabel" data-i18n="skins.posTopCenter">Arriba al centro</div>
                       <div class="rdesc" id="positionInfo" data-i18n="skins.posTopCenterInfo">El panel aparece arriba al centro.</div>
@@ -700,7 +689,7 @@
               <div class="ux-panel-head"><span data-i18n="skins.visibilityGroup">Visibilidad automática</span></div>
               <div class="block pm-config-block">
                 <label class="row tog" for="onlyWhenGameRunning">
-                  <span class="ric"><img class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
+                  <span class="ric"><img data-relic-icon="eye" class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="skins.onlyWhenGameTitle">Mostrar overlay solo con AoE2 abierto</span>
                     <span class="rdesc" data-i18n="skins.onlyWhenGameDesc">El panel superior aparece automáticamente cuando abrís Age of Empires II: DE y se oculta al cerrarlo</span>
@@ -709,7 +698,7 @@
                   <span class="sw" aria-hidden="true"></span>
                 </label>
                 <label class="row tog" for="hideWhenMinimized">
-                  <span class="ric"><img class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
+                  <span class="ric"><img data-relic-icon="eye" class="product-icon" src="assets/icons/eye.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="skins.hideMinimizedTitle">Ocultar si AoE2 está minimizado</span>
                     <span class="rdesc" data-i18n="skins.hideMinimizedDesc">Oculta el overlay si Age of Empires II queda minimizado más de 5 segundos y vuelve al restaurarlo</span>
@@ -718,7 +707,7 @@
                   <span class="sw" aria-hidden="true"></span>
                 </label>
                 <label class="row tog" for="openAtLogin">
-                  <span class="ric"><img class="product-icon" src="assets/icons/update.png" alt="" draggable="false"></span>
+                  <span class="ric"><img data-relic-icon="update" class="product-icon" src="assets/icons/update.png" alt="" draggable="false"></span>
                   <span class="tcopy">
                     <span class="rname" data-i18n="skins.openAtLoginTitle">Iniciar automáticamente con Windows</span>
                     <span class="rdesc" data-i18n="skins.openAtLoginDesc">Abre Relic silenciosamente en la bandeja al encender la PC para detectar partidas sin tener que abrirlo</span>
@@ -747,7 +736,7 @@
 
             <div class="block">
               <label class="row tog" for="autoUpdate">
-                <span class="ric"><img class="product-icon" src="assets/icons/update.png" alt="" draggable="false"></span>
+                <span class="ric"><img data-relic-icon="update" class="product-icon" src="assets/icons/update.png" alt="" draggable="false"></span>
                 <span class="tcopy">
                   <span class="rname" data-i18n="updater.autoTitle">Actualizaciones automáticas</span>
                   <span class="rdesc" data-i18n="updater.autoDesc">Cada 30 min busca, descarga e instala sola</span>
@@ -910,7 +899,7 @@
             <button id="wizDetectBtn" class="btn account-detect" type="button" data-i18n="wizard.detectBtn">Detectar automáticamente</button>
           </div>
           <div class="search-box">
-            <img class="product-icon" src="assets/icons/search.png" alt="" draggable="false">
+            <img data-relic-icon="search" class="product-icon" src="assets/icons/search.png" alt="" draggable="false">
             <input id="wizSearch" class="field" type="text" placeholder="Nombre en el juego o profile ID" data-i18n-placeholder="wizard.searchPlaceholder" autocomplete="off" spellcheck="false" />
           </div>
           <div id="wizResults" class="results" role="listbox"></div>
@@ -1007,7 +996,7 @@
           </div>
           <div class="checkout-deposit-addr-row">
             <code id="checkoutDepositAddr" class="checkout-deposit-addr">0x...</code>
-            <button type="button" id="checkoutCopyAddrBtn" class="btn checkout-copy-btn" data-i18n="common.copy">Copiar</button>
+            <button type="button" id="checkoutCopyAddrBtn" class="btn checkout-copy-btn" data-relic-action-icon="copy" data-i18n="common.copy">Copiar</button>
           </div>
           <p class="checkout-deposit-hint" id="checkoutDepositHint" data-i18n="checkout.depositHint">Usá únicamente red Polygon (PoS). Tu plan se activa automáticamente al confirmarse.</p>
         </div>
@@ -1055,7 +1044,7 @@
 
           <div id="referralMainBody" class="referral-body" hidden>
             <div id="referralClaimedBanner" class="referral-banner is-success" hidden>
-              <strong data-i18n="referrals.claimedTitle">★ ¡1 mes de Relic Ultra desbloqueado!</strong>
+              <strong><img class="relic-status-icon" src="assets/icons/trophy.png" data-relic-icon="trophy" width="14" height="14" alt=""><span data-i18n="referrals.claimedTitle">¡1 mes de Relic Ultra desbloqueado!</span></strong>
               <span id="referralClaimedDetail" class="mini" data-i18n="referrals.claimedDefault">Ya acreditado en tu cuenta.</span>
             </div>
 
@@ -1083,9 +1072,9 @@
                 <div class="referral-code-pill">
                   <span class="referral-code-lbl" data-i18n="referrals.codeLabel">CÓDIGO</span>
                   <code id="referralCodeVal" class="referral-copy-val is-code-font">—</code>
-                  <button type="button" id="referralCopyCodeBtn" class="btn referral-copy-btn" data-i18n="common.copy">Copiar</button>
+                  <button type="button" id="referralCopyCodeBtn" data-relic-action-icon="copy" class="btn referral-copy-btn" data-i18n="common.copy">Copiar</button>
                 </div>
-                <button type="button" id="referralCopyLinkBtn" class="btn gold referral-link-cta" data-i18n="referrals.copyLink">Copiar enlace de invitación</button>
+                <button type="button" id="referralCopyLinkBtn" data-relic-action-icon="copy" class="btn gold referral-link-cta" data-i18n="referrals.copyLink">Copiar enlace de invitación</button>
               </div>
               <code id="referralShareUrl" class="referral-share-url-hidden" hidden>—</code>
             </section>
@@ -1200,6 +1189,7 @@
     <script src="ui/smooth-motion.js"></script>
     <script src="ui/blacksmith-terms.js"></script>
     <script src="ui/aoe2-icons.js"></script>
+    <script src="ui/relic-icons.js"></script>
     <script src="ui/tactical-ui.js"></script>
     <script src="ui/techtree-ui.js"></script>
     <script src="ui/apm-trainer.js"></script>

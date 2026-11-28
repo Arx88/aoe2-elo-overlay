@@ -507,7 +507,7 @@
           </header>
           <div class="wh-gold-hero">
             <div class="wh-gold-orb" aria-hidden="true">
-              <img class="wh-gold-ico" src="assets/icons/gold.png" alt="" width="30" height="30" draggable="false" />
+              <img data-relic-icon="gold" class="wh-gold-ico" src="assets/icons/relic/gold.png" alt="" width="30" height="30" draggable="false" />
             </div>
             <div class="wh-gold-nums">
               <strong class="wh-gold-amount mono">0</strong>
@@ -572,7 +572,7 @@
 
         <div class="wh-gold-hero">
           <div class="wh-gold-orb" aria-hidden="true">
-            <img class="wh-gold-ico" src="assets/icons/gold.png" alt="" width="30" height="30" draggable="false" />
+            <img data-relic-icon="gold" class="wh-gold-ico" src="assets/icons/relic/gold.png" alt="" width="30" height="30" draggable="false" />
           </div>
           <div class="wh-gold-nums">
             <strong class="wh-gold-amount mono" data-wh-count="${esc(String(warLedger.goldTotal))}" data-wh-fmt="int" data-wh-role="gold">${fmtInt(warLedger.goldTotal)}</strong>
@@ -590,22 +590,22 @@
 
         <dl class="wh-ledger-grid">
           <div class="wh-ledger-cell" data-help-id="wh_ledger_villagers">
-            <dt><img src="assets/icons/villager.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.villagers', 'Aldeanos'))}</span></dt>
+            <dt><img data-relic-icon="villager" src="assets/icons/villager.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.villagers', 'Aldeanos'))}</span></dt>
             <dd class="mono">${fmtInt(warLedger.villagers)}</dd>
             <small>${esc(wt('welcome.created', 'creados'))}</small>
           </div>
           <div class="wh-ledger-cell" data-help-id="wh_ledger_army">
-            <dt><img src="assets/icons/sword.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.army', 'Ejército'))}</span></dt>
+            <dt><img data-relic-icon="sword" src="assets/icons/sword.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.army', 'Ejército'))}</span></dt>
             <dd class="mono">${fmtInt(warLedger.military)}</dd>
             <small>${esc(wt('welcome.units', 'unidades'))}</small>
           </div>
           <div class="wh-ledger-cell" data-help-id="wh_ledger_castles">
-            <dt><img src="assets/icons/castle.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.castlesFarms', 'Castillos · Granjas'))}</span></dt>
+            <dt><img data-relic-icon="castle" src="assets/icons/castle.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.castlesFarms', 'Castillos · Granjas'))}</span></dt>
             <dd class="mono">${fmtInt(warLedger.castles)} <span class="wh-ledger-sep">/</span> ${fmtInt(warLedger.farms)}</dd>
             <small>${esc(wt('welcome.built', 'construidos'))}</small>
           </div>
           <div class="wh-ledger-cell" data-help-id="wh_ledger_eapm">
-            <dt><img src="assets/icons/clock.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.peakEapm', 'Pico eAPM'))}</span></dt>
+            <dt><img data-relic-icon="activity" src="assets/icons/relic/activity.png" alt="" width="14" height="14" draggable="false" /><span>${esc(wt('welcome.peakEapm', 'Pico eAPM'))}</span></dt>
             <dd class="mono">${warLedger.peakEapm ? `${warLedger.peakEapm}` : '—'}</dd>
             <small>${esc(tcDark)}</small>
           </div>

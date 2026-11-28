@@ -1824,7 +1824,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
   if (self.eapmRetentionPct != null && self.eapmRetentionPct >= 95 && (self.eapmLate || 0) >= 35) {
     addPos({
       id: 'medal-stamina', domain: 'stamina_pace', tier: self.eapmRetentionPct >= 105 ? 'gold' : 'green',
-      score: 81, icon: 'trend',
+      score: 81, icon: 'activity',
       badgeName: 'Resistencia de Late Game',
       title: `Sostuviste tu ritmo en late game (${fmtDec(self.eapmEarly)} → ${fmtDec(self.eapmLate)} eAPM)`,
       metric: self.eapmRetentionPct > 125
@@ -1877,7 +1877,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
       (self.peakEapm >= 65 || (self.eapm && self.peakEapm >= 48 && self.peakEapm >= self.eapm * 1.55))) {
     addPos({
       id: 'medal-peak-adrenaline', domain: 'adrenaline', tier: self.peakEapm >= 80 ? 'gold' : 'green',
-      score: self.peakEapm >= 80 ? 82 : 75, icon: 'trend',
+      score: self.peakEapm >= 80 ? 82 : 75, icon: 'activity',
       badgeName: 'Pico de Adrenalina',
       title: `Alcanzaste ${self.peakEapm} eAPM en el minuto ${self.peakEapmMinute}`,
       metric: `${self.peakEapm} eAPM`,
@@ -2096,7 +2096,7 @@ function buildHighlightsAndFocus(self, rival, { durationMs = 0, openingSummary =
     const drop = 100 - self.eapmRetentionPct;
     addNeg({
       id: 'neg-stamina-drop', domain: 'stamina_pace', severity: 73,
-      icon: 'trend',
+      icon: 'activity',
       title: `Tu ritmo cayó ${drop}% tras el min 30 (${fmtDec(self.eapmEarly)} → ${fmtDec(self.eapmLate)} eAPM)`,
       metric: `−${drop}% eAPM`,
       detail: `En partidas largas bajó tu velocidad de producción y micro en el tramo decisivo.`,

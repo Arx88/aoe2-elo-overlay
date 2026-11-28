@@ -18,6 +18,7 @@ async function main() {
     classList: { toggle() {}, add() {}, remove() {} }, querySelectorAll: () => [], appendChild() {},
     addEventListener() {} });
   const context = {
+    RelicIcons: require('../ui/relic-icons'),
     document: { getElementById: stub, addEventListener() {}, body: stub(), documentElement: { style: { setProperty() {} } } },
     window: { overlay: { onState() {}, onConfig() {}, onUpdate() {}, onMovable() {}, onView() {},
       onRival() {}, onScout() {}, onDetail() {}, ready() {}, reportError() {} }, addEventListener() {} },

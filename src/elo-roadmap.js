@@ -18,6 +18,7 @@
  */
 
 const crypto = require('node:crypto');
+const { asset } = require('../ui/relic-icons');
 
 let BUNDLED_SEED = null;
 let LIVE_BENCHMARKS = null;
@@ -94,21 +95,18 @@ function fmtClock(sec) {
 const ICONS = Object.freeze({
   dimOpening: 'assets/icons/ages/feudal.png',
   dimCastle: 'assets/icons/ages/castle.png',
-  dimCombat: 'assets/icons/postmatch/combat.webp',
+  dimCombat: asset('combat'),
   dimClosing: 'assets/icons/ages/imperial.png',
-  tc: 'assets/icons/aoe2/b_28.png',
-  villager: 'assets/icons/aoe2/u_15.png',
+  tc: asset('town-center'),
   feudal: 'assets/icons/ages/feudal.png',
   castle: 'assets/icons/ages/castle.png',
   imperial: 'assets/icons/ages/imperial.png',
-  dba: 'assets/icons/aoe2/t_70.png',
-  bowSaw: 'assets/icons/aoe2/t_71.png',
-  wheelbarrow: 'assets/icons/aoe2/t_79.png',
-  market: 'assets/icons/aoe2/b_16.png',
-  blacksmith: 'assets/icons/aoe2/b_4.png',
-  tempo: 'assets/icons/postmatch/tempo.webp',
-  combat: 'assets/icons/postmatch/combat.webp',
-  activity: 'assets/icons/postmatch/activity.webp',
+  dba: asset('double-bit-axe'),
+  bowSaw: asset('bow-saw'),
+  market: asset('market'),
+  blacksmith: asset('blacksmith'),
+  combat: asset('combat'),
+  activity: asset('activity'),
   trophy: 'assets/icons/trophy.png',
   shield: 'assets/icons/shield.png',
 });
@@ -539,7 +537,7 @@ function computeNextEloRoadmap({
     },
     // PILAR 2 · Macro y transición (Feudal -> Castillos)
     {
-      id: 'biggest_tc_gap', dim: 'castleMacro', key: 'biggestTcGapSec', dir: 'lower', icon: ICONS.villager,
+      id: 'biggest_tc_gap', dim: 'castleMacro', key: 'biggestTcGapSec', dir: 'lower', icon: ICONS.tc,
       allowWlCollapse: true, deadband: 12, p75Deadband: 22, wlMinDelta: 16, worstDelta: 65, impactWeight: 1.38,
       titleKey: 'cx.rmTcGap', titleFallback: 'Bache sin órdenes al CU en Feudal',
       drillKey: 'cx.rmDrillTcGap',
@@ -892,7 +890,7 @@ function computeNextEloRoadmap({
     if (diff >= 5) {
       const bulletFillPct = computeBulletFill(uEapm, bEapm.value, 'higher', 22);
       dimFindings.combatPace.push({
-        id: 'eapm', dim: 'combatPace', icon: ICONS.tempo, kind: 'gap',
+        id: 'eapm', dim: 'combatPace', icon: ICONS.activity, kind: 'gap',
         severity: diff >= 10 ? 'high' : 'medium',
         priorityScore: Math.round((88 - bulletFillPct) * 1.06),
         titleKey: 'cx.rmEapm', titleFallback: 'Ritmo efectivo en RM 1v1 (eAPM)',

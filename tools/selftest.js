@@ -1970,6 +1970,7 @@ function fakeLobby(leaderboardId, leaderboardName) {
       setInterval() {}, clearInterval() {}, setTimeout() {}, clearTimeout() {},
       Date, Math, Number, String, Boolean, Array, Object, JSON, Intl,
     };
+    sandbox.RelicIcons = require('../ui/relic-icons');
     vm.createContext(sandbox);
     vm.runInContext(rendererSrc, sandbox, { filename: 'renderer.js' });
     const hero = (style) => sandbox.scoutHero({ style, scopeLabel: 'en Arabia' }, null);

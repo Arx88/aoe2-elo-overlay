@@ -77,16 +77,6 @@ body[data-theme="ultra"][data-ultra-gamma] .rail-glide-indicator::before {
   box-shadow: 0 0 7px #b885ef8a !important;
 }
 
-/* A new raster family is applied to matching existing icons, including rendered reports. */
-body[data-theme="ultra"][data-ultra-gamma] img:is([src$="/trend.png"],[src$="/activity.webp"]) { content: url("assets/ultra-gamma/trend.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img[src$="/eye.png"] { content: url("assets/ultra-gamma/eye.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img:is([src$="/combat.png"],[src$="/combat.webp"],[src$="/sword.png"]) { content: url("assets/ultra-gamma/combat.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img[src$="/history.png"] { content: url("assets/ultra-gamma/history.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img[src$="/target.png"] { content: url("assets/ultra-gamma/target.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img[src$="/palette.png"] { content: url("assets/ultra-gamma/palette.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img[src$="/crown.png"] { content: url("assets/ultra-gamma/crown.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img[src$="/update.png"] { content: url("assets/ultra-gamma/update.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] img:is([src$="/medal.png"],[src$="/record.webp"],[src$="/trophy.png"]) { content: url("assets/ultra-gamma/medal.webp"); }
 body[data-theme="ultra"][data-ultra-gamma] .rail-nav .product-icon {
   object-fit: contain;
   opacity: 1;
@@ -243,22 +233,6 @@ body[data-theme="ultra"][data-ultra-gamma] #stage :is(.scout-carousel-track > i,
 body[data-theme="ultra"][data-ultra-gamma] #stage .tg-open-card.opening-art::before {
   filter: grayscale(1) sepia(.45) hue-rotate(222deg);
   opacity: .48;
-}
-body[data-theme="ultra"][data-ultra-gamma] #stage :is(.civhelp-title,.rival-title)::before {
-  content: "";
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
-  vertical-align: middle;
-  background: var(--gamma-section-icon) center / contain no-repeat;
-}
-body[data-theme="ultra"][data-ultra-gamma] #stage .civhelp-title { --gamma-section-icon: url("assets/ultra-gamma/medal.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] #stage #rivalInfo .rival-title { --gamma-section-icon: url("assets/ultra-gamma/combat.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] #stage #scoutInfo .rival-title { --gamma-section-icon: url("assets/ultra-gamma/target.webp"); }
-body[data-theme="ultra"][data-ultra-gamma] #stage :is(.civhelp-title,.rival-title) > svg { display: none; }
-body[data-theme="ultra"][data-ultra-gamma] #stage .is-armed-bo > header > img[src$="/age.png"] {
-  content: url("assets/ultra-gamma/history.webp");
 }
 body[data-theme="ultra"][data-ultra-gamma] #stage .upd-dot { background-color: #bf91ed; }
 

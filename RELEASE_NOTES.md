@@ -1,3 +1,11 @@
+## v3.3.26 · Iconografía Relieve romano
+
+- Iconos de Relieve romano en el launcher, el overlay, el asistente de configuración y Entrenamiento. Mi Plan conserva su pesita.
+- Emblemas específicos para el Centro Urbano, las cuatro edades y las tecnologías de economía en Progreso, Postmatch y Build Orders. Los informes guardados adoptan el icono correspondiente al abrirse.
+- Indicadores coherentes para récords, objetivos cumplidos, tecnologías bloqueadas, referidos y confirmaciones. Los escudos de civilización y retratos oficiales conservan su identidad.
+
+---
+
 ## v3.3.25 · Detección blindada tras dodge/re-cola, WebSocket sin atraso y fix definitivo del popup Ultra
 
 - **Detección automática tras caída de sala / dodge:** si un jugador abandona la pre-partida y el juego vuelve a buscar, Relic detecta la nueva cola en ~3 s, limpia al instante los jugadores de la sala caída, bloquea la resurrección de partidas zombis de nodos atrasados y muestra la siguiente partida en pre-partida sin quedar congelado.

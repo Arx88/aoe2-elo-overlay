@@ -1,0 +1,78 @@
+/* Roman relief product icons. Keep world art separate from small UI portraits. */
+img[data-relic-icon], .train-pin-ico {
+  object-fit: contain;
+}
+
+.relic-status-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -.16em;
+  margin-inline-end: .35em;
+}
+
+.result-check .relic-status-icon,
+.tt-node-x .relic-status-icon,
+.tt-insp-lock-x .relic-status-icon,
+.tt-evo-ico i .relic-status-icon,
+.tr-life-cross .relic-status-icon,
+.tr-hole-x .relic-status-icon {
+  margin-inline-end: 0;
+}
+
+:is(.tt-node-x, .tt-evo-ico i, .tt-cmp-side i) img.relic-status-icon {
+  width: 12px;
+  height: 12px;
+  filter: none;
+}
+
+.tt-insp-lock-x img.relic-status-icon {
+  width: 14px;
+  height: 14px;
+  filter: none;
+}
+
+.tr-tab-dumb .train-pin-ico {
+  width: 16px;
+  height: 16px;
+}
+
+.tr-life-shield {
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+}
+.tr-life-cross {
+  position: absolute;
+  font-style: normal;
+  font-weight: 800;
+  color: #fff;
+}
+.tr-leg-ico {
+  vertical-align: -2px;
+}
+
+img[src^="assets/civs/"] {
+  box-sizing: border-box;
+  object-fit: contain;
+  padding: 1px;
+  background: url("../assets/icons/relic/frame-crest.webp") center / 100% 100% no-repeat;
+}
+
+img:is(.tr-civ-crest-lg, .tr-war-shield-lg)[src^="assets/civs/"] {
+  padding: 3px;
+}
+
+img[src^="assets/icons/aoe2/"],
+img[src^="assets/icons/blacksmith/"],
+.map-art-thumb {
+  box-sizing: border-box;
+  padding: 2px;
+  border-radius: 4px;
+  background: url("../assets/icons/relic/frame-tile.webp") center / 100% 100% no-repeat;
+}
+
+:is(.tr-bo-card-ico, .tr-wc-icon, .tr-perf-crest-frame img, .tr-un-circle > img:first-child)[src^="assets/brand/"] {
+  box-sizing: border-box;
+  padding: 3px;
+  background: url("../assets/icons/relic/frame-portrait.webp") center / 100% 100% no-repeat;
+}

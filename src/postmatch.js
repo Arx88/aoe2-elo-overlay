@@ -1083,7 +1083,7 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
     if (em.eapm?.isBest) {
       posPool.push({
         id: 'evo-eapm-record', domain: 'stamina_pace', flavor: 'evolution', requiresHistory: true,
-        tier: 'gold', score: 96, icon: 'trend',
+        tier: 'gold', score: 96, icon: 'record',
         tag: 'RÉCORD PERSONAL', badgeName: 'Pulso Acelerado',
         title: `Récord de ritmo mecánico (${fmtDec(em.eapm.current)} eAPM)`,
         metric: `${fmtDec(em.eapm.current)} eAPM`,
@@ -1093,7 +1093,7 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
     } else if (em.eapm?.improved && em.eapm.delta >= 4) {
       posPool.push({
         id: 'evo-eapm-up', domain: 'stamina_pace', flavor: 'evolution', requiresHistory: true,
-        tier: 'green', score: 84, icon: 'trend',
+        tier: 'green', score: 84, icon: 'activity',
         tag: 'SOBRE TU MEDIANA', badgeName: 'Ritmo en Subida',
         title: `Jugaste +${fmtDec(em.eapm.delta)} eAPM sobre tu mediana`,
         metric: `${fmtDec(em.eapm.current)} eAPM`,
@@ -1109,7 +1109,7 @@ function buildPostmatchNarrative(engine, evolution, resultStatus, {
     // Regresiones claras verificables frente a tu propia media -> pool negativo
     if (em.eapm && em.eapm.delta != null && em.eapm.delta <= -7) {
       negPool.push({
-        id: 'evo-eapm-drop', domain: 'stamina_pace', severity: 72, icon: 'trend',
+        id: 'evo-eapm-drop', domain: 'stamina_pace', severity: 72, icon: 'activity',
         title: `Ritmo más lento que tu mediana (${fmtDec(em.eapm.current)} vs ${fmtDec(em.eapm.median)} eAPM)`,
         metric: `${fmtDec(em.eapm.delta)} eAPM`,
         detail: `Estuviste por debajo de tu velocidad habitual en esta partida.`,
