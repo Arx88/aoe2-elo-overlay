@@ -269,7 +269,7 @@ function initAutoUpdate(options = {}) {
     skippedVersion = null;
     wantsNewDownload = true;
     publishingUntil = 0;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = autoEnabled();
     patch({
       ready: false,
       readyVersion: null,

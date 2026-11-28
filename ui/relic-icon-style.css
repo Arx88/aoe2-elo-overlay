@@ -51,17 +51,6 @@ img[data-relic-icon], .train-pin-ico {
   vertical-align: -2px;
 }
 
-img[src^="assets/civs/"] {
-  box-sizing: border-box;
-  object-fit: contain;
-  padding: 1px;
-  background: url("../assets/icons/relic/frame-crest.webp") center / 100% 100% no-repeat;
-}
-
-img:is(.tr-civ-crest-lg, .tr-war-shield-lg)[src^="assets/civs/"] {
-  padding: 3px;
-}
-
 img[src^="assets/icons/aoe2/"],
 img[src^="assets/icons/blacksmith/"],
 .map-art-thumb {

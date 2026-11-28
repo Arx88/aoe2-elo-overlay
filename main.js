@@ -755,6 +755,8 @@ function formatTrialDurationEs(hours = cachedTrialHours) {
   return h === 24 ? '24 horas' : `${h} horas`;
 }
 let remoteLicenseErrorStreak = 0;
+let remoteLicenseFastRetryCount = 0;
+let remoteLicenseFastRetryTimer = null;
 let cachedAuthProfile = null;
 let activeAuthServer = null;
 
@@ -946,11 +948,17 @@ async function syncRemoteLicense(reason = 'startup') {
   remoteLicenseState = { ...res, trialHours: cachedTrialHours, lastCheckAt: Date.now(), checkReason: reason };
   if (res.status === 'verified' && res.token && res.accountId) {
     remoteLicenseErrorStreak = 0;
+    remoteLicenseFastRetryCount = 0;
+    clearTimeout(remoteLicenseFastRetryTimer);
+    remoteLicenseFastRetryTimer = null;
     productSession = { accountId: res.accountId, entitlementToken: res.token };
     log(`licencia remota verificada (${res.plan}) · ${reason}`);
     refreshAccessPresentation();
   } else if (res.revoked || res.status === 'free' || res.status === 'invalid-signature') {
     if (res.status !== 'invalid-signature') remoteLicenseErrorStreak = 0;
+    remoteLicenseFastRetryCount = 0;
+    clearTimeout(remoteLicenseFastRetryTimer);
+    remoteLicenseFastRetryTimer = null;
     const hadAccess = Boolean(productSession.entitlementToken || config.accessKeyGrant);
     if ((res.revoked || res.paywallEnabled) && config.accessKeyGrant) persistConfig({ accessKeyGrant: null });
     productSession = { accountId: null, entitlementToken: null };
@@ -967,6 +975,17 @@ async function syncRemoteLicense(reason = 'startup') {
     }
   } else if (res.status === 'network-error' || res.status === 'http-error' || res.status === 'error') {
     remoteLicenseErrorStreak += 1;
+    if (!productSession.entitlementToken && remoteLicenseFastRetryCount < 4) {
+      const delays = [4000, 10000, 25000, 60000];
+      const delayMs = delays[remoteLicenseFastRetryCount] || 60000;
+      remoteLicenseFastRetryCount += 1;
+      clearTimeout(remoteLicenseFastRetryTimer);
+      remoteLicenseFastRetryTimer = setTimeout(() => {
+        remoteLicenseFastRetryTimer = null;
+        syncRemoteLicense('fast-retry').catch(() => {});
+      }, delayMs);
+      remoteLicenseFastRetryTimer.unref?.();
+    }
     if (remoteLicenseErrorStreak >= 3) {
       remoteLicenseErrorStreak = 0;
       diagnosticReporter.report({
@@ -5273,7 +5292,7 @@ function registerIpc() {
       : (Number.isFinite(Number(lbTeam?.rating)) && Number(lbTeam.rating) > 0 ? Math.round(Number(lbTeam.rating)) : null);
     if (!elo && pid) {
       try {
-        const recs = postMatchHistory.list(pid);
+        const recs = performanceStore.listReadOnly(pid);
         const latestElo = Number(recs?.[0]?.match?.elo || recs?.[0]?.report?.elo || 0);
         if (Number.isFinite(latestElo) && latestElo >= 200) elo = Math.round(latestElo);
       } catch { /* ignore */ }

@@ -1,3 +1,11 @@
+## v3.3.27 · Emblemas de civilización limpios y mejoras de lanzamiento
+
+- **Emblemas de civilización sin marco trasero:** los logos oficiales de las 62 civilizaciones se muestran limpios tal como son en el juego, quitando el escudo adicional de fondo.
+- **Reintento rápido de licencia en memoria:** si al abrir Relic la conexión tarda unos segundos en levantarse, la verificación del plan reintenta automáticamente en memoria sin bajar el estado ni guardar datos de licencia en disco.
+- **Pulido de estabilidad:** corrección en la lectura de respaldo de ELO para el ranking APM y respeto estricto del ajuste de actualizaciones automáticas al cerrar la app.
+
+---
+
 ## v3.3.26 · Iconografía Relieve romano
 
 - Iconos de Relieve romano en el launcher, el overlay, el asistente de configuración y Entrenamiento. Mi Plan conserva su pesita.
