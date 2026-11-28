@@ -50,24 +50,27 @@ function evaluateSmurfSignals({
   const compLadders = Array.isArray(profileData?.leaderboards) ? profileData.leaderboards : [];
   const comp1v1 = compLadders.find((l) => l && l.leaderboardId === 'rm_1v1') || null;
 
-  const rating = Number(ladder1v1?.rating ?? comp1v1?.rating ?? currentRating) || null;
-  const peak = Number(ladder1v1?.peak ?? comp1v1?.maxRating) || null;
-  const wins = Number(ladder1v1?.wins ?? comp1v1?.wins ?? 0);
-  const losses = Number(ladder1v1?.losses ?? comp1v1?.losses ?? 0);
+  // Priorizar SIEMPRE RM 1v1 real de Companion sobre cualquier rating de sala TG
+  // para jamás comparar el ELO de equipo (ej. 1180 TG) contra el 1v1 de una cuenta secundaria (ej. 1340 1v1).
+  const rating = Number(comp1v1?.rating ?? ladder1v1?.rating ?? currentRating) || null;
+  const peak = Number(comp1v1?.maxRating ?? ladder1v1?.peak) || null;
+  const wins = Number(comp1v1?.wins ?? ladder1v1?.wins ?? 0);
+  const losses = Number(comp1v1?.losses ?? ladder1v1?.losses ?? 0);
   const rmGames = wins + losses;
   const rmWinRate = pct(wins, rmGames);
-  const streak = Number(ladder1v1?.streak ?? comp1v1?.streak ?? 0);
+  const streak = Number(comp1v1?.streak ?? ladder1v1?.streak ?? 0);
   const totalGames = Number(profileData?.games) || rmGames;
   const drops = Number(profileData?.drops) || 0;
   const dropRate = totalGames > 0 ? (drops / totalGames) * 100 : 0;
 
   let score = 0;
   const reasons = [];
-  let primaryTag = null;
+  const tagCandidates = [];
   let linkedBestRating = null;
   let linkedBestName = null;
 
-  // 1. Cuentas vinculadas (Family Share / alt accounts) con mayor ELO en RM 1v1
+  // 1. Cuentas vinculadas (Family Share / alt accounts) con ELO RM 1v1 ACTUAL claramente superior.
+  //    Variaciones menores a +150 pts (ej. 1300 vs 1340/1410) son oscilación normal, NO smurf.
   const linked = Array.isArray(profileData?.linkedProfiles) ? profileData.linkedProfiles : [];
   if (linked.length && linkedStatsMap && typeof linkedStatsMap.get === 'function') {
     for (const lp of linked) {
@@ -76,22 +79,21 @@ function evaluateSmurfSignals({
       const st = linkedStatsMap.get(lpid);
       if (!st) continue;
       const candRating = Number(st.rating) || 0;
-      const candPeak = Number(st.peak) || candRating;
-      const effective = Math.max(candRating, Math.round(candPeak * 0.96));
-      if (effective > (linkedBestRating || 0)) {
-        linkedBestRating = candRating || candPeak;
+      if (candRating <= 0) continue;
+      if (candRating > (linkedBestRating || 0)) {
+        linkedBestRating = candRating;
         linkedBestName = lp.name || `#${lpid}`;
       }
     }
     if (linkedBestRating && rating) {
       const gap = linkedBestRating - rating;
-      if (gap >= 150) {
+      if (gap >= 220) {
         score += 65;
-        primaryTag = `alt ${linkedBestRating}`;
+        tagCandidates.push({ weight: 65, tag: `alt ${linkedBestRating}` });
         reasons.push(`Cuenta vinculada (${linkedBestName}) en ${linkedBestRating} ELO (+${gap})`);
-      } else if (gap >= 90) {
-        score += 25;
-        if (!primaryTag) primaryTag = `alt ${linkedBestRating}`;
+      } else if (gap >= 150) {
+        score += 35;
+        tagCandidates.push({ weight: 35, tag: `alt ${linkedBestRating}` });
         reasons.push(`Cuenta vinculada (${linkedBestName}) en ${linkedBestRating} ELO (+${gap})`);
       }
     }
@@ -100,11 +102,11 @@ function evaluateSmurfSignals({
   // 2. Cuenta nueva con Winrate extremo en RM 1v1
   if (rmGames >= 6 && rmGames <= 45 && rmWinRate != null && rmWinRate >= 72) {
     score += 45;
-    if (!primaryTag) primaryTag = `${rmWinRate}%·${rmGames}pj`;
+    tagCandidates.push({ weight: 45, tag: `${rmWinRate}%·${rmGames}pj` });
     reasons.push(`${rmWinRate}% WR en solo ${rmGames} partidas de RM 1v1`);
   } else if (rmGames >= 10 && rmGames <= 90 && rmWinRate != null && rmWinRate >= 66) {
     score += 25;
-    if (!primaryTag) primaryTag = `${rmWinRate}%·${rmGames}pj`;
+    tagCandidates.push({ weight: 25, tag: `${rmWinRate}%·${rmGames}pj` });
     reasons.push(`${rmWinRate}% WR sostenido en ${rmGames} partidas`);
   }
 
@@ -122,7 +124,7 @@ function evaluateSmurfSignals({
   if ((recentClimb != null && recentClimb >= 140) || (streak >= 6 && rmGames <= 65 && (rmWinRate || 0) >= 62)) {
     score += 30;
     const tag = recentClimb != null && recentClimb >= 140 ? `+${recentClimb} ELO` : `racha +${streak}`;
-    if (!primaryTag) primaryTag = tag;
+    tagCandidates.push({ weight: 30, tag });
     reasons.push(
       recentClimb != null && recentClimb >= 140
         ? `Subió +${recentClimb} ELO en sus últimas ${pts.length} partidas`
@@ -134,7 +136,7 @@ function evaluateSmurfSignals({
   if (peak && rating && peak >= 1250 && (peak - rating) >= 240 && rmGames >= 18) {
     const drop = peak - rating;
     score += 35;
-    if (!primaryTag) primaryTag = `pico ${peak}`;
+    tagCandidates.push({ weight: 35, tag: `pico ${peak}` });
     reasons.push(`Pico histórico ${peak} ELO (${drop} pts por debajo hoy)`);
   }
 
@@ -149,7 +151,7 @@ function evaluateSmurfSignals({
       const threshold = anomalousEapmThreshold(rating);
       if (avgSelf >= threshold && (avgOpp == null || avgSelf >= avgOpp + 16)) {
         score += 25;
-        if (!primaryTag) primaryTag = `${Math.round(avgSelf)} eAPM`;
+        tagCandidates.push({ weight: 25, tag: `${Math.round(avgSelf)} eAPM` });
         reasons.push(`Ritmo anómalo (${Math.round(avgSelf)} eAPM${avgOpp ? ` vs ${Math.round(avgOpp)} rivales` : ''})`);
       }
     }
@@ -158,9 +160,12 @@ function evaluateSmurfSignals({
   // 6. Tasa alta de abandonos tempranos (`drops`) + pico superior
   if (drops >= 8 && dropRate >= 12 && peak && rating && (peak - rating) >= 140) {
     score += 25;
-    if (!primaryTag) primaryTag = `${Math.round(dropRate)}% drops`;
+    tagCandidates.push({ weight: 25, tag: `${Math.round(dropRate)}% drops` });
     reasons.push(`${drops} abandonos (${Math.round(dropRate)}%) con pico ${peak} ELO`);
   }
+
+  tagCandidates.sort((a, b) => b.weight - a.weight);
+  const primaryTag = tagCandidates[0]?.tag || null;
 
   let level = 'none';
   let label = null;
@@ -274,16 +279,20 @@ async function detectSmurfsForPlayers(players = [], {
   // 3. Evaluamos Fase A inmediatamente y cacheamos
   const evaluateFor = (rival, insRows) => {
     const pid = Number(rival.profileId);
+    const cached1v1 = cache && cache.get(`elo1v1:${pid}`);
+    const is1v1Mode = modeNum === 3;
     return evaluateSmurfSignals({
       profileId: pid,
-      currentRating: rival.rating ?? rival.matchRating ?? null,
-      ladder1v1: {
-        rating: rival.rating ?? null,
-        peak: rival.peak ?? null,
-        wins: rival.wins,
-        losses: rival.losses,
-        streak: rival.streak,
-      },
+      currentRating: is1v1Mode ? (rival.rating ?? rival.matchRating ?? null) : (cached1v1?.rating ?? null),
+      ladder1v1: is1v1Mode
+        ? {
+            rating: rival.rating ?? null,
+            peak: rival.peak ?? null,
+            wins: rival.wins,
+            losses: rival.losses,
+            streak: rival.streak,
+          }
+        : (cached1v1 ? { rating: cached1v1.rating ?? null, peak: cached1v1.peak ?? null } : null),
       profileData: profileByPid.get(pid) || null,
       linkedStatsMap,
       insightsRows: insRows || null,

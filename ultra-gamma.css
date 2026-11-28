@@ -205,9 +205,28 @@ body[data-theme="ultra"][data-ultra-gamma] #stage #panel #head {
   padding-inline: 8px;
   border-radius: 5px 5px 0 0;
 }
-body[data-theme="ultra"][data-ultra-gamma] #stage .smart-build > header {
+body[data-theme="ultra"][data-ultra-gamma] #stage :is(.smart-build > header,.civhelp-head) {
   padding: 8px 9px;
   border-radius: 6px;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage #civHelp.is-duel .civhelp-head {
+  padding: 9px 16px 8px;
+  border-radius: 0;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .duel-stage {
+  background: linear-gradient(90deg, #2b1a40b3 0%, transparent 42%, transparent 58%, #351624ad 100%) !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .civhelp-pro-strip {
+  background: linear-gradient(90deg, #211430eb, #140d1ef0) !important;
+  border-color: #bc91ec47 !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .civhelp-civ.is-you {
+  background: linear-gradient(165deg, #201430b8 0%, #120d1bd9 80%) !important;
+  border-color: #c59af559 !important;
+}
+body[data-theme="ultra"][data-ultra-gamma] #stage .civhelp-civ.is-rival {
+  background: linear-gradient(165deg, #27131db5 0%, #120d1bd9 80%) !important;
+  border-color: #e06d794a !important;
 }
 body[data-theme="ultra"][data-ultra-gamma] #stage :is(.scout-context,.scout-footnote,.intel-muted,.intel-scope,.tg-rival-civ,.civhelp-clock,.build-reference,.build-condition,.bo-step-next) {
   color: var(--gamma-muted);

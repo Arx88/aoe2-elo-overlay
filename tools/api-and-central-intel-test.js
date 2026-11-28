@@ -1183,6 +1183,67 @@ test('16. ReplayCache true LRU preserves hot keys + Smurf 2-phase returns Phase 
   await new Promise((r) => setTimeout(r, 130));
   assert.deepEqual(insightsQueried, [2002], 'Phase B Insights must ONLY query enemyIds, skipping allies');
   assert.ok(updates.length >= 1, 'Phase B must deliver async eAPM enrichment via onUpdate');
+
+  // C. Smurf linked-account calibration: 1300 vs 1340/1420 (and 1180 TG vs 1340 1v1) NEVER flags as smurf
+  const { evaluateSmurfSignals } = require('../src/smurf');
+  const noSmurfCloseAlt = evaluateSmurfSignals({
+    profileId: 3001,
+    currentRating: 1180, // TG lobby rating!
+    ladder1v1: { rating: 1180, wins: 60, losses: 58 }, // even if TG rating leaked in
+    profileData: {
+      games: 180,
+      drops: 1,
+      leaderboards: [{ leaderboardId: 'rm_1v1', rating: 1300, maxRating: 1355, wins: 92, losses: 88, streak: 2 }],
+      linkedProfiles: [{ profileId: 3002, name: 'Main_1340' }],
+    },
+    linkedStatsMap: new Map([[3002, { rating: 1340, peak: 1390, wins: 120, losses: 110 }]]),
+  });
+  assert.equal(noSmurfCloseAlt.flagged, false, '1300 1v1 with 1340 alt must NOT be flagged even in TG');
+  assert.equal(noSmurfCloseAlt.score, 0, 'Gap < 150 must contribute 0 smurf score');
+
+  const realSmurfAlt = evaluateSmurfSignals({
+    profileId: 3003,
+    currentRating: 1300,
+    profileData: {
+      games: 30,
+      drops: 0,
+      leaderboards: [{ leaderboardId: 'rm_1v1', rating: 1300, maxRating: 1310, wins: 18, losses: 12, streak: 2 }],
+      linkedProfiles: [{ profileId: 3004, name: 'RealMain_1560' }],
+    },
+    linkedStatsMap: new Map([[3004, { rating: 1560, peak: 1610, wins: 200, losses: 180 }]]),
+  });
+  assert.equal(realSmurfAlt.flagged, true, '+260 ELO active 1v1 alt must flag as SMURF');
+  assert.equal(realSmurfAlt.label, 'SMURF');
+  assert.equal(realSmurfAlt.shortReason, 'alt 1560');
+
+  // D. Tactical Civ Battle Brief (strictly 1v1 + complete civ bonuses + Tech Tree true holes)
+  const { buildCivBattleBrief } = require('../src/civ-battle-brief');
+  const brief1v1 = buildCivBattleBrief({
+    status: 'ongoing',
+    match: { mapName: 'Arabia' },
+    players: [
+      { isYou: true, team: 1, civ: 'Franks' },
+      { isYou: false, team: 2, civ: 'Mayans' },
+    ],
+  });
+  assert.equal(brief1v1.banner.mode, '1v1');
+  assert.ok(brief1v1.banner.totalGames >= 20, 'Franks vs Mayans must have real Pro sample');
+  assert.ok(Array.isArray(brief1v1.byCiv.franks.bonuses) && brief1v1.byCiv.franks.bonuses.length === 2, 'Franks must include 2 key bonuses');
+  assert.ok(brief1v1.byCiv.franks.bonuses.every((b) => !b.includes('…')), 'Bonuses must never be cut mid-word');
+  assert.ok(!brief1v1.byCiv.franks.holes.some((h) => h.nameEn === 'Bloodlines'), 'Franks must never flag Bloodlines as hole');
+  assert.ok(!brief1v1.byCiv.mayans.holes.some((h) => h.nameEn === 'Paladin' || h.nameEn === 'Bloodlines'), 'Mayans must never flag Stable techs');
+
+  const briefTg = buildCivBattleBrief({
+    status: 'ongoing',
+    match: { mapName: 'Arabia' },
+    players: [
+      { isYou: true, team: 1, civ: 'Franks' },
+      { isYou: false, team: 1, civ: 'Britons' },
+      { isYou: false, team: 2, civ: 'Hindustanis' },
+      { isYou: false, team: 2, civ: 'Mayans' },
+    ],
+  });
+  assert.equal(briefTg, null, 'Ayuda de civ battle brief must be strictly 1v1');
 });
 
 Promise.all(pending).then(() => {

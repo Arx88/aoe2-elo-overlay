@@ -356,22 +356,140 @@ function summarize(value, max = 108, dropLast = true) {
   return result;
 }
 
-function civCard(civ) {
+function locCivHelpNode(item) {
+  if (!item) return '';
+  if (item.kind === 'opening' && item.openingKey) {
+    if (typeof AppI18n === 'object' && typeof AppI18n.openingName === 'function') {
+      const op = AppI18n.openingName(item.openingKey);
+      if (op) return op;
+    }
+    return item.nameEs || item.openingKey;
+  }
+  const locale = (typeof AppI18n === 'object' && typeof AppI18n.getLocale === 'function')
+    ? AppI18n.getLocale()
+    : 'es-MX';
+  if (item.ut === 'U' && item.id != null && typeof AppI18n === 'object' && typeof AppI18n.unit === 'function') {
+    const u = AppI18n.unit(String(item.id));
+    if (u && u !== String(item.id)) return u;
+  }
+  if (typeof AppI18n === 'object' && typeof AppI18n.locText === 'function' && !locale.startsWith('es')) {
+    const base = locale.startsWith('en') ? (item.nameEn || item.nameEs) : (item.nameEs || item.nameEn);
+    const translated = AppI18n.locText(base);
+    if (translated) return translated;
+  }
+  if (locale.startsWith('en') && item.nameEn) return item.nameEn;
+  return item.nameEs || item.nameEn || '';
+}
+
+function renderStepChip(step, size = 20) {
+  if (!step) return '';
+  const lbl = escapeHtml(locCivHelpNode(step));
+  const ico = step.icon
+    ? `<img class="civhelp-ico" src="${escapeHtml(step.icon)}" width="${size}" height="${size}" alt="" draggable="false" />`
+    : '';
+  return `<span class="civhelp-step">${ico}<b>${lbl}</b></span>`;
+}
+
+function renderRouteChain(opening, castle, size = 20) {
+  const a = renderStepChip(opening, size);
+  const b = renderStepChip(castle, size);
+  if (a && b) return `${a}<span class="civhelp-arrow" aria-hidden="true">→</span>${b}`;
+  return a || b || '';
+}
+
+function civCard(civ, cardBrief = null) {
   const entry = (civ.slug && civGuide[civ.slug]) || {};
-  const locName = (typeof AppI18n === 'object' && AppI18n.civName) ? AppI18n.civName(civ.raw || entry.name) : '';
+  const bySlugName = (civ.slug && typeof AppI18n === 'object' && AppI18n.civName) ? AppI18n.civName(civ.slug) : '';
+  const rawLocName = (bySlugName && bySlugName !== civ.slug)
+    ? bySlugName
+    : ((typeof AppI18n === 'object' && AppI18n.civName) ? AppI18n.civName(entry.name || civ.raw || '') : '');
+  const locName = (rawLocName && rawLocName !== civ.slug) ? rawLocName : '';
   const name = locName || entry.name || String(civ.raw || tr('hud.civFallback', 'Civilización'));
-  const role = entry.role || '—';
   const shield = civ.slug
     ? `<img class="civhelp-shield" src="assets/civs/${civ.slug}.png" alt="" draggable="false" />`
     : '<span class="civhelp-no-shield">?</span>';
   const relation = civ.relation || (civ.isYou ? 'you' : 'unknown');
   const labels = {
-    you: tr('hud.civYou', 'VOS'),
+    you: tr('hud.civYou', 'TÚ'),
     ally: tr('hud.civAlly', 'ALIADO'),
     opponent: tr('hud.civRival', 'RIVAL'),
     unknown: tr('hud.civPlayer', 'JUGADOR'),
   };
-  const tag = `<span class="civhelp-tag${relation === 'opponent' ? ' rival' : ''}">${escapeHtml(labels[relation])}</span>`;
+  const relCls = relation === 'opponent' ? ' is-rival' : relation === 'you' ? ' is-you' : '';
+  const tag = `<span class="civhelp-tag${relation === 'opponent' ? ' rival' : relation === 'you' ? ' you' : ''}">${escapeHtml(labels[relation])}</span>`;
+
+  if (cardBrief && cardBrief.proPlan) {
+    const spikeLabel = cardBrief.spikeAge === 2
+      ? tr('hud.civSpikeFeudal', 'Pico Feudal')
+      : cardBrief.spikeAge === 4
+        ? tr('hud.civSpikeImperial', 'Pico Imperial')
+        : tr('hud.civSpikeCastle', 'Pico Castillos');
+    const spikeBadge = `<div class="civhelp-spike"><img class="civhelp-age-ico" src="${escapeHtml(cardBrief.ageIcon)}" width="16" height="16" alt="" draggable="false" /><span>${escapeHtml(spikeLabel)}</span></div>`;
+
+    let bonusesRow = '';
+    if (Array.isArray(cardBrief.bonuses) && cardBrief.bonuses.length > 0) {
+      const bonusItems = cardBrief.bonuses.slice(0, 2).map((line) => {
+        const locLine = (typeof AppI18n === 'object' && typeof AppI18n.locText === 'function')
+          ? (AppI18n.locText(line) || line)
+          : line;
+        return `<li>${escapeHtml(locLine)}</li>`;
+      }).join('');
+      bonusesRow = `<div class="civhelp-sec is-bonuses"><span class="civhelp-k">${escapeHtml(tr('hud.bonuses', 'BONOS'))}</span><ul class="civhelp-bonus-list">${bonusItems}</ul></div>`;
+    }
+
+    const planKey = relation === 'opponent'
+      ? tr('hud.civRivalPlan', 'ABRE CON')
+      : tr('hud.civProPlan', 'PLAN PRO');
+    const routeHtml = renderRouteChain(cardBrief.proPlan.opening, cardBrief.proPlan.castle, 20);
+    const wrPill = cardBrief.proPlan.winPct != null
+      ? `<em class="civhelp-wr-mini">${cardBrief.proPlan.winPct}%</em>`
+      : '';
+    const planRow = `<div class="civhelp-sec is-plan"><span class="civhelp-k">${escapeHtml(planKey)}</span><div class="civhelp-v">${routeHtml}${wrPill}</div></div>`;
+
+    let uuRow = '';
+    if (cardBrief.uniqueUnit) {
+      const uu = cardBrief.uniqueUnit;
+      const uuName = escapeHtml(locCivHelpNode({ ut: 'U', id: uu.id, nameEs: uu.nameEs, nameEn: uu.nameEn }));
+      const uuIco = uu.icon
+        ? `<img class="civhelp-ico" src="${escapeHtml(uu.icon)}" width="20" height="20" alt="" draggable="false" />`
+        : '';
+      const subTargets = relation === 'opponent' ? (uu.counters || []) : (uu.beats || []);
+      const subVerb = relation === 'opponent'
+        ? tr('hud.civCounterWith', 'frénalo con')
+        : tr('hud.civBeats', 'fuerte vs');
+      const subHtml = subTargets.length
+        ? `<div class="civhelp-uu-hint ${relation === 'opponent' ? 'is-counter' : 'is-beats'}">${escapeHtml(subVerb)} ${subTargets.map((tItem) => {
+            const tIco = tItem.icon ? `<img class="civhelp-ico-sm" src="${escapeHtml(tItem.icon)}" width="16" height="16" alt="" draggable="false" />` : '';
+            return `<span class="civhelp-mini-unit">${tIco}${escapeHtml(locCivHelpNode(tItem))}</span>`;
+          }).join('<i aria-hidden="true">/</i>')}</div>`
+        : '';
+      uuRow = `<div class="civhelp-sec is-uu"><span class="civhelp-k">${escapeHtml(tr('hud.civUnique', 'ÚNICA'))}</span><div class="civhelp-v is-uu-stack"><span class="civhelp-step is-uu-main">${uuIco}<b>${uuName}</b></span>${subHtml}</div></div>`;
+    }
+
+    let holesRow = '';
+    if (Array.isArray(cardBrief.holes) && cardBrief.holes.length > 0) {
+      const chips = cardBrief.holes.slice(0, 3).map((h) => {
+        const hIco = h.icon ? `<img class="civhelp-ico-sm" src="${escapeHtml(h.icon)}" width="16" height="16" alt="" draggable="false" />` : '';
+        return `<span class="civhelp-gap-pill">${hIco}${escapeHtml(locCivHelpNode(h))}</span>`;
+      }).join('');
+      holesRow = `<div class="civhelp-sec is-gaps"><span class="civhelp-k">${escapeHtml(tr('hud.civGaps', 'SIN'))}</span><div class="civhelp-v civhelp-gaps-wrap">${chips}</div></div>`;
+    }
+
+    return (
+      `<article class="civhelp-civ is-tactical${relCls}">` +
+      '<div class="civhelp-civ-head">' +
+      shield +
+      `<div class="civhelp-ident"><div class="civhelp-name">${escapeHtml(name)}${tag}</div>${spikeBadge}</div>` +
+      '</div>' +
+      bonusesRow +
+      planRow +
+      uuRow +
+      holesRow +
+      '</article>'
+    );
+  }
+
+  const role = entry.role || '—';
   const fact = (ico, label, value, kind, dropLast = true) =>
     `<div class="civhelp-fact ${kind}">` +
     `<span class="civhelp-key">${icon(ico)}${escapeHtml(label)}</span>` +
@@ -379,7 +497,7 @@ function civCard(civ) {
     '</div>';
 
   return (
-    '<article class="civhelp-civ">' +
+    `<article class="civhelp-civ${relCls}">` +
     '<div class="civhelp-civ-head">' +
     shield +
     `<div class="civhelp-ident"><div class="civhelp-name">${escapeHtml(name)}${tag}</div>` +
@@ -392,10 +510,246 @@ function civCard(civ) {
   );
 }
 
-/** Escudos de AMBAS civs (o las únicas de un TG), la tuya primero. */
+function renderCivBattleBanner(battleBrief) {
+  const b = battleBrief && battleBrief.banner;
+  if (!b) return '';
+  const crestSm = (slug) => slug
+    ? `<img class="civhelp-banner-crest" src="assets/civs/${escapeHtml(slug)}.png" width="24" height="24" alt="" draggable="false" />`
+    : '';
+
+  if (b.mode === '1v1') {
+    const wr = b.winRatePct;
+    const wrCls = wr != null ? (wr >= 53 ? 'is-adv' : wr <= 47 ? 'is-warn' : 'is-even') : 'is-even';
+    const sampleHtml = (wr != null && b.totalGames >= 3)
+      ? `<span class="civhelp-win-pill ${wrCls}">${escapeHtml(tr('hud.civSampleGames', `${wr}% · ${b.totalGames} pj Pro`, { wr, n: b.totalGames }))}</span>`
+      : `<span class="civhelp-win-pill is-even">${escapeHtml(tr('hud.proMeasuredMatchup', 'Cruce medido en ladder alto'))}</span>`;
+
+    const winMap = {
+      earlyAdv: { txt: tr('hud.civWinEarly', 'Ventaja <26m'), cls: 'is-adv' },
+      lateAdv: { txt: tr('hud.civWinLate', 'Escalas +38m'), cls: 'is-adv' },
+      dangerLate: { txt: tr('hud.civDangerLate', 'Cierra <38m'), cls: 'is-warn' },
+      dangerEarly: { txt: tr('hud.civDangerEarly', 'Defiende <26m'), cls: 'is-warn' },
+      even: { txt: tr('hud.civEven', 'Cruce parejo'), cls: 'is-even' },
+    };
+    const winMeta = winMap[b.windowState] || winMap.even;
+    const windowHtml = `<span class="civhelp-clock-pill ${winMeta.cls}">${escapeHtml(winMeta.txt)}</span>`;
+    const routeHtml = renderRouteChain(b.opening, b.castle, 22);
+
+    return (
+      `<div class="civhelp-banner-top">` +
+      `<span class="civhelp-vs-pair">${crestSm(b.mySlug)}<i>vs</i>${crestSm(b.rivalSlug)}</span>` +
+      sampleHtml +
+      windowHtml +
+      `</div>` +
+      (routeHtml
+        ? `<div class="civhelp-banner-route"><span class="civhelp-route-lbl">${escapeHtml(tr('hud.civYourRoute', 'TU RUTA'))}</span>${routeHtml}</div>`
+        : '')
+    );
+  }
+
+  if (b.mode === 'mirror') {
+    const routeHtml = renderRouteChain(b.opening, b.castle, 22);
+    return (
+      `<div class="civhelp-banner-top">` +
+      `<span class="civhelp-vs-pair">${crestSm(b.mySlug)}</span>` +
+      `<span class="civhelp-win-pill is-even">${escapeHtml(tr('hud.civMirror', 'Espejo · Prioriza tempo'))}</span>` +
+      `</div>` +
+      (routeHtml
+        ? `<div class="civhelp-banner-route"><span class="civhelp-route-lbl">${escapeHtml(tr('hud.civYourRoute', 'TU RUTA'))}</span>${routeHtml}</div>`
+        : '')
+    );
+  }
+
+  return '';
+}
+
+function is1v1CivHelpEligible() {
+  return Boolean(
+    lastState &&
+    lastState.status === 'ongoing' &&
+    Array.isArray(lastState.players) &&
+    lastState.players.length === 2
+  );
+}
+
+function resolveDisplayCivName(civ) {
+  if (!civ) return tr('hud.civFallback', 'Civilización');
+  const entry = (civ.slug && civGuide[civ.slug]) || {};
+  const bySlugName = (civ.slug && typeof AppI18n === 'object' && AppI18n.civName) ? AppI18n.civName(civ.slug) : '';
+  const rawLocName = (bySlugName && bySlugName !== civ.slug)
+    ? bySlugName
+    : ((typeof AppI18n === 'object' && AppI18n.civName) ? AppI18n.civName(entry.name || civ.raw || '') : '');
+  const locName = (rawLocName && rawLocName !== civ.slug) ? rawLocName : '';
+  return locName || entry.name || String(civ.raw || tr('hud.civFallback', 'Civilización'));
+}
+
+function renderDuelUuBox(cardBrief, isOpponent) {
+  if (!cardBrief || !cardBrief.uniqueUnit) return '<div class="duel-empty-slot">—</div>';
+  const uu = cardBrief.uniqueUnit;
+  const uuName = escapeHtml(locCivHelpNode({ ut: 'U', id: uu.id, nameEs: uu.nameEs, nameEn: uu.nameEn }));
+  const portrait = uu.icon
+    ? `<span class="duel-uu-frame"><img class="duel-uu-ico" src="${escapeHtml(uu.icon)}" width="30" height="30" alt="" draggable="false" /></span>`
+    : '';
+  const subTargets = isOpponent ? (uu.counters || []) : (uu.beats || []);
+  const subVerb = isOpponent
+    ? tr('hud.civCounterWith', 'frénalo con')
+    : tr('hud.civBeats', 'fuerte vs');
+  const subHtml = subTargets.length
+    ? `<div class="duel-uu-sub ${isOpponent ? 'is-counter' : 'is-beats'}"><span>${escapeHtml(subVerb)}</span>${subTargets.map((tItem) => {
+        const tIco = tItem.icon ? `<img class="civhelp-ico-sm" src="${escapeHtml(tItem.icon)}" width="15" height="15" alt="" draggable="false" />` : '';
+        return `<b class="duel-mini-unit">${tIco}${escapeHtml(locCivHelpNode(tItem))}</b>`;
+      }).join('<i aria-hidden="true">·</i>')}</div>`
+    : '';
+  return `<div class="duel-uu-card">${portrait}<div class="duel-uu-copy"><strong class="duel-uu-name">${uuName}</strong>${subHtml}</div></div>`;
+}
+
+function renderDuelBonusList(cardBrief) {
+  const list = (cardBrief && Array.isArray(cardBrief.bonuses)) ? cardBrief.bonuses.slice(0, 2) : [];
+  if (!list.length) return '<div class="duel-empty-slot">—</div>';
+  return `<ul class="duel-bonus-list">${list.map((line) => {
+    const locLine = (typeof AppI18n === 'object' && typeof AppI18n.locText === 'function')
+      ? (AppI18n.locText(line) || line)
+      : line;
+    return `<li>${escapeHtml(locLine)}</li>`;
+  }).join('')}</ul>`;
+}
+
+function renderDuelGaps(cardBrief) {
+  const holes = (cardBrief && Array.isArray(cardBrief.holes)) ? cardBrief.holes.slice(0, 3) : [];
+  if (!holes.length) return '<div class="duel-empty-slot">—</div>';
+  return `<div class="duel-gaps-wrap">${holes.map((h) => {
+    const hIco = h.icon ? `<img class="civhelp-ico-sm" src="${escapeHtml(h.icon)}" width="15" height="15" alt="" draggable="false" />` : '';
+    return `<span class="duel-gap-chip"><i aria-hidden="true">✕</i>${hIco}<span>${escapeHtml(locCivHelpNode(h))}</span></span>`;
+  }).join('')}</div>`;
+}
+
+function renderDuelBoard(youCiv, rivCiv, battleBrief) {
+  const byCiv = (battleBrief && battleBrief.byCiv) || {};
+  const youBrief = youCiv.slug ? byCiv[youCiv.slug] : null;
+  const rivBrief = rivCiv.slug ? byCiv[rivCiv.slug] : null;
+  if (!youBrief || !rivBrief || !youBrief.proPlan || !rivBrief.proPlan) return '';
+
+  const youName = resolveDisplayCivName(youCiv);
+  const rivName = resolveDisplayCivName(rivCiv);
+  const spikeText = (b) => b.spikeAge === 2
+    ? tr('hud.civSpikeFeudal', 'Pico Feudal')
+    : b.spikeAge === 4
+      ? tr('hud.civSpikeImperial', 'Pico Imperial')
+      : tr('hud.civSpikeCastle', 'Pico Castillos');
+
+  const youCrest = youCiv.slug
+    ? `<img class="duel-crest" src="assets/civs/${escapeHtml(youCiv.slug)}.png" width="46" height="46" alt="" draggable="false" />`
+    : '<span class="civhelp-no-shield">?</span>';
+  const rivCrest = rivCiv.slug
+    ? `<img class="duel-crest" src="assets/civs/${escapeHtml(rivCiv.slug)}.png" width="46" height="46" alt="" draggable="false" />`
+    : '<span class="civhelp-no-shield">?</span>';
+
+  const b = (battleBrief && battleBrief.banner) || {};
+  let centerDial = '';
+  if (b.mode === 'mirror') {
+    centerDial = (
+      `<div class="duel-medallion is-even">` +
+      `<b class="duel-wr-num">50%</b>` +
+      `<span class="duel-wr-window">${escapeHtml(tr('hud.civMirror', 'Espejo · Prioriza tempo'))}</span>` +
+      `</div>`
+    );
+  } else {
+    const wr = b.winRatePct;
+    const wrCls = wr != null ? (wr >= 53 ? 'is-adv' : wr <= 47 ? 'is-warn' : 'is-even') : 'is-even';
+    const winMap = {
+      earlyAdv: tr('hud.civWinEarly', 'Ventaja <26m'),
+      lateAdv: tr('hud.civWinLate', 'Escalas +38m'),
+      dangerLate: tr('hud.civDangerLate', 'Cierra <38m'),
+      dangerEarly: tr('hud.civDangerEarly', 'Defiende <26m'),
+      even: tr('hud.civEven', 'Cruce parejo'),
+    };
+    const winTxt = winMap[b.windowState] || winMap.even;
+    if (wr != null && b.totalGames >= 3) {
+      const sampleLabel = tr('hud.civSampleGames', `${wr}% · ${b.totalGames} pj Pro`, { wr, n: b.totalGames })
+        .replace(/^\d+%\s*·\s*/, '');
+      centerDial = (
+        `<div class="duel-medallion ${wrCls}">` +
+        `<b class="duel-wr-num">${wr}%</b>` +
+        `<span class="duel-wr-window">${escapeHtml(winTxt)}</span>` +
+        `<small class="duel-wr-sample">${escapeHtml(sampleLabel)}</small>` +
+        `</div>`
+      );
+    } else {
+      centerDial = (
+        `<div class="duel-medallion is-even">` +
+        `<b class="duel-wr-num">VS</b>` +
+        `<span class="duel-wr-window">${escapeHtml(winTxt)}</span>` +
+        `</div>`
+      );
+    }
+  }
+
+  const youWr = youBrief.proPlan.winPct != null ? `<em class="civhelp-wr-mini">${youBrief.proPlan.winPct}%</em>` : '';
+  const rivWr = rivBrief.proPlan.winPct != null ? `<em class="civhelp-wr-mini is-rival">${rivBrief.proPlan.winPct}%</em>` : '';
+
+  return (
+    `<div class="civhelp-duel">` +
+      `<header class="duel-stage">` +
+        `<div class="duel-fighter is-you">` +
+          youCrest +
+          `<div class="duel-ident">` +
+            `<div class="duel-name-row"><strong class="duel-civ-name">${escapeHtml(youName)}</strong><span class="civhelp-tag you">${escapeHtml(tr('hud.civYou', 'TÚ'))}</span></div>` +
+            `<div class="duel-spike"><img class="civhelp-age-ico" src="${escapeHtml(youBrief.ageIcon)}" width="16" height="16" alt="" draggable="false" /><span>${escapeHtml(spikeText(youBrief))}</span></div>` +
+          `</div>` +
+        `</div>` +
+        centerDial +
+        `<div class="duel-fighter is-rival">` +
+          `<div class="duel-ident">` +
+            `<div class="duel-name-row"><span class="civhelp-tag rival">${escapeHtml(tr('hud.civRival', 'RIVAL'))}</span><strong class="duel-civ-name">${escapeHtml(rivName)}</strong></div>` +
+            `<div class="duel-spike"><span>${escapeHtml(spikeText(rivBrief))}</span><img class="civhelp-age-ico" src="${escapeHtml(rivBrief.ageIcon)}" width="16" height="16" alt="" draggable="false" /></div>` +
+          `</div>` +
+          rivCrest +
+        `</div>` +
+      `</header>` +
+
+      `<section class="duel-clash">` +
+        `<div class="duel-plan-col is-you">` +
+          `<div class="duel-plan-k"><span>${escapeHtml(tr('hud.civProPlan', 'PLAN PRO'))}</span>${youWr}</div>` +
+          `<div class="duel-plan-chain">${renderRouteChain(youBrief.proPlan.opening, youBrief.proPlan.castle, 22)}</div>` +
+        `</div>` +
+        `<div class="duel-clash-mid" aria-hidden="true">${icon('espadas')}</div>` +
+        `<div class="duel-plan-col is-rival">` +
+          `<div class="duel-plan-k"><span>${escapeHtml(tr('hud.civRivalPlan', 'ABRE CON'))}</span>${rivWr}</div>` +
+          `<div class="duel-plan-chain">${renderRouteChain(rivBrief.proPlan.opening, rivBrief.proPlan.castle, 22)}</div>` +
+        `</div>` +
+      `</section>` +
+
+      `<section class="duel-band">` +
+        `<div class="duel-band-head"><span>${escapeHtml(tr('hud.bonuses', 'BONOS'))}</span></div>` +
+        `<div class="duel-band-cols">` +
+          `<div class="duel-cell is-you">${renderDuelBonusList(youBrief)}</div>` +
+          `<div class="duel-cell is-rival">${renderDuelBonusList(rivBrief)}</div>` +
+        `</div>` +
+      `</section>` +
+
+      `<section class="duel-band">` +
+        `<div class="duel-band-head"><span>${escapeHtml(tr('hud.civUnique', 'ÚNICA'))}</span></div>` +
+        `<div class="duel-band-cols">` +
+          `<div class="duel-cell is-you">${renderDuelUuBox(youBrief, false)}</div>` +
+          `<div class="duel-cell is-rival">${renderDuelUuBox(rivBrief, true)}</div>` +
+        `</div>` +
+      `</section>` +
+
+      `<section class="duel-band is-last">` +
+        `<div class="duel-band-head is-gaps"><span>${escapeHtml(tr('hud.civGaps', 'SIN'))}</span></div>` +
+        `<div class="duel-band-cols">` +
+          `<div class="duel-cell is-you">${renderDuelGaps(youBrief)}</div>` +
+          `<div class="duel-cell is-rival">${renderDuelGaps(rivBrief)}</div>` +
+        `</div>` +
+      `</section>` +
+    `</div>`
+  );
+}
+
+/** Escudos de AMBAS civs (exclusivamente en partidas 1 vs 1), la tuya primero. */
 function renderCivHelp() {
   if (!civHelpEl) return;
-  if (!civView.civHelpVisible || !lastState || lastState.status !== 'ongoing' || moving) {
+  if (!civView.civHelpVisible || !is1v1CivHelpEligible() || moving) {
     applyVisibility();
     return;
   }
@@ -413,23 +767,50 @@ function renderCivHelp() {
     if (seen.has(key)) continue;
     seen.add(key);
     civs.push({ slug, raw: player.civ, isYou: Boolean(player.isYou), relation: role });
-    if (civs.length >= 4) break;
+    if (civs.length >= 2) break;
   }
 
-  civHelpEl.classList.toggle('single', civs.length === 1);
-  civHelpGrid.innerHTML = civs.some((civ) => civ.slug)
-    ? civs.map(civCard).join('')
-    : `<div class="civhelp-empty">${escapeHtml(tr('hud.waitingCivs', 'Esperando las civilizaciones de la partida…'))}</div>`;
-  if (civHelpProStrip) {
-    const brief = lastState && lastState.proMatchupBrief;
-    if (brief && civs.length === 2 && civs.every((c) => Boolean(c.slug)) && (brief.route || brief.clockCue)) {
-      const routeTxt = brief.route ? escapeHtml(brief.route) : escapeHtml(tr('hud.proMeasuredMatchup', 'Cruce medido en ladder alto'));
-      const clockTxt = brief.clockCue ? `<em>${escapeHtml(brief.clockCue)}</em>` : '';
-      civHelpProStrip.innerHTML = `<span class="civhelp-pro-tag">PLAN PRO</span><strong>${routeTxt}</strong>${clockTxt}`;
-      civHelpProStrip.hidden = false;
-    } else {
+  const battleBrief = lastState && lastState.civBattleBrief;
+  const byCiv = (battleBrief && battleBrief.byCiv) || {};
+
+  const duelHtml = (civs.length === 2 && civs[0].slug && civs[1].slug && battleBrief)
+    ? renderDuelBoard(civs[0], civs[1], battleBrief)
+    : '';
+
+  if (duelHtml) {
+    civHelpEl.classList.remove('single');
+    civHelpEl.classList.add('is-duel');
+    civHelpGrid.innerHTML = duelHtml;
+    if (civHelpProStrip) {
       civHelpProStrip.hidden = true;
       civHelpProStrip.innerHTML = '';
+    }
+    applyVisibility();
+    return;
+  }
+
+  civHelpEl.classList.remove('is-duel');
+  civHelpEl.classList.toggle('single', civs.length === 1);
+  civHelpGrid.innerHTML = civs.some((civ) => civ.slug)
+    ? civs.map((civ) => civCard(civ, civ.slug ? byCiv[civ.slug] : null)).join('')
+    : `<div class="civhelp-empty">${escapeHtml(tr('hud.waitingCivs', 'Esperando las civilizaciones de la partida…'))}</div>`;
+
+  if (civHelpProStrip) {
+    const bannerHtml = civs.some((c) => Boolean(c.slug)) ? renderCivBattleBanner(battleBrief) : '';
+    if (bannerHtml) {
+      civHelpProStrip.innerHTML = bannerHtml;
+      civHelpProStrip.hidden = false;
+    } else {
+      const brief = lastState && lastState.proMatchupBrief;
+      if (brief && civs.length === 2 && civs.every((c) => Boolean(c.slug)) && (brief.route || brief.clockCue)) {
+        const routeTxt = brief.route ? escapeHtml(brief.route) : escapeHtml(tr('hud.proMeasuredMatchup', 'Cruce medido en ladder alto'));
+        const clockTxt = brief.clockCue ? `<em>${escapeHtml(brief.clockCue)}</em>` : '';
+        civHelpProStrip.innerHTML = `<span class="civhelp-pro-tag">PLAN PRO</span><strong>${routeTxt}</strong>${clockTxt}`;
+        civHelpProStrip.hidden = false;
+      } else {
+        civHelpProStrip.hidden = true;
+        civHelpProStrip.innerHTML = '';
+      }
     }
   }
   applyVisibility();
@@ -555,7 +936,7 @@ function applyVisibility() {
   document.body.classList.toggle('elo-hidden', Boolean(civView.eloHidden));
   document.body.classList.toggle('moving', moving);
 
-  civHelpEl.hidden = !(ongoing && civView.civHelpVisible && !moving);
+  civHelpEl.hidden = !(is1v1CivHelpEligible() && civView.civHelpVisible && !moving);
   // UNA SOLA FUENTE DE VERDAD y una sola sección visible a la vez:
   //   opción apagada (fábrica) -> SIEMPRE el informe completo (#rivalInfo +
   //   #scoutInfo), sin atajo y sin chips de F2

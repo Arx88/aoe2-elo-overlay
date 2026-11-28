@@ -1,3 +1,11 @@
+## v3.3.29 · Nuevo tablero de duelo 1v1 en Ayuda de civ y calibración del Smurf Detector
+
+- **Nuevo tablero de duelo 1v1 en «Ayuda de civ»:** rediseño simétrico cara a cara exclusivo para partidas 1 vs 1, alimentado por las `+165.152` partidas de nivel alto y el árbol tecnológico oficial de Age of Empires II: DE. Muestra el veredicto central del cruce, el choque directo entre tu Plan Pro y la apertura rival, los bonos clave completos sin cortes, la unidad única con sus contraunidades y las ausencias reales del árbol.
+- **Tipografía y escala de lectura ampliadas:** mayor tamaño de texto, retratos y contraste en todos los skins (Clásico, Ultra y Ultra Gamma), respetando el mismo reloj de auto-ocultado del overlay.
+- **Smurf Detector calibrado en RM 1v1:** la detección de cuentas vinculadas compara estrictamente ELO activo de `RM 1v1` contra `RM 1v1` (sin mezclar ELO de equipo ni picos históricos inactivos) y exige una brecha real de al menos `+150` puntos para señal parcial y `+220` puntos para alerta directa.
+
+---
+
 ## v3.3.28 · Escudos originales de Edad AoE2:DE, botón Ultra Gamma y notificación nativa Relic
 
 - **Escudos originales de las 4 edades restaurados:** Alta Edad Media, Feudal, Castillos e Imperial vuelven a mostrar sus escudos oficiales de Age of Empires II: DE (**I, II, III y IV**) con sus colores originales en Postmatch, Árbol de Tecnología, Central, Build Orders y Entrenamiento.

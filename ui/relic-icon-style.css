@@ -51,7 +51,7 @@ img[data-relic-icon], .train-pin-ico {
   vertical-align: -2px;
 }
 
-img[src^="assets/icons/aoe2/"],
+img[src^="assets/icons/aoe2/"]:not(.civhelp-ico):not(.duel-uu-ico),
 img[src^="assets/icons/blacksmith/"],
 .map-art-thumb {
   box-sizing: border-box;

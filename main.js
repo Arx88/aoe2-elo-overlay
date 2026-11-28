@@ -47,6 +47,7 @@ const {
   fetchProfileIdentity,
   fetchMatches,
   fetchMatchById,
+  fetchLatest1v1Match,
   fetchLatestTeamMatch,
   historyCutoff,
   hideLobbyCivs,
@@ -3765,7 +3766,11 @@ async function startExample(rawQuery, clockMode = '3', options = {}) {
       now: clockNow(),
       clockOffsetMs: EXAMPLE_CLOCK_OFFSETS[mode],
       match: explicitMatch,
-      fetchLatestImpl: options.preferTeamGame ? fetchLatestTeamMatch : undefined,
+      fetchLatestImpl: options.prefer1v1
+        ? fetchLatest1v1Match
+        : options.preferTeamGame
+          ? fetchLatestTeamMatch
+          : undefined,
     });
     if (token !== exampleToken) return { ok: false, error: 'Otra prueba reemplazó a esta.' };
 
@@ -4003,13 +4008,15 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
     dismissPostMatch('vista previa de toggles');
   }
 
-  // En Durante, "Ayuda de civ" vive en la ventana 0:01–hideAt (clockMode '3');
+  // En Durante, "Ayuda de civ" vive en la ventana 0:01–hideAt (clockMode '3') y es solo 1v1;
   // Smart Build Order usa '21' para mostrar la vista limpia durante la partida.
   const clockMode = phase === 'durante' && highlightFeature !== 'civHelp' ? '21' : '3';
-  const preferTeamGame = highlightFeature === 'tgBalance' || Boolean(viewConfig().tgBalance);
+  const prefer1v1 = highlightFeature === 'civHelp' || phase === 'durante';
+  const preferTeamGame = !prefer1v1 && (highlightFeature === 'tgBalance' || Boolean(viewConfig().tgBalance));
   const currentIsTeam = Boolean(lastGood && Array.isArray(lastGood.players) && lastGood.players.length > 2);
   const needStart = !exampleActive || !exampleUseRealConfig || Number(exampleProfileId) !== Number(profileId) ||
-    (preferTeamGame !== currentIsTeam);
+    (prefer1v1 && currentIsTeam) ||
+    (preferTeamGame !== currentIsTeam && !prefer1v1);
   const prevPreviewPhase = examplePreviewPhase;
   exampleUseRealConfig = true;
   examplePreviewPhase = phase;
@@ -4022,7 +4029,7 @@ async function triggerTogglePreview(phase = 'prematch', highlightFeature = null)
   }, PREVIEW_LOADING_CAP_MS);
 
   if (needStart) {
-    await startExample(String(profileId), clockMode, { useRealConfig: true, previewPhase: phase, preferTeamGame });
+    await startExample(String(profileId), clockMode, { useRealConfig: true, previewPhase: phase, preferTeamGame, prefer1v1 });
   } else if (exampleClockMode !== clockMode || prevPreviewPhase !== phase) {
     await setExampleClock(clockMode, { previewPhase: phase });
   } else {
@@ -5875,7 +5882,13 @@ function applyHeight(height) {
   const overlayZoom = applyAdaptiveZoom(win, 'overlay');
   const reviewing = reviewVisible() && !moving;
   const isTeamMatch = Boolean(lastGood && lastGood.status === 'ongoing' && Array.isArray(lastGood.players) && lastGood.players.length > 2);
-  const baseOverlayWidth = isTeamMatch ? Math.max(Number(config.width) || 520, 720) : (Number(config.width) || 520);
+  const is1v1Match = Boolean(lastGood && lastGood.status === 'ongoing' && Array.isArray(lastGood.players) && lastGood.players.length === 2);
+  const civHelpActiveNow = Boolean(is1v1Match && introView(intro, viewConfig(), clockNow()).civHelpVisible);
+  const baseOverlayWidth = isTeamMatch
+    ? Math.max(Number(config.width) || 520, 720)
+    : civHelpActiveNow
+      ? Math.max(Number(config.width) || 520, 680)
+      : (Number(config.width) || 520);
   const overlayWidth = Math.min(
     Math.max(300, workArea.width - 32),
     Math.round(baseOverlayWidth * Number(config.scale || 1) * overlayZoom),
@@ -6288,20 +6301,26 @@ async function publishPostMatch(match, options = {}) {
 
 function attachProMatchupBrief(state) {
   if (!state || state.status !== 'ongoing' || !Array.isArray(state.players) || state.players.length !== 2) return state;
+  let next = state;
+  try {
+    const { buildCivBattleBrief } = require('./src/civ-battle-brief');
+    const civBattleBrief = buildCivBattleBrief(state);
+    if (civBattleBrief) next = { ...next, civBattleBrief };
+  } catch {}
   const you = state.players.find((p) => p && p.isYou);
   const rival = state.players.find((p) => p && !p.isYou);
   const mySlug = you ? civSlug(you.civ) : null;
   const rivSlug = rival ? civSlug(rival.civ) : null;
-  if (!mySlug || !rivSlug || mySlug === rivSlug) return state;
+  if (!mySlug || !rivSlug || mySlug === rivSlug) return next;
   try {
     const { civMatchupBrief } = require('./src/training/pro-matchup-engine').lookupPrematchProIntel({
       myCivSlug: mySlug,
       rivalCivSlug: rivSlug,
       mapName: state.match?.mapName || 'Arabia',
     });
-    return civMatchupBrief ? { ...state, proMatchupBrief: civMatchupBrief } : state;
+    return civMatchupBrief ? { ...next, proMatchupBrief: civMatchupBrief } : next;
   } catch {
-    return state;
+    return next;
   }
 }
 

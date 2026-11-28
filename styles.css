@@ -515,17 +515,20 @@ body.elo-hidden #stage {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.6rem;
+  gap: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
   border-bottom: 1px solid var(--head-border);
 }
 
 .civhelp-title {
-  font-size: var(--head-size);
-  font-weight: var(--head-weight);
-  letter-spacing: var(--head-spacing);
-  text-transform: var(--head-transform);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(14.5px * var(--scale));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--accent);
   white-space: nowrap;
 }
@@ -533,20 +536,21 @@ body.elo-hidden #stage {
 .civhelp-clock {
   flex: none;
   font-family: ui-monospace, 'Consolas', monospace;
-  font-size: 0.6rem;
-  letter-spacing: 0.04em;
+  font-size: calc(12px * var(--scale));
+  font-weight: 650;
+  letter-spacing: 0.03em;
   color: var(--accent);
   border: 1px solid currentColor;
   border-radius: 999px;
-  padding: 0.05rem 0.45rem;
-  opacity: 0.85;
-  background: rgba(127, 127, 127, 0.12);
+  padding: 2px 9px;
+  opacity: 0.94;
+  background: rgba(127, 127, 127, 0.14);
 }
 
 .civhelp-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 10px;
 }
 
 #civHelp.single .civhelp-grid {
@@ -556,32 +560,40 @@ body.elo-hidden #stage {
 .civhelp-civ {
   min-width: 0;
   border: 1px solid var(--head-border);
-  border-radius: calc(var(--radius) * 0.7);
+  border-radius: calc(var(--radius) * 0.78);
   background: rgba(127, 127, 127, 0.09);
-  padding: 0.5rem 0.55rem 0.45rem;
+  padding: 10px 12px 10px;
   animation: row-in 0.24s ease-out both;
 }
 
+.civhelp-civ.is-you {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--head-border));
+  background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 10%, transparent) 0%, rgba(127, 127, 127, 0.07) 75%);
+}
+
+.civhelp-civ.is-rival {
+  border-color: rgba(235, 108, 108, 0.34);
+  background: linear-gradient(165deg, rgba(235, 108, 108, 0.08) 0%, rgba(127, 127, 127, 0.07) 75%);
+}
+
 .civhelp-civ:nth-child(2) { animation-delay: 60ms; }
-.civhelp-civ:nth-child(3) { animation-delay: 120ms; }
-.civhelp-civ:nth-child(4) { animation-delay: 180ms; }
 
 .civhelp-civ-head {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
   min-width: 0;
-  margin-bottom: 0.45rem;
+  margin-bottom: 8px;
 }
 
 .civhelp-shield,
 .civhelp-no-shield {
   flex: none;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: calc(40px * var(--scale));
+  height: calc(40px * var(--scale));
   object-fit: contain;
-  filter: var(--shield-filter);
-  opacity: var(--shield-opacity);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+  opacity: 1;
 }
 
 .civhelp-no-shield {
@@ -591,16 +603,18 @@ body.elo-hidden #stage {
   border: 1px dashed var(--head-border);
   border-radius: 50%;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: calc(15px * var(--scale));
 }
 
 .civhelp-ident {
   min-width: 0;
+  flex: 1;
 }
 
 .civhelp-name {
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: calc(17px * var(--scale));
+  line-height: 1.18;
+  font-weight: 750;
   color: var(--strong);
   white-space: nowrap;
   overflow: hidden;
@@ -608,49 +622,230 @@ body.elo-hidden #stage {
 }
 
 .civhelp-tag {
-  font-size: 0.52rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: calc(10px * var(--scale));
+  font-weight: 800;
+  letter-spacing: 0.08em;
   color: var(--badge-color);
   background: var(--badge-bg);
   border-radius: var(--badge-radius);
-  padding: 0.08rem 0.3rem;
-  margin-left: 0.35rem;
+  padding: 2px 6px;
+  margin-left: 7px;
   vertical-align: 2px;
 }
 
 .civhelp-tag.rival {
+  color: #ffc2c2;
+  background: rgba(225, 85, 85, 0.25);
+  border: 1px solid rgba(225, 85, 85, 0.4);
+}
+
+.civhelp-spike {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: calc(12.5px * var(--scale));
+  font-weight: 650;
   color: var(--text);
-  background: rgba(127, 127, 127, 0.28);
+  opacity: 0.92;
+}
+
+.civhelp-age-ico {
+  width: calc(16px * var(--scale));
+  height: calc(16px * var(--scale));
+  object-fit: contain;
+  flex: none;
 }
 
 .civhelp-role {
-  font-size: 0.78rem;
-  line-height: 1.35;
+  font-size: calc(12.5px * var(--scale));
+  line-height: 1.32;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Etiqueta EN LÍNEA con el texto: la columna fija de 5.1rem se comía ~70 px
-   de ancho y obligaba a partir el bono en tres renglones. */
+/* Secciones tácticas a ancho completo: lectura limpia y grande en 4 segundos */
+.civhelp-sec {
+  display: grid;
+  gap: 4px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.civhelp-k {
+  display: block;
+  font-size: calc(10.5px * var(--scale));
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.civhelp-sec.is-bonuses .civhelp-k,
+.civhelp-sec.is-plan .civhelp-k {
+  color: var(--accent);
+}
+
+.civhelp-sec.is-gaps .civhelp-k {
+  color: #ff9d9d;
+}
+
+.civhelp-bonus-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.civhelp-bonus-list li {
+  position: relative;
+  padding-left: 11px;
+  font-size: calc(13px * var(--scale));
+  font-weight: 530;
+  line-height: 1.36;
+  color: var(--strong);
+}
+
+.civhelp-bonus-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.civhelp-v {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 7px;
+  min-width: 0;
+}
+
+.civhelp-v.is-uu-stack {
+  display: grid;
+  gap: 4px;
+  align-items: start;
+}
+
+.civhelp-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(14.5px * var(--scale));
+  line-height: 1.25;
+  color: var(--strong);
+}
+
+.civhelp-step b {
+  font-weight: 700;
+}
+
+.civhelp-ico {
+  width: calc(20px * var(--scale));
+  height: calc(20px * var(--scale));
+  object-fit: contain;
+  border-radius: 3px;
+  flex: none;
+}
+
+.civhelp-ico-sm {
+  width: calc(16px * var(--scale));
+  height: calc(16px * var(--scale));
+  object-fit: contain;
+  border-radius: 3px;
+  flex: none;
+}
+
+.civhelp-arrow {
+  font-size: calc(13px * var(--scale));
+  font-weight: 700;
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+.civhelp-wr-mini {
+  font-style: normal;
+  font-family: ui-monospace, 'Consolas', monospace;
+  font-size: calc(12px * var(--scale));
+  font-weight: 750;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.22);
+  color: var(--accent);
+}
+
+.civhelp-uu-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 5px;
+  font-size: calc(12.5px * var(--scale));
+  line-height: 1.32;
+  color: var(--text);
+}
+
+.civhelp-uu-hint.is-counter {
+  color: #a6f2cd;
+}
+
+.civhelp-uu-hint i {
+  font-style: normal;
+  opacity: 0.6;
+  margin: 0 2px;
+}
+
+.civhelp-mini-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 680;
+  color: var(--strong);
+}
+
+.civhelp-uu-hint.is-counter .civhelp-mini-unit {
+  color: #c2f8dd;
+}
+
+.civhelp-gaps-wrap {
+  gap: 5px;
+}
+
+.civhelp-gap-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(225, 85, 85, 0.14);
+  border: 1px solid rgba(225, 85, 85, 0.32);
+  font-size: calc(12.5px * var(--scale));
+  font-weight: 660;
+  line-height: 1.24;
+  color: var(--strong);
+}
+
+/* Fallback legados (civs Chronicles custom) */
 .civhelp-fact {
   display: block;
-  padding: 0.26rem 0;
+  padding: 6px 0;
   line-height: 1.42;
-  border-top: 1px solid rgba(127, 127, 127, 0.1);
+  border-top: 1px solid rgba(127, 127, 127, 0.14);
 }
 
 .civhelp-key {
   display: inline;
-  margin-right: 0.42rem;
-  font-size: 0.64rem;
+  margin-right: 7px;
+  font-size: calc(11px * var(--scale));
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .civhelp-fact.bad .civhelp-key {
@@ -663,39 +858,108 @@ body.elo-hidden #stage {
 
 .civhelp-val {
   display: inline;
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: calc(13px * var(--scale));
+  line-height: 1.4;
   color: var(--text);
 }
 
 .civhelp-empty {
   grid-column: 1 / -1;
-  font-size: 0.72rem;
+  font-size: calc(13px * var(--scale));
   color: var(--muted);
-  padding: 0.5rem 0.2rem;
+  padding: 10px 4px;
 }
 
 .civhelp-pro-strip {
-  margin-top: 0.5rem;
-  padding: 0.36rem 0.55rem;
-  border-radius: 7px;
-  background: rgba(214, 184, 117, 0.09);
-  border: 1px solid rgba(214, 184, 117, 0.28);
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-  font-size: 0.72rem;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border-radius: calc(var(--radius) * 0.78);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 15%, transparent), rgba(127, 127, 127, 0.1));
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--head-border));
+  display: grid;
+  gap: 6px;
+  font-size: calc(13.5px * var(--scale));
   line-height: 1.32;
 }
 .civhelp-pro-strip[hidden] {
   display: none !important;
 }
+.civhelp-banner-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.civhelp-vs-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.civhelp-vs-pair i {
+  font-style: normal;
+  font-size: calc(11.5px * var(--scale));
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.civhelp-banner-crest {
+  width: calc(24px * var(--scale));
+  height: calc(24px * var(--scale));
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+.civhelp-win-pill,
+.civhelp-clock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: calc(13px * var(--scale));
+  font-weight: 740;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(127, 127, 127, 0.18);
+  color: var(--strong);
+}
+.civhelp-win-pill.is-adv,
+.civhelp-clock-pill.is-adv {
+  background: rgba(82, 196, 138, 0.18);
+  border-color: rgba(82, 196, 138, 0.42);
+  color: #b4f6d3;
+}
+.civhelp-win-pill.is-warn,
+.civhelp-clock-pill.is-warn {
+  background: rgba(235, 152, 78, 0.19);
+  border-color: rgba(235, 152, 78, 0.42);
+  color: #ffd9a8;
+}
+.civhelp-banner-route {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.civhelp-banner-route .civhelp-step {
+  font-size: calc(15.5px * var(--scale));
+}
+.civhelp-banner-route .civhelp-ico {
+  width: calc(22px * var(--scale));
+  height: calc(22px * var(--scale));
+}
+.civhelp-route-lbl {
+  font-size: calc(11px * var(--scale));
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
 .civhelp-pro-tag {
-  font-size: 0.6rem;
+  font-size: calc(11px * var(--scale));
   font-weight: 800;
   letter-spacing: 0.08em;
-  padding: 0.1rem 0.36rem;
+  padding: 2px 7px;
   border-radius: 4px;
   background: rgba(214, 184, 117, 0.2);
   color: var(--accent);
@@ -703,14 +967,39 @@ body.elo-hidden #stage {
 .civhelp-pro-strip strong {
   color: var(--text);
   font-weight: 700;
-  flex: 1;
-  min-width: 0;
 }
 .civhelp-pro-strip em {
   font-style: normal;
   font-weight: 650;
   color: var(--accent);
   white-space: nowrap;
+}
+
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-tag.rival {
+  color: #9e1f1f;
+  background: rgba(196, 48, 48, 0.14);
+  border-color: rgba(196, 48, 48, 0.3);
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-sec.is-gaps .civhelp-k {
+  color: #a62626;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-sec,
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-banner-route {
+  border-top-color: rgba(0, 0, 0, 0.1);
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-uu-hint.is-counter,
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-uu-hint.is-counter .civhelp-mini-unit {
+  color: #166a44;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-win-pill.is-adv,
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-clock-pill.is-adv {
+  color: #14633e;
+  background: rgba(34, 154, 96, 0.14);
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-win-pill.is-warn,
+body:is([data-theme='claro'], [data-theme='pergamino']) .civhelp-clock-pill.is-warn {
+  color: #8a4b08;
+  background: rgba(214, 128, 32, 0.15);
 }
 
 .civhelp-bar {
@@ -730,6 +1019,516 @@ body.elo-hidden #stage {
   /* Al 60 % deja de parecer una raya suelta y sigue marcando el tiempo. */
   opacity: 0.6;
   transition: width 0.2s linear;
+}
+
+/* =====================================================================
+   TABLERO DE DUELO 1v1 (#civHelp.is-duel)
+   Pizarra simétrica cara a cara: escudos enfrentados con veredicto central,
+   choque directo de rutas en el eje de espadas y filas sincronizadas.
+   ===================================================================== */
+#civHelp.is-duel {
+  padding: 0;
+  overflow: hidden;
+}
+
+#civHelp.is-duel .civhelp-head {
+  padding: 9px 16px 8px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--head-border);
+}
+
+#civHelp.is-duel .civhelp-grid {
+  display: block;
+}
+
+#civHelp.is-duel .civhelp-bar {
+  height: 3px;
+  margin-top: 0;
+  border-radius: 0;
+  background: rgba(127, 127, 127, 0.2);
+}
+
+#civHelp.is-duel .civhelp-bar i {
+  opacity: 0.85;
+}
+
+.civhelp-duel {
+  display: grid;
+}
+
+.duel-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 15%, transparent) 0%,
+      transparent 40%,
+      transparent 60%,
+      rgba(225, 85, 85, 0.14) 100%
+    );
+  border-bottom: 1px solid var(--head-border);
+}
+
+.duel-fighter {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.duel-fighter.is-rival {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.duel-crest {
+  flex: none;
+  width: calc(46px * var(--scale));
+  height: calc(46px * var(--scale));
+  object-fit: contain;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
+}
+
+.duel-ident {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.duel-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.duel-fighter.is-rival .duel-name-row {
+  justify-content: flex-end;
+}
+
+.duel-civ-name {
+  font-size: calc(19px * var(--scale));
+  line-height: 1.12;
+  font-weight: 760;
+  color: var(--strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.duel-name-row .civhelp-tag {
+  margin-left: 0;
+  vertical-align: 0;
+  flex: none;
+}
+
+.duel-spike {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: calc(12.5px * var(--scale));
+  font-weight: 640;
+  color: var(--text);
+  opacity: 0.9;
+}
+
+.duel-fighter.is-rival .duel-spike {
+  justify-self: end;
+}
+
+.duel-medallion {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 6px 14px 5px;
+  min-width: calc(108px * var(--scale));
+  border-radius: 10px;
+  background: rgba(9, 12, 16, 0.72);
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--head-border));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 4px 12px rgba(0, 0, 0, 0.34);
+  text-align: center;
+}
+
+.duel-medallion.is-adv {
+  border-color: rgba(82, 196, 138, 0.48);
+  background: linear-gradient(180deg, rgba(22, 52, 39, 0.76) 0%, rgba(10, 16, 14, 0.84) 100%);
+}
+
+.duel-medallion.is-warn {
+  border-color: rgba(235, 152, 78, 0.48);
+  background: linear-gradient(180deg, rgba(58, 36, 18, 0.76) 0%, rgba(16, 12, 10, 0.84) 100%);
+}
+
+.duel-wr-num {
+  font-size: calc(23px * var(--scale));
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.duel-medallion.is-adv .duel-wr-num {
+  color: #a4f5ca;
+}
+
+.duel-medallion.is-warn .duel-wr-num {
+  color: #ffd59e;
+}
+
+.duel-wr-window {
+  font-size: calc(11.5px * var(--scale));
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--strong);
+  white-space: nowrap;
+}
+
+.duel-wr-sample {
+  font-size: calc(10px * var(--scale));
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Franja de choque directo: tu ruta Pro vs la apertura rival */
+.duel-clash {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+  align-items: center;
+  background: rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid var(--head-border);
+}
+
+.duel-clash::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--head-border);
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+
+.duel-plan-col {
+  padding: 9px 14px 10px 16px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.duel-plan-col.is-rival {
+  padding: 9px 16px 10px 14px;
+  text-align: right;
+  justify-items: end;
+}
+
+.duel-plan-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(10.5px * var(--scale));
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.duel-plan-col.is-rival .duel-plan-k {
+  color: #ffadad;
+}
+
+.civhelp-wr-mini.is-rival {
+  color: #ffc2c2;
+  background: rgba(225, 85, 85, 0.18);
+}
+
+.duel-plan-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 7px;
+}
+
+.duel-plan-col.is-rival .duel-plan-chain {
+  justify-content: flex-end;
+}
+
+.duel-plan-chain .civhelp-step {
+  font-size: calc(15px * var(--scale));
+}
+
+.duel-plan-chain .civhelp-ico {
+  width: calc(22px * var(--scale));
+  height: calc(22px * var(--scale));
+}
+
+.duel-clash-mid {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 20, 26, 0.95);
+  border: 1px solid var(--head-border);
+  color: var(--accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.duel-clash-mid :is(svg, img) {
+  width: 15px;
+  height: 15px;
+}
+
+/* Filas sincronizadas tipo Tale-of-the-Tape */
+.duel-band {
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.duel-band.is-last {
+  border-bottom: 0;
+}
+
+.duel-band-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 2px;
+}
+
+.duel-band-head::before,
+.duel-band-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1));
+}
+
+.duel-band-head::after {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.duel-band-head > span {
+  font-size: calc(10px * var(--scale));
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.duel-band-head.is-gaps > span {
+  color: #ffa2a2;
+  border-color: rgba(225, 85, 85, 0.24);
+  background: rgba(225, 85, 85, 0.08);
+}
+
+.duel-band-cols {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.duel-band-cols::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 8px;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+
+.duel-cell {
+  padding: 5px 15px 10px 16px;
+  min-width: 0;
+}
+
+.duel-cell.is-rival {
+  padding: 5px 16px 10px 15px;
+}
+
+.duel-bonus-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.duel-bonus-list li {
+  position: relative;
+  padding-left: 14px;
+  font-size: calc(13px * var(--scale));
+  font-weight: 540;
+  line-height: 1.36;
+  color: var(--strong);
+}
+
+.duel-bonus-list li::before {
+  content: '◆';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  font-size: calc(8.5px * var(--scale));
+  color: var(--accent);
+}
+
+.duel-cell.is-rival .duel-bonus-list li::before {
+  color: #f08585;
+}
+
+.duel-uu-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.duel-uu-frame {
+  flex: none;
+  width: calc(38px * var(--scale));
+  height: calc(38px * var(--scale));
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--head-border));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.duel-cell.is-rival .duel-uu-frame {
+  border-color: rgba(235, 108, 108, 0.36);
+}
+
+.duel-uu-frame img {
+  width: calc(30px * var(--scale));
+  height: calc(30px * var(--scale));
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.duel-uu-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.duel-uu-name {
+  font-size: calc(14.5px * var(--scale));
+  line-height: 1.2;
+  font-weight: 720;
+  color: var(--strong);
+}
+
+.duel-uu-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 5px;
+  font-size: calc(12.5px * var(--scale));
+  line-height: 1.28;
+  color: var(--muted);
+}
+
+.duel-uu-sub.is-counter {
+  color: #9ef0c4;
+}
+
+.duel-uu-sub i {
+  font-style: normal;
+  opacity: 0.6;
+}
+
+.duel-mini-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 680;
+  color: var(--strong);
+}
+
+.duel-uu-sub.is-counter .duel-mini-unit {
+  color: #c2f8dd;
+}
+
+.duel-gaps-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.duel-gap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 6px;
+  background: rgba(225, 85, 85, 0.11);
+  border: 1px solid rgba(225, 85, 85, 0.28);
+  font-size: calc(12.5px * var(--scale));
+  font-weight: 650;
+  line-height: 1.22;
+  color: var(--strong);
+}
+
+.duel-gap-chip > i {
+  font-style: normal;
+  font-size: calc(10px * var(--scale));
+  font-weight: 900;
+  color: #ff8686;
+}
+
+.duel-empty-slot {
+  font-size: calc(12.5px * var(--scale));
+  color: var(--muted);
+}
+
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-medallion {
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-medallion.is-adv .duel-wr-num {
+  color: #146a42;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-medallion.is-warn .duel-wr-num {
+  color: #944e06;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-clash {
+  background: rgba(0, 0, 0, 0.04);
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-clash-mid {
+  background: #f5f2eb;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-plan-col.is-rival .duel-plan-k,
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-band-head.is-gaps > span,
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-gap-chip > i {
+  color: #a62626;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-uu-sub.is-counter,
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-uu-sub.is-counter .duel-mini-unit {
+  color: #166a44;
+}
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-band,
+body:is([data-theme='claro'], [data-theme='pergamino']) .duel-band-cols::before {
+  border-color: rgba(0, 0, 0, 0.08);
+  background-color: transparent;
 }
 
 /* =====================================================================
