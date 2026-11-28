@@ -212,10 +212,43 @@ const WINDOW_ICON = loadWindowIcon();
 
 // Sin esto las notificaciones nativas de Windows pueden no aparecer (o salir
 // con un nombre genérico). Tiene que coincidir con appId de electron-builder.
+const APP_USER_MODEL_ID = 'com.local.aoe2elooverlay';
 try {
-  app.setAppUserModelId('com.local.aoe2elooverlay');
+  app.setAppUserModelId(APP_USER_MODEL_ID);
 } catch (err) {
   console.error(`no pude fijar el AppUserModelID: ${err.message}`);
+}
+
+function ensureWindowsToastIdentity() {
+  if (process.platform !== 'win32' || DEV_SESSION) return;
+  try {
+    const { execFile } = require('node:child_process');
+    const runReg = (args) => new Promise((resolve) => {
+      execFile('reg', args, { windowsHide: true, timeout: 2500 }, () => resolve());
+    });
+    const userDataDir = app.getPath('userData');
+    const toastIconPath = path.join(userDataDir, 'relic-toast-icon.png');
+    try {
+      const iconBuf = fs.readFileSync(ICON_PNG);
+      let needsWrite = true;
+      try {
+        const st = fs.statSync(toastIconPath);
+        if (st.size === iconBuf.length) needsWrite = false;
+      } catch {}
+      if (needsWrite) {
+        fs.mkdirSync(userDataDir, { recursive: true });
+        fs.writeFileSync(toastIconPath, iconBuf);
+      }
+    } catch {}
+    const aumidKey = `HKCU\\Software\\Classes\\AppUserModelId\\${APP_USER_MODEL_ID}`;
+    const notifKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\${APP_USER_MODEL_ID}`;
+    Promise.all([
+      runReg(['add', aumidKey, '/v', 'DisplayName', '/t', 'REG_SZ', '/d', 'Relic', '/f']),
+      runReg(['add', aumidKey, '/v', 'IconUri', '/t', 'REG_SZ', '/d', toastIconPath, '/f']),
+      runReg(['add', aumidKey, '/v', 'IconBackgroundColor', '/t', 'REG_SZ', '/d', '00000000', '/f']),
+      runReg(['delete', notifKey, '/v', 'DisplayName', '/f']),
+    ]).catch(() => {});
+  } catch {}
 }
 
 const DEFAULT_CONFIG = {
@@ -896,6 +929,7 @@ async function tryAutoActivatePendingReferral({ force = false } = {}) {
     }
     const aoeProof = verifiedLocalDetection?.localProof || null;
     if (!aoeProof) {
+      scheduleReferralActivationAttempt(60 * 1000);
       return {
         ok: false,
         code: 'aoe-profile-required',
@@ -7017,8 +7051,10 @@ if (!gotLock) {
     bootstrap()
       .then(() => {
         if (!DEV_SESSION) {
+          ensureWindowsToastIdentity();
           scheduleRemoteLicenseChecks();
           syncRemoteLicense('startup').catch(() => {});
+          if (loadSessionToken()) fetchCurrentReferralsState().catch(() => {});
           if (!config.wizardCompleted) openSettings();
         }
       })

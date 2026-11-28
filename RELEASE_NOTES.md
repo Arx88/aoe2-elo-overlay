@@ -1,3 +1,12 @@
+## v3.3.28 · Escudos originales de Edad AoE2:DE, botón Ultra Gamma y notificación nativa Relic
+
+- **Escudos originales de las 4 edades restaurados:** Alta Edad Media, Feudal, Castillos e Imperial vuelven a mostrar sus escudos oficiales de Age of Empires II: DE (**I, II, III y IV**) con sus colores originales en Postmatch, Árbol de Tecnología, Central, Build Orders y Entrenamiento.
+- **Activación directa de Ultra Gamma:** el botón *«Activar skin Ultra»* del popup de bienvenida aplica directamente el diseño **Ultra Gamma** en toda la app y el overlay.
+- **Identidad nativa en notificaciones de Windows:** las notificaciones de actualización registran formalmente el nombre e icono de **Relic** en Windows (incluso en versión Portable o instalaciones previas).
+- **Verificación automática de referidos en segundo plano:** si un invitado aplica un código antes de abrir Steam o AoE2:DE, Relic reintenta la detección automáticamente al abrir el juego o en el siguiente inicio.
+
+---
+
 ## v3.3.27 · Emblemas de civilización limpios y mejoras de lanzamiento
 
 - **Emblemas de civilización sin marco trasero:** los logos oficiales de las 62 civilizaciones se muestran limpios tal como son en el juego, quitando el escudo adicional de fondo.

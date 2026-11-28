@@ -82,7 +82,7 @@ body[data-theme="ultra"][data-ultra-gamma] .rail-nav .product-icon {
   opacity: 1;
   filter: none !important;
 }
-body[data-theme="ultra"][data-ultra-gamma] :is(.block,.pm-v2) img:is(.product-icon,.pm-emblem) {
+body[data-theme="ultra"][data-ultra-gamma] :is(.block,.pm-v2) img:is(.product-icon,.pm-emblem):not([data-relic-icon^="age-"]) {
   filter: saturate(.54) !important;
 }
 

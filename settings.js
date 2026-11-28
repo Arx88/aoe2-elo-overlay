@@ -453,7 +453,7 @@ function showUltraWelcomeNow(product, acctKeys) {
   ultraWelcomeScheduledKey = null;
   const primaryBtn = el('ultraWelcomePrimaryBtn');
   const dismissBtn = el('ultraWelcomeDismissBtn');
-  const alreadyUltraSkin = isUltraTheme(currentTheme);
+  const alreadyUltraSkin = currentTheme === 'ultra-gamma';
   if (primaryBtn) {
     primaryBtn.textContent = alreadyUltraSkin
       ? t('ultraWelcome.ctaStart', 'Empezar con Ultra')
@@ -508,11 +508,11 @@ el('ultraWelcomeBackdrop')?.addEventListener('click', (ev) => {
   if (ev.target === el('ultraWelcomeBackdrop')) closeUltraWelcomePopup();
 });
 el('ultraWelcomePrimaryBtn')?.addEventListener('click', async () => {
-  if (!isUltraTheme(currentTheme) && currentProduct?.featureAccess?.ultraSkin) {
+  if (currentTheme !== 'ultra-gamma' && currentProduct?.featureAccess?.ultraSkin) {
     const previousTheme = currentTheme;
-    applyTheme('ultra');
+    applyTheme('ultra-gamma');
     try {
-      const response = await window.settings.theme('ultra');
+      const response = await window.settings.theme('ultra-gamma');
       if (!response?.ok) applyTheme(previousTheme);
     } catch (_) {
       applyTheme(previousTheme);
